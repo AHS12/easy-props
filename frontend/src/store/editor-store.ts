@@ -41,6 +41,7 @@ import {
     removeComponent,
     restoreComponentDefault,
     setAssetSeed,
+    setComponentPosition as setComponentPositionInScene,
     setSurfacePushes,
     updateComponentParameters,
     updateTreeParameters,
@@ -111,6 +112,17 @@ export interface EditorStore {
     setPushes(componentId: string, pushes: readonly SurfacePush[]): void
     /** Moves a part along one axis, in metres. */
     moveComponent(componentId: string, axis: 'x' | 'y' | 'z', value: number): void
+    /** True while the move gizmo is showing. */
+    moveTool: boolean
+    setMoveTool(on: boolean): void
+    /** Shows a move without recording history. Used while dragging. */
+    previewPosition(componentId: string, position: readonly [number, number, number]): void
+    /** Records the move a drag ended with as one undo step. */
+    commitPosition(
+        before: Scene,
+        componentId: string,
+        position: readonly [number, number, number],
+    ): void
     /** Changes the colours the tree is painted with. */
     updateMaterials(patch: Partial<SceneMaterials>, label: string): void
     /** Moves the sun. */
@@ -283,6 +295,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             commit(
                 `move ${axis}`,
                 (scene) => moveComponentInScene(scene, componentId, axis, value),
+            ),
+
+        moveTool: false,
+
+        setMoveTool: (on) => set({moveTool: on}),
+
+        previewPosition: (componentId, position) => {
+            const state = get()
+
+            set({scene: setComponentPositionInScene(state.scene, componentId, position)})
+        },
+
+        commitPosition: (before, componentId, position) =>
+            commit(
+                'move part',
+                (scene) => setComponentPositionInScene(scene, componentId, position),
+                before,
             ),
 
         updateMaterials: (patch, label) =>

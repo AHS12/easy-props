@@ -266,6 +266,23 @@ export function moveComponent(
     }
 }
 
+/** Moves a component to a position, in metres. */
+export function setComponentPosition(
+    scene: Scene,
+    componentId: string,
+    position: readonly [number, number, number],
+): Scene {
+    return {
+        ...scene,
+        assets: scene.assets.map((asset) =>
+            mapComponent(asset, componentId, (component) => ({
+                ...component,
+                transform: {...component.transform, position},
+            })),
+        ),
+    }
+}
+
 /** Replaces a component's list of surface pushes. */
 export function setSurfacePushes(
     scene: Scene,

@@ -7,7 +7,6 @@ import {
     type ShadingMode,
 } from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
-import {SHAPE_TOOL_LABELS} from '../assets/shared/pushes'
 import {useEditorStore} from '../store/editor-store'
 import {SunDial} from './SunDial'
 
@@ -61,15 +60,13 @@ function matchingTime(azimuth: number, elevation: number): TimeOfDay | null {
     return null
 }
 
-function ShapeIcon({tool}: {tool: 'push' | 'pull'}) {
+/** The four-way arrow everyone reads as "move". */
+function MoveIcon() {
     return (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 17c3.5 0 4.5-6 9-6s5.5 6 9 6" />
-            {tool === 'push' ? (
-                <path d="M12 8V2M9 5l3-3 3 3" />
-            ) : (
-                <path d="M12 2v6M9 5l3 3 3-3" />
-            )}
+            <path d="M12 3v18M3 12h18" />
+            <path d="M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5" />
+            <path d="M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" />
         </svg>
     )
 }
@@ -80,8 +77,8 @@ export function ViewportOverlay() {
     const lighting = useEditorStore((state) => state.lighting)
     const setLighting = useEditorStore((state) => state.setLighting)
     const setTimeOfDay = useEditorStore((state) => state.setTimeOfDay)
-    const shapeTool = useEditorStore((state) => state.shapeTool)
-    const setShapeTool = useEditorStore((state) => state.setShapeTool)
+    const moveTool = useEditorStore((state) => state.moveTool)
+    const setMoveTool = useEditorStore((state) => state.setMoveTool)
 
     const [sunOpen, setSunOpen] = useState(false)
 
@@ -101,24 +98,17 @@ export function ViewportOverlay() {
                     <SunIcon />
                 </button>
 
-                <div className="tool-group" role="group" aria-label="Shape tool">
-                    {(['push', 'pull'] as const).map((tool) => (
-                        <button
-                            key={tool}
-                            type="button"
-                            className="tool"
-                            aria-pressed={shapeTool === tool}
-                            aria-label={SHAPE_TOOL_LABELS[tool]}
-                            title={`${SHAPE_TOOL_LABELS[tool]} — drag across a selected part to move its surface${
-                                tool === 'pull' ? ' in' : ' out'
-                            }`}
-                            onClick={() =>
-                                setShapeTool(shapeTool === tool ? 'off' : tool)
-                            }
-                        >
-                            <ShapeIcon tool={tool} />
-                        </button>
-                    ))}
+                <div className="tool-group" role="group" aria-label="Move tool">
+                    <button
+                        type="button"
+                        className="tool"
+                        aria-pressed={moveTool}
+                        aria-label="Move part"
+                        title="Move — drag an arrow to move the selected part along that axis"
+                        onClick={() => setMoveTool(!moveTool)}
+                    >
+                        <MoveIcon />
+                    </button>
                 </div>
 
                 <div className="tool-group" role="group" aria-label="How the tree is drawn">

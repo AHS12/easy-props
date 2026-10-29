@@ -217,6 +217,117 @@ export function pickSurface(
 }
 
 /**
+ * The nearest axis arrow to the pointer, or -1.
+ *
+ * Picked by the distance from the pointer to the arrow's line on screen, not
+ * to its tip: three arrows share an origin, and clicking the middle of a shaft
+ * should grab that shaft.
+ */
+export function pickNearestAxis(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+    segments: readonly {start: THREE.Vector3; end: THREE.Vector3}[],
+    radiusPx = 10,
+): number {
+    const rect = domElement.getBoundingClientRect()
+
+    if (rect.width === 0 || rect.height === 0 || segments.length === 0) {
+        return -1
+    }
+
+    const toScreen = (point: THREE.Vector3) => {
+        const projected = point.clone().project(camera)
+        return {
+            x: rect.left + ((projected.x + 1) / 2) * rect.width,
+            y: rect.top + ((1 - projected.y) / 2) * rect.height,
+        }
+    }
+
+    let best = -1
+    let bestDistance = radiusPx
+
+    segments.forEach((segment, index) => {
+        const a = toScreen(segment.start)
+        const b = toScreen(segment.end)
+
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const lengthSquared = dx * dx + dy * dy
+
+        // How far along the arrow the pointer projects, clamped to the shaft.
+        const t =
+            lengthSquared <= 1e-9
+                ? 0
+                : Math.min(
+                      1,
+                      Math.max(
+                          0,
+                          ((clientX - a.x) * dx + (clientY - a.y) * dy) / lengthSquared,
+                      ),
+                  )
+
+        const distance = Math.hypot(clientX - (a.x + dx * t), clientY - (a.y + dy * t))
+
+        if (distance <= bestDistance) {
+            bestDistance = distance
+            best = index
+        }
+    })
+
+    return best
+}
+
+/**
+ * Where the pointer ray comes closest to a line, as a distance along it.
+ *
+ * This is what keeps a move on one axis: the part follows the point on the
+ * axis nearest the pointer, so dragging away from the axis does nothing.
+ */
+export function pointerOnAxis(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+    origin: THREE.Vector3,
+    direction: THREE.Vector3,
+): number | null {
+    const rect = domElement.getBoundingClientRect()
+
+    if (rect.width === 0 || rect.height === 0) {
+        return null
+    }
+
+    const pointer = new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(pointer, camera)
+
+    const rayOrigin = raycaster.ray.origin
+    const rayDirection = raycaster.ray.direction
+
+    // Closest approach between the axis line and the pointer ray.
+    const w0 = origin.clone().sub(rayOrigin)
+    const a = direction.dot(direction)
+    const b = direction.dot(rayDirection)
+    const c = rayDirection.dot(rayDirection)
+    const d = direction.dot(w0)
+    const e = rayDirection.dot(w0)
+
+    const denominator = a * c - b * b
+
+    if (Math.abs(denominator) < 1e-8) {
+        return null
+    }
+
+    return (b * e - c * d) / denominator
+}
+
+/**
  * Where the pointer ray meets a plane.
  *
  * Returns `null` when the ray runs parallel to the plane.

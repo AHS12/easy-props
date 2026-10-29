@@ -15,7 +15,38 @@ interface CommandPaletteProps {
     onRun(command: Command): void
 }
 
-/** Commands whose label, group, or keywords contain every word typed. */
+/**
+ * How well a command answers the query; -1 for not at all.
+ *
+ * Matching anywhere would put "Remove part" above "Move part" for the query
+ * "move", and Enter runs the top result. So a label that starts with a word
+ * the user typed beats a label that merely contains it.
+ */
+function score(command: Command, words: readonly string[]): number {
+    const label = command.label.toLowerCase()
+    const haystack = `${label} ${command.group.toLowerCase()} ${(
+        command.keywords ?? ''
+    ).toLowerCase()}`
+    const parts = label.split(/\s+/)
+
+    let total = 0
+
+    for (const word of words) {
+        if (label.startsWith(word)) {
+            total += 4
+        } else if (parts.some((part) => part.startsWith(word))) {
+            total += 3
+        } else if (haystack.includes(word)) {
+            total += 1
+        } else {
+            return -1
+        }
+    }
+
+    return total
+}
+
+/** Commands matching every word typed, best first. */
 function matching(query: string): readonly Command[] {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
 
@@ -23,10 +54,10 @@ function matching(query: string): readonly Command[] {
         return COMMANDS
     }
 
-    return COMMANDS.filter((command) => {
-        const haystack = `${command.label} ${command.group} ${command.keywords ?? ''}`.toLowerCase()
-        return words.every((word) => haystack.includes(word))
-    })
+    return COMMANDS.map((command) => ({command, rank: score(command, words)}))
+        .filter((entry) => entry.rank >= 0)
+        .sort((a, b) => b.rank - a.rank)
+        .map((entry) => entry.command)
 }
 
 export function CommandPalette({open, onClose, onRun}: CommandPaletteProps) {

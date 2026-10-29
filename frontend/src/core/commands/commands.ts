@@ -19,8 +19,7 @@ export type CommandId =
     | 'restore-part'
     | 'restore-tree'
     | 'randomize'
-    | 'tool-push'
-    | 'tool-pull'
+    | 'tool-move'
     | 'shading-cycle'
     | 'style-low-poly'
     | 'style-detailed'
@@ -127,20 +126,12 @@ export const COMMANDS: readonly Command[] = [
         run: (state) => state.randomizeTree(),
     },
     {
-        id: 'tool-push',
-        label: 'Push surface',
+        id: 'tool-move',
+        label: 'Move part',
         group: 'Tools',
-        shortcut: 'P',
-        keywords: 'shape sculpt extrude bulge',
-        run: (state) => state.setShapeTool(state.shapeTool === 'push' ? 'off' : 'push'),
-    },
-    {
-        id: 'tool-pull',
-        label: 'Pull surface',
-        group: 'Tools',
-        shortcut: 'Shift+P',
-        keywords: 'shape sculpt intrude dent',
-        run: (state) => state.setShapeTool(state.shapeTool === 'pull' ? 'off' : 'pull'),
+        shortcut: 'G',
+        keywords: 'gizmo translate position axis',
+        run: (state) => state.setMoveTool(!state.moveTool),
     },
     {
         id: 'shading-cycle',

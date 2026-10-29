@@ -6,10 +6,12 @@ import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {createViewportScene, type ViewportScene} from './scene/create-scene'
 import {createHandles, type HandleSet} from './scene/handles'
-import {createPicker, pickNearestHandle, pickSurface, pointerOnPlane} from './scene/picking'
+import {createPicker, pickNearestAxis, pickNearestHandle, pickSurface, pointerOnAxis, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
 import {beginPush, pixelsPerMetre, pushFor, type PushGesture} from './scene/push-drag'
+import {createMoveGizmo, type MoveGizmo} from './scene/move-gizmo'
+import {findComponent} from '../core/scene/scene-model'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import {ViewportOverlay} from './ViewportOverlay'
 
@@ -21,6 +23,18 @@ const UP: Record<CompassAxis, THREE.Vector3> = {
     x: new THREE.Vector3(0, 1, 0),
     y: new THREE.Vector3(0, 0, -1),
     z: new THREE.Vector3(0, 1, 0),
+}
+
+/** How a move drag is pinned to one axis. */
+interface MoveState {
+    readonly componentId: string
+    readonly axis: number
+    readonly origin: THREE.Vector3
+    readonly direction: THREE.Vector3
+    readonly start: number
+    readonly position: readonly [number, number, number]
+    readonly before: Scene
+    latest: readonly [number, number, number] | null
 }
 
 interface DragState {
@@ -41,6 +55,7 @@ export function Viewport() {
     const pointerDownRef = useRef<{x: number; y: number} | null>(null)
     const dragRef = useRef<DragState | null>(null)
     const pushRef = useRef<{gesture: PushGesture; latest: SurfacePush | null} | null>(null)
+    const moveRef = useRef<MoveState | null>(null)
     const compassRef = useRef<CompassHandle>(null)
     const brushRef = useRef<HTMLDivElement>(null)
     const [faces, setFaces] = useState(0)
@@ -87,6 +102,9 @@ export function Viewport() {
         const handles: HandleSet = createHandles()
         viewport.scene.add(handles.group)
 
+        const gizmo: MoveGizmo = createMoveGizmo()
+        viewport.scene.add(gizmo.group)
+
         const picker = createPicker(viewport.camera, canvas, () => [
             viewport.components.group,
         ])
@@ -99,6 +117,7 @@ export function Viewport() {
             viewport.controls.update()
             viewport.renderer.render(viewport.scene, viewport.camera)
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
+            gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             compassRef.current?.update(viewport.camera)
         }
         frame = requestAnimationFrame(render)
@@ -121,7 +140,51 @@ export function Viewport() {
             handles.visible = true
         }
 
+        /** Puts the move gizmo on the selected part, or hides it. */
+        const refreshGizmo = () => {
+            const state = store.getState()
+            const selected = state.selection.selectedId
+
+            if (!state.moveTool || !selected) {
+                gizmo.setOrigin(null)
+                return
+            }
+
+            const component = findComponent(state.scene, selected)
+            gizmo.setOrigin(
+                component ? new THREE.Vector3(...component.transform.position) : null,
+            )
+        }
+
         const onPointerMove = (event: PointerEvent) => {
+            const move = moveRef.current
+
+            if (move) {
+                const t = pointerOnAxis(
+                    event.clientX,
+                    event.clientY,
+                    viewport.camera,
+                    canvas,
+                    move.origin,
+                    move.direction,
+                )
+
+                if (t === null) {
+                    return
+                }
+
+                const delta = t - move.start
+                const position: [number, number, number] = [
+                    move.position[0] + move.direction.x * delta,
+                    move.position[1] + move.direction.y * delta,
+                    move.position[2] + move.direction.z * delta,
+                ]
+
+                move.latest = position
+                store.getState().previewPosition(move.componentId, position)
+                return
+            }
+
             const push = pushRef.current
 
             if (push) {
@@ -164,6 +227,21 @@ export function Viewport() {
             }
 
             moveBrush(event)
+
+            // With the move tool on, the arrow under the pointer lights up,
+            // so the user can see what a drag is about to grab.
+            if (store.getState().moveTool) {
+                gizmo.setHovered(
+                    pickNearestAxis(
+                        event.clientX,
+                        event.clientY,
+                        viewport.camera,
+                        canvas,
+                        gizmo.segments(),
+                    ),
+                )
+            }
+
             store.getState().setHover(picker.pick(event.clientX, event.clientY))
         }
 
@@ -211,6 +289,54 @@ export function Viewport() {
             }
 
             const state = store.getState()
+
+            // A move drag comes first: the gizmo is what the pointer is on.
+            if (state.moveTool && state.selection.selectedId) {
+                const segments = gizmo.segments()
+                const axis = pickNearestAxis(
+                    event.clientX,
+                    event.clientY,
+                    viewport.camera,
+                    canvas,
+                    segments,
+                )
+
+                const component =
+                    axis >= 0 ? findComponent(state.scene, state.selection.selectedId!) : undefined
+
+                if (axis >= 0 && component) {
+                    const origin = segments[axis].start
+                    const direction = segments[axis].end.clone().sub(origin).normalize()
+                    const start = pointerOnAxis(
+                        event.clientX,
+                        event.clientY,
+                        viewport.camera,
+                        canvas,
+                        origin,
+                        direction,
+                    )
+
+                    if (start !== null) {
+                        moveRef.current = {
+                            componentId: component.id,
+                            axis,
+                            origin,
+                            direction,
+                            start,
+                            position: [...component.transform.position] as [
+                                number,
+                                number,
+                                number,
+                            ],
+                            before: state.scene,
+                            latest: null,
+                        }
+
+                        viewport.controls.enabled = false
+                        return
+                    }
+                }
+            }
 
             // The shape tool takes the pointer before anything else: a drag on
             // a surface is a push, not a selection.
@@ -280,12 +406,24 @@ export function Viewport() {
 
         const onPointerUp = (event: PointerEvent) => {
             const start = pointerDownRef.current
+            const move = moveRef.current
             const push = pushRef.current
             const drag = dragRef.current
             pointerDownRef.current = null
             dragRef.current = null
             pushRef.current = null
+            moveRef.current = null
             viewport.controls.enabled = true
+
+            if (move) {
+                if (move.latest) {
+                    store
+                        .getState()
+                        .commitPosition(move.before, move.componentId, move.latest)
+                }
+
+                return
+            }
 
             if (push) {
                 if (push.latest) {
@@ -383,6 +521,11 @@ export function Viewport() {
             if (state.selection !== previous.selection) {
                 applySelectionVisuals(viewport, state.selection)
                 refreshHandles()
+                refreshGizmo()
+            }
+
+            if (state.moveTool !== previous.moveTool) {
+                refreshGizmo()
             }
         })
 
@@ -391,6 +534,7 @@ export function Viewport() {
         viewport.setShadingMode(store.getState().shadingMode)
         applySelectionVisuals(viewport, store.getState().selection)
         refreshHandles()
+        refreshGizmo()
         setFaces(viewport.countFaces())
         reframeIfNeeded(store.getState().scene)
 
@@ -405,6 +549,7 @@ export function Viewport() {
             canvas.removeEventListener('pointerleave', onPointerLeave)
 
             handles.dispose()
+            gizmo.dispose()
             viewport.dispose()
             canvas.remove()
             sceneRef.current = null
