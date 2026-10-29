@@ -1,0 +1,10 @@
+# Wails build output
+build/bin
+/easy-props.exe
+frontend/package.json.md5
+
+# Dependencies
+node_modules
+
+# Frontend build output
+frontend/dist
