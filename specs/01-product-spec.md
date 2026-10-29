@@ -170,6 +170,9 @@ new user-facing term must be agreed here first.
 | Taper | **Taper** | Slider. "How much the trunk narrows toward the top." |
 | Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes |
 | Shading mode, viewport shading | **View** | Lit / Flat / Wireframe. "Show the triangles" for wireframe |
+| Extrude, intrude, sculpt, vertex edit | **Push / Pull** | "Push the bark out", "pull it in". Never "sculpt" |
+| Displace, deform, offset | **Push / Pull** | |
+| Delete, remove | **Remove** | "Remove this branch" |
 | Curvature | **Bend** | Segmented: Straight / Curved / Very curved |
 | Twist | **Twist** | Acceptable — the word is intuitive |
 | Segments, radial segments | **Detail** | Segmented: Low-poly / Detailed |

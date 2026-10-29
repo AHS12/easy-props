@@ -529,7 +529,26 @@ inviting.
 - Keyboard: when a component is selected, its handles are reachable with
   arrow keys (see §6.6).
 
-### 4.8 Toast
+### 4.8 Shape tool
+
+A tool for pushing a selected part's surface out or pulling it in.
+
+- A **Push / Pull** segmented control in the viewport's top-right, next to
+  the sun button. It is off by default; the tool is off until the user picks
+  a direction.
+- With the tool on, dragging across a part's surface pushes it along the
+  surface normal. The amount is the drag distance measured along the normal,
+  so dragging sideways does nothing.
+- A ring is drawn at the point being pushed, sized to the push's reach, so
+  the user can see how wide the change will be.
+- The inspector shows how many pushes the part has, with **Undo last push**
+  and **Clear pushes**. Both are undoable.
+- The cursor becomes a crosshair over a part while the tool is on.
+
+There is no vertex, edge, or face selection, and the push cannot move a
+surface sideways.
+
+### 4.10 Toast
 
 Used for undoable and confirmable events.
 
@@ -557,7 +576,7 @@ scene can be. One empty state exists:
 
 With a small illustration of a wireframe tree in `--border-strong`.
 
-### 4.10 Face-count chip
+### 4.11 Face-count chip
 
 - Bottom-right of the viewport. `--text-caption` on
   `rgba(43,38,32,.55)`, `--radius-pill`, 8px vertical and 12px horizontal
@@ -724,32 +743,37 @@ focus and return it to the trigger on close.
 
 ### 7.1 Backdrop
 
-- Background `--viewport-bg` `#2B332C`, with a subtle radial vignette
-  darkening toward the corners by 8%.
-- Ground: a large disc in `--viewport-ground` `#333C33` at y=0.
-- Grid: 1m minor lines in `--viewport-grid` at 30% opacity, 10m major lines
-  in `--viewport-grid-major` at 45% opacity, fading out with distance.
+The viewport is a lit place, not a void. A flat colour makes a tree look like
+it is floating; a gradient reads as a clearing.
+
+- **Sky.** A vertical gradient, `#43525E` at the top down to `#93A189` at
+  the horizon, drawn as a full-screen background. The horizon colour is also
+  the fog colour, so the ground fades into the distance rather than ending.
+- **Ground.** A large disc in `--viewport-ground` `#4C5647` at y=0.
+- **Grid.** 1m minor lines in `--viewport-grid` at 30% opacity, 10m major
+  lines in `--viewport-grid-major` at 45% opacity, fading out with distance.
 
 ### 7.2 Lighting
 
 The light in the viewport is a **sun**. It is not a fixed rig: the user can
 move it, and the shadow follows.
 
+- **Tone mapping.** Khronos PBR Neutral, exposure 1.15. ACES crushes the
+  midtones, which makes a sunlit tree read as if it were in the shade.
 - **Sun.** A directional light. Its direction comes from two numbers the user
   can think about in plain words:
   - *Around* — the azimuth, in degrees. 0 is behind the tree.
   - *Up* — the elevation, in degrees above the horizon.
 - Sun colour runs from `#FFF4E2` (cool white) to `#FFB35C` (deep golden) as
-  the *warmth* rises. Intensity is 1.7 to 2.5.
+  the *warmth* rises. Intensity is 2.4 to 3.3.
 - **Shadow.** 2048 map, radius 3, `normalBias` 0.035, `bias` -0.0002. The
   shadow camera is fitted to the tree's bounds every time the tree changes,
   so the shadow is always sharp at the tree's size.
 - **Sky fill.** A hemisphere light, sky `#C6DCEA` to `#D9C9A8` with the
-  warmth, ground `#4A3B2E`. Its intensity rises as the sun falls, because a
+  warmth, ground `#5A4A38`. Its intensity rises as the sun falls, because a
   low sun means the sky is doing more of the work. Nothing reads as black.
 - **Fill.** A dim directional light from the opposite side of the sun,
-  `#CFE0F0`, intensity 0.45, to keep the dark side readable.
-- The renderer uses ACES filmic tone mapping, exposure 1.0, and sRGB output.
+  `#CFE0F0`, intensity 0.55, to keep the dark side readable.
 
 #### Sun controls
 

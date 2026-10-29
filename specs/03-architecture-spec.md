@@ -363,6 +363,56 @@ The inspector renders a value using the same `NumberRange` that generated it,
 so the displayed unit and precision always match the legal range. A `count`
 shows as an integer; a `ratio` shows as a percentage.
 
+### 5.4 Editable spines and surface pushes
+
+Two kinds of parameter are not a single number. Both are still parameters,
+not mesh edits, so the scene graph stays the source of truth.
+
+**An editable spine.** The trunk already has one: five control points that
+the bend handles drag. A branch and a root get the same, so their tips can
+be dragged too. The coarse sliders (Length, Bend, Curl) regenerate a
+default spine; the spine is what the geometry is actually built from, so
+dragging a tip and moving a slider cannot fight each other.
+
+```ts
+export interface SpinePoint {
+  /** 0 at the base, 1 at the tip. */
+  readonly t: number
+  /** Offsets from the part's own axis, in metres. */
+  readonly x: number
+  readonly z: number
+}
+```
+
+**A surface push.** Pushing or pulling a part's surface is recorded as a
+list of pushes on the part's parameters. Each push is applied to the
+generated geometry, along the surface normal, with a falloff.
+
+```ts
+export interface SurfacePush {
+  /** Where on the surface, in the part's own space. */
+  readonly point: readonly [number, number, number]
+  /** Which way, in the part's own space. Usually the surface normal. */
+  readonly direction: readonly [number, number, number]
+  /** How far, in metres. Negative pulls in. */
+  readonly strength: number
+  /** How far the push reaches, in metres. */
+  readonly radius: number
+}
+```
+
+Rules:
+
+- A push is stored in the part's **own** space, so it follows the part when
+  the part is moved, and it means the same thing on every part.
+- Pushes are applied after the base geometry is built and before the
+  normals are computed.
+- The falloff is smooth, so a push does not leave a crease.
+- Pushes are deterministic and serialisable. They survive undo, save and
+  reopen, and they do not break seed determinism.
+- There is no vertex, edge, or face selection anywhere. A push moves the
+  whole surface within its radius.
+
 ---
 
 ## 6. Style profiles

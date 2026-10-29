@@ -74,7 +74,10 @@ export function Viewport() {
         sceneRef.current = viewport
 
         const canvas = viewport.renderer.domElement
-        container.appendChild(canvas)
+        // Replace rather than append. React's strict mode mounts the effect
+        // twice in development, and a leftover canvas from the first mount
+        // would sit on top of the live one.
+        container.replaceChildren(canvas)
 
         const handles: HandleSet = createHandles()
         viewport.scene.add(handles.group)
@@ -302,6 +305,7 @@ export function Viewport() {
 
             handles.dispose()
             viewport.dispose()
+            canvas.remove()
             sceneRef.current = null
         }
     }, [])

@@ -85,11 +85,38 @@ function createRenderer(container: HTMLElement): THREE.WebGLRenderer {
     renderer.setSize(container.clientWidth, container.clientHeight)
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.0
+    // Neutral keeps the midtones bright. ACES crushes them, which makes a
+    // sunlit tree read as if it were in the shade.
+    renderer.toneMapping = THREE.NeutralToneMapping
+    renderer.toneMappingExposure = 1.15
     renderer.domElement.classList.add('viewport__canvas')
 
     return renderer
+}
+
+/**
+ * A vertical gradient for the sky.
+ *
+ * A flat colour makes the tree look like it is floating in a void. A
+ * gradient reads as a place.
+ */
+function createSkyTexture(): THREE.Texture {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 256
+
+    const context = canvas.getContext('2d')
+    const gradient = context!.createLinearGradient(0, 0, 0, 256)
+    gradient.addColorStop(0, VIEWPORT_COLORS.skyTop)
+    gradient.addColorStop(0.62, VIEWPORT_COLORS.skyHorizon)
+    gradient.addColorStop(1, VIEWPORT_COLORS.skyHorizon)
+    context!.fillStyle = gradient
+    context!.fillRect(0, 0, 1, 256)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+
+    return texture
 }
 
 function createCamera(container: HTMLElement): THREE.PerspectiveCamera {
@@ -164,8 +191,10 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
     const renderer = createRenderer(container)
     const camera = createCamera(container)
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(VIEWPORT_COLORS.background)
-    scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.background), 18, 46)
+
+    const sky = createSkyTexture()
+    scene.background = sky
+    scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), 22, 60)
 
     const lights = addLighting(scene)
     addGround(scene)
@@ -194,7 +223,7 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         lights.sun.position.copy(sphere.center).add(direction.clone().multiplyScalar(distance))
 
         lights.sun.color.copy(sunColor(lighting.warmth))
-        lights.sun.intensity = 1.7 + lighting.warmth * 0.8
+        lights.sun.intensity = 2.4 + lighting.warmth * 0.9
         lights.sun.castShadow = lighting.shadowStrength > 0.02
         lights.sun.shadow.intensity = lighting.shadowStrength
 
@@ -202,12 +231,12 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         // rises as the sun falls. Nothing reads as black.
         const height = lighting.elevation / 90
         lights.hemisphere.color.copy(ambientColor(lighting.warmth))
-        lights.hemisphere.groundColor.set(lighting.warmth > 0.6 ? '#5a4530' : '#4a3b2e')
-        lights.hemisphere.intensity = 0.85 + (1 - height) * 0.75
+        lights.hemisphere.groundColor.set(lighting.warmth > 0.6 ? '#6b5238' : '#5a4a38')
+        lights.hemisphere.intensity = 1.15 + (1 - height) * 0.9
 
         // The fill comes from the opposite side of the sun.
         lights.fill.position.set(-direction.x, 0.4, -direction.z).multiplyScalar(10)
-        lights.fill.intensity = 0.45
+        lights.fill.intensity = 0.55
     }
 
     const fitShadow = () => {
@@ -295,6 +324,7 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         dispose() {
             controls.dispose()
             components.dispose()
+            sky.dispose()
             renderer.dispose()
         },
     }

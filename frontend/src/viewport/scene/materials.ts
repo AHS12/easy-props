@@ -8,11 +8,14 @@
 export {MATERIAL_COLORS} from '../../assets/style/materials'
 
 export const VIEWPORT_COLORS = {
-    background: '#2b332c',
-    ground: '#333c33',
-    grid: '#3a443a',
-    gridMajor: '#46503f',
+    /** The sky above the horizon. */
+    skyTop: '#43525e',
+    /** The sky at the horizon, where the ground fades into it. */
+    skyHorizon: '#93a189',
+    ground: '#4c5647',
+    grid: '#5c6656',
+    gridMajor: '#6d7864',
     selection: '#5c8c4a',
     /** The colour the wireframe overlay draws in. */
-    wireframe: '#9fb89a',
+    wireframe: '#c3d6bd',
 } as const

@@ -67,7 +67,11 @@ components than traditional polygon modeling.
 Do not implement these unless explicitly requested later:
 
 -   A complete Blender replacement.
--   General sculpting or arbitrary vertex/edge/face editing.
+-   General sculpting or arbitrary vertex/edge/face editing. **Amended
+    2026-10-29:** at the user's explicit request, a constrained surface push
+    and pull is now in scope. It is limited to pushing a part's surface in
+    or out along its own normal. Arbitrary vertex, edge, and face editing
+    stays out of scope. See §7.1.
 -   Full skeletal rigging or animation authoring.
 -   Advanced UV editing or a node-based material editor.
 -   Terrain generation, physics simulation, or a full game engine.
@@ -260,10 +264,28 @@ the underlying tree structure.
 -   Drag editable handles for trunk curves, branch endpoints, roots, and
     fronds.
 -   Duplicate and delete components.
+-   Push and pull the surface of a selected component.
 -   Undo and redo.
 -   Reset a component or tree to its preset defaults.
 -   Randomize a tree while preserving its primary parameters.
 -   Switch between low-poly and stylized-detailed styles.
+
+### 7.1 Surface push and pull
+
+A user can push a part's surface out or pull it in, by hand, to make a tree
+look more natural than a generator produced it. This is explicitly requested
+and is a deliberate, bounded exception to §3.
+
+-   It is a **surface** operation, not a mesh operation. The push is stored
+    as a generator parameter, and the mesh is regenerated from it. The
+    parameterized scene graph stays the source of truth, so undo, save and
+    reopen, and seed determinism all keep working.
+-   It is limited to moving a part's surface along its own normal. There is
+    no vertex selection, no edge selection, no face selection, and no
+    arbitrary mesh editing.
+-   It applies to the trunk, branches, roots, and foliage clusters.
+-   A push is recorded with where it was made, how far, and how wide it
+    reaches, so it survives a save and reopen.
 
 ### Editing model
 

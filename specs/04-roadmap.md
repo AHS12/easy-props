@@ -132,11 +132,26 @@ numeric parameter.
 | 3.4 | Click-to-add | Sensible default attachment, immediate selection, undoable |
 | 3.5 | Smart attachment | New parts pick a valid parent and position |
 | 3.6 | Copy and delete | `Ctrl+D`, `Delete`, undo toast |
-| 3.7 | Handle: branch tips, root tips | Direct manipulation |
+| 3.7 | Handle: branch tips, root tips | Direct manipulation. The branch and root spine becomes a parameter, so a tip can be dragged |
 | 3.8 | Randomize variation | Preserves structure, single undo step |
 | 3.9 | Restore default | Per component and per tree |
 | 3.10 | Drag-and-drop | Optional, only if 3.4 is solid first |
 | 3.11 | Remaining presets | Wide canopy, tall narrow, twisted fantasy, exposed-root ancient |
+| 3.12 | Shape tool | Push and pull a part's surface, stored as a parameter. See the note below |
+| 3.13 | Surface push editing | Undo last push, clear pushes, and a push that survives save and reopen |
+
+### A note on 3.12 and 3.13
+
+Push and pull was **not** in the original scope. TDR §3 listed "general
+sculpting or arbitrary vertex/edge/face editing" as a non-goal, with the
+escape clause *"do not implement these unless explicitly requested later"*.
+The user requested it explicitly, so the TDR was amended to record a
+bounded exception: TDR §7.1.
+
+The bound matters. It is a **surface** operation stored as a **parameter**,
+not a mesh edit. The mesh is regenerated from the parameter, so the scene
+graph stays the source of truth and undo, save and reopen, and seed
+determinism all keep working. There is no vertex, edge, or face selection.
 
 ### Definition of done
 
@@ -147,6 +162,9 @@ numeric parameter.
 - [ ] A deleted branch can be restored with one click on the toast, or with
       `Ctrl+Z`.
 - [ ] Dragging a branch tip reshapes that branch and only that branch.
+- [ ] A push changes only the part it was made on, and can be undone with
+      `Ctrl+Z`.
+- [ ] A push survives save and reopen, and produces the same geometry.
 - [ ] Randomize produces a visibly different but structurally similar tree.
 - [ ] Five presets exist and each produces a complete tree, not an isolated
       part.
@@ -154,8 +172,8 @@ numeric parameter.
 
 ### Manual check
 
-Add a branch. Copy it. Drag its tip. Delete it. Undo. Save. Reopen. All
-intact.
+Add a branch. Copy it. Drag its tip. Delete it. Undo. Push the bark out.
+Save. Reopen. All intact.
 
 ---
 
