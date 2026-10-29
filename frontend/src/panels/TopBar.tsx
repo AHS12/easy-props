@@ -28,6 +28,8 @@ export function TopBar() {
     const setStyle = useEditorStore((state) => state.setStyle)
     const history = useEditorStore((state) => state.history)
     const undo = useEditorStore((state) => state.undo)
+    const saveProject = useEditorStore((state) => state.saveProject)
+    const exportModel = useEditorStore((state) => state.exportModel)
     const redo = useEditorStore((state) => state.redo)
     const theme = useThemeStore((state) => state.theme)
     const toggleTheme = useThemeStore((state) => state.toggle)
@@ -112,15 +114,19 @@ export function TopBar() {
                 </svg>
             </button>
 
-            <button type="button" className="btn btn--secondary" disabled title={COMING_SOON}>
+            <button
+                type="button"
+                className="btn btn--secondary"
+                title="Save project (Ctrl+S)"
+                onClick={() => void saveProject()}
+            >
                 Save project
             </button>
             <button
                 type="button"
                 className="btn btn--primary"
-                disabled
-                title={COMING_SOON}
-                data-coach="export"
+                title="Export a GLB (Ctrl+E)"
+                onClick={() => void exportModel()}
             >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3v12" />

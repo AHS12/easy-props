@@ -11,6 +11,10 @@ import {treePresets} from '../../assets/trees/presets'
 import type {EditorStore} from '../../store/editor-store'
 
 export type CommandId =
+    | 'save-project'
+    | 'save-project-as'
+    | 'open-project'
+    | 'export-model'
     | 'undo'
     | 'redo'
     | 'cancel'
@@ -42,6 +46,38 @@ export interface Command {
 const selected = (state: EditorStore) => state.selection.selectedId
 
 export const COMMANDS: readonly Command[] = [
+    {
+        id: 'save-project',
+        label: 'Save project',
+        group: 'File',
+        shortcut: 'Ctrl+S',
+        keywords: 'write disk json keep',
+        run: (state) => void state.saveProject(),
+    },
+    {
+        id: 'save-project-as',
+        label: 'Save project as',
+        group: 'File',
+        shortcut: 'Ctrl+Shift+S',
+        keywords: 'write disk json copy name',
+        run: (state) => void state.saveProject(true),
+    },
+    {
+        id: 'open-project',
+        label: 'Open project',
+        group: 'File',
+        shortcut: 'Ctrl+O',
+        keywords: 'load read disk json',
+        run: (state) => void state.openProject(),
+    },
+    {
+        id: 'export-model',
+        label: 'Export model',
+        group: 'File',
+        shortcut: 'Ctrl+E',
+        keywords: 'glb gltf blender unreal export download',
+        run: (state) => void state.exportModel(),
+    },
     {
         id: 'undo',
         label: 'Undo',

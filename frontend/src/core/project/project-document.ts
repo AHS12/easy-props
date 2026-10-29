@@ -1,0 +1,276 @@
+/**
+ * The project file.
+ *
+ * A versioned JSON document holding the scene and the style it was made in.
+ * Loading validates the whole document before anything touches the session,
+ * so a bad file is a message, not a half-loaded tree.
+ *
+ * Parameters are the one thing not validated here. Their shape depends on the
+ * part's generator, and each generator validates its own parameters when it
+ * builds. This layer checks the envelope, which is what has to be right for a
+ * file to be readable at all.
+ */
+
+import {z} from 'zod'
+import type {Scene} from '../scene/scene-model'
+
+export const CURRENT_SCHEMA_VERSION = 2
+export const PROJECT_GENERATOR = 'easy-props'
+
+/** What loading a project gives back. */
+export interface LoadedProject {
+    readonly scene: Scene
+    /** Which style profile the tree was made in. */
+    readonly style: string
+    /**
+     * Keys this build does not know about.
+     *
+     * Kept and written back on save, so opening a file in an older build does
+     * not quietly delete what a newer one added.
+     */
+    readonly extras: Readonly<Record<string, unknown>>
+}
+
+export class ProjectFileError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'ProjectFileError'
+    }
+}
+
+const vec3 = z.tuple([z.number(), z.number(), z.number()])
+
+const transformSchema = z.object({
+    position: vec3,
+    rotation: vec3,
+    scale: vec3,
+})
+
+const componentSchema = z.object({
+    id: z.string().min(1),
+    type: z.enum([
+        'trunk',
+        'branch',
+        'root',
+        'foliage-cluster',
+        'palm-frond',
+        'palm-crown',
+        'coconut-cluster',
+    ]),
+    generatorId: z.string().min(1),
+    generatorVersion: z.number().int(),
+    parentId: z.string().nullable(),
+    transform: transformSchema,
+    parameters: z.record(z.string(), z.unknown()),
+    styleOverrides: z.record(z.string(), z.unknown()).nullable().optional(),
+    seed: z.number().int(),
+    slot: z.string().nullable(),
+    edited: z.boolean(),
+})
+
+const assetSchema = z.object({
+    id: z.string().min(1),
+    kind: z.literal('tree'),
+    generatorId: z.string().min(1),
+    generatorVersion: z.number().int(),
+    seed: z.number().int(),
+    components: z.array(componentSchema),
+    parameters: z.record(z.string(), z.unknown()),
+    materials: z.object({
+        bark: z.string().min(1),
+        leaves: z.string().min(1),
+    }),
+})
+
+const sceneSchema = z.object({
+    id: z.string().min(1),
+    assets: z.array(assetSchema),
+})
+
+const documentSchema = z.looseObject({
+    schemaVersion: z.number().int(),
+    generator: z.literal(PROJECT_GENERATOR),
+    createdAt: z.string().min(1),
+    modifiedAt: z.string().min(1),
+    style: z.string().min(1),
+    scene: sceneSchema,
+})
+
+const KNOWN_KEYS = new Set([
+    'schemaVersion',
+    'generator',
+    'createdAt',
+    'modifiedAt',
+    'style',
+    'scene',
+])
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Version 1 did not record which generator slot a part came from, or whether
+ * the user had changed it. Both were implied by the code of the day; the
+ * current build needs them written down.
+ */
+function migrate1to2(document: unknown): unknown {
+    if (!isObject(document) || !isObject(document.scene)) {
+        return document
+    }
+
+    const scene = document.scene
+
+    if (!Array.isArray(scene.assets)) {
+        return document
+    }
+
+    return {
+        ...document,
+        schemaVersion: 2,
+        scene: {
+            ...scene,
+            assets: scene.assets.map((asset) => {
+                if (!isObject(asset) || !Array.isArray(asset.components)) {
+                    return asset
+                }
+
+                return {
+                    ...asset,
+                    components: asset.components.map((component) =>
+                        isObject(component)
+                            ? {slot: null, edited: false, ...component}
+                            : component,
+                    ),
+                }
+            }),
+        },
+    }
+}
+
+/** One entry per version bump, each turning version `n` into `n + 1`. */
+const MIGRATIONS: Readonly<Record<number, (document: unknown) => unknown>> = {
+    1: migrate1to2,
+}
+
+function readVersion(document: unknown): number {
+    if (!isObject(document)) {
+        throw new ProjectFileError('This file is not an easy-props project.')
+    }
+
+    const version = document.schemaVersion
+
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+        throw new ProjectFileError(
+            'This file is not an easy-props project: it has no schema version.',
+        )
+    }
+
+    return version
+}
+
+/** Runs the chain of migrations from the file's version to this one. */
+function migrate(document: unknown, version: number): unknown {
+    let current = document
+
+    for (let from = version; from < CURRENT_SCHEMA_VERSION; from++) {
+        const step = MIGRATIONS[from]
+
+        if (!step) {
+            throw new ProjectFileError(
+                `This project is version ${from}, and this build cannot read that version.`,
+            )
+        }
+
+        current = step(current)
+    }
+
+    return current
+}
+
+/** The first problem in a document, in words a person can act on. */
+function describeIssue(issue: z.core.$ZodIssue): string {
+    const path = issue.path.map(String).join('.')
+
+    return path ? `${path}: ${issue.message}` : issue.message
+}
+
+/**
+ * Reads a project file.
+ *
+ * Throws `ProjectFileError` with a message meant for the user. Nothing outside
+ * this function changes, so a failed load leaves the session as it was.
+ */
+export function parseProject(text: string): LoadedProject {
+    let document: unknown
+
+    try {
+        document = JSON.parse(text)
+    } catch {
+        throw new ProjectFileError('This file is not valid JSON, so it cannot be a project.')
+    }
+
+    const version = readVersion(document)
+
+    if (version > CURRENT_SCHEMA_VERSION) {
+        throw new ProjectFileError(
+            `This project was made by a newer version of easy-props (version ${version}). ` +
+                `This build reads up to version ${CURRENT_SCHEMA_VERSION}.`,
+        )
+    }
+
+    const migrated = migrate(document, version)
+    const result = documentSchema.safeParse(migrated)
+
+    if (!result.success) {
+        throw new ProjectFileError(
+            `This file is not a valid easy-props project. ${describeIssue(result.error.issues[0])}`,
+        )
+    }
+
+    const parsed = result.data
+    const extras: Record<string, unknown> = {}
+
+    for (const [key, value] of Object.entries(parsed)) {
+        if (!KNOWN_KEYS.has(key)) {
+            extras[key] = value
+        }
+    }
+
+    return {
+        // The envelope is checked above; parameters belong to the generators,
+        // which validate them when they build.
+        scene: parsed.scene as unknown as Scene,
+        style: parsed.style,
+        extras,
+    }
+}
+
+export interface SaveInput {
+    readonly scene: Scene
+    /** The style profile the tree is made in. */
+    readonly style: string
+    readonly extras?: Readonly<Record<string, unknown>>
+    /** Overridable so tests do not depend on the clock. */
+    readonly now?: Date
+}
+
+/** The project file's text, ready to write. */
+export function serializeProject(input: SaveInput): string {
+    const now = (input.now ?? new Date()).toISOString()
+    const extras = input.extras ?? {}
+    const created = typeof extras.createdAt === 'string' ? extras.createdAt : now
+
+    const document = {
+        // Unknown keys first, so anything this build knows wins.
+        ...extras,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        generator: PROJECT_GENERATOR,
+        createdAt: created,
+        modifiedAt: now,
+        style: input.style,
+        scene: input.scene,
+    }
+
+    return `${JSON.stringify(document, null, 2)}\n`
+}

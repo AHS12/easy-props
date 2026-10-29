@@ -46,9 +46,35 @@ import {
     updateComponentParameters,
     updateTreeParameters,
 } from '../core/scene/scene-ops'
+import {STYLE_ORDER} from '../assets/style/style-profiles'
+import {exportGLB} from '../core/export/glb-exporter'
+import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
+import {exportGLBFile, openProjectFile, saveProjectFile} from '../platform/desktop'
 import {findAttachment} from '../core/scene/attachment'
 import type {Scene, SceneMaterials} from '../core/scene/scene-model'
 import type {ShadingMode} from '../assets/style/shading'
+
+/** Saves read back as whatever the file says; anything odd falls back. */
+function asStyleId(value: string): StyleProfileId {
+    return STYLE_ORDER.includes(value as StyleProfileId)
+        ? (value as StyleProfileId)
+        : STYLE_ORDER[0]
+}
+
+function fileNameOf(path: string): string {
+    const parts = path.split(/[\\/]/)
+    return parts[parts.length - 1] || path
+}
+
+function describeFailure(error: unknown, action: 'save' | 'open' | 'export'): string {
+    if (error instanceof ProjectFileError) {
+        return error.message
+    }
+
+    const detail = error instanceof Error ? error.message : String(error)
+
+    return `Could not ${action} the file. ${detail}`
+}
 import type {LibraryPart} from '../assets/library/library'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {describeComponent, type SceneComponent, type SurfacePush} from '../assets/shared/component-types'
@@ -149,6 +175,17 @@ export interface EditorStore {
 
     undo(): void
     redo(): void
+
+    /** Where this project was last saved, or null if never. */
+    filePath: string | null
+    /** Keys an older build should write back untouched. */
+    projectExtras: Readonly<Record<string, unknown>>
+    /** Writes the project. `saveAs` always asks for a new path. */
+    saveProject(saveAs?: boolean): Promise<void>
+    /** Replaces the session with a project from disk. */
+    openProject(): Promise<void>
+    /** Writes a GLB beside wherever the user chooses. */
+    exportModel(): Promise<void>
 }
 
 const FIRST_ASSET_ID = 'asset-1'
@@ -474,6 +511,76 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
 
         dismissToast: () => set({toast: null}),
+
+        filePath: null,
+        projectExtras: {},
+
+        saveProject: async (saveAs) => {
+            const state = get()
+            const text = serializeProject({
+                scene: state.scene,
+                style: state.style,
+                extras: state.projectExtras,
+            })
+
+            try {
+                const path = await saveProjectFile(
+                    text,
+                    saveAs ? null : state.filePath,
+                    'my-tree.json',
+                )
+
+                if (path) {
+                    set({
+                        filePath: path,
+                        toast: {message: `Saved ${fileNameOf(path)}`, undoable: false},
+                    })
+                }
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+        },
+
+        openProject: async () => {
+            try {
+                const opened = await openProjectFile()
+
+                if (!opened) {
+                    return
+                }
+
+                // Parsing throws before anything is set, so a bad file leaves
+                // the session exactly as it was.
+                const project = parseProject(opened.text)
+
+                set({
+                    scene: project.scene,
+                    style: asStyleId(project.style),
+                    filePath: opened.path,
+                    projectExtras: project.extras,
+                    selection: EMPTY_SELECTION,
+                    history: EMPTY_HISTORY,
+                    toast: {message: `Opened ${fileNameOf(opened.path)}`, undoable: false},
+                })
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        exportModel: async () => {
+            const state = get()
+
+            try {
+                const bytes = await exportGLB(state.scene, {style: getStyleProfile(state.style)})
+                const path = await exportGLBFile(bytes, 'my-tree.glb')
+
+                if (path) {
+                    set({toast: {message: `Exported ${fileNameOf(path)}`, undoable: false}})
+                }
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'export'), undoable: false}})
+            }
+        },
 
         undo: () => {
             const result = undoHistory(get().history)
