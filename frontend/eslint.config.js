@@ -35,4 +35,23 @@ export default tseslint.config(
             },
         },
     },
+    {
+        // The geometry layer must stay free of UI and desktop dependencies so
+        // it can be tested and reused in another runtime.
+        files: ['src/assets/**/*.ts'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [
+                    {
+                        group: ['react', 'react-dom', 'zustand'],
+                        message: 'Geometry modules must stay UI-free.',
+                    },
+                    {
+                        group: ['**/wailsjs/**'],
+                        message: 'Geometry modules must not depend on the desktop shell.',
+                    },
+                ],
+            }],
+        },
+    },
 )
