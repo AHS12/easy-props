@@ -402,8 +402,20 @@ the handle that the axis is normal to, which means the handle lands exactly
 under the pointer. For a trunk that plane is horizontal; for a limb it turns
 with the limb.
 
+**The point count is a parameter too.** `controlPoints` says how many points
+a part's spine has, and the inspector offers it as a slider (3–12). Changing
+it is a loop cut: the existing offsets are interpolated along the spine, so
+adding points lets the part bend in more places without moving its
+silhouette, and removing them drops detail rather than reshaping what is
+left. Because the geometry is swept through those points, more points also
+means more cross-sections.
+
 The spine lives on the component, not on the tree, so a hand-shaped part is
 protected by the same `edited` flag as any other parameter change.
+
+Every part is validated to a spine of exactly `controlPoints` points, so a
+library entry that names only the values it cares about still arrives with
+handles to grab.
 
 **A surface push.** Pushing or pulling a part's surface is recorded as a
 list of pushes on the part's parameters. Each push is applied to the

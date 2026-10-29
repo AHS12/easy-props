@@ -4,6 +4,7 @@ import type {LimbSpinePoint, SpinePoint} from '../assets/shared/component-types'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {
     reshapesSpine,
+    resampleSpine,
     spineKindOf,
     spineLengthKey,
     spinePointPosition,
@@ -248,6 +249,105 @@ describe('a part from the library can be shaped straight away', () => {
         const {parameters} = rootGenerator.validate(part.parameters)
 
         expect(parameters.spine).toHaveLength(ROOT_POINTS)
+    })
+})
+
+describe('control points', () => {
+    it('resamples a spine to the count it is asked for', () => {
+        const spine = buildBranchSpine(0.5, 0, 2)
+
+        expect(resampleSpine(spine, 'outward', 9)).toHaveLength(9)
+        expect(resampleSpine(spine, 'outward', 4)).toHaveLength(4)
+    })
+
+    it('keeps both ends where they were', () => {
+        const spine = buildBranchSpine(0.5, 0.3, 2)
+        const resampled = resampleSpine(spine, 'outward', 10)
+
+        expect(resampled[0].y).toBeCloseTo(spine[0].y)
+        expect(resampled[0].z).toBeCloseTo(spine[0].z)
+        expect(resampled[9].y).toBeCloseTo(spine[4].y)
+        expect(resampled[9].z).toBeCloseTo(spine[4].z)
+    })
+
+    it('keeps the shape it was cut from', () => {
+        const spine = buildBranchSpine(0.4, 0, 3)
+        const resampled = resampleSpine(spine, 'outward', 9)
+
+        // A ninth-of-the-way point sits on the straight run between two
+        // originals, so the silhouette does not move.
+        const quarter = resampled[2]
+        const expected = 3 * 0.4 * quarter.t * quarter.t
+
+        expect(quarter.y).toBeCloseTo(expected)
+    })
+
+    it('treats the point count as a control that reshapes the spine', () => {
+        expect(reshapesSpine('trunk', 'controlPoints')).toBe(true)
+        expect(reshapesSpine('branch', 'controlPoints')).toBe(true)
+        expect(reshapesSpine('root', 'controlPoints')).toBe(true)
+        expect(reshapesSpine('foliage-cluster', 'controlPoints')).toBe(false)
+    })
+
+    it('gives a branch as many handles as its count says', () => {
+        const {scene, branch} = sceneWithBranch()
+
+        const more = updateComponentParameters(scene, branch.id, {controlPoints: 9})
+        const spine = selectedSpine(more, branch.id)!
+
+        expect(spine.points).toHaveLength(9)
+        expect(spine.positions).toHaveLength(9)
+    })
+
+    it('gives a trunk as many handles as its count says', () => {
+        const scene = createInitialScene()
+
+        const more = updateComponentParameters(scene, TRUNK_ID, {controlPoints: 8})
+
+        expect(selectedSpine(more, TRUNK_ID)?.positions).toHaveLength(8)
+    })
+
+    it('keeps a dragged shape when the count changes', () => {
+        const {scene, branch} = sceneWithBranch()
+        const spine = selectedSpine(scene, branch.id)!
+
+        // Pull the middle of the branch out.
+        const target = spine.positions[2].clone().add(new THREE.Vector3(0, 0.5, 0))
+        const dragged = movedSpine(spine, 2, target)
+        const shaped = updateComponentParameters(scene, branch.id, {spine: dragged})
+
+        const more = updateComponentParameters(shaped, branch.id, {controlPoints: 9})
+        const after = selectedSpine(more, branch.id)!
+
+        // Nine points puts one exactly at the middle, where the drag happened,
+        // so the cut lands on the dragged offset rather than the old curve.
+        expect(after.points[4].y).toBeCloseTo(dragged[2].y ?? 0, 5)
+        expect(after.points[4].z).toBeCloseTo(dragged[2].z, 5)
+    })
+
+    it('comes back to the dragged shape after a round trip', () => {
+        const {scene, branch} = sceneWithBranch()
+        const spine = selectedSpine(scene, branch.id)!
+        const target = spine.positions[4].clone().add(new THREE.Vector3(0, 0.4, 0))
+        const dragged = movedSpine(spine, 4, target)
+
+        const shaped = updateComponentParameters(scene, branch.id, {spine: dragged})
+        const more = updateComponentParameters(shaped, branch.id, {controlPoints: 9})
+        const fewer = updateComponentParameters(more, branch.id, {controlPoints: 5})
+        const after = selectedSpine(fewer, branch.id)!
+
+        expect(after.points).toHaveLength(5)
+        expect(after.points[4].y).toBeCloseTo(dragged[4].y ?? 0, 3)
+        expect(after.points[4].z).toBeCloseTo(dragged[4].z, 3)
+    })
+
+    it('validates a part to the count it declares', () => {
+        const parameters = branchGenerator.createDefaultParameters()
+
+        const {parameters: validated} = branchGenerator.validate({...parameters, controlPoints: 7})
+
+        expect(validated.spine).toHaveLength(7)
+        expect(validated.controlPoints).toBe(7)
     })
 })
 

@@ -21,9 +21,9 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../shared/parameters'
-import {buildTrunkSpine, type BendAmount} from './components/trunk'
-import {buildBranchSpine, type BranchParameters} from './components/branch'
-import {buildRootSpine} from './components/root'
+import {buildTrunkSpine, SPINE_POINT_COUNT, type BendAmount} from './components/trunk'
+import {buildBranchSpine, BRANCH_POINTS, type BranchParameters} from './components/branch'
+import {buildRootSpine, ROOT_POINTS} from './components/root'
 import type {FoliageShape} from './components/foliage-cluster'
 
 export type TreeParameters = {
@@ -258,6 +258,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 taper: parameters.taper,
                 bend: parameters.bend,
                 twist: parameters.twist,
+                controlPoints: SPINE_POINT_COUNT,
                 spine,
                 leanAzimuth: azimuth,
                 leanWobble: wobble,
@@ -329,6 +330,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 bend,
                 curl,
                 twist: randomRange(random, -10, 10),
+                controlPoints: BRANCH_POINTS,
                 spine: buildBranchSpine(bend, curl, length),
             }
 
@@ -409,6 +411,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                         bend: childBend,
                         curl: childCurl,
                         twist: randomRange(random, -12, 12),
+                        controlPoints: BRANCH_POINTS,
                         spine: buildBranchSpine(childBend, childCurl, childLength),
                     }
 
@@ -513,6 +516,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                     tipRadius: Math.max(baseRadius * 0.18, 0.006),
                     drop,
                     curl,
+                    controlPoints: ROOT_POINTS,
                     spine: buildRootSpine(drop, curl, rootLength),
                 },
                 seed: hashSeed(seed, 2000 + i),

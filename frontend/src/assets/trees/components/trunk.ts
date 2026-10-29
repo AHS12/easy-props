@@ -16,6 +16,7 @@ import {
     taperedRadius,
     type SpinePoint,
 } from '../../shared/geometry-utils'
+import {normaliseSpine} from '../../shared/spines'
 import {
     choiceSchema,
     numberSchema,
@@ -34,6 +35,8 @@ export type TrunkParameters = {
     readonly taper: number
     readonly bend: BendAmount
     readonly twist: number
+    /** How many points the spine has, which is how many handles it shows. */
+    readonly controlPoints: number
     readonly spine: readonly SpinePoint[]
     /** Which way the seed made the trunk lean, in radians. */
     readonly leanAzimuth: number
@@ -101,12 +104,25 @@ const TWIST = {
     default: 0,
 } as const satisfies ParameterSpec
 
+const CONTROL_POINTS = {
+    kind: 'number',
+    key: 'controlPoints',
+    label: 'Control points',
+    help: 'How many points you can drag. More points let the trunk curve in more places.',
+    min: 3,
+    max: 12,
+    step: 1,
+    unit: 'count',
+    default: SPINE_POINT_COUNT,
+} as const satisfies ParameterSpec
+
 export const trunkParameterSpecs: readonly ParameterSpec[] = [
     HEIGHT,
     THICKNESS,
     TAPER,
     BEND,
     TWIST,
+    CONTROL_POINTS,
 ]
 
 const spinePointSchema = z.object({
@@ -121,6 +137,7 @@ const trunkSchema = z.object({
     taper: numberSchema(TAPER),
     bend: choiceSchema(BEND),
     twist: numberSchema(TWIST),
+    controlPoints: numberSchema(CONTROL_POINTS),
     spine: z.array(spinePointSchema).min(2).catch([]),
     leanAzimuth: z.number().catch(0),
     leanWobble: z.number().catch(0),
@@ -144,12 +161,14 @@ export function buildTrunkSpine(
     height: number,
     azimuth: number,
     wobble: number,
+    count = SPINE_POINT_COUNT,
 ): SpinePoint[] {
     const amount = BEND_AMOUNTS[bend] * height
     const points: SpinePoint[] = []
+    const total = Math.max(2, Math.round(count))
 
-    for (let i = 0; i < SPINE_POINT_COUNT; i++) {
-        const t = i / (SPINE_POINT_COUNT - 1)
+    for (let i = 0; i < total; i++) {
+        const t = i / (total - 1)
         const offset = amount * Math.pow(t, 1.6) + wobble * Math.sin(t * Math.PI * 2) * t
 
         points.push({
@@ -175,13 +194,14 @@ export function respineForBend(
     height: number,
     leanAzimuth: number,
     leanWobble: number,
+    count = SPINE_POINT_COUNT,
 ): SpinePoint[] {
-    return buildTrunkSpine(bend, height, leanAzimuth, leanWobble)
+    return buildTrunkSpine(bend, height, leanAzimuth, leanWobble, count)
 }
 
 /** The default spine for a straight trunk. */
-export function defaultSpine(): SpinePoint[] {
-    return buildTrunkSpine('curved', 4.2, 0, 0)
+export function defaultSpine(count = SPINE_POINT_COUNT): SpinePoint[] {
+    return buildTrunkSpine('curved', 4.2, 0, 0, count)
 }
 
 export const trunkGenerator: PartGenerator<TrunkParameters> = {
@@ -198,7 +218,8 @@ export const trunkGenerator: PartGenerator<TrunkParameters> = {
             taper: TAPER.default,
             bend: BEND.default,
             twist: TWIST.default,
-            spine: defaultSpine(),
+            controlPoints: CONTROL_POINTS.default,
+            spine: defaultSpine(CONTROL_POINTS.default),
             leanAzimuth: 0,
             leanWobble: 0,
         }
@@ -206,18 +227,15 @@ export const trunkGenerator: PartGenerator<TrunkParameters> = {
 
     validate(parameters: unknown): ValidationResult<TrunkParameters> {
         const result = validateParameters(trunkSchema, parameters, this.createDefaultParameters())
-
-        // A validated trunk must always come out with a spine the handles can
-        // find, derived from its own Bend when it has never been shaped.
-        if (result.parameters.spine.length >= 2) {
-            return result
-        }
+        const {bend, height, leanAzimuth, leanWobble, controlPoints, spine} = result.parameters
 
         return {
             ...result,
             parameters: {
                 ...result.parameters,
-                spine: defaultSpine(),
+                spine: normaliseSpine(spine, 'vertical', controlPoints, () =>
+                    respineForBend(bend, height, leanAzimuth, leanWobble, controlPoints),
+                ),
             },
         }
     },

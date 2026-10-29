@@ -15,7 +15,7 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
-import {spinePointPosition} from '../../shared/spines'
+import {spinePointPosition, normaliseSpine} from '../../shared/spines'
 
 export type RootParameters = {
     readonly length: number
@@ -23,9 +23,14 @@ export type RootParameters = {
     readonly tipRadius: number
     readonly drop: number
     readonly curl: number
+    /** How many points the spine has, which is how many handles it shows. */
+    readonly controlPoints: number
     /** The draggable spine. Empty means "build the default from drop and curl". */
     readonly spine: readonly LimbSpinePoint[]
 }
+
+/** How many points along a root by default. */
+export const ROOT_POINTS = 4
 
 const LENGTH = {
     kind: 'number',
@@ -84,12 +89,25 @@ const CURL = {
     default: 0.15,
 } as const satisfies ParameterSpec
 
+const CONTROL_POINTS = {
+    kind: 'number',
+    key: 'controlPoints',
+    label: 'Control points',
+    help: 'How many points you can drag. More points let the root bend in more places.',
+    min: 3,
+    max: 12,
+    step: 1,
+    unit: 'count',
+    default: ROOT_POINTS,
+} as const satisfies ParameterSpec
+
 export const rootParameterSpecs: readonly ParameterSpec[] = [
     LENGTH,
     THICKNESS,
     TAPER,
     DROP,
     CURL,
+    CONTROL_POINTS,
 ]
 
 const limbSpinePointSchema = z.object({
@@ -104,11 +122,9 @@ const rootSchema = z.object({
     tipRadius: numberSchema(TAPER),
     drop: numberSchema(DROP),
     curl: numberSchema(CURL),
+    controlPoints: numberSchema(CONTROL_POINTS),
     spine: z.array(limbSpinePointSchema).min(2).catch([]),
 })
-
-/** How many points along a root. */
-export const ROOT_POINTS = 4
 
 /**
  * The default spine for a root.
@@ -116,9 +132,16 @@ export const ROOT_POINTS = 4
  * Drop sinks the root toward the ground and curl sweeps it sideways, so it
  * leaves the trunk level and disappears before it reaches open air.
  */
-export function buildRootSpine(drop: number, curl: number, length: number): LimbSpinePoint[] {
-    return Array.from({length: ROOT_POINTS}, (_, index) => {
-        const t = index / (ROOT_POINTS - 1)
+export function buildRootSpine(
+    drop: number,
+    curl: number,
+    length: number,
+    count = ROOT_POINTS,
+): LimbSpinePoint[] {
+    const points = Math.max(2, Math.round(count))
+
+    return Array.from({length: points}, (_, index) => {
+        const t = index / (points - 1)
 
         return {t, y: -drop * t * t, z: length * curl * t * t}
     })
@@ -138,27 +161,21 @@ export const rootGenerator: PartGenerator<RootParameters> = {
             tipRadius: TAPER.default,
             drop: DROP.default,
             curl: CURL.default,
+            controlPoints: CONTROL_POINTS.default,
             spine: buildRootSpine(DROP.default, CURL.default, LENGTH.default),
         }
     },
 
     validate(parameters: unknown): ValidationResult<RootParameters> {
         const result = validateParameters(rootSchema, parameters, this.createDefaultParameters())
-
-        // A library entry only names the values it cares about, so a validated
-        // part must always come out with a spine the handles can find.
-        if (result.parameters.spine.length >= 2) {
-            return result
-        }
+        const {drop, curl, length, controlPoints, spine} = result.parameters
 
         return {
             ...result,
             parameters: {
                 ...result.parameters,
-                spine: buildRootSpine(
-                    result.parameters.drop,
-                    result.parameters.curl,
-                    result.parameters.length,
+                spine: normaliseSpine(spine, 'outward', controlPoints, () =>
+                    buildRootSpine(drop, curl, length, controlPoints),
                 ),
             },
         }
@@ -168,7 +185,12 @@ export const rootGenerator: PartGenerator<RootParameters> = {
         const spine =
             parameters.spine.length >= 2
                 ? parameters.spine
-                : buildRootSpine(parameters.drop, parameters.curl, parameters.length)
+                : buildRootSpine(
+                      parameters.drop,
+                      parameters.curl,
+                      parameters.length,
+                      parameters.controlPoints,
+                  )
 
         const points = spine.map((point) =>
             spinePointPosition(point, 'outward', parameters.length),

@@ -7,10 +7,10 @@
 
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {StyleProfile} from '../../assets/style/style-profiles'
-import {reshapesSpine} from '../../assets/shared/spines'
+import {resampleSpine, reshapesSpine, spineKindOf, spineLengthKey, type SpineLike} from '../../assets/shared/spines'
 import {buildBranchSpine} from '../../assets/trees/components/branch'
 import {buildRootSpine} from '../../assets/trees/components/root'
-import {respineForBend, type BendAmount} from '../../assets/trees/components/trunk'
+import {respineForBend, SPINE_POINT_COUNT, type BendAmount} from '../../assets/trees/components/trunk'
 import {generateTreeComponents} from '../../assets/trees/tree-generators'
 import type {Scene, SceneAsset} from './scene-model'
 
@@ -96,7 +96,7 @@ function numberOr(value: unknown, fallback: number): number {
 }
 
 /**
- * Rebuilds a part's default spine after a control that shapes it changes.
+ * Rebuilds or resamples a part's spine after a control that shapes it changes.
  *
  * Without this a dragged spine would leave Bend, Curl, and Drop dead: the
  * slider would move and the part would not.
@@ -104,7 +104,33 @@ function numberOr(value: unknown, fallback: number): number {
 function respineAfterPatch(
     component: SceneComponent,
     parameters: Readonly<Record<string, unknown>>,
+    keys: readonly string[],
 ): Readonly<Record<string, unknown>> {
+    const kind = spineKindOf(component.type)
+    const length = numberOr(parameters[spineLengthKey(component.type)], 1)
+    const count = Math.round(numberOr(parameters.controlPoints, SPINE_POINT_COUNT))
+
+    if (kind && keys.includes('controlPoints')) {
+        // A loop cut keeps the shape and only changes how many handles there
+        // are, so the part's own spine is resampled rather than rebuilt.
+        const current = component.parameters.spine
+        const points = Array.isArray(current) ? (current as SpineLike[]) : []
+
+        return {
+            ...parameters,
+            spine: resampleSpine(
+                points.length >= 2
+                    ? points
+                    : [
+                          {t: 0, x: 0, y: 0, z: 0},
+                          {t: 1, x: 0, y: 0, z: 0},
+                      ],
+                kind,
+                count,
+            ),
+        }
+    }
+
     switch (component.type) {
         case 'trunk':
             return {
@@ -114,6 +140,7 @@ function respineAfterPatch(
                     numberOr(parameters.height, 4),
                     numberOr(parameters.leanAzimuth, 0),
                     numberOr(parameters.leanWobble, 0),
+                    count,
                 ),
             }
 
@@ -123,7 +150,8 @@ function respineAfterPatch(
                 spine: buildBranchSpine(
                     numberOr(parameters.bend, 0),
                     numberOr(parameters.curl, 0),
-                    numberOr(parameters.length, 1),
+                    length,
+                    count,
                 ),
             }
 
@@ -133,7 +161,8 @@ function respineAfterPatch(
                 spine: buildRootSpine(
                     numberOr(parameters.drop, 0),
                     numberOr(parameters.curl, 0),
-                    numberOr(parameters.length, 1),
+                    length,
+                    count,
                 ),
             }
 
@@ -164,7 +193,9 @@ export function updateComponentParameters(
 
                 return {
                     ...component,
-                    parameters: reshapes ? respineAfterPatch(component, merged) : merged,
+                    parameters: reshapes
+                        ? respineAfterPatch(component, merged, keys)
+                        : merged,
                     edited: true,
                 }
             }),

@@ -96,11 +96,20 @@ export function withSpineOffsets<T extends SpineLike>(
 /**
  * Whether a parameter change means the spine should be rebuilt.
  *
- * These are the controls that shape the part's default curve. Dragging a
- * handle overrides the result, and touching one of these overrides the drag,
- * so the control is never dead.
+ * These are the controls that shape the part: Bend, Curl, and Drop rebuild
+ * its default curve, and the point count resamples whatever the user has
+ * dragged. Dragging a handle overrides the first three, and touching any of
+ * them overrides the drag, so no control is ever dead.
  */
 export function reshapesSpine(type: ComponentType, key: string): boolean {
+    if (type !== 'trunk' && type !== 'branch' && type !== 'root') {
+        return false
+    }
+
+    if (key === 'controlPoints') {
+        return true
+    }
+
     if (type === 'trunk') {
         return key === 'bend'
     }
@@ -109,9 +118,74 @@ export function reshapesSpine(type: ComponentType, key: string): boolean {
         return key === 'bend' || key === 'curl'
     }
 
-    if (type === 'root') {
-        return key === 'drop' || key === 'curl'
+    return key === 'drop' || key === 'curl'
+}
+
+/** The two lateral offsets of a spine point, in the order the layout uses. */
+export function spineLateral(point: SpineLike, kind: SpineKind): [number, number] {
+    return kind === 'vertical' ? [point.x ?? 0, point.z] : [point.y ?? 0, point.z]
+}
+
+/**
+ * Resamples a spine to a different number of points.
+ *
+ * This is a loop cut: the offsets are interpolated along the existing spine,
+ * so adding points makes the part bend in more places without moving its
+ * silhouette, and removing them drops detail rather than reshaping what is
+ * left.
+ */
+export function resampleSpine<T extends SpineLike>(
+    points: readonly T[],
+    kind: SpineKind,
+    count: number,
+): T[] {
+    const wanted = Math.max(2, Math.round(count))
+
+    if (points.length < 2 || points.length === wanted) {
+        return points.slice() as T[]
     }
 
-    return false
+    const result: T[] = []
+
+    for (let index = 0; index < wanted; index++) {
+        const t = index / (wanted - 1)
+
+        let upper = points.findIndex((point) => point.t >= t)
+        if (upper < 0) {
+            upper = points.length - 1
+        }
+
+        const low = points[Math.max(upper - 1, 0)]
+        const high = points[upper]
+        const span = high.t - low.t
+        const fraction = span <= 1e-9 ? 0 : (t - low.t) / span
+
+        const [lowA, lowB] = spineLateral(low, kind)
+        const [highA, highB] = spineLateral(high, kind)
+
+        const a = lowA + (highA - lowA) * fraction
+        const b = lowB + (highB - lowB) * fraction
+
+        const local =
+            kind === 'vertical' ? new THREE.Vector3(a, 0, b) : new THREE.Vector3(0, a, b)
+
+        result.push(withSpineOffsets({...low, t}, kind, local))
+    }
+
+    return result
+}
+
+/**
+ * A spine that is exactly `count` points long.
+ *
+ * An empty spine falls back to the part's default: a library entry names only
+ * the values it cares about, so a part can arrive without one.
+ */
+export function normaliseSpine<T extends SpineLike>(
+    points: readonly T[],
+    kind: SpineKind,
+    count: number,
+    fallback: () => T[],
+): T[] {
+    return resampleSpine(points.length >= 2 ? points : fallback(), kind, count)
 }

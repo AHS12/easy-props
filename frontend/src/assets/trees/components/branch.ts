@@ -16,7 +16,7 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
-import {spinePointPosition} from '../../shared/spines'
+import {spinePointPosition, normaliseSpine} from '../../shared/spines'
 
 export type BranchParameters = {
     readonly length: number
@@ -25,9 +25,14 @@ export type BranchParameters = {
     readonly bend: number
     readonly curl: number
     readonly twist: number
+    /** How many points the spine has, which is how many handles it shows. */
+    readonly controlPoints: number
     /** The draggable spine. Empty means "build the default from bend and curl". */
     readonly spine: readonly LimbSpinePoint[]
 }
+
+/** How many points along a branch by default. */
+export const BRANCH_POINTS = 5
 
 const LENGTH = {
     kind: 'number',
@@ -98,6 +103,18 @@ const TWIST = {
     default: 0,
 } as const satisfies ParameterSpec
 
+const CONTROL_POINTS = {
+    kind: 'number',
+    key: 'controlPoints',
+    label: 'Control points',
+    help: 'How many points you can drag. More points let the branch bend in more places.',
+    min: 3,
+    max: 12,
+    step: 1,
+    unit: 'count',
+    default: BRANCH_POINTS,
+} as const satisfies ParameterSpec
+
 export const branchParameterSpecs: readonly ParameterSpec[] = [
     LENGTH,
     THICKNESS,
@@ -105,6 +122,7 @@ export const branchParameterSpecs: readonly ParameterSpec[] = [
     BEND,
     CURL,
     TWIST,
+    CONTROL_POINTS,
 ]
 
 const limbSpinePointSchema = z.object({
@@ -120,11 +138,9 @@ const branchSchema = z.object({
     bend: numberSchema(BEND),
     curl: numberSchema(CURL),
     twist: numberSchema(TWIST),
+    controlPoints: numberSchema(CONTROL_POINTS),
     spine: z.array(limbSpinePointSchema).min(2).catch([]),
 })
-
-/** How many points along a branch. */
-export const BRANCH_POINTS = 5
 
 /**
  * The default spine for a branch.
@@ -136,9 +152,12 @@ export function buildBranchSpine(
     bend: number,
     curl: number,
     length: number,
+    count = BRANCH_POINTS,
 ): LimbSpinePoint[] {
-    return Array.from({length: BRANCH_POINTS}, (_, index) => {
-        const t = index / (BRANCH_POINTS - 1)
+    const points = Math.max(2, Math.round(count))
+
+    return Array.from({length: points}, (_, index) => {
+        const t = index / (points - 1)
 
         return {t, y: length * bend * t * t, z: length * curl * t * t}
     })
@@ -154,6 +173,7 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
     createDefaultParameters(): BranchParameters {
         const bend = BEND.default
         const curl = CURL.default
+        const controlPoints = CONTROL_POINTS.default
 
         return {
             length: LENGTH.default,
@@ -162,27 +182,21 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
             bend,
             curl,
             twist: TWIST.default,
-            spine: buildBranchSpine(bend, curl, LENGTH.default),
+            controlPoints,
+            spine: buildBranchSpine(bend, curl, LENGTH.default, controlPoints),
         }
     },
 
     validate(parameters: unknown): ValidationResult<BranchParameters> {
         const result = validateParameters(branchSchema, parameters, this.createDefaultParameters())
-
-        // A library entry only names the values it cares about, so a validated
-        // part must always come out with a spine the handles can find.
-        if (result.parameters.spine.length >= 2) {
-            return result
-        }
+        const {bend, curl, length, controlPoints, spine} = result.parameters
 
         return {
             ...result,
             parameters: {
                 ...result.parameters,
-                spine: buildBranchSpine(
-                    result.parameters.bend,
-                    result.parameters.curl,
-                    result.parameters.length,
+                spine: normaliseSpine(spine, 'outward', controlPoints, () =>
+                    buildBranchSpine(bend, curl, length, controlPoints),
                 ),
             },
         }
@@ -192,7 +206,12 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
         const spine =
             parameters.spine.length >= 2
                 ? parameters.spine
-                : buildBranchSpine(parameters.bend, parameters.curl, parameters.length)
+                : buildBranchSpine(
+                      parameters.bend,
+                      parameters.curl,
+                      parameters.length,
+                      parameters.controlPoints,
+                  )
 
         const points = spine.map((point) =>
             spinePointPosition(point, 'outward', parameters.length, parameters.twist),

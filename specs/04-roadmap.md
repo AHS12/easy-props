@@ -132,7 +132,7 @@ numeric parameter.
 | 3.4 | Click-to-add | Sensible default attachment, immediate selection, undoable |
 | 3.5 | Smart attachment | New parts pick a valid parent and position |
 | 3.6 | Copy and delete | `Ctrl+D`, `Delete`, undo toast |
-| 3.7 | Handle: branch tips, root tips | Direct manipulation. The branch and root spine becomes a parameter, so a tip can be dragged |
+| 3.7 | Handle: branch tips, root tips | Direct manipulation. The branch and root spine becomes a parameter, so a tip can be dragged. The point count is a parameter too, so a part can be given more places to bend |
 | 3.8 | Randomize variation | Preserves structure, single undo step |
 | 3.9 | Restore default | Per component and per tree |
 | 3.10 | Drag-and-drop | Optional, only if 3.4 is solid first |
@@ -162,6 +162,9 @@ determinism all keep working. There is no vertex, edge, or face selection.
 - [x] Deleted parts can be restored with one click on the toast, or with
       `Ctrl+Z`.
 - [x] Dragging a branch tip reshapes that branch and only that branch.
+- [x] A part's number of control points can be changed without moving its
+      shape, the same way a loop cut adds geometry without moving a
+      silhouette.
 - [ ] A push changes only the part it was made on, and can be undone with
       `Ctrl+Z`.
 - [ ] A push survives save and reopen, and produces the same geometry.
