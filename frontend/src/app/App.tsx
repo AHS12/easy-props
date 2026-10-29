@@ -4,6 +4,7 @@ import {CoachMarks} from '../panels/CoachMarks'
 import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
 import {StatusStrip} from '../panels/StatusStrip'
+import {Toast} from '../panels/Toast'
 import {TopBar} from '../panels/TopBar'
 import {useEditorStore} from '../store/editor-store'
 import {useThemeStore} from '../store/theme-store'
@@ -15,6 +16,9 @@ export function App() {
     const undo = useEditorStore((state) => state.undo)
     const redo = useEditorStore((state) => state.redo)
     const setStyle = useEditorStore((state) => state.setStyle)
+    const copyComponent = useEditorStore((state) => state.copyComponent)
+    const deleteComponent = useEditorStore((state) => state.deleteComponent)
+    const selectedId = useEditorStore((state) => state.selection.selectedId)
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -36,6 +40,22 @@ export function App() {
                 return
             }
 
+            if (modifier && event.key.toLowerCase() === 'd') {
+                if (selectedId) {
+                    event.preventDefault()
+                    copyComponent(selectedId)
+                }
+                return
+            }
+
+            if (event.key === 'Delete' || event.key === 'Backspace') {
+                if (selectedId) {
+                    event.preventDefault()
+                    deleteComponent(selectedId)
+                }
+                return
+            }
+
             if (event.key === 'Escape') {
                 deselect()
                 return
@@ -53,7 +73,7 @@ export function App() {
         window.addEventListener('keydown', onKeyDown)
 
         return () => window.removeEventListener('keydown', onKeyDown)
-    }, [deselect, undo, redo, setStyle])
+    }, [deselect, undo, redo, setStyle, copyComponent, deleteComponent, selectedId])
 
     useEffect(() => {
         applyTheme(useThemeStore.getState().theme)
@@ -73,6 +93,7 @@ export function App() {
             </div>
             <StatusStrip />
             <CoachMarks />
+            <Toast />
             <div className="visually-hidden" role="status" aria-live="polite">
                 {announcement}
             </div>

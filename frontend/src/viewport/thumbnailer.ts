@@ -1,19 +1,19 @@
 /**
- * Preset thumbnails.
+ * Thumbnail renders.
  *
- * Each preset card shows a real render of that tree, not an illustration, so
- * the cards compare honestly. The renders are made once and cached.
+ * The preset cards and the library rows show a real render of the thing, not
+ * an illustration, so the cards compare honestly. The renders are made once
+ * and cached.
  */
 
 import * as THREE from 'three'
+import type {LibraryPart} from '../assets/library/library'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile, type StyleProfileId} from '../assets/style/style-profiles'
 import {findComponentGenerator} from '../assets/trees/component-generators'
-import {generateTreeComponents} from '../assets/trees/tree-generators'
-import type {TreePreset} from '../assets/trees/presets'
-import {MATERIAL_COLORS} from './scene/materials'
+import {MATERIAL_COLORS, VIEWPORT_COLORS} from './scene/materials'
 
-const THUMBNAIL_SIZE = 192
+const PART_SIZE = 96
 
 const cache = new Map<string, string>()
 
@@ -25,83 +25,98 @@ const MATERIAL_BY_KIND = {
     coconut: MATERIAL_COLORS.coconut,
 } as const
 
-/** The cached thumbnail for a preset, if it has been rendered. */
-export function getPresetThumbnail(presetId: string): string | undefined {
-    return cache.get(presetId)
+/**
+ * One renderer for every thumbnail.
+ *
+ * A browser only keeps a handful of WebGL contexts alive. Making one per
+ * thumbnail used to push past the limit and take the viewport's context down
+ * with it, which left the viewport blank.
+ */
+let sharedRenderer: THREE.WebGLRenderer | null = null
+
+function getRenderer(): THREE.WebGLRenderer {
+    if (!sharedRenderer) {
+        sharedRenderer = new THREE.WebGLRenderer({alpha: true, antialias: true})
+        sharedRenderer.setPixelRatio(1)
+        sharedRenderer.toneMapping = THREE.NeutralToneMapping
+        sharedRenderer.toneMappingExposure = 1.15
+        sharedRenderer.outputColorSpace = THREE.SRGBColorSpace
+    }
+
+    return sharedRenderer
 }
 
-function renderThumbnail(preset: TreePreset, styleId: StyleProfileId): string {
-    const profile = getStyleProfile(styleId)
+/** The cached thumbnail for a key, if it has been rendered. */
+export function getThumbnail(key: string): string | undefined {
+    return cache.get(key)
+}
 
-    const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true})
-    renderer.setPixelRatio(1)
-    renderer.setSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.outputColorSpace = THREE.SRGBColorSpace
+interface Renderable {
+    readonly geometry: THREE.BufferGeometry
+    readonly kind: keyof typeof MATERIAL_BY_KIND
+}
+
+/**
+ * Renders a set of meshes on a transparent background.
+ *
+ * The camera frames whatever it is given, so a part and a whole tree are
+ * both shown as large as they can be.
+ */
+function renderIsolated(
+    build: () => Renderable[],
+    size: number,
+    styleId: StyleProfileId,
+): string {
+    const profile = getStyleProfile(styleId)
+    const renderer = getRenderer()
+
+    renderer.setSize(size, size)
 
     const scene = new THREE.Scene()
-    scene.add(new THREE.HemisphereLight(0xcfe3d0, 0x6b5a45, 0.9))
+    scene.add(new THREE.HemisphereLight(0xcfe3d0, 0x5a4a38, 1.2))
 
-    const key = new THREE.DirectionalLight(0xfff6e8, 1.5)
+    const key = new THREE.DirectionalLight(0xfff4e2, 2.4)
     key.position.set(-6, 8, 5)
     scene.add(key)
 
-    const components = generateTreeComponents(
-        preset.generatorId,
-        preset.parameters,
-        preset.seed,
-        profile,
-    )
+    const fill = new THREE.DirectionalLight(0xcfe0f0, 0.55)
+    fill.position.set(6, 3, -5)
+    scene.add(fill)
 
-    const disposables: THREE.BufferGeometry[] = []
+    const renderables = build()
     const materials: THREE.Material[] = []
+    const group = new THREE.Group()
 
-    for (const component of components) {
-        const generator = findComponentGenerator(component.generatorId)
-
-        if (!generator) {
-            continue
-        }
-
-        const validated = generator.validate(component.parameters)
-        const part = generator.generate(validated.parameters, {
-            random: createSeededRandom(component.seed),
-            seed: component.seed,
-            style: profile,
-        })
-
+    for (const {geometry, kind} of renderables) {
         const material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(MATERIAL_BY_KIND[part.material]),
+            color: new THREE.Color(MATERIAL_BY_KIND[kind]),
             roughness: 0.85,
             metalness: 0,
             flatShading: profile.flatShading,
         })
 
-        const mesh = new THREE.Mesh(part.geometry, material)
-        mesh.position.set(...component.transform.position)
-        mesh.rotation.set(...component.transform.rotation)
-        mesh.scale.set(...component.transform.scale)
-        scene.add(mesh)
-
-        disposables.push(part.geometry)
+        const mesh = new THREE.Mesh(geometry, material)
+        group.add(mesh)
         materials.push(material)
     }
 
-    const height =
-        typeof preset.parameters.height === 'number' ? preset.parameters.height : 4.2
+    scene.add(group)
 
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
-    const target = new THREE.Vector3(0, height * 0.5, 0)
+    const bounds = new THREE.Box3().setFromObject(group)
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere())
+    const radius = Math.max(sphere.radius, 0.2)
+
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 100)
     camera.position
-        .copy(target)
-        .add(new THREE.Vector3(-0.62, 0.34, 0.62).normalize().multiplyScalar(height * 2.6))
-    camera.lookAt(target)
+        .copy(sphere.center)
+        .add(new THREE.Vector3(-0.62, 0.34, 0.62).normalize().multiplyScalar(radius * 3.1))
+    camera.lookAt(sphere.center)
 
     renderer.render(scene, camera)
 
     const url = renderer.domElement.toDataURL('image/png')
 
-    for (const geometry of disposables) {
+    for (const {geometry} of renderables) {
         geometry.dispose()
     }
 
@@ -109,32 +124,59 @@ function renderThumbnail(preset: TreePreset, styleId: StyleProfileId): string {
         material.dispose()
     }
 
-    renderer.dispose()
-
     return url
 }
 
+function renderLibraryPart(part: LibraryPart, styleId: StyleProfileId): string {
+    const profile = getStyleProfile(styleId)
+    const generator = findComponentGenerator(part.generatorId)
+
+    if (!generator) {
+        return ''
+    }
+
+    const seed = 4242
+
+    return renderIsolated(() => {
+        const validated = generator.validate(part.parameters)
+        const built = generator.generate(validated.parameters, {
+            random: createSeededRandom(seed),
+            seed,
+            style: profile,
+        })
+
+        return [{geometry: built.geometry.clone(), kind: built.material}]
+    }, PART_SIZE, styleId)
+}
+
 /**
- * Renders any preset that has no thumbnail yet.
+ * Renders any library part that has no thumbnail yet.
  *
- * Returns the cache so a caller can update its cards.
+ * Returns the cache so a caller can update its rows.
  */
-export function buildPresetThumbnails(
-    presets: readonly TreePreset[],
+export function buildLibraryThumbnails(
+    parts: readonly LibraryPart[],
     styleId: StyleProfileId,
 ): ReadonlyMap<string, string> {
-    for (const preset of presets) {
-        if (cache.has(preset.id)) {
+    for (const part of parts) {
+        if (cache.has(part.id)) {
             continue
         }
 
         try {
-            cache.set(preset.id, renderThumbnail(preset, styleId))
+            cache.set(part.id, renderLibraryPart(part, styleId))
         } catch {
             // A thumbnail is a nicety. A failure must not stop the panel.
-            cache.set(preset.id, '')
+            cache.set(part.id, '')
         }
     }
 
     return cache
 }
+
+/** Forgets every cached thumbnail, so they are rendered again. */
+export function clearThumbnails(): void {
+    cache.clear()
+}
+
+export {VIEWPORT_COLORS}

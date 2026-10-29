@@ -58,6 +58,8 @@ export interface GeneratedComponent {
     readonly parameters: Readonly<Record<string, unknown>>
     readonly styleOverrides?: Readonly<Record<string, unknown>> | null
     readonly seed: number
+    /** The slot this component occupies in the generator's output. */
+    readonly slot: string
 }
 
 /**

@@ -39,9 +39,13 @@ export function generateTreeComponents(
 
     const validated = generator.validate(parameters)
 
-    return generator.generate(validated.parameters, {
+    const generated = generator.generate(validated.parameters, {
         random: createSeededRandom(seed),
         seed,
         style,
     })
+
+    // A generated part starts unedited. The scene marks it edited the first
+    // time the user changes it.
+    return generated.map((component) => ({...component, edited: false}))
 }

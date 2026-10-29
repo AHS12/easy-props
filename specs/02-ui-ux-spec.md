@@ -423,9 +423,13 @@ The hero interaction. A beginner's first click lands here.
 
 - 128×auto, 10px radius, `--surface-panel`, 1px `--border-subtle`,
   `--shadow-1`.
-- Thumbnail 96px tall: a **real offscreen render** of that preset at a fixed
-  camera and fixed seed, not an illustration. All presets are rendered at the
-  same angle and scale so they compare honestly.
+- Thumbnail 96px tall: a **symbolic icon** of the tree's silhouette, one per
+  preset, drawn in `--thumb-bark` and `--thumb-leaf`. A real render of every
+  preset would need a WebGL context each and the silhouette is the thing
+  being compared, so the icon says it more clearly and costs nothing.
+- The icons are: a round crown, a wide flat crown, a narrow tall crown, a
+  twisted trunk with a sparse crown, and a thick trunk with a broad crown and
+  roots in the open.
 - Title 13px/700, one line, truncated with an ellipsis.
 - Subtitle 12px/500 `--text-secondary`: the style hint, e.g. *"Round canopy"*.
 - Idle: flat, no shadow lift.
@@ -548,7 +552,7 @@ A tool for pushing a selected part's surface out or pulling it in.
 There is no vertex, edge, or face selection, and the push cannot move a
 surface sideways.
 
-### 4.10 Toast
+### 4.9 Toast
 
 Used for undoable and confirmable events.
 
@@ -558,6 +562,7 @@ Used for undoable and confirmable events.
 - Enter: fade + `translateY(8px)` over `--motion-base`.
 - Exit: fade over `--motion-fast`.
 - Auto-dismiss at 6s, pausing while hovered or focused.
+- z-index 45, so the first-run coach marks sit above it.
 - Examples:
   - *"Branch removed"* + **Undo**
   - *"Tree copied"*
@@ -565,7 +570,7 @@ Used for undoable and confirmable events.
   - *"Export complete — easy-props.glb"*
 - Errors use clay border + an icon + a message, and do not auto-dismiss.
 
-### 4.9 Empty states
+### 4.10 Empty states
 
 The library and the preset grid are never truly empty in the MVP, but the
 scene can be. One empty state exists:

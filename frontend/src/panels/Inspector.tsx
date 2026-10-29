@@ -11,8 +11,6 @@ import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
 import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 
-const COMING_SOON = 'Coming soon'
-
 function formatValue(value: number, spec: NumberParameter): string {
     const decimals = spec.step < 1 ? 2 : 0
     return `${value.toFixed(decimals)}${spec.unit && spec.unit !== 'count' ? ` ${spec.unit}` : ''}`
@@ -134,6 +132,10 @@ export function Inspector() {
     const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)
     const updateMaterials = useEditorStore((state) => state.updateMaterials)
     const randomizeTree = useEditorStore((state) => state.randomizeTree)
+    const copyComponent = useEditorStore((state) => state.copyComponent)
+    const deleteComponent = useEditorStore((state) => state.deleteComponent)
+    const restoreComponent = useEditorStore((state) => state.restoreComponent)
+    const restoreTree = useEditorStore((state) => state.restoreTree)
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
@@ -195,7 +197,11 @@ export function Inspector() {
                 </div>
 
                 <div className="insp-foot">
-                    <button type="button" className="btn btn--ghost btn--sm" disabled title={COMING_SOON}>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={restoreTree}
+                    >
                         Restore default
                     </button>
                 </div>
@@ -217,11 +223,19 @@ export function Inspector() {
                     <span className="chip chip--bark">Part</span>
                 </div>
                 <div className="insp-actions">
-                    <button type="button" className="btn btn--secondary btn--sm" disabled title={COMING_SOON}>
+                    <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => copyComponent(component.id)}
+                    >
                         Copy
                     </button>
-                    <button type="button" className="btn btn--secondary btn--sm" disabled title={COMING_SOON}>
-                        Delete
+                    <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => deleteComponent(component.id)}
+                    >
+                        Remove
                     </button>
                 </div>
             </div>
@@ -243,7 +257,11 @@ export function Inspector() {
             </div>
 
             <div className="insp-foot">
-                <button type="button" className="btn btn--ghost btn--sm" disabled title={COMING_SOON}>
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => restoreComponent(component.id)}
+                >
                     Restore default
                 </button>
             </div>

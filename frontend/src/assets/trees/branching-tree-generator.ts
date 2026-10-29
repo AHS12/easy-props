@@ -147,7 +147,7 @@ const treeSchema = z.object({
     foliageShape: choiceSchema(LEAF_SHAPE),
     rootCount: numberSchema(ROOTS),
     asymmetry: z.number().min(0).max(1).catch(0.3),
-    trunkSpine: z.array(spinePointSchema).min(2).optional(),
+    trunkSpine: z.array(spinePointSchema).optional().catch(undefined),
 })
 
 /** The angle between successive branches, in radians. */
@@ -271,6 +271,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 spine,
             },
             seed: hashSeed(seed, 0),
+            slot: 'trunk',
         })
 
         // The trunk's spine, sampled so branches can sit on it.
@@ -358,6 +359,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 transform: transformOf(worldStart, rotationTowards(direction)),
                 parameters: branchParameters,
                 seed: hashSeed(seed, nodes.length),
+                slot: `branch-${nodes.length}`,
             })
         }
 
@@ -432,6 +434,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                         transform: transformOf(worldStart, rotationTowards(direction)),
                         parameters: branchParameters,
                         seed: hashSeed(seed, nodes.length + children.length),
+                        slot: `branch-${nodes.length + children.length}`,
                     })
                 }
             }
@@ -472,6 +475,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                         roughness: 0.35,
                     },
                     seed: hashSeed(seed, 1000 + i),
+                    slot: `foliage-${i}`,
                 })
             }
         }
@@ -505,6 +509,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                     curl: randomRange(random, -0.35, 0.35),
                 },
                 seed: hashSeed(seed, 2000 + i),
+                slot: `root-${i}`,
             })
         }
 

@@ -155,20 +155,23 @@ determinism all keep working. There is no vertex, edge, or face selection.
 
 ### Definition of done
 
-- [ ] Every library part can be added with one click and lands somewhere
+- [x] Every library part can be added with one click and lands somewhere
       sensible.
-- [ ] Added branches attach to the trunk or another branch, never floating.
-- [ ] A copied branch keeps its parameters and gets a new identity.
-- [ ] A deleted branch can be restored with one click on the toast, or with
+- [x] Added branches attach to the trunk or another branch, never floating.
+- [x] A copied branch keeps its parameters and gets a new identity.
+- [x] Deleted parts can be restored with one click on the toast, or with
       `Ctrl+Z`.
 - [ ] Dragging a branch tip reshapes that branch and only that branch.
 - [ ] A push changes only the part it was made on, and can be undone with
       `Ctrl+Z`.
 - [ ] A push survives save and reopen, and produces the same geometry.
-- [ ] Randomize produces a visibly different but structurally similar tree.
-- [ ] Five presets exist and each produces a complete tree, not an isolated
+- [x] Randomize produces a visibly different but structurally similar tree,
+      and does not throw away a part the user added.
+- [x] Restore a part to its generator defaults.
+- [ ] Restore the tree to the preset it came from.
+- [x] Five presets exist and each produces a complete tree, not an isolated
       part.
-- [ ] The library is visible on the first screen without opening a menu.
+- [x] The library is visible on the first screen without opening a menu.
 
 ### Manual check
 

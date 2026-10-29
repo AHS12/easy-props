@@ -105,6 +105,11 @@
     --preset-thumb-top-selected: #e9f0e4;
     --preset-thumb-bottom-selected: #dbe6d3;
 
+    /* The tree icons on the preset cards. */
+    --thumb-bark: #6b4e35;
+    --thumb-leaf: #4e7d3e;
+    --thumb-leaf-dark: #3a6130;
+
     /* ------------------------------------------------------------------
      * Icons — inline artwork cannot inherit a colour, so it is themed here
      * ---------------------------------------------------------------- */
@@ -239,6 +244,11 @@ html[data-theme='dark'] {
     --preset-thumb-bottom: #1d211c;
     --preset-thumb-top-selected: #28301f;
     --preset-thumb-bottom-selected: #212a19;
+
+    /* The tree icons on the preset cards. */
+    --thumb-bark: #8a6a4f;
+    --thumb-leaf: #6a9a56;
+    --thumb-leaf-dark: #47703a;
 
     --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9184' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
 

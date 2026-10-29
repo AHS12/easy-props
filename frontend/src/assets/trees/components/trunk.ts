@@ -117,7 +117,7 @@ const trunkSchema = z.object({
     taper: numberSchema(TAPER),
     bend: choiceSchema(BEND),
     twist: numberSchema(TWIST),
-    spine: z.array(spinePointSchema).min(2),
+    spine: z.array(spinePointSchema).min(2).catch([]),
 })
 
 /** How far the trunk leans, as a fraction of its height. */

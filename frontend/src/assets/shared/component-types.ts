@@ -52,6 +52,21 @@ export interface SceneComponent {
     readonly styleOverrides?: Readonly<Record<string, unknown>> | null
     /** Deterministic variation seed for this component. */
     readonly seed: number
+    /**
+     * Which generator slot this part came from.
+     *
+     * `null` for a part the user added by hand. The slot is how a rebuild
+     * knows which of its parts to keep and which to replace.
+     */
+    readonly slot: string | null
+    /**
+     * True once the user has changed this part's own parameters.
+     *
+     * A rebuild keeps an edited part's shape and takes only its new
+     * position, so a hand-shaped branch is not undone by changing the
+     * tree's height.
+     */
+    readonly edited: boolean
 }
 
 /**
