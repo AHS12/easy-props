@@ -15,8 +15,10 @@ import {buildTrunkSpine, trunkGenerator} from '../assets/trees/components/trunk'
 import {LIBRARY_PARTS} from '../assets/library/library'
 import {createInitialScene} from '../core/scene/initial-scene'
 import {findComponent} from '../core/scene/scene-model'
-import {updateComponentParameters} from '../core/scene/scene-ops'
+import {updateComponentParameters, updateTreeParameters} from '../core/scene/scene-ops'
 import {dragPlaneFor, movedSpine, selectedSpine} from '../viewport/scene/spine-drag'
+
+const TREE_ASSET_ID = 'asset-1'
 
 const TRUNK_ID = 'cmp-trunk-0'
 const STYLE = getStyleProfile('low-poly')
@@ -400,6 +402,29 @@ describe('a dragged spine outlives the controls around it', () => {
         )
 
         expect(spine.map((point) => point.x)).toEqual(expected.map((point) => point.x))
+    })
+
+    it('keeps following the tree after the trunk has been shaped', () => {
+        const scene = createInitialScene()
+        const shaped = updateComponentParameters(scene, TRUNK_ID, {controlPoints: 9})
+        const taller = updateTreeParameters(shaped, TREE_ASSET_ID, {height: 7}, STYLE)
+
+        const trunk = findComponent(taller, TRUNK_ID)!
+
+        expect(trunk.parameters.height).toBe(7)
+        expect((trunk.parameters.spine as SpinePoint[]).length).toBe(9)
+    })
+
+    it('still answers Bend at the count the user chose', () => {
+        const scene = createInitialScene()
+        const shaped = updateComponentParameters(scene, TRUNK_ID, {controlPoints: 9})
+        const straighter = updateTreeParameters(shaped, TREE_ASSET_ID, {bend: 'straight'}, STYLE)
+
+        const trunk = findComponent(straighter, TRUNK_ID)!
+        const spine = trunk.parameters.spine as SpinePoint[]
+
+        expect(spine).toHaveLength(9)
+        expect(Math.abs(spine[8].x)).toBeLessThan(0.001)
     })
 
     it('draws the same trunk from the stored spine as from its controls', () => {

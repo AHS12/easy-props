@@ -80,6 +80,10 @@ export function mergeGenerated(
         const previous = fresh.slot === null ? undefined : bySlot.get(fresh.slot)
 
         if (previous && previous.edited) {
+            if (fresh.type === 'trunk') {
+                return mergeShapedTrunk(fresh, previous)
+            }
+
             return {...fresh, id: previous.id, parameters: previous.parameters, edited: true}
         }
 
@@ -89,6 +93,42 @@ export function mergeGenerated(
     const manual = existing.filter((component) => component.slot === null)
 
     return [...merged, ...manual]
+}
+
+/**
+ * Folds a reshaped trunk into a fresh one.
+ *
+ * The trunk's parameters carry the tree's shape, so keeping all of them would
+ * freeze the trunk while its branches moved. Only the spine and its point
+ * count are the user's; the rest keeps following the tree. Changing Bend
+ * rebuilds the spine at the count the user chose, because Bend is the shape
+ * control and it must not go dead after a drag.
+ */
+function mergeShapedTrunk(
+    fresh: SceneComponent,
+    previous: SceneComponent,
+): SceneComponent {
+    const previousSpine = previous.parameters.spine
+    const count = Math.round(numberOr(previous.parameters.controlPoints, SPINE_POINT_COUNT))
+    const reshaped = fresh.parameters.bend !== previous.parameters.bend
+
+    const spine =
+        reshaped || !Array.isArray(previousSpine)
+            ? respineForBend(
+                  fresh.parameters.bend as BendAmount,
+                  numberOr(fresh.parameters.height, 4),
+                  numberOr(fresh.parameters.leanAzimuth, 0),
+                  numberOr(fresh.parameters.leanWobble, 0),
+                  count,
+              )
+            : previousSpine
+
+    return {
+        ...fresh,
+        id: previous.id,
+        edited: true,
+        parameters: {...fresh.parameters, controlPoints: count, spine},
+    }
 }
 
 function numberOr(value: unknown, fallback: number): number {

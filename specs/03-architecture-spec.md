@@ -410,6 +410,15 @@ silhouette, and removing them drops detail rather than reshaping what is
 left. Because the geometry is swept through those points, more points also
 means more cross-sections.
 
+The trunk's count appears in the tree's Shape group, right after Twist,
+because selecting the trunk shows the tree's controls: the trunk carries the
+tree's shape rather than having a panel of its own.
+
+A reshaped trunk keeps only its spine through a tree rebuild. Its other
+parameters carry the tree's shape, so keeping all of them would freeze the
+trunk while its branches moved; Bend still rebuilds the spine, at the count
+the user chose.
+
 The spine lives on the component, not on the tree, so a hand-shaped part is
 protected by the same `edited` flag as any other parameter change.
 

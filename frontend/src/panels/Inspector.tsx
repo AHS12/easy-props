@@ -5,6 +5,7 @@ import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
+import {TRUNK_CONTROL_POINTS} from '../assets/trees/components/trunk'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {describeComponent} from '../assets/shared/component-types'
 import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
@@ -139,6 +140,7 @@ export function Inspector() {
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
+    const trunk = asset?.components.find((entry) => entry.type === 'trunk')
 
     // The trunk carries the tree's shape, so its controls are the tree's
     // controls. Everything else has its own.
@@ -146,6 +148,11 @@ export function Inspector() {
 
     if (isTreeLevel) {
         const values = asset?.parameters ?? {}
+        const controlPoints = trunk?.parameters.controlPoints
+
+        const splitAt = treeParameterSpecs.findIndex((spec) => spec.key === 'twist') + 1
+        const beforeTwist = treeParameterSpecs.slice(0, splitAt)
+        const afterTwist = treeParameterSpecs.slice(splitAt)
 
         return (
             <aside className="inspector" data-coach="inspector">
@@ -163,8 +170,42 @@ export function Inspector() {
 
                 <div className="insp-body">
                     <Group title="Shape" help="The overall size and shape of the tree.">
+                        {/* Twist is the last of the controls that shape the
+                            trunk's spine, so the point count sits right after
+                            it rather than at the end of the group. */}
                         <ParameterControls
-                            specs={treeParameterSpecs}
+                            specs={beforeTwist}
+                            values={values}
+                            onChange={(key, value) =>
+                                updateTreeParameters({[key]: value}, `change ${key}`)
+                            }
+                        />
+
+                        {trunk ? (
+                            <Slider
+                                label={TRUNK_CONTROL_POINTS.label}
+                                value={
+                                    typeof controlPoints === 'number'
+                                        ? controlPoints
+                                        : TRUNK_CONTROL_POINTS.default
+                                }
+                                min={TRUNK_CONTROL_POINTS.min}
+                                max={TRUNK_CONTROL_POINTS.max}
+                                step={TRUNK_CONTROL_POINTS.step}
+                                minLabel={formatValue(TRUNK_CONTROL_POINTS.min, TRUNK_CONTROL_POINTS)}
+                                maxLabel={formatValue(TRUNK_CONTROL_POINTS.max, TRUNK_CONTROL_POINTS)}
+                                onChange={(next) =>
+                                    updateComponentParameters(
+                                        trunk.id,
+                                        {controlPoints: next},
+                                        'change control points',
+                                    )
+                                }
+                            />
+                        ) : null}
+
+                        <ParameterControls
+                            specs={afterTwist}
                             values={values}
                             onChange={(key, value) =>
                                 updateTreeParameters({[key]: value}, `change ${key}`)
