@@ -474,11 +474,13 @@ rule).
 - Disabled segment: `--text-tertiary`, 45% opacity, tooltip explains why.
 - Every segment must have a visible, persistent label. Icons alone are not
   allowed for categorical choices — a beginner has to read them.
+- A choice with more than three options renders as a dropdown instead. Six
+  leaf shapes do not fit in a segmented control at 288px, and a control that
+  overflows its panel is worse than a dropdown.
 
 ### 4.5 Slider
 
 Reserved for continuous values only: Height, Thickness, Leaf size, Position.
-
 - Label 13px/600 on the left, value 13px/700 tabular on the right, with a
   unit (*"4.2 m"*, *"0.32 m"*).
 - Track 4px tall, `--radius-pill`, `--surface-sunken`.
@@ -512,16 +514,18 @@ A titled, collapsible section in the inspector.
 Direct manipulation is a core TDR requirement (§7). Handles must read as
 inviting.
 
-- Sphere, radius 6px in screen space (constant regardless of zoom), so they
-  stay grabbable at any camera distance.
+- Sphere, 6.5px radius in screen space (constant regardless of zoom), so
+  they stay grabbable at any camera distance.
 - Fill `--surface-panel`, 2px `--accent-moss-600` ring.
 - Hover: radius grows 1.4×, ring becomes `--accent-moss-500`, a tooltip
   names the handle (*"Branch tip"*, *"Trunk bend point 2"*).
 - Active/dragging: radius 1.6×, fill becomes `--accent-moss-500`.
 - The handle the mouse is nearest is highlighted; all handles of the selected
   component are visible, handles of unselected components are hidden.
-- Handles are depth-tested against the geometry and fade to 35% opacity when
-  occluded, so the user can still see them.
+- Handles **draw on top of the geometry**. They sit on the control spine,
+  which runs through the inside of the form, so depth-testing them would
+  bury them where they are needed. Being reachable matters more than being
+  occluded correctly.
 - Keyboard: when a component is selected, its handles are reachable with
   arrow keys (see §6.6).
 

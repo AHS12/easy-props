@@ -6,38 +6,12 @@
  * free of any UI dependency.
  */
 
-import type {StyleProfile} from '../../assets/style/style-profiles'
+import type {SceneComponent, SpinePoint} from '../../assets/shared/component-types'
 
-export type ComponentType =
-    | 'trunk'
-    | 'branch'
-    | 'root'
-    | 'foliage-cluster'
-    | 'palm-frond'
-    | 'palm-crown'
-    | 'coconut-cluster'
+/** A value a tree parameter can hold. */
+export type AssetParameterValue = number | string | readonly SpinePoint[]
 
-export interface Transform {
-    readonly position: readonly [number, number, number]
-    readonly rotation: readonly [number, number, number]
-    readonly scale: readonly [number, number, number]
-}
-
-export interface SceneComponent {
-    readonly id: string
-    readonly type: ComponentType
-    readonly generatorId: string
-    readonly generatorVersion: number
-    /** Attachment target. `null` means it is a root of its asset. */
-    readonly parentId: string | null
-    readonly transform: Transform
-    /** Generator parameters. Shape depends on `generatorId`. */
-    readonly parameters: Readonly<Record<string, unknown>>
-    /** Per-component overrides of the asset's style profile. */
-    readonly styleOverrides: Readonly<Partial<StyleProfile>> | null
-    /** Deterministic variation seed for this component. */
-    readonly seed: number
-}
+export type AssetParameters = Readonly<Record<string, AssetParameterValue>>
 
 export interface SceneAsset {
     readonly id: string
@@ -47,17 +21,13 @@ export interface SceneAsset {
     /** Flat list. `parentId` expresses hierarchy. */
     readonly components: readonly SceneComponent[]
     readonly seed: number
+    /** The tree's own parameters, so the inspector can show tree-level controls. */
+    readonly parameters: AssetParameters
 }
 
 export interface Scene {
     readonly id: string
     readonly assets: readonly SceneAsset[]
-}
-
-export const IDENTITY_TRANSFORM: Transform = {
-    position: [0, 0, 0],
-    rotation: [0, 0, 0],
-    scale: [1, 1, 1],
 }
 
 export function createEmptyScene(id = 'scene-1'): Scene {
@@ -84,24 +54,4 @@ export function findAssetOf(scene: Scene, componentId: string): SceneAsset | und
 /** Returns the components attached directly to the given component. */
 export function childComponents(asset: SceneAsset, componentId: string): SceneComponent[] {
     return asset.components.filter((component) => component.parentId === componentId)
-}
-
-/**
- * The plain-language name of a component type.
- *
- * This is the binding terminology mapping from the product spec: the user
- * sees "Leaf clump", never "foliage cluster".
- */
-const TYPE_LABELS: Readonly<Record<ComponentType, string>> = {
-    trunk: 'Trunk',
-    branch: 'Branch',
-    root: 'Root',
-    'foliage-cluster': 'Leaf clump',
-    'palm-frond': 'Palm frond',
-    'palm-crown': 'Palm crown',
-    'coconut-cluster': 'Coconut cluster',
-}
-
-export function describeComponent(component: SceneComponent): string {
-    return TYPE_LABELS[component.type]
 }

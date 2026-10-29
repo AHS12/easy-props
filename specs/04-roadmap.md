@@ -92,21 +92,20 @@ would keep.
 
 ### Definition of done
 
-- [ ] The app opens with a tree already in the viewport. There is no state
-      in which the viewport is empty on launch.
-- [ ] The tree has a coherent silhouette. It does not look like disconnected
+- [x] The app opens with a tree already in the viewport.
+- [x] The tree has a coherent silhouette. It does not look like disconnected
       cylinders.
-- [ ] Branches attach to the trunk without visible gaps.
-- [ ] Changing Height, Thickness, or Bend updates the tree live.
-- [ ] Switching Low-poly / Detailed changes the level of detail while keeping
+- [x] Branches attach to the trunk without visible gaps.
+- [x] Changing Height, Thickness, or Bend updates the tree live.
+- [x] Switching Low-poly / Detailed changes the level of detail while keeping
       the same tree recognizable.
-- [ ] The same seed reproduces the same tree, byte for byte on the vertex
+- [x] The same seed reproduces the same tree, byte for byte on the vertex
       buffers.
-- [ ] Undo and redo work for every parameter change and handle drag.
-- [ ] The tree never looks broken: a property-based sweep over 10,000
-      random parameter sets produces finite geometry every time.
-- [ ] The first-run coach mark appears once and dismisses permanently.
-- [ ] The face-count chip shows a plausible, changing number.
+- [x] Undo and redo work for every parameter change and handle drag.
+- [x] The tree never looks broken: a property-based sweep over 10,000 random
+      parameter sets produces finite geometry every time.
+- [x] The first-run coach mark appears once and dismisses permanently.
+- [x] The face-count chip shows a plausible, changing number.
 
 ### Manual check
 

@@ -1,5 +1,8 @@
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {Segmented} from '../components/Segmented'
+import {treePresets} from '../assets/trees/presets'
+import {useEditorStore} from '../store/editor-store'
+import {buildPresetThumbnails, getPresetThumbnail} from '../viewport/thumbnailer'
 
 type RailMode = 'presets' | 'parts'
 
@@ -24,16 +27,62 @@ function TreeGlyph() {
 }
 
 function PresetsPanel() {
+    const style = useEditorStore((state) => state.style)
+    const presetId = useEditorStore((state) => state.presetId)
+    const applyPreset = useEditorStore((state) => state.applyPreset)
+
+    const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(
+        () => new Map(treePresets.map((preset) => [preset.id, getPresetThumbnail(preset.id) ?? ''])),
+    )
+
+    useEffect(() => {
+        let cancelled = false
+
+        // The renders happen off the paint, so the panel appears immediately.
+        requestAnimationFrame(() => {
+            const built = buildPresetThumbnails(treePresets, style)
+            if (!cancelled) {
+                setThumbnails(new Map(built))
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [style])
+
     return (
         <>
             <div className="rail__title">Start from a tree</div>
-            <div className="empty">
-                <TreeGlyph />
-                <h4>A gallery of trees is on the way</h4>
-                <p>
-                    Ready-made trees will appear here. For now, shape the tree in the
-                    viewport.
-                </p>
+            <div className="preset-grid" data-coach="presets">
+                {treePresets.map((preset) => (
+                    <button
+                        key={preset.id}
+                        type="button"
+                        className="preset-card"
+                        aria-pressed={preset.id === presetId}
+                        onClick={() => applyPreset(preset.id)}
+                    >
+                        <div className="preset-card__thumb">
+                            {thumbnails.get(preset.id) ? (
+                                <img
+                                    className="preset-card__image"
+                                    src={thumbnails.get(preset.id)}
+                                    alt=""
+                                />
+                            ) : (
+                                <TreeGlyph />
+                            )}
+                            <span className="preset-card__check" aria-hidden="true">
+                                ✓
+                            </span>
+                        </div>
+                        <div className="preset-card__meta">
+                            <div className="preset-card__name">{preset.name}</div>
+                            <div className="preset-card__sub">{preset.sub}</div>
+                        </div>
+                    </button>
+                ))}
             </div>
         </>
     )
@@ -43,7 +92,12 @@ function PartsPanel() {
     return (
         <>
             <div className="rail__title">Add a part</div>
-            <input className="search" type="search" placeholder="Search parts" aria-label="Search parts" />
+            <input
+                className="search"
+                type="search"
+                placeholder="Search parts"
+                aria-label="Search parts"
+            />
             <div className="empty">
                 <TreeGlyph />
                 <h4>A library of parts is on the way</h4>

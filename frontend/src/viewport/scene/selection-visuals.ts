@@ -6,7 +6,6 @@
  * colour — a green tree is a bark problem, not a selection signal.
  */
 
-import * as THREE from 'three'
 import type {SelectionState} from '../../core/selection/selection'
 import type {ViewportScene} from './create-scene'
 import {VIEWPORT_COLORS} from './materials'
@@ -15,21 +14,20 @@ const SELECTED_EMISSIVE_INTENSITY = 0.05
 const HOVERED_EMISSIVE_INTENSITY = 0.14
 
 export function applySelectionVisuals(viewport: ViewportScene, selection: SelectionState): void {
-    const {mesh, outline, componentId} = viewport.placeholder
-    const material = mesh.material as THREE.MeshStandardMaterial
+    for (const component of viewport.components.all()) {
+        const isSelected = selection.selectedId === component.id
+        const isHovered = selection.hoveredId === component.id
 
-    const isSelected = selection.selectedId === componentId
-    const isHovered = selection.hoveredId === componentId
+        component.outline.visible = isSelected
 
-    outline.visible = isSelected
-
-    if (isSelected || isHovered) {
-        material.emissive.set(VIEWPORT_COLORS.selection)
-        material.emissiveIntensity = isSelected
-            ? SELECTED_EMISSIVE_INTENSITY
-            : HOVERED_EMISSIVE_INTENSITY
-    } else {
-        material.emissive.set('#000000')
-        material.emissiveIntensity = 0
+        if (isSelected || isHovered) {
+            component.material.emissive.set(VIEWPORT_COLORS.selection)
+            component.material.emissiveIntensity = isSelected
+                ? SELECTED_EMISSIVE_INTENSITY
+                : HOVERED_EMISSIVE_INTENSITY
+        } else {
+            component.material.emissive.set('#000000')
+            component.material.emissiveIntensity = 0
+        }
     }
 }

@@ -1,39 +1,43 @@
 /**
- * The scene graph starts with a single placeholder trunk.
+ * The scene starts as a tree.
  *
- * Milestone 2 replaces this with the real branching tree generator. Keeping
- * the placeholder in the graph rather than only in the viewport means
- * selection, the inspector, and the live region all work from day one.
+ * The tree is a preset, so the app never opens on an empty viewport.
  */
 
-import {IDENTITY_TRANSFORM, type Scene} from './scene-model'
+import {treePresets} from '../../assets/trees/presets'
+import {generateTreeComponents} from '../../assets/trees/tree-generators'
+import {getStyleProfile} from '../../assets/style/style-profiles'
+import type {Scene} from './scene-model'
 
-export const PLACEHOLDER_COMPONENT_ID = 'cmp-placeholder-trunk'
+export const DEFAULT_PRESET_ID = treePresets[0].id
 
-export function createInitialScene(): Scene {
+/** Builds a scene from a preset. */
+export function createSceneFromPreset(presetId: string): Scene {
+    const preset = treePresets.find((candidate) => candidate.id === presetId) ?? treePresets[0]
+
+    const components = generateTreeComponents(
+        preset.generatorId,
+        preset.parameters,
+        preset.seed,
+        getStyleProfile('low-poly'),
+    )
+
     return {
         id: 'scene-1',
         assets: [
             {
                 id: 'asset-1',
                 kind: 'tree',
-                generatorId: 'placeholder-tree',
+                generatorId: preset.generatorId,
                 generatorVersion: 1,
-                seed: 1,
-                components: [
-                    {
-                        id: PLACEHOLDER_COMPONENT_ID,
-                        type: 'trunk',
-                        generatorId: 'placeholder-trunk',
-                        generatorVersion: 1,
-                        parentId: null,
-                        transform: IDENTITY_TRANSFORM,
-                        parameters: {height: 3, baseRadius: 0.36},
-                        styleOverrides: null,
-                        seed: 1,
-                    },
-                ],
+                components,
+                seed: preset.seed,
+                parameters: preset.parameters,
             },
         ],
     }
+}
+
+export function createInitialScene(): Scene {
+    return createSceneFromPreset(DEFAULT_PRESET_ID)
 }

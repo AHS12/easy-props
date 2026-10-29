@@ -5,7 +5,8 @@
  * without a viewport or a DOM.
  */
 
-import {describeComponent, findComponent, type Scene} from '../scene/scene-model'
+import {describeComponent} from '../../assets/shared/component-types'
+import {findComponent, type Scene} from '../scene/scene-model'
 
 export interface SelectionState {
     readonly selectedId: string | null
@@ -69,5 +70,5 @@ export function selectionAnnouncement(scene: Scene, state: SelectionState): stri
         return ''
     }
 
-    return `Selected: ${describeComponent(component)}`
+    return `Selected: ${describeComponent(component.type)}`
 }

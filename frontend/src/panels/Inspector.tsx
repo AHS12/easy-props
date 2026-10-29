@@ -1,10 +1,95 @@
 import {useState} from 'react'
+import {Segmented} from '../components/Segmented'
+import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
-import {DEFAULT_PLACEHOLDER_PARAMETERS} from '../viewport/scene/placeholder'
-import {describeComponent, findComponent} from '../core/scene/scene-model'
+import {findComponentGenerator} from '../assets/trees/component-generators'
+import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
+import {describeComponent} from '../assets/shared/component-types'
+import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
+import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 
 const COMING_SOON = 'Coming soon'
+
+function formatValue(value: number, spec: NumberParameter): string {
+    const decimals = spec.step < 1 ? 2 : 0
+    return `${value.toFixed(decimals)}${spec.unit && spec.unit !== 'count' ? ` ${spec.unit}` : ''}`
+}
+
+/**
+ * Renders the controls for a set of parameters.
+ *
+ * The specs come from the generator, so the inspector always offers exactly
+ * what the generator understands.
+ */
+function ParameterControls({
+    specs,
+    values,
+    onChange,
+}: {
+    specs: readonly ParameterSpec[]
+    values: Readonly<Record<string, unknown>>
+    onChange: (key: string, value: number | string) => void
+}) {
+    return (
+        <>
+            {specs.map((spec) => {
+                if (spec.kind === 'number') {
+                    const raw = values[spec.key]
+                    const value = typeof raw === 'number' ? raw : spec.default
+
+                    return (
+                        <Slider
+                            key={spec.key}
+                            label={spec.label}
+                            value={value}
+                            min={spec.min}
+                            max={spec.max}
+                            step={spec.step}
+                            unit={spec.unit === 'count' ? undefined : spec.unit}
+                            minLabel={formatValue(spec.min, spec)}
+                            maxLabel={formatValue(spec.max, spec)}
+                            onChange={(next) => onChange(spec.key, next)}
+                        />
+                    )
+                }
+
+                const raw = values[spec.key]
+                const value = typeof raw === 'string' ? raw : spec.default
+
+                return (
+                    <div className="field" key={spec.key}>
+                        <div className="field__label">
+                            <span>{spec.label}</span>
+                        </div>
+                        {spec.options.length > 3 ? (
+                            <Select
+                                label={spec.label}
+                                value={value}
+                                onChange={(next) => onChange(spec.key, next)}
+                                options={spec.options.map((option) => ({
+                                    value: option.value,
+                                    label: option.label,
+                                }))}
+                            />
+                        ) : (
+                            <Segmented
+                                label={spec.label}
+                                wide
+                                value={value}
+                                onChange={(next) => onChange(spec.key, next)}
+                                options={spec.options.map((option) => ({
+                                    value: option.value,
+                                    label: option.label,
+                                }))}
+                            />
+                        )}
+                    </div>
+                )
+            })}
+        </>
+    )
+}
 
 function Group({
     title,
@@ -43,28 +128,52 @@ function Group({
 export function Inspector() {
     const scene = useEditorStore((state) => state.scene)
     const selectedId = useEditorStore((state) => state.selection.selectedId)
-    const updateParameters = useEditorStore((state) => state.updateParameters)
+    const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
+    const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)
+    const randomizeTree = useEditorStore((state) => state.randomizeTree)
 
+    const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
 
-    if (!component) {
+    // The trunk carries the tree's shape, so its controls are the tree's
+    // controls. Everything else has its own.
+    const isTreeLevel = !component || component.type === 'trunk'
+
+    if (isTreeLevel) {
+        const values = asset?.parameters ?? {}
+
         return (
-            <aside className="inspector">
+            <aside className="inspector" data-coach="inspector">
                 <div className="insp-head">
                     <div className="insp-title-row">
                         <div>
-                            <div className="insp-title">Untitled tree</div>
-                            <div className="insp-sub">Whole tree</div>
+                            <div className="insp-title">Whole tree</div>
+                            <div className="insp-sub">
+                                {component ? describeComponent(component.type) : 'Nothing selected'}
+                            </div>
                         </div>
                         <span className="chip chip--moss">Tree</span>
                     </div>
                 </div>
+
                 <div className="insp-body">
-                    <div className="empty">
-                        <h4>Nothing selected</h4>
-                        <p>Click the tree in the viewport to see what you can change.</p>
-                    </div>
+                    <Group title="Shape" help="The overall size and shape of the tree.">
+                        <ParameterControls
+                            specs={treeParameterSpecs}
+                            values={values}
+                            onChange={(key, value) =>
+                                updateTreeParameters({[key]: value}, `change ${key}`)
+                            }
+                        />
+                    </Group>
+
+                    <Group title="Variation" help="Try a different tree with the same shape.">
+                        <button type="button" className="btn btn--secondary" onClick={randomizeTree}>
+                            Surprise me
+                        </button>
+                    </Group>
                 </div>
+
                 <div className="insp-foot">
                     <button type="button" className="btn btn--ghost btn--sm" disabled title={COMING_SOON}>
                         Restore default
@@ -74,19 +183,15 @@ export function Inspector() {
         )
     }
 
-    const parameters = component.parameters
-    const height = typeof parameters.height === 'number' ? parameters.height : DEFAULT_PLACEHOLDER_PARAMETERS.height
-    const thickness =
-        typeof parameters.baseRadius === 'number'
-            ? parameters.baseRadius
-            : DEFAULT_PLACEHOLDER_PARAMETERS.baseRadius
+    const generator = findComponentGenerator(component.generatorId)
+    const specs = generator?.parameters ?? []
 
     return (
         <aside className="inspector">
             <div className="insp-head">
                 <div className="insp-title-row">
                     <div>
-                        <div className="insp-title">{describeComponent(component)}</div>
+                        <div className="insp-title">{describeComponent(component.type)}</div>
                         <div className="insp-sub">Selected part</div>
                     </div>
                     <span className="chip chip--bark">Part</span>
@@ -102,43 +207,23 @@ export function Inspector() {
             </div>
 
             <div className="insp-body">
-                <Group title="Trunk" help="How tall and thick the trunk is.">
-                    <Slider
-                        label="Height"
-                        value={height}
-                        min={1}
-                        max={8}
-                        step={0.1}
-                        unit="m"
-                        minLabel="1 m"
-                        maxLabel="8 m"
-                        onChange={(value) => updateParameters(component.id, {height: value})}
-                    />
-                    <Slider
-                        label="Thickness"
-                        value={thickness}
-                        min={0.1}
-                        max={1}
-                        step={0.01}
-                        unit="m"
-                        minLabel="0.10 m"
-                        maxLabel="1.00 m"
-                        onChange={(value) => updateParameters(component.id, {baseRadius: value})}
+                <Group title={generator?.label ?? 'Part'} help="What this part looks like.">
+                    <ParameterControls
+                        specs={specs}
+                        values={component.parameters}
+                        onChange={(key, value) =>
+                            updateComponentParameters(
+                                component.id,
+                                {[key]: value},
+                                `change ${key}`,
+                            )
+                        }
                     />
                 </Group>
             </div>
 
             <div className="insp-foot">
-                <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() =>
-                        updateParameters(component.id, {
-                            height: DEFAULT_PLACEHOLDER_PARAMETERS.height,
-                            baseRadius: DEFAULT_PLACEHOLDER_PARAMETERS.baseRadius,
-                        })
-                    }
-                >
+                <button type="button" className="btn btn--ghost btn--sm" disabled title={COMING_SOON}>
                     Restore default
                 </button>
             </div>

@@ -7,24 +7,32 @@
 
 import * as THREE from 'three'
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
+import type {Scene} from '../../core/scene/scene-model'
 import {attachCameraControls} from './camera-controls'
-import {createPlaceholder, type PlaceholderObject, type PlaceholderParameters} from './placeholder'
-import {MATERIAL_COLORS, VIEWPORT_COLORS} from './materials'
+import {createComponentRenderer, type ComponentRenderer} from './component-renderer'
+import {VIEWPORT_COLORS} from './materials'
 
 export interface ViewportScene {
     readonly renderer: THREE.WebGLRenderer
     readonly scene: THREE.Scene
     readonly camera: THREE.PerspectiveCamera
     readonly controls: ReturnType<typeof attachCameraControls>
-    readonly content: THREE.Group
-    readonly placeholder: PlaceholderObject
+    readonly components: ComponentRenderer
+    /** Brings the viewport in line with the scene graph. */
+    syncScene(scene: Scene): void
+    /** Frames the whole tree. */
+    frameScene(scene: Scene): void
+    /** Applies a new style profile. The scene is resynced afterwards. */
     setStyle(styleId: StyleProfileId): void
-    updateGeometry(parameters: PlaceholderParameters): void
     /** Faces in the content, excluding rendering helpers such as outlines. */
     countFaces(): number
     resize(): void
     dispose(): void
 }
+
+const CAMERA_FOV = 45
+const CAMERA_NEAR = 0.05
+const CAMERA_FAR = 500
 
 /**
  * Counts the triangles of the real geometry under a root.
@@ -51,10 +59,6 @@ function countFaces(root: THREE.Object3D): number {
 
     return Math.round(triangles)
 }
-
-const CAMERA_FOV = 45
-const CAMERA_NEAR = 0.05
-const CAMERA_FAR = 500
 
 function createRenderer(container: HTMLElement): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
@@ -136,11 +140,7 @@ function addGround(scene: THREE.Scene): void {
     scene.add(major)
 }
 
-export function createViewportScene(
-    container: HTMLElement,
-    initialStyleId: StyleProfileId,
-    initialParameters: PlaceholderParameters,
-): ViewportScene {
+export function createViewportScene(container: HTMLElement, styleId: StyleProfileId): ViewportScene {
     const renderer = createRenderer(container)
     const camera = createCamera(container)
     const scene = new THREE.Scene()
@@ -152,45 +152,44 @@ export function createViewportScene(
 
     const controls = attachCameraControls(camera, renderer.domElement)
 
-    const content = new THREE.Group()
-    content.name = 'content'
-    scene.add(content)
+    const components = createComponentRenderer()
+    scene.add(components.group)
 
-    let styleId = initialStyleId
-    let placeholderParameters = initialParameters
-    let placeholder = createPlaceholder(getStyleProfile(styleId), placeholderParameters)
-    content.add(placeholder.group)
+    let currentStyleId = styleId
 
     return {
         renderer,
         scene,
         camera,
         controls,
-        content,
-        get placeholder() {
-            return placeholder
+        components,
+
+        syncScene(nextScene) {
+            components.sync(nextScene, getStyleProfile(currentStyleId))
+        },
+
+        frameScene(nextScene) {
+            const asset = nextScene.assets[0]
+            const height =
+                typeof asset?.parameters.height === 'number' ? asset.parameters.height : 4.2
+
+            // The canopy reaches wider and taller than the trunk, so the
+            // frame is driven by the height plus room for the branches.
+            const distance = Math.max(height * 2.7, 8)
+
+            controls.target.set(0, height * 0.58, 0)
+            camera.position
+                .copy(controls.target)
+                .add(new THREE.Vector3(-0.62, 0.36, 0.62).normalize().multiplyScalar(distance))
+            controls.update()
         },
 
         setStyle(nextStyleId) {
-            styleId = nextStyleId
-            const profile = getStyleProfile(styleId)
-            content.remove(placeholder.group)
-            placeholder.dispose()
-            placeholder = createPlaceholder(profile, placeholderParameters)
-            content.add(placeholder.group)
-        },
-
-        updateGeometry(parameters) {
-            placeholderParameters = parameters
-            const profile = getStyleProfile(styleId)
-            content.remove(placeholder.group)
-            placeholder.dispose()
-            placeholder = createPlaceholder(profile, parameters)
-            content.add(placeholder.group)
+            currentStyleId = nextStyleId
         },
 
         countFaces() {
-            return countFaces(content)
+            return countFaces(components.group)
         },
 
         resize() {
@@ -208,18 +207,8 @@ export function createViewportScene(
 
         dispose() {
             controls.dispose()
-            placeholder.dispose()
-
-            scene.traverse((object) => {
-                const mesh = object as THREE.Mesh
-                if (mesh.geometry) {
-                    mesh.geometry.dispose()
-                }
-            })
-
+            components.dispose()
             renderer.dispose()
         },
     }
 }
-
-export {MATERIAL_COLORS}

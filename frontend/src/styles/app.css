@@ -273,7 +273,10 @@ h4 {
 
 .seg--wide .seg__option {
     flex: 1;
+    min-width: 0;
     text-align: center;
+    padding: 7px 10px;
+    font-size: 12.5px;
 }
 
 /* ======================================================================
@@ -658,6 +661,9 @@ h4 {
 .group__body {
     padding: 0 var(--space-4) var(--space-4);
     display: grid;
+    /* Without this the implicit column is max-content and the controls
+       overflow the panel. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
 }
 
@@ -673,6 +679,7 @@ h4 {
 
 .field {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 7px;
 }
 
@@ -692,6 +699,23 @@ h4 {
     font-size: 13px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+}
+
+.select {
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-panel);
+    font: var(--text-label);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.select:focus {
+    border-color: var(--accent-moss-strong);
+    box-shadow: var(--shadow-focus);
 }
 
 .range {
@@ -761,6 +785,39 @@ h4 {
     font-size: 13px;
     color: var(--text-secondary);
     margin: 0 0 var(--space-3);
+}
+
+/* ======================================================================
+   Coach marks
+   ====================================================================== */
+
+.coach {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    /* The first click anywhere dismisses the guide. */
+    cursor: pointer;
+}
+
+.coach__card {
+    position: fixed;
+    max-width: 230px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-2);
+    padding: var(--space-3);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+.coach__dismiss {
+    position: fixed;
+    bottom: var(--space-9);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 51;
 }
 
 /* ======================================================================

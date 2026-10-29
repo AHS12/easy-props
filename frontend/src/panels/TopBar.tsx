@@ -1,5 +1,6 @@
 import {Segmented} from '../components/Segmented'
 import {STYLE_ORDER, STYLE_PROFILES, type StyleProfileId} from '../assets/style/style-profiles'
+import {canRedo, canUndo, redoLabel, undoLabel} from '../core/history/history'
 import {useEditorStore} from '../store/editor-store'
 import {useThemeStore} from '../store/theme-store'
 
@@ -25,10 +26,16 @@ function MoonIcon() {
 export function TopBar() {
     const style = useEditorStore((state) => state.style)
     const setStyle = useEditorStore((state) => state.setStyle)
+    const history = useEditorStore((state) => state.history)
+    const undo = useEditorStore((state) => state.undo)
+    const redo = useEditorStore((state) => state.redo)
     const theme = useThemeStore((state) => state.theme)
     const toggleTheme = useThemeStore((state) => state.toggle)
 
     const themeLabel = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'
+
+    const undoTitle = undoLabel(history) ? `Undo: ${undoLabel(history)}` : 'Nothing to undo'
+    const redoTitle = redoLabel(history) ? `Redo: ${redoLabel(history)}` : 'Nothing to redo'
 
     return (
         <header className="topbar">
@@ -81,8 +88,9 @@ export function TopBar() {
             <button
                 type="button"
                 className="btn btn--ghost btn--icon"
-                disabled
-                title={COMING_SOON}
+                onClick={undo}
+                disabled={!canUndo(history)}
+                title={undoTitle}
                 aria-label="Undo"
             >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -93,8 +101,9 @@ export function TopBar() {
             <button
                 type="button"
                 className="btn btn--ghost btn--icon"
-                disabled
-                title={COMING_SOON}
+                onClick={redo}
+                disabled={!canRedo(history)}
+                title={redoTitle}
                 aria-label="Redo"
             >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -106,7 +115,13 @@ export function TopBar() {
             <button type="button" className="btn btn--secondary" disabled title={COMING_SOON}>
                 Save project
             </button>
-            <button type="button" className="btn btn--primary" disabled title={COMING_SOON}>
+            <button
+                type="button"
+                className="btn btn--primary"
+                disabled
+                title={COMING_SOON}
+                data-coach="export"
+            >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3v12" />
                     <path d="M7 10l5 5 5-5" />

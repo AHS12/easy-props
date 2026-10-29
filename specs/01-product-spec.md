@@ -167,7 +167,7 @@ new user-facing term must be agreed here first.
 | Polygon count | **Faces** | Only in the advanced chip: "2,340 faces" |
 | Radius | **Thickness** | |
 | Base radius / top radius | **Thickness** + **Taper** | Taper shown as a segmented choice |
-| Taper | **Thickness taper** | Segmented: Even / Thicker at base / Thinner at base |
+| Taper | **Taper** | Slider. "How much the trunk narrows toward the top." |
 | Curvature | **Bend** | Segmented: Straight / Curved / Very curved |
 | Twist | **Twist** | Acceptable — the word is intuitive |
 | Segments, radial segments | **Detail** | Segmented: Low-poly / Detailed |
