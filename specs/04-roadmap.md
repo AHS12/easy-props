@@ -171,10 +171,15 @@ determinism all keep working. There is no vertex, edge, or face selection.
 - [x] Randomize produces a visibly different but structurally similar tree,
       and does not throw away a part the user added.
 - [x] Restore a part to its generator defaults.
-- [ ] Restore the tree to the preset it came from.
+- [x] Restore the tree to the preset it came from.
 - [x] Five presets exist and each produces a complete tree, not an isolated
       part.
 - [x] The library is visible on the first screen without opening a menu.
+- [x] The parts panel groups by category and a group can be collapsed, with
+      its count still showing.
+- [x] The navigation compass shows the camera's orientation and looks down an
+      axis when one is clicked.
+- [x] Scrolling panels use a thin themed scrollbar, not the platform default.
 
 ### Manual check
 

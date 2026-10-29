@@ -17,6 +17,7 @@ import {createInitialScene} from '../core/scene/initial-scene'
 import {findComponent} from '../core/scene/scene-model'
 import {updateComponentParameters, updateTreeParameters} from '../core/scene/scene-ops'
 import {TRUNK_TREE_KEYS} from '../panels/trunk-controls'
+import {useEditorStore} from '../store/editor-store'
 import {branchingTreeGenerator} from '../assets/trees/branching-tree-generator'
 import {dragPlaneFor, movedSpine, selectedSpine} from '../viewport/scene/spine-drag'
 
@@ -380,6 +381,19 @@ describe('the trunk panel writes where the shape lives', () => {
             expect(trunk).toHaveProperty(trunkKey)
             expect(typeof tree[treeKey]).toBe(typeof trunk[trunkKey])
         }
+    })
+})
+
+describe('restoring the tree', () => {
+    it('puts the tree back to the preset it came from', () => {
+        const start = useEditorStore.getState().presetId
+        useEditorStore.getState().updateTreeParameters({height: 9}, 'change height')
+        expect(useEditorStore.getState().scene.assets[0].parameters.height).toBe(9)
+
+        useEditorStore.getState().restoreTree()
+
+        expect(useEditorStore.getState().scene.assets[0].parameters.height).toBe(4.2)
+        expect(useEditorStore.getState().presetId).toBe(start)
     })
 })
 

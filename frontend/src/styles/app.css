@@ -713,20 +713,68 @@ h4 {
     border-radius: 50%;
 }
 
-.viewport__gizmo {
+.compass {
     position: absolute;
     left: var(--space-3);
     bottom: var(--space-3);
     z-index: 2;
-    width: 62px;
-    height: 62px;
+    width: 84px;
+    height: 84px;
     border-radius: var(--radius-pill);
-    background: rgba(20, 26, 21, 0.5);
+    background: rgba(20, 26, 21, 0.46);
     border: 1px solid rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(6px);
     display: grid;
     place-items: center;
+    user-select: none;
+}
+
+.compass__face {
+    fill: none;
+}
+
+.compass__ring {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 1;
+}
+
+.compass__line {
+    stroke-width: 1.6;
+}
+
+.compass__axis {
+    cursor: pointer;
+}
+
+/* Invisible, so a small ball is still easy to hit. */
+.compass__hit {
+    fill: transparent;
+}
+
+.compass__ball {
+    stroke: rgba(0, 0, 0, 0.35);
+    stroke-width: 1;
+    transition: fill 120ms ease;
+}
+
+.compass__axis:hover .compass__ball {
+    stroke: rgba(255, 255, 255, 0.85);
+    stroke-width: 1.6;
+}
+
+.compass__label {
+    fill: #12140f;
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
     pointer-events: none;
+}
+
+.compass__origin {
+    fill: rgba(255, 255, 255, 0.55);
 }
 
 /* ======================================================================
@@ -773,6 +821,54 @@ h4 {
 .insp-body {
     flex: 1;
     overflow-y: auto;
+    /* Room for the scrollbar, so a slider's value never sits against it. */
+    padding-right: var(--space-1);
+}
+
+/* ======================================================================
+   Scrollbars
+   ====================================================================== */
+
+/*
+ * The platform scrollbar is a light bar with arrows at each end, which fights
+ * both themes and takes more width than it needs. These are thin, rounded,
+ * and quiet until the pointer is over the scrolling panel.
+ */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+/* No arrow buttons: they add noise and nobody clicks them. */
+::-webkit-scrollbar-button {
+    display: none;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    /* A transparent border with the background clipped to the padding box
+       makes the thumb read thinner than its hit area. */
+    background-color: var(--scrollbar-thumb);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--accent-moss-500);
 }
 
 /* An empty inspector centres its message rather than leaving it stranded. */
@@ -1016,14 +1112,54 @@ h4 {
     margin-bottom: var(--space-4);
 }
 
-.lib-group__title {
+.lib-group__heading {
     margin: 0 0 var(--space-1);
-    padding: 0 var(--space-2);
+}
+
+.lib-group__head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-tertiary);
+    text-align: left;
+}
+
+.lib-group__head:hover {
+    color: var(--text-secondary);
+    background: var(--surface-hover);
+}
+
+.lib-group__head:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+/* The count sits next to the name, so a collapsed group still says how much
+   it is hiding. */
+.lib-group__count {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    opacity: 0.7;
+}
+
+.lib-group__chevron {
+    margin-left: auto;
+    font-size: 8px;
+    transition: transform var(--motion-fast) ease;
+}
+
+.lib-group[data-open='false'] .lib-group__chevron {
+    transform: rotate(-90deg);
 }
 
 .lib-row {

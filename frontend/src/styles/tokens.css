@@ -131,6 +131,11 @@
 
     --tracking-micro: 0.04em;
 
+    /* The platform scrollbar is a light bar with arrows, which fights a dark
+       panel. These keep it quiet until the pointer is over it. */
+    --scrollbar-thumb: #c6ccbd;
+    --scrollbar-thumb-hover: #a7ae9c;
+
     /* ------------------------------------------------------------------
      * Space — the 1-4-9 rhythm
      * ---------------------------------------------------------------- */
@@ -206,6 +211,9 @@ html[data-theme='dark'] {
 
     --border-subtle: #35302a;
     --border-strong: #4b443a;
+
+    --scrollbar-thumb: #423c33;
+    --scrollbar-thumb-hover: #595246;
 
     --text-primary: #f1ece1;
     --text-secondary: #b3aa9b;

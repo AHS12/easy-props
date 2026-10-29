@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
 import type {Scene} from '../core/scene/scene-model'
@@ -8,10 +8,18 @@ import {createHandles, type HandleSet} from './scene/handles'
 import {createPicker, pickNearestHandle, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
+import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import {ViewportOverlay} from './ViewportOverlay'
 
 /** A pointer that moves more than this counts as an orbit, not a click. */
 const CLICK_THRESHOLD_PX = 5
+
+/** Which way the camera's up vector points when it looks down an axis. */
+const UP: Record<CompassAxis, THREE.Vector3> = {
+    x: new THREE.Vector3(0, 1, 0),
+    y: new THREE.Vector3(0, 0, -1),
+    z: new THREE.Vector3(0, 1, 0),
+}
 
 interface DragState {
     /** The index of the spine point being dragged. */
@@ -31,7 +39,30 @@ export function Viewport() {
     const sceneRef = useRef<ViewportScene | null>(null)
     const pointerDownRef = useRef<{x: number; y: number} | null>(null)
     const dragRef = useRef<DragState | null>(null)
+    const compassRef = useRef<CompassHandle>(null)
     const [faces, setFaces] = useState(0)
+
+    /**
+     * Looks down an axis, keeping the current distance from what the camera is
+     * looking at, which is how the gizmo in a 3D package behaves.
+     */
+    const snapToAxis = useCallback((axis: CompassAxis, sign: 1 | -1) => {
+        const viewport = sceneRef.current
+        if (!viewport) {
+            return
+        }
+
+        const target = viewport.controls.target
+        const distance = Math.max(viewport.camera.position.distanceTo(target), 0.5)
+
+        const direction = new THREE.Vector3()
+        direction[axis] = sign
+
+        viewport.camera.up.copy(UP[axis])
+        viewport.camera.position.copy(target).addScaledVector(direction, distance)
+        viewport.camera.lookAt(target)
+        viewport.controls.update()
+    }, [])
 
     useEffect(() => {
         const container = containerRef.current
@@ -64,6 +95,7 @@ export function Viewport() {
             viewport.controls.update()
             viewport.renderer.render(viewport.scene, viewport.camera)
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
+            compassRef.current?.update(viewport.camera)
         }
         frame = requestAnimationFrame(render)
 
@@ -272,13 +304,7 @@ export function Viewport() {
                 Left drag to orbit · right drag to pan · scroll to zoom
             </div>
             <div className="viewport__faces">{faces.toLocaleString()} faces</div>
-            <div className="viewport__gizmo" aria-hidden="true">
-                <svg width="34" height="34" viewBox="-17 -17 34 34">
-                    <line x1="0" y1="0" x2="-7" y2="13" stroke="#d16a5a" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="0" y1="0" x2="0" y2="-15" stroke="#8cc46a" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="0" y1="0" x2="8" y2="9" stroke="#5f8fd1" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-            </div>
+            <Compass ref={compassRef} onSnap={snapToAxis} />
             <ViewportOverlay />
         </div>
     )

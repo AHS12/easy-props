@@ -334,7 +334,14 @@ stacking two browsing surfaces in 288px.
   Roots, Leaf clumps, Palm parts, Details), each a list of thumbnail rows.
 
 **Viewport** — fills the middle. Three overlays only:
-- Bottom-left: view gizmo (axis orientation cube), 72px.
+- Bottom-left: the **navigation compass**, 84px. Three axes, X red, Y green,
+  Z blue, drawn from the camera's own orientation, so it turns as the tree is
+  orbited and always says which way the model faces. The axis pointing at the
+  viewer is brightest and the one pointing away is dimmest.
+- Only the positive end of each axis carries its letter; the far end is a
+  plain dot. Clicking any of the six looks down that axis, keeping the
+  current distance from what the camera is looking at. The hit area is
+  larger than the ball, because the ball has to stay small enough to fit.
 - Bottom-right: a face-count chip, `--text-caption` on a translucent scrim.
   This is the visible proof that real geometry exists (TDR §17 forbids a
   decorative fake viewport).

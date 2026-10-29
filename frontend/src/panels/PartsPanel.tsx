@@ -7,6 +7,8 @@ import {
 import {useEditorStore} from '../store/editor-store'
 import {buildLibraryThumbnails, getThumbnail} from '../viewport/thumbnailer'
 
+type Category = (typeof LIBRARY_CATEGORIES)[number]
+
 function PartGlyph() {
     return (
         <svg
@@ -29,12 +31,25 @@ function PartGlyph() {
 
 export function PartsPanel() {
     const [search, setSearch] = useState('')
+    const [closed, setClosed] = useState<ReadonlySet<Category>>(new Set())
     const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(
         () => new Map(LIBRARY_PARTS.map((part) => [part.id, getThumbnail(part.id) ?? ''])),
     )
 
     const style = useEditorStore((state) => state.style)
     const addLibraryPart = useEditorStore((state) => state.addLibraryPart)
+
+    const toggleCategory = (category: Category) =>
+        setClosed((current) => {
+            const next = new Set(current)
+            if (next.has(category)) {
+                next.delete(category)
+            } else {
+                next.add(category)
+            }
+
+            return next
+        })
 
     useEffect(() => {
         let cancelled = false
@@ -91,40 +106,61 @@ export function PartsPanel() {
                         return null
                     }
 
+                    // A search opens everything, so a match is never hidden
+                    // behind a heading the user collapsed earlier.
+                    const open = search.trim() !== '' || !closed.has(category)
+
                     return (
-                        <section className="lib-group" key={category}>
-                            <h3 className="lib-group__title">{CATEGORY_LABELS[category]}</h3>
+                        <section className="lib-group" key={category} data-open={open}>
+                            <h3 className="lib-group__heading">
+                                <button
+                                    type="button"
+                                    className="lib-group__head"
+                                    aria-expanded={open}
+                                    onClick={() => toggleCategory(category)}
+                                >
+                                    <span>{CATEGORY_LABELS[category]}</span>
+                                    <span className="lib-group__count">{parts.length}</span>
+                                    <span className="lib-group__chevron" aria-hidden="true">
+                                        ▼
+                                    </span>
+                                </button>
+                            </h3>
 
-                            {parts.map((part) => {
-                                const thumbnail = thumbnails.get(part.id)
+                            {open
+                                ? parts.map((part) => {
+                                      const thumbnail = thumbnails.get(part.id)
 
-                                return (
-                                    <button
-                                        key={part.id}
-                                        type="button"
-                                        className="lib-row"
-                                        title={part.description}
-                                        onClick={() => addLibraryPart(part)}
-                                    >
-                                        <span className="lib-row__thumb">
-                                            {thumbnail ? (
-                                                <img
-                                                    className="lib-row__image"
-                                                    src={thumbnail}
-                                                    alt=""
-                                                />
-                                            ) : (
-                                                <PartGlyph />
-                                            )}
-                                        </span>
+                                      return (
+                                          <button
+                                              key={part.id}
+                                              type="button"
+                                              className="lib-row"
+                                              title={part.description}
+                                              onClick={() => addLibraryPart(part)}
+                                          >
+                                              <span className="lib-row__thumb">
+                                                  {thumbnail ? (
+                                                      <img
+                                                          className="lib-row__image"
+                                                          src={thumbnail}
+                                                          alt=""
+                                                      />
+                                                  ) : (
+                                                      <PartGlyph />
+                                                  )}
+                                              </span>
 
-                                        <span className="lib-row__meta">
-                                            <span className="lib-row__name">{part.name}</span>
-                                            <span className="lib-row__note">{part.attachment}</span>
-                                        </span>
-                                    </button>
-                                )
-                            })}
+                                              <span className="lib-row__meta">
+                                                  <span className="lib-row__name">{part.name}</span>
+                                                  <span className="lib-row__note">
+                                                      {part.attachment}
+                                                  </span>
+                                              </span>
+                                          </button>
+                                      )
+                                  })
+                                : null}
                         </section>
                     )
                 })
