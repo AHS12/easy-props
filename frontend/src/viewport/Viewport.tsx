@@ -501,6 +501,9 @@ export function Viewport() {
                 setFaces(viewport.countFaces())
                 reframeIfNeeded(state.scene)
                 refreshHandles()
+                // The gizmo sits on the part, so it moves with it. A drag
+                // still measures against the axis as it was at the start.
+                refreshGizmo()
             }
 
             if (state.style !== previous.style) {
