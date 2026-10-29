@@ -5,8 +5,8 @@
  * positive X axis while sloping down to the ground.
  */
 
-import * as THREE from 'three'
 import {z} from 'zod'
+import type {LimbSpinePoint} from '../../shared/component-types'
 import type {PartGenerator} from '../../shared/generator-types'
 import {buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
 import {
@@ -15,6 +15,7 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
+import {spinePointPosition} from '../../shared/spines'
 
 export type RootParameters = {
     readonly length: number
@@ -22,6 +23,8 @@ export type RootParameters = {
     readonly tipRadius: number
     readonly drop: number
     readonly curl: number
+    /** The draggable spine. Empty means "build the default from drop and curl". */
+    readonly spine: readonly LimbSpinePoint[]
 }
 
 const LENGTH = {
@@ -89,15 +92,37 @@ export const rootParameterSpecs: readonly ParameterSpec[] = [
     CURL,
 ]
 
+const limbSpinePointSchema = z.object({
+    t: z.number().min(0).max(1),
+    y: z.number(),
+    z: z.number(),
+})
+
 const rootSchema = z.object({
     length: numberSchema(LENGTH),
     baseRadius: numberSchema(THICKNESS),
     tipRadius: numberSchema(TAPER),
     drop: numberSchema(DROP),
     curl: numberSchema(CURL),
+    spine: z.array(limbSpinePointSchema).min(2).catch([]),
 })
 
-const ROOT_POINTS = 4
+/** How many points along a root. */
+export const ROOT_POINTS = 4
+
+/**
+ * The default spine for a root.
+ *
+ * Drop sinks the root toward the ground and curl sweeps it sideways, so it
+ * leaves the trunk level and disappears before it reaches open air.
+ */
+export function buildRootSpine(drop: number, curl: number, length: number): LimbSpinePoint[] {
+    return Array.from({length: ROOT_POINTS}, (_, index) => {
+        const t = index / (ROOT_POINTS - 1)
+
+        return {t, y: -drop * t * t, z: length * curl * t * t}
+    })
+}
 
 export const rootGenerator: PartGenerator<RootParameters> = {
     id: 'root',
@@ -113,30 +138,45 @@ export const rootGenerator: PartGenerator<RootParameters> = {
             tipRadius: TAPER.default,
             drop: DROP.default,
             curl: CURL.default,
+            spine: buildRootSpine(DROP.default, CURL.default, LENGTH.default),
         }
     },
 
     validate(parameters: unknown): ValidationResult<RootParameters> {
-        return validateParameters(rootSchema, parameters, this.createDefaultParameters())
+        const result = validateParameters(rootSchema, parameters, this.createDefaultParameters())
+
+        // A library entry only names the values it cares about, so a validated
+        // part must always come out with a spine the handles can find.
+        if (result.parameters.spine.length >= 2) {
+            return result
+        }
+
+        return {
+            ...result,
+            parameters: {
+                ...result.parameters,
+                spine: buildRootSpine(
+                    result.parameters.drop,
+                    result.parameters.curl,
+                    result.parameters.length,
+                ),
+            },
+        }
     },
 
     generate(parameters, context) {
-        const points: THREE.Vector3[] = []
-        const radii: number[] = []
+        const spine =
+            parameters.spine.length >= 2
+                ? parameters.spine
+                : buildRootSpine(parameters.drop, parameters.curl, parameters.length)
 
-        for (let i = 0; i < ROOT_POINTS; i++) {
-            const t = i / (ROOT_POINTS - 1)
+        const points = spine.map((point) =>
+            spinePointPosition(point, 'outward', parameters.length),
+        )
 
-            points.push(
-                new THREE.Vector3(
-                    parameters.length * t,
-                    -parameters.drop * t * t,
-                    parameters.length * parameters.curl * t * t,
-                ),
-            )
-
-            radii.push(taperedRadius(parameters.baseRadius, parameters.tipRadius, t))
-        }
+        const radii = spine.map((point) =>
+            taperedRadius(parameters.baseRadius, parameters.tipRadius, point.t),
+        )
 
         const geometry = buildTaperedTube({
             points,

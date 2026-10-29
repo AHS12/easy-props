@@ -161,7 +161,7 @@ determinism all keep working. There is no vertex, edge, or face selection.
 - [x] A copied branch keeps its parameters and gets a new identity.
 - [x] Deleted parts can be restored with one click on the toast, or with
       `Ctrl+Z`.
-- [ ] Dragging a branch tip reshapes that branch and only that branch.
+- [x] Dragging a branch tip reshapes that branch and only that branch.
 - [ ] A push changes only the part it was made on, and can be undone with
       `Ctrl+Z`.
 - [ ] A push survives save and reopen, and produces the same geometry.

@@ -99,6 +99,54 @@ export function pickIndex(
 }
 
 /**
+ * The index of the handle nearest the pointer, or -1.
+ *
+ * Handles are drawn at a fixed size on screen, so they are picked on screen
+ * too. Raycasting against a sphere that is only a few pixels across misses
+ * often enough to feel broken; a screen distance does not, and it gives the
+ * user a slightly generous target without changing what they see.
+ */
+export function pickNearestHandle(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+    targets: readonly THREE.Object3D[],
+    radiusPx = 14,
+): number {
+    const rect = domElement.getBoundingClientRect()
+
+    if (rect.width === 0 || rect.height === 0 || targets.length === 0) {
+        return -1
+    }
+
+    const world = new THREE.Vector3()
+    let best = -1
+    let bestDistance = radiusPx
+
+    targets.forEach((target, index) => {
+        target.getWorldPosition(world)
+        world.project(camera)
+
+        // Behind the camera, or outside the depth range.
+        if (world.z > 1) {
+            return
+        }
+
+        const x = rect.left + ((world.x + 1) / 2) * rect.width
+        const y = rect.top + ((1 - world.y) / 2) * rect.height
+        const distance = Math.hypot(clientX - x, clientY - y)
+
+        if (distance <= bestDistance) {
+            bestDistance = distance
+            best = index
+        }
+    })
+
+    return best
+}
+
+/**
  * Where the pointer ray meets a plane.
  *
  * Returns `null` when the ray runs parallel to the plane.

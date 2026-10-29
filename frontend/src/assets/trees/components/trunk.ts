@@ -35,6 +35,10 @@ export type TrunkParameters = {
     readonly bend: BendAmount
     readonly twist: number
     readonly spine: readonly SpinePoint[]
+    /** Which way the seed made the trunk lean, in radians. */
+    readonly leanAzimuth: number
+    /** How much wobble the seed added on top of the steady lean. */
+    readonly leanWobble: number
 }
 
 const HEIGHT = {
@@ -118,6 +122,8 @@ const trunkSchema = z.object({
     bend: choiceSchema(BEND),
     twist: numberSchema(TWIST),
     spine: z.array(spinePointSchema).min(2).catch([]),
+    leanAzimuth: z.number().catch(0),
+    leanWobble: z.number().catch(0),
 })
 
 /** How far the trunk leans, as a fraction of its height. */
@@ -157,35 +163,20 @@ export function buildTrunkSpine(
 }
 
 /**
- * The world position of a spine point.
+ * Re-derives the spine for a different Bend amount.
  *
- * The twist is applied here, so the handles sit exactly on the trunk.
+ * The lean direction and the wobble came from the seed, so they are kept:
+ * only the size of the lean changes. Changing Bend therefore replaces a
+ * dragged spine, which is the rule that keeps the control from going dead
+ * once a handle has been moved.
  */
-export function trunkSpinePosition(
-    point: SpinePoint,
+export function respineForBend(
+    bend: BendAmount,
     height: number,
-    twistDegrees: number,
-): THREE.Vector3 {
-    return buildSpinePoints([point], height, twistDegrees)[0]
-}
-
-/**
- * Turns a world position back into an un-twisted spine offset.
- *
- * Used while dragging a handle, so the handle follows the pointer exactly.
- */
-export function unTwistPosition(
-    position: THREE.Vector3,
-    t: number,
-    twistDegrees: number,
-): THREE.Vector3 {
-    if (twistDegrees === 0) {
-        return position.clone()
-    }
-
-    return position
-        .clone()
-        .applyAxisAngle(new THREE.Vector3(0, 1, 0), -THREE.MathUtils.degToRad(twistDegrees) * t)
+    leanAzimuth: number,
+    leanWobble: number,
+): SpinePoint[] {
+    return buildTrunkSpine(bend, height, leanAzimuth, leanWobble)
 }
 
 /** The default spine for a straight trunk. */
@@ -208,11 +199,27 @@ export const trunkGenerator: PartGenerator<TrunkParameters> = {
             bend: BEND.default,
             twist: TWIST.default,
             spine: defaultSpine(),
+            leanAzimuth: 0,
+            leanWobble: 0,
         }
     },
 
     validate(parameters: unknown): ValidationResult<TrunkParameters> {
-        return validateParameters(trunkSchema, parameters, this.createDefaultParameters())
+        const result = validateParameters(trunkSchema, parameters, this.createDefaultParameters())
+
+        // A validated trunk must always come out with a spine the handles can
+        // find, derived from its own Bend when it has never been shaped.
+        if (result.parameters.spine.length >= 2) {
+            return result
+        }
+
+        return {
+            ...result,
+            parameters: {
+                ...result.parameters,
+                spine: defaultSpine(),
+            },
+        }
     },
 
     generate(parameters: TrunkParameters, context) {

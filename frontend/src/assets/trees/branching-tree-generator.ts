@@ -22,7 +22,8 @@ import {
     type ValidationResult,
 } from '../shared/parameters'
 import {buildTrunkSpine, type BendAmount} from './components/trunk'
-import type {SpinePoint} from '../shared/geometry-utils'
+import {buildBranchSpine, type BranchParameters} from './components/branch'
+import {buildRootSpine} from './components/root'
 import type {FoliageShape} from './components/foliage-cluster'
 
 export type TreeParameters = {
@@ -40,8 +41,6 @@ export type TreeParameters = {
     readonly foliageShape: FoliageShape
     readonly rootCount: number
     readonly asymmetry: number
-    /** A spine the user has dragged by hand. Takes priority over the default. */
-    readonly trunkSpine?: readonly SpinePoint[]
 }
 
 const HEIGHT = {
@@ -126,12 +125,6 @@ export const treeParameterSpecs: readonly ParameterSpec[] = [
     ROOTS,
 ]
 
-const spinePointSchema = z.object({
-    t: z.number().min(0).max(1),
-    x: z.number(),
-    z: z.number(),
-})
-
 const treeSchema = z.object({
     height: numberSchema(HEIGHT),
     trunkRadius: numberSchema(THICKNESS),
@@ -147,7 +140,6 @@ const treeSchema = z.object({
     foliageShape: choiceSchema(LEAF_SHAPE),
     rootCount: numberSchema(ROOTS),
     asymmetry: z.number().min(0).max(1).catch(0.3),
-    trunkSpine: z.array(spinePointSchema).optional().catch(undefined),
 })
 
 /** The angle between successive branches, in radians. */
@@ -157,7 +149,8 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 const BRANCH_START = 0.32
 const BRANCH_END = 0.94
 
-type BranchParameters = {
+/** The curve a branch follows, used to place things that grow out of it. */
+type BranchCurve = {
     readonly length: number
     readonly baseRadius: number
     readonly tipRadius: number
@@ -167,7 +160,7 @@ type BranchParameters = {
 }
 
 /** The local shape of a branch at a point along its length. */
-function branchLocalPoint(parameters: BranchParameters, t: number): THREE.Vector3 {
+function branchLocalPoint(parameters: BranchCurve, t: number): THREE.Vector3 {
     return new THREE.Vector3(
         parameters.length * t,
         parameters.length * parameters.bend * t * t,
@@ -175,7 +168,7 @@ function branchLocalPoint(parameters: BranchParameters, t: number): THREE.Vector
     )
 }
 
-function branchLocalTangent(parameters: BranchParameters, t: number): THREE.Vector3 {
+function branchLocalTangent(parameters: BranchCurve, t: number): THREE.Vector3 {
     const a = branchLocalPoint(parameters, Math.max(t - 0.05, 0))
     const b = branchLocalPoint(parameters, Math.min(t + 0.05, 1))
 
@@ -208,7 +201,7 @@ interface BranchNode {
     readonly worldStart: THREE.Vector3
     readonly quaternion: THREE.Quaternion
     readonly direction: THREE.Vector3
-    readonly parameters: BranchParameters
+    readonly parameters: BranchCurve
     readonly depth: number
 }
 
@@ -249,10 +242,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
         // --- Trunk -------------------------------------------------------
         const azimuth = randomRange(random, 0, Math.PI * 2)
         const wobble = randomRange(random, -0.15, 0.15) * parameters.asymmetry
-        const spine =
-            parameters.trunkSpine && parameters.trunkSpine.length >= 2
-                ? parameters.trunkSpine
-                : buildTrunkSpine(parameters.bend, parameters.height, azimuth, wobble)
+        const spine = buildTrunkSpine(parameters.bend, parameters.height, azimuth, wobble)
 
         const trunkId = 'cmp-trunk-0'
         components.push({
@@ -269,6 +259,8 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 bend: parameters.bend,
                 twist: parameters.twist,
                 spine,
+                leanAzimuth: azimuth,
+                leanWobble: wobble,
             },
             seed: hashSeed(seed, 0),
             slot: 'trunk',
@@ -325,13 +317,19 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
             const trunkRadiusHere = parameters.trunkRadius * (1 - t * 0.55)
             const baseRadius = Math.max(trunkRadiusHere * randomRange(random, 0.22, 0.34), 0.012)
 
+            const length =
+                parameters.branchLength * randomRange(random, 0.7, 1.15) * (1.15 - t * 0.4)
+            const bend = randomRange(random, 0.25, 0.7)
+            const curl = randomRange(random, -0.25, 0.25)
+
             const branchParameters: BranchParameters = {
-                length: parameters.branchLength * randomRange(random, 0.7, 1.15) * (1.15 - t * 0.4),
+                length,
                 baseRadius,
                 tipRadius: Math.max(baseRadius * 0.3, 0.006),
-                bend: randomRange(random, 0.25, 0.7),
-                curl: randomRange(random, -0.25, 0.25),
+                bend,
+                curl,
                 twist: randomRange(random, -10, 10),
+                spine: buildBranchSpine(bend, curl, length),
             }
 
             const id = `cmp-branch-${nodes.length}`
@@ -400,13 +398,18 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
 
                     const baseRadius = Math.max(parent.parameters.baseRadius * 0.6, 0.008)
 
+                    const childLength = parent.parameters.length * randomRange(random, 0.5, 0.8)
+                    const childBend = randomRange(random, 0.3, 0.8)
+                    const childCurl = randomRange(random, -0.3, 0.3)
+
                     const branchParameters: BranchParameters = {
-                        length: parent.parameters.length * randomRange(random, 0.5, 0.8),
+                        length: childLength,
                         baseRadius,
                         tipRadius: Math.max(baseRadius * 0.3, 0.005),
-                        bend: randomRange(random, 0.3, 0.8),
-                        curl: randomRange(random, -0.3, 0.3),
+                        bend: childBend,
+                        curl: childCurl,
                         twist: randomRange(random, -12, 12),
+                        spine: buildBranchSpine(childBend, childCurl, childLength),
                     }
 
                     const id = `cmp-branch-${nodes.length + children.length}`
@@ -493,6 +496,9 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 .normalize()
 
             const baseRadius = Math.max(parameters.trunkRadius * randomRange(random, 0.25, 0.4), 0.02)
+            const rootLength = parameters.trunkRadius * randomRange(random, 3, 5.5)
+            const drop = randomRange(random, 0.15, 0.5)
+            const curl = randomRange(random, -0.35, 0.35)
 
             components.push({
                 id: `cmp-root-${i}`,
@@ -502,11 +508,12 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 parentId: trunkId,
                 transform: transformOf(new THREE.Vector3(0, 0.06, 0), rotationTowards(direction)),
                 parameters: {
-                    length: parameters.trunkRadius * randomRange(random, 3, 5.5),
+                    length: rootLength,
                     baseRadius,
                     tipRadius: Math.max(baseRadius * 0.18, 0.006),
-                    drop: randomRange(random, 0.15, 0.5),
-                    curl: randomRange(random, -0.35, 0.35),
+                    drop,
+                    curl,
+                    spine: buildRootSpine(drop, curl, rootLength),
                 },
                 seed: hashSeed(seed, 2000 + i),
                 slot: `root-${i}`,

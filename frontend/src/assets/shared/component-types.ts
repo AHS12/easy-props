@@ -24,11 +24,23 @@ export interface Transform {
  * A point along a spine.
  *
  * `t` runs from 0 at the base to 1 at the tip. `x` and `z` are offsets from
- * the axis in metres.
+ * the axis in metres. This is the trunk's layout: it rises along Y.
  */
 export interface SpinePoint {
     readonly t: number
     readonly x: number
+    readonly z: number
+}
+
+/**
+ * A point along a branch or a root.
+ *
+ * These parts are built along X and their transform points that axis at
+ * whatever they are attached to, so the offsets are `y` and `z`.
+ */
+export interface LimbSpinePoint {
+    readonly t: number
+    readonly y: number
     readonly z: number
 }
 

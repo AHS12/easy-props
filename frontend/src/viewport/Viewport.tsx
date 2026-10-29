@@ -1,13 +1,13 @@
 import {useEffect, useRef, useState} from 'react'
 import * as THREE from 'three'
-import type {SpinePoint} from '../assets/shared/geometry-utils'
-import {unTwistPosition} from '../assets/trees/components/trunk'
+import type {SpineLike} from '../assets/shared/spines'
 import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {createViewportScene, type ViewportScene} from './scene/create-scene'
 import {createHandles, type HandleSet} from './scene/handles'
-import {createPicker, pickIndex, pointerOnPlane} from './scene/picking'
+import {createPicker, pickNearestHandle, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
+import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
 import {ViewportOverlay} from './ViewportOverlay'
 
 /** A pointer that moves more than this counts as an orbit, not a click. */
@@ -16,44 +16,14 @@ const CLICK_THRESHOLD_PX = 5
 interface DragState {
     /** The index of the spine point being dragged. */
     readonly index: number
-    /** The height of the drag plane, which is the handle's own height. */
-    readonly height: number
-    /** The twist, needed to turn a world position back into a spine offset. */
-    readonly twist: number
     /** The spine as it was when the drag started. */
-    readonly spine: SpinePoint[]
+    readonly spine: PartSpine
+    /** The plane the point slides along, fixed for the whole drag. */
+    readonly plane: THREE.Plane
     /** The scene before the drag, so one undo step reverses the whole drag. */
-    readonly before: ReturnType<typeof useEditorStore.getState>['scene']
-}
-
-/** The trunk's spine, when the trunk is the component that is selected. */
-function selectedTrunkSpine(
-    scene: ReturnType<typeof useEditorStore.getState>['scene'],
-    componentId: string | null,
-): {spine: SpinePoint[]; height: number; twist: number} | null {
-    if (!componentId) {
-        return null
-    }
-
-    const asset = scene.assets[0]
-    const trunk = asset?.components.find(
-        (component) => component.id === componentId && component.type === 'trunk',
-    )
-
-    if (!trunk) {
-        return null
-    }
-
-    const spine = trunk.parameters.spine as SpinePoint[] | undefined
-    if (!Array.isArray(spine) || spine.length < 2) {
-        return null
-    }
-
-    return {
-        spine,
-        height: typeof trunk.parameters.height === 'number' ? trunk.parameters.height : 4,
-        twist: typeof trunk.parameters.twist === 'number' ? trunk.parameters.twist : 0,
-    }
+    readonly before: Scene
+    /** The most recent result, which is what gets committed. */
+    latest: readonly SpineLike[] | null
 }
 
 export function Viewport() {
@@ -86,7 +56,6 @@ export function Viewport() {
             viewport.components.group,
         ])
 
-        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
         const hit = new THREE.Vector3()
 
         let frame = 0
@@ -101,27 +70,18 @@ export function Viewport() {
         const observer = new ResizeObserver(() => viewport.resize())
         observer.observe(container)
 
-        /** Keeps the handles in step with the selected trunk. */
+        /** Keeps the handles in step with the selected part's spine. */
         const refreshHandles = () => {
             const state = store.getState()
-            const trunk = selectedTrunkSpine(state.scene, state.selection.selectedId)
+            const spine = selectedSpine(state.scene, state.selection.selectedId)
 
-            if (!trunk) {
+            if (!spine) {
                 handles.visible = false
                 handles.setPositions([])
                 return
             }
 
-            const positions = trunk.spine.map((point) => {
-                const twist = (trunk.twist * Math.PI) / 180
-                return new THREE.Vector3(
-                    point.x * Math.cos(twist * point.t) + point.z * Math.sin(twist * point.t),
-                    point.t * trunk.height,
-                    -point.x * Math.sin(twist * point.t) + point.z * Math.cos(twist * point.t),
-                )
-            })
-
-            handles.setPositions(positions)
+            handles.setPositions(spine.positions)
             handles.visible = true
         }
 
@@ -129,14 +89,12 @@ export function Viewport() {
             const drag = dragRef.current
 
             if (drag) {
-                plane.constant = -drag.height
-
                 const point = pointerOnPlane(
                     event.clientX,
                     event.clientY,
                     viewport.camera,
                     canvas,
-                    plane,
+                    drag.plane,
                     hit,
                 )
 
@@ -144,16 +102,9 @@ export function Viewport() {
                     return
                 }
 
-                const untwisted = unTwistPosition(point, drag.spine[drag.index].t, drag.twist)
-
-                const spine = drag.spine.map((existing, index) =>
-                    index === drag.index
-                        ? {...existing, x: untwisted.x, z: untwisted.z}
-                        : existing,
-                )
-
-                dragRef.current = {...drag, spine}
-                store.getState().previewTrunkSpine(spine)
+                const spine = movedSpine(drag.spine, drag.index, point)
+                drag.latest = spine
+                store.getState().previewSpine(drag.spine.componentId, spine)
                 return
             }
 
@@ -172,13 +123,13 @@ export function Viewport() {
             }
 
             const state = store.getState()
-            const trunk = selectedTrunkSpine(state.scene, state.selection.selectedId)
+            const spine = selectedSpine(state.scene, state.selection.selectedId)
 
-            if (!trunk) {
+            if (!spine) {
                 return
             }
 
-            const index = pickIndex(
+            const index = pickNearestHandle(
                 event.clientX,
                 event.clientY,
                 viewport.camera,
@@ -192,10 +143,10 @@ export function Viewport() {
 
             dragRef.current = {
                 index,
-                height: trunk.spine[index].t * trunk.height,
-                twist: trunk.twist,
-                spine: trunk.spine.map((point) => ({...point})),
+                spine,
+                plane: dragPlaneFor(spine, index),
                 before: state.scene,
+                latest: null,
             }
 
             // The camera must not orbit while a handle is being dragged.
@@ -210,7 +161,10 @@ export function Viewport() {
             viewport.controls.enabled = true
 
             if (drag) {
-                store.getState().commitTrunkShape(drag.before, drag.spine)
+                if (drag.latest) {
+                    store.getState().commitSpine(drag.before, drag.spine.componentId, drag.latest)
+                }
+
                 return
             }
 
@@ -262,6 +216,7 @@ export function Viewport() {
                 viewport.syncScene(state.scene)
                 setFaces(viewport.countFaces())
                 reframeIfNeeded(state.scene)
+                refreshHandles()
             }
 
             if (state.style !== previous.style) {

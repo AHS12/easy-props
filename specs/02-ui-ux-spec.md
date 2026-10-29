@@ -526,6 +526,14 @@ inviting.
 - Active/dragging: radius 1.6×, fill becomes `--accent-moss-500`.
 - The handle the mouse is nearest is highlighted; all handles of the selected
   component are visible, handles of unselected components are hidden.
+- Picked by screen distance (14px), not by raycasting the sphere. A handle
+  is a screen-sized helper, so it is picked the way it is drawn: a raycast
+  against a six-pixel sphere misses often enough to feel broken.
+- Every part with a spine has handles: the trunk, a branch, and a root. A
+  leaf clump has none, so selecting one shows no handles.
+- A handle moves across its part's axis only. On a trunk that is horizontal;
+  on a branch or root the drag plane turns with the part, so the handle
+  follows the pointer exactly.
 - Handles **draw on top of the geometry**. They sit on the control spine,
   which runs through the inside of the form, so depth-testing them would
   bury them where they are needed. Being reachable matters more than being

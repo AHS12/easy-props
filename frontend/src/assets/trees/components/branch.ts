@@ -6,8 +6,8 @@
  * what lets a branch attach to any parent at any angle.
  */
 
-import * as THREE from 'three'
 import {z} from 'zod'
+import type {LimbSpinePoint} from '../../shared/component-types'
 import type {PartGenerator} from '../../shared/generator-types'
 import {buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
 import {
@@ -16,6 +16,7 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
+import {spinePointPosition} from '../../shared/spines'
 
 export type BranchParameters = {
     readonly length: number
@@ -24,6 +25,8 @@ export type BranchParameters = {
     readonly bend: number
     readonly curl: number
     readonly twist: number
+    /** The draggable spine. Empty means "build the default from bend and curl". */
+    readonly spine: readonly LimbSpinePoint[]
 }
 
 const LENGTH = {
@@ -104,6 +107,12 @@ export const branchParameterSpecs: readonly ParameterSpec[] = [
     TWIST,
 ]
 
+const limbSpinePointSchema = z.object({
+    t: z.number().min(0).max(1),
+    y: z.number(),
+    z: z.number(),
+})
+
 const branchSchema = z.object({
     length: numberSchema(LENGTH),
     baseRadius: numberSchema(THICKNESS),
@@ -111,10 +120,29 @@ const branchSchema = z.object({
     bend: numberSchema(BEND),
     curl: numberSchema(CURL),
     twist: numberSchema(TWIST),
+    spine: z.array(limbSpinePointSchema).min(2).catch([]),
 })
 
 /** How many points along a branch. */
-const BRANCH_POINTS = 5
+export const BRANCH_POINTS = 5
+
+/**
+ * The default spine for a branch.
+ *
+ * Bend lifts the branch and curl swings it sideways, both growing toward the
+ * tip, so the end that attaches to its parent stays where it is.
+ */
+export function buildBranchSpine(
+    bend: number,
+    curl: number,
+    length: number,
+): LimbSpinePoint[] {
+    return Array.from({length: BRANCH_POINTS}, (_, index) => {
+        const t = index / (BRANCH_POINTS - 1)
+
+        return {t, y: length * bend * t * t, z: length * curl * t * t}
+    })
+}
 
 export const branchGenerator: PartGenerator<BranchParameters> = {
     id: 'branch',
@@ -124,42 +152,55 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
     parameters: branchParameterSpecs,
 
     createDefaultParameters(): BranchParameters {
+        const bend = BEND.default
+        const curl = CURL.default
+
         return {
             length: LENGTH.default,
             baseRadius: THICKNESS.default,
             tipRadius: TAPER.default,
-            bend: BEND.default,
-            curl: CURL.default,
+            bend,
+            curl,
             twist: TWIST.default,
+            spine: buildBranchSpine(bend, curl, LENGTH.default),
         }
     },
 
     validate(parameters: unknown): ValidationResult<BranchParameters> {
-        return validateParameters(branchSchema, parameters, this.createDefaultParameters())
+        const result = validateParameters(branchSchema, parameters, this.createDefaultParameters())
+
+        // A library entry only names the values it cares about, so a validated
+        // part must always come out with a spine the handles can find.
+        if (result.parameters.spine.length >= 2) {
+            return result
+        }
+
+        return {
+            ...result,
+            parameters: {
+                ...result.parameters,
+                spine: buildBranchSpine(
+                    result.parameters.bend,
+                    result.parameters.curl,
+                    result.parameters.length,
+                ),
+            },
+        }
     },
 
     generate(parameters, context) {
-        const points: THREE.Vector3[] = []
-        const radii: number[] = []
+        const spine =
+            parameters.spine.length >= 2
+                ? parameters.spine
+                : buildBranchSpine(parameters.bend, parameters.curl, parameters.length)
 
-        const twist = THREE.MathUtils.degToRad(parameters.twist)
+        const points = spine.map((point) =>
+            spinePointPosition(point, 'outward', parameters.length, parameters.twist),
+        )
 
-        for (let i = 0; i < BRANCH_POINTS; i++) {
-            const t = i / (BRANCH_POINTS - 1)
-
-            const point = new THREE.Vector3(
-                parameters.length * t,
-                parameters.length * parameters.bend * t * t,
-                parameters.length * parameters.curl * t * t,
-            )
-
-            if (twist !== 0) {
-                point.applyAxisAngle(new THREE.Vector3(1, 0, 0), twist * t)
-            }
-
-            points.push(point)
-            radii.push(taperedRadius(parameters.baseRadius, parameters.tipRadius, t))
-        }
+        const radii = spine.map((point) =>
+            taperedRadius(parameters.baseRadius, parameters.tipRadius, point.t),
+        )
 
         const geometry = buildTaperedTube({
             points,

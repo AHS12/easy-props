@@ -5,8 +5,12 @@
  * can hold on to before and after states without copying meshes.
  */
 
-import type {SceneComponent, SpinePoint} from '../../assets/shared/component-types'
+import type {SceneComponent} from '../../assets/shared/component-types'
 import type {StyleProfile} from '../../assets/style/style-profiles'
+import {reshapesSpine} from '../../assets/shared/spines'
+import {buildBranchSpine} from '../../assets/trees/components/branch'
+import {buildRootSpine} from '../../assets/trees/components/root'
+import {respineForBend, type BendAmount} from '../../assets/trees/components/trunk'
 import {generateTreeComponents} from '../../assets/trees/tree-generators'
 import type {Scene, SceneAsset} from './scene-model'
 
@@ -87,6 +91,57 @@ export function mergeGenerated(
     return [...merged, ...manual]
 }
 
+function numberOr(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+/**
+ * Rebuilds a part's default spine after a control that shapes it changes.
+ *
+ * Without this a dragged spine would leave Bend, Curl, and Drop dead: the
+ * slider would move and the part would not.
+ */
+function respineAfterPatch(
+    component: SceneComponent,
+    parameters: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+    switch (component.type) {
+        case 'trunk':
+            return {
+                ...parameters,
+                spine: respineForBend(
+                    parameters.bend as BendAmount,
+                    numberOr(parameters.height, 4),
+                    numberOr(parameters.leanAzimuth, 0),
+                    numberOr(parameters.leanWobble, 0),
+                ),
+            }
+
+        case 'branch':
+            return {
+                ...parameters,
+                spine: buildBranchSpine(
+                    numberOr(parameters.bend, 0),
+                    numberOr(parameters.curl, 0),
+                    numberOr(parameters.length, 1),
+                ),
+            }
+
+        case 'root':
+            return {
+                ...parameters,
+                spine: buildRootSpine(
+                    numberOr(parameters.drop, 0),
+                    numberOr(parameters.curl, 0),
+                    numberOr(parameters.length, 1),
+                ),
+            }
+
+        default:
+            return parameters
+    }
+}
+
 /**
  * Merges a patch into a component's generator parameters.
  *
@@ -98,14 +153,21 @@ export function updateComponentParameters(
     componentId: string,
     patch: Readonly<Record<string, unknown>>,
 ): Scene {
+    const keys = Object.keys(patch)
+
     return {
         ...scene,
         assets: scene.assets.map((asset) =>
-            mapComponent(asset, componentId, (component) => ({
-                ...component,
-                parameters: {...component.parameters, ...patch},
-                edited: true,
-            })),
+            mapComponent(asset, componentId, (component) => {
+                const merged = {...component.parameters, ...patch}
+                const reshapes = keys.some((key) => reshapesSpine(component.type, key))
+
+                return {
+                    ...component,
+                    parameters: reshapes ? respineAfterPatch(component, merged) : merged,
+                    edited: true,
+                }
+            }),
         ),
     }
 }
@@ -145,38 +207,6 @@ export function updateTreeParameters(
             }
 
             const parameters = {...asset.parameters, ...patch}
-            const generated = generateTreeComponents(
-                asset.generatorId,
-                parameters,
-                asset.seed,
-                style,
-            )
-
-            return {...asset, parameters, components: mergeGenerated(asset.components, generated)}
-        }),
-    }
-}
-
-/**
- * Records a hand-edited trunk spine.
- *
- * The spine is stored on the tree so that changing a tree-level parameter
- * does not throw the user's edit away.
- */
-export function setTrunkSpine(
-    scene: Scene,
-    assetId: string,
-    spine: readonly SpinePoint[],
-    style: StyleProfile,
-): Scene {
-    return {
-        ...scene,
-        assets: scene.assets.map((asset) => {
-            if (asset.id !== assetId) {
-                return asset
-            }
-
-            const parameters = {...asset.parameters, trunkSpine: spine}
             const generated = generateTreeComponents(
                 asset.generatorId,
                 parameters,

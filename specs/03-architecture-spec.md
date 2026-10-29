@@ -368,21 +368,42 @@ shows as an integer; a `ratio` shows as a percentage.
 Two kinds of parameter are not a single number. Both are still parameters,
 not mesh edits, so the scene graph stays the source of truth.
 
-**An editable spine.** The trunk already has one: five control points that
-the bend handles drag. A branch and a root get the same, so their tips can
-be dragged too. The coarse sliders (Length, Bend, Curl) regenerate a
-default spine; the spine is what the geometry is actually built from, so
-dragging a tip and moving a slider cannot fight each other.
+**An editable spine.** A trunk, a branch, and a root each carry a spine of
+control points that the handles drag. The coarse controls (Bend, Curl, Drop)
+regenerate the default spine; the spine is what the geometry is actually
+built from. Touching a coarse control replaces the dragged spine and moving
+a handle replaces the control's result, so neither can leave the other dead.
+
+The two layouts differ because the parts are built differently:
 
 ```ts
+/** The trunk: rises along Y, offsets on X and Z. */
 export interface SpinePoint {
-  /** 0 at the base, 1 at the tip. */
   readonly t: number
-  /** Offsets from the part's own axis, in metres. */
   readonly x: number
   readonly z: number
 }
+
+/** A branch or a root: reaches along X, offsets on Y and Z. */
+export interface LimbSpinePoint {
+  readonly t: number
+  readonly y: number
+  readonly z: number
+}
 ```
+
+A limb is built along X because its transform then points that axis at
+whatever it is attached to. `assets/shared/spines.ts` is the only place that
+knows the difference, so the generators and the handles are written once.
+
+A spine point can only move across its part's axis: those are the only two
+numbers stored beside `t`. The drag therefore happens in the plane through
+the handle that the axis is normal to, which means the handle lands exactly
+under the pointer. For a trunk that plane is horizontal; for a limb it turns
+with the limb.
+
+The spine lives on the component, not on the tree, so a hand-shaped part is
+protected by the same `edited` flag as any other parameter change.
 
 **A surface push.** Pushing or pulling a part's surface is recorded as a
 list of pushes on the part's parameters. Each push is applied to the
