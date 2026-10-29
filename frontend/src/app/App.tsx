@@ -1,8 +1,11 @@
-import {useEffect} from 'react'
+import {useEffect, useState} from 'react'
+import {COMMANDS, shortcutOf, type Command} from '../core/commands/commands'
 import {applyTheme, watchSystemTheme} from '../core/settings/theme'
 import {CoachMarks} from '../panels/CoachMarks'
+import {CommandPalette} from '../panels/CommandPalette'
 import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
+import {ShortcutsPanel} from '../panels/ShortcutsPanel'
 import {StatusStrip} from '../panels/StatusStrip'
 import {Toast} from '../panels/Toast'
 import {TopBar} from '../panels/TopBar'
@@ -12,68 +15,60 @@ import {Viewport} from '../viewport/Viewport'
 
 export function App() {
     const announcement = useEditorStore((state) => state.announcement)
-    const deselect = useEditorStore((state) => state.deselect)
-    const undo = useEditorStore((state) => state.undo)
-    const redo = useEditorStore((state) => state.redo)
-    const setStyle = useEditorStore((state) => state.setStyle)
-    const copyComponent = useEditorStore((state) => state.copyComponent)
-    const deleteComponent = useEditorStore((state) => state.deleteComponent)
-    const selectedId = useEditorStore((state) => state.selection.selectedId)
+    const [paletteOpen, setPaletteOpen] = useState(false)
+    const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+    const run = (command: Command) => {
+        // The two that open a panel are about the interface, not the document.
+        if (command.id === 'palette') {
+            setPaletteOpen((open) => !open)
+            return
+        }
+
+        if (command.id === 'shortcuts') {
+            setShortcutsOpen((open) => !open)
+            return
+        }
+
+        command.run(useEditorStore.getState())
+    }
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
             // Never steal a key from a field the user is typing in.
             const target = event.target as HTMLElement | null
-            if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) {
+            if (
+                target &&
+                (target.tagName === 'INPUT' ||
+                    target.tagName === 'SELECT' ||
+                    target.tagName === 'TEXTAREA')
+            ) {
                 return
             }
 
-            const modifier = event.ctrlKey || event.metaKey
+            const pressed = shortcutOf(event)
+            const command = COMMANDS.find((entry) => entry.shortcut === pressed)
 
-            if (modifier && event.key.toLowerCase() === 'z') {
+            if (!command) {
+                return
+            }
+
+            // Escape closes the panels first, so it never does two things.
+            if (pressed === 'Esc' && (paletteOpen || shortcutsOpen)) {
                 event.preventDefault()
-                if (event.shiftKey) {
-                    redo()
-                } else {
-                    undo()
-                }
+                setPaletteOpen(false)
+                setShortcutsOpen(false)
                 return
             }
 
-            if (modifier && event.key.toLowerCase() === 'd') {
-                if (selectedId) {
-                    event.preventDefault()
-                    copyComponent(selectedId)
-                }
-                return
-            }
-
-            if (event.key === 'Delete' || event.key === 'Backspace') {
-                if (selectedId) {
-                    event.preventDefault()
-                    deleteComponent(selectedId)
-                }
-                return
-            }
-
-            if (event.key === 'Escape') {
-                deselect()
-                return
-            }
-
-            if (!modifier && !event.altKey) {
-                if (event.key === '1') {
-                    setStyle('low-poly')
-                } else if (event.key === '2') {
-                    setStyle('detailed')
-                }
-            }
+            event.preventDefault()
+            run(command)
         }
 
         window.addEventListener('keydown', onKeyDown)
 
         return () => window.removeEventListener('keydown', onKeyDown)
-    }, [deselect, undo, redo, setStyle, copyComponent, deleteComponent, selectedId])
+    })
 
     useEffect(() => {
         applyTheme(useThemeStore.getState().theme)
@@ -94,6 +89,15 @@ export function App() {
             <StatusStrip />
             <CoachMarks />
             <Toast />
+            <CommandPalette
+                open={paletteOpen}
+                onClose={() => setPaletteOpen(false)}
+                onRun={(command) => {
+                    setPaletteOpen(false)
+                    run(command)
+                }}
+            />
+            <ShortcutsPanel open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
             <div className="visually-hidden" role="status" aria-live="polite">
                 {announcement}
             </div>

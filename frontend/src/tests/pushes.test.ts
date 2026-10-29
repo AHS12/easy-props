@@ -195,10 +195,10 @@ describe('turning a drag into a push', () => {
         expect(pulled?.strength).toBeLessThan(0)
     })
 
-    it('gives up when there is no direction on screen to measure', () => {
+    it('falls back to up-is-out when the surface faces the camera', () => {
         // A normal pointing straight down the view, at the very centre of the
-        // screen: projected, it is a dot, so a drag has nothing to measure
-        // against.
+        // screen: projected, it is a dot. Rather than doing nothing, the drag
+        // measures up-is-out, which is predictable and always available.
         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
         camera.position.set(0, 0, 10)
         camera.lookAt(0, 0, 0)
@@ -217,7 +217,12 @@ describe('turning a drag into a push', () => {
             pointer: {x: 500, y: 400},
         })
 
-        expect(gesture).toBeNull()
+        expect(gesture).not.toBeNull()
+        expect(gesture!.screenNormal.x).toBeCloseTo(0)
+        expect(gesture!.screenNormal.y).toBeCloseTo(-1)
+
+        // Dragging up pushes out.
+        expect(pushFor(gesture!, {x: 500, y: 340})!.strength).toBeGreaterThan(0)
     })
 
     it('stores the push in the part own space', () => {

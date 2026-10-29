@@ -37,6 +37,7 @@ import {createInitialScene, createSceneFromPreset, DEFAULT_PRESET_ID} from '../c
 import {
     addComponent,
     copyComponent as copyComponentInScene,
+    moveComponent as moveComponentInScene,
     removeComponent,
     restoreComponentDefault,
     setAssetSeed,
@@ -108,6 +109,8 @@ export interface EditorStore {
     commitPushes(before: Scene, componentId: string, pushes: readonly SurfacePush[]): void
     /** Replaces a part's pushes. Undoable. */
     setPushes(componentId: string, pushes: readonly SurfacePush[]): void
+    /** Moves a part along one axis, in metres. */
+    moveComponent(componentId: string, axis: 'x' | 'y' | 'z', value: number): void
     /** Changes the colours the tree is painted with. */
     updateMaterials(patch: Partial<SceneMaterials>, label: string): void
     /** Moves the sun. */
@@ -275,6 +278,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         setPushes: (componentId, pushes) =>
             commit('change pushes', (scene) => setSurfacePushes(scene, componentId, pushes)),
+
+        moveComponent: (componentId, axis, value) =>
+            commit(
+                `move ${axis}`,
+                (scene) => moveComponentInScene(scene, componentId, axis, value),
+            ),
 
         updateMaterials: (patch, label) =>
             commit(label, (scene) => ({

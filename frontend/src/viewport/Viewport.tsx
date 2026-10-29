@@ -9,7 +9,7 @@ import {createHandles, type HandleSet} from './scene/handles'
 import {createPicker, pickNearestHandle, pickSurface, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
-import {beginPush, pushFor, type PushGesture} from './scene/push-drag'
+import {beginPush, pixelsPerMetre, pushFor, type PushGesture} from './scene/push-drag'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import {ViewportOverlay} from './ViewportOverlay'
 
@@ -42,7 +42,9 @@ export function Viewport() {
     const dragRef = useRef<DragState | null>(null)
     const pushRef = useRef<{gesture: PushGesture; latest: SurfacePush | null} | null>(null)
     const compassRef = useRef<CompassHandle>(null)
+    const brushRef = useRef<HTMLDivElement>(null)
     const [faces, setFaces] = useState(0)
+    const shapeTool = useEditorStore((state) => state.shapeTool)
 
     /**
      * Looks down an axis, keeping the current distance from what the camera is
@@ -161,7 +163,44 @@ export function Viewport() {
                 return
             }
 
+            moveBrush(event)
             store.getState().setHover(picker.pick(event.clientX, event.clientY))
+        }
+
+        /**
+         * Puts the brush ring under the pointer, sized to the reach of the
+         * part it is over.
+         */
+        const moveBrush = (event: PointerEvent) => {
+            const ring = brushRef.current
+            if (!ring) {
+                return
+            }
+
+            if (store.getState().shapeTool === 'off') {
+                ring.dataset.visible = 'false'
+                return
+            }
+
+            const rect = container.getBoundingClientRect()
+            ring.style.left = `${event.clientX - rect.left}px`
+            ring.style.top = `${event.clientY - rect.top}px`
+
+            const hit = pickSurface(event.clientX, event.clientY, viewport.camera, canvas, [
+                viewport.components.group,
+            ])
+
+            if (!hit) {
+                ring.dataset.visible = 'false'
+                return
+            }
+
+            const height = canvas.clientHeight
+            const distance = hit.point.distanceTo(viewport.camera.position)
+            const radius = Math.max(hit.reach * pixelsPerMetre(viewport.camera, distance, height), 12)
+
+            ring.style.setProperty('--brush-radius', `${radius.toFixed(1)}px`)
+            ring.dataset.visible = 'true'
         }
 
         const onPointerDown = (event: PointerEvent) => {
@@ -173,14 +212,20 @@ export function Viewport() {
 
             const state = store.getState()
 
-            // The shape tool takes the pointer before anything else: a click
-            // on a surface is a push, not a selection.
+            // The shape tool takes the pointer before anything else: a drag on
+            // a surface is a push, not a selection.
             if (state.shapeTool !== 'off') {
                 const hit = pickSurface(event.clientX, event.clientY, viewport.camera, canvas, [
                     viewport.components.group,
                 ])
 
-                if (hit && hit.componentId === state.selection.selectedId) {
+                if (hit) {
+                    // Touching a part with the tool armed selects it, so the
+                    // tool is never a dead end on a fresh scene.
+                    if (hit.componentId !== state.selection.selectedId) {
+                        store.getState().select(hit.componentId)
+                    }
+
                     const gesture = beginPush({
                         scene: state.scene,
                         componentId: hit.componentId,
@@ -285,6 +330,11 @@ export function Viewport() {
         const onPointerLeave = () => {
             pointerDownRef.current = null
             store.getState().setHover(null)
+
+            const ring = brushRef.current
+            if (ring) {
+                ring.dataset.visible = 'false'
+            }
         }
 
         canvas.addEventListener('pointermove', onPointerMove)
@@ -362,12 +412,13 @@ export function Viewport() {
     }, [])
 
     return (
-        <div className="viewport">
+        <div className="viewport" data-tool={shapeTool}>
             <div ref={containerRef} style={{position: 'absolute', inset: 0}} />
             <div className="viewport__hint">
                 Left drag to orbit · right drag to pan · scroll to zoom
             </div>
             <div className="viewport__faces">{faces.toLocaleString()} faces</div>
+            <div ref={brushRef} className="viewport__brush" data-visible="false" />
             <Compass ref={compassRef} onSnap={snapToAxis} />
             <ViewportOverlay />
         </div>

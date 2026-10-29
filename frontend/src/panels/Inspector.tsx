@@ -92,6 +92,36 @@ function ParameterControls({
     )
 }
 
+/** A plain number field, for values that have no sensible range. */
+function NumberField({
+    label,
+    value,
+    onChange,
+}: {
+    label: string
+    value: number
+    onChange: (next: number) => void
+}) {
+    return (
+        <label className="num">
+            <span className="num__label">{label}</span>
+            <input
+                className="num__input"
+                type="number"
+                step={0.05}
+                value={Number(value.toFixed(3))}
+                onChange={(event) => {
+                    const next = Number(event.target.value)
+
+                    if (Number.isFinite(next)) {
+                        onChange(next)
+                    }
+                }}
+            />
+        </label>
+    )
+}
+
 function Group({
     title,
     help,
@@ -146,6 +176,7 @@ export function Inspector() {
     const restoreComponent = useEditorStore((state) => state.restoreComponent)
     const restoreTree = useEditorStore((state) => state.restoreTree)
     const setPushes = useEditorStore((state) => state.setPushes)
+    const moveComponent = useEditorStore((state) => state.moveComponent)
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
@@ -284,6 +315,21 @@ export function Inspector() {
                 <Group title={generator?.label ?? 'Part'} help="What this part looks like.">
                     <ParameterControls specs={specs} values={values} onChange={change} />
                 </Group>
+
+                {/* The trunk is the tree's base, so moving it would take the
+                    root of everything with it. */}
+                {isTrunk ? null : (
+                    <Group title="Position" help="Where the part sits, in metres.">
+                        {(['x', 'y', 'z'] as const).map((axis, index) => (
+                            <NumberField
+                                key={axis}
+                                label={axis.toUpperCase()}
+                                value={component.transform.position[index]}
+                                onChange={(next) => moveComponent(component.id, axis, next)}
+                            />
+                        ))}
+                    </Group>
+                )}
 
                 {pushes.length > 0 ? (
                     <Group

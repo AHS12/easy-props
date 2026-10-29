@@ -244,6 +244,28 @@ export function updateComponentParameters(
     }
 }
 
+/** Moves a component along one axis, in metres. */
+export function moveComponent(
+    scene: Scene,
+    componentId: string,
+    axis: 'x' | 'y' | 'z',
+    value: number,
+): Scene {
+    const index = {x: 0, y: 1, z: 2}[axis]
+
+    return {
+        ...scene,
+        assets: scene.assets.map((asset) =>
+            mapComponent(asset, componentId, (component) => {
+                const position = [...component.transform.position] as [number, number, number]
+                position[index] = value
+
+                return {...component, transform: {...component.transform, position}}
+            }),
+        ),
+    }
+}
+
 /** Replaces a component's list of surface pushes. */
 export function setSurfacePushes(
     scene: Scene,

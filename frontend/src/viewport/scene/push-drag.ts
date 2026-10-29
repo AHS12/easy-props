@@ -68,6 +68,14 @@ export function beginPush(options: BeginOptions): PushGesture | null {
         return null
     }
 
+    // Only a part whose generator knows about pushes can carry one. A leaf
+    // clump is a clump: it is shaped by its size and shape, not by sculpting.
+    // Selecting it and doing nothing would look broken, so the gesture simply
+    // does not start and the part is selected as usual.
+    if (!Array.isArray(component.parameters.pushes)) {
+        return null
+    }
+
     const matrix = matrixOf(component)
     const inverse = matrix.clone().invert()
 
@@ -90,11 +98,15 @@ export function beginPush(options: BeginOptions): PushGesture | null {
         (-(end.y - start.y) / 2) * height,
     )
 
-    if (screenNormal.lengthSq() < 1e-9) {
-        return null
+    // A surface facing the camera has no direction on screen of its own, so
+    // the drag would measure nothing and the tool would feel dead. Fall back
+    // to up-is-out, which is predictable and always gives the user something
+    // to work with.
+    if (screenNormal.lengthSq() < 1e-6) {
+        screenNormal.set(0, -1)
+    } else {
+        screenNormal.normalize()
     }
-
-    screenNormal.normalize()
 
     const distance = point.distanceTo(camera.position)
     const fieldOfView =
@@ -139,4 +151,25 @@ export function pushFor(
         strength,
         radius: gesture.reach,
     }
+}
+
+/**
+ * How many screen pixels one metre covers at a given distance.
+ *
+ * Used to size the brush ring to the push's actual reach.
+ */
+export function pixelsPerMetre(
+    camera: THREE.Camera,
+    distance: number,
+    viewportHeight: number,
+): number {
+    if (viewportHeight <= 0) {
+        return 1
+    }
+
+    const fieldOfView = camera instanceof THREE.PerspectiveCamera ? camera.fov : 45
+    const metresPerPixel =
+        (2 * Math.tan(THREE.MathUtils.degToRad(fieldOfView) / 2) * distance) / viewportHeight
+
+    return metresPerPixel > 0 ? 1 / metresPerPixel : 1
 }
