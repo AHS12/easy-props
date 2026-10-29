@@ -11,16 +11,18 @@ import {findComponentGenerator} from '../../assets/trees/component-generators'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {MaterialKind} from '../../assets/shared/generator-types'
+import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
+import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets/style/shading'
 import type {StyleProfile} from '../../assets/style/style-profiles'
-import type {Scene} from '../../core/scene/scene-model'
-import {MATERIAL_COLORS, VIEWPORT_COLORS} from './materials'
+import type {Scene, SceneMaterials} from '../../core/scene/scene-model'
+import {VIEWPORT_COLORS} from './materials'
 
-const MATERIAL_BY_KIND: Readonly<Record<MaterialKind, string>> = {
-    bark: MATERIAL_COLORS.bark,
-    'bark-light': MATERIAL_COLORS.barkLight,
-    leaves: MATERIAL_COLORS.leaves,
-    'leaves-dark': MATERIAL_COLORS.leavesDark,
-    coconut: MATERIAL_COLORS.coconut,
+export {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode}
+
+export interface ComponentMaterials {
+    readonly lit: THREE.MeshStandardMaterial
+    readonly flat: THREE.MeshBasicMaterial
+    readonly wire: THREE.MeshBasicMaterial
 }
 
 export interface RenderedComponent {
@@ -28,18 +30,35 @@ export interface RenderedComponent {
     readonly group: THREE.Group
     readonly mesh: THREE.Mesh
     readonly outline: THREE.Mesh
-    readonly material: THREE.MeshStandardMaterial
+    readonly materials: ComponentMaterials
+    readonly materialKind: MaterialKind
     readonly signature: string
 }
 
 export interface ComponentRenderer {
     readonly group: THREE.Group
     /** Brings the renderer in line with the scene graph. */
-    sync(scene: Scene, style: StyleProfile): void
+    sync(scene: Scene, style: StyleProfile, shading: ShadingMode): void
     get(componentId: string): RenderedComponent | undefined
     /** Every rendered component. */
     all(): readonly RenderedComponent[]
     dispose(): void
+}
+
+/** The colour a material kind is painted with, given the tree's colours. */
+export function materialColor(kind: MaterialKind, materials: SceneMaterials): string {
+    switch (kind) {
+        case 'bark':
+            return materials.bark
+        case 'bark-light':
+            return lighten(materials.bark, 0.2)
+        case 'leaves':
+            return materials.leaves
+        case 'leaves-dark':
+            return darken(materials.leaves, 0.24)
+        case 'coconut':
+            return MATERIAL_COLORS.coconut
+    }
 }
 
 /**
@@ -61,6 +80,7 @@ function buildComponent(
     component: SceneComponent,
     style: StyleProfile,
     signature: string,
+    materials: SceneMaterials,
 ): RenderedComponent | undefined {
     const generator = findComponentGenerator(component.generatorId)
 
@@ -76,14 +96,23 @@ function buildComponent(
         style,
     })
 
-    const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(MATERIAL_BY_KIND[part.material]),
+    const color = new THREE.Color(materialColor(part.material, materials))
+
+    const lit = new THREE.MeshStandardMaterial({
+        color,
         roughness: 0.85,
         metalness: 0,
         flatShading: style.flatShading,
     })
 
-    const mesh = new THREE.Mesh(part.geometry, material)
+    const flat = new THREE.MeshBasicMaterial({color})
+
+    const wire = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(VIEWPORT_COLORS.wireframe),
+        wireframe: true,
+    })
+
+    const mesh = new THREE.Mesh(part.geometry, lit)
     mesh.castShadow = true
     mesh.receiveShadow = true
     mesh.name = `${component.type}_${component.id}`
@@ -113,7 +142,15 @@ function buildComponent(
     group.rotation.set(...component.transform.rotation)
     group.scale.set(...component.transform.scale)
 
-    return {id: component.id, group, mesh, outline, material, signature}
+    return {
+        id: component.id,
+        group,
+        mesh,
+        outline,
+        materials: {lit, flat, wire},
+        materialKind: part.material,
+        signature,
+    }
 }
 
 export function createComponentRenderer(): ComponentRenderer {
@@ -122,16 +159,34 @@ export function createComponentRenderer(): ComponentRenderer {
 
     const rendered = new Map<string, RenderedComponent>()
 
+    let shading: ShadingMode = 'lit'
+
+    const applyShading = (component: RenderedComponent) => {
+        component.mesh.material =
+            shading === 'lit'
+                ? component.materials.lit
+                : shading === 'flat'
+                  ? component.materials.flat
+                  : component.materials.wire
+
+        // Shadows only belong to the finished look.
+        component.mesh.castShadow = shading === 'lit'
+        component.mesh.receiveShadow = shading === 'lit'
+    }
+
     const disposeComponent = (component: RenderedComponent) => {
         component.mesh.geometry.dispose()
-        component.material.dispose()
+        component.materials.lit.dispose()
+        component.materials.flat.dispose()
+        component.materials.wire.dispose()
+        ;(component.outline.material as THREE.Material).dispose()
         component.group.removeFromParent()
     }
 
     return {
         group,
 
-        sync(scene, style) {
+        sync(scene, style, nextShading) {
             const asset = scene.assets[0]
 
             if (!asset) {
@@ -140,6 +195,10 @@ export function createComponentRenderer(): ComponentRenderer {
                 }
                 rendered.clear()
                 return
+            }
+
+            if (nextShading !== shading) {
+                shading = nextShading
             }
 
             const seen = new Set<string>()
@@ -151,6 +210,13 @@ export function createComponentRenderer(): ComponentRenderer {
                 const existing = rendered.get(component.id)
 
                 if (existing && existing.signature === signature) {
+                    // The geometry is unchanged. Only the colours can differ.
+                    const color = new THREE.Color(
+                        materialColor(existing.materialKind, asset.materials),
+                    )
+                    existing.materials.lit.color.copy(color)
+                    existing.materials.flat.color.copy(color)
+                    applyShading(existing)
                     continue
                 }
 
@@ -159,9 +225,10 @@ export function createComponentRenderer(): ComponentRenderer {
                     rendered.delete(component.id)
                 }
 
-                const created = buildComponent(component, style, signature)
+                const created = buildComponent(component, style, signature, asset.materials)
 
                 if (created) {
+                    applyShading(created)
                     rendered.set(component.id, created)
                     group.add(created.group)
                 }

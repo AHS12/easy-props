@@ -732,33 +732,88 @@ focus and return it to the trigger on close.
 
 ### 7.2 Lighting
 
-- Hemisphere light: sky `#CFE3D0`, ground `#4A3B2E`, intensity 0.55. This
-  fills the shadow side so nothing reads as black.
-- Key directional light from the upper-left-front, `#FFF6E8`, intensity 1.6,
-  casting soft shadows (2048 map, radius 4).
-- A dim fill directional light from the opposite side, `#D8E6F0`, intensity
-  0.25, to keep the dark side readable.
+The light in the viewport is a **sun**. It is not a fixed rig: the user can
+move it, and the shadow follows.
+
+- **Sun.** A directional light. Its direction comes from two numbers the user
+  can think about in plain words:
+  - *Around* — the azimuth, in degrees. 0 is behind the tree.
+  - *Up* — the elevation, in degrees above the horizon.
+- Sun colour runs from `#FFF4E2` (cool white) to `#FFB35C` (deep golden) as
+  the *warmth* rises. Intensity is 1.7 to 2.5.
+- **Shadow.** 2048 map, radius 3, `normalBias` 0.035, `bias` -0.0002. The
+  shadow camera is fitted to the tree's bounds every time the tree changes,
+  so the shadow is always sharp at the tree's size.
+- **Sky fill.** A hemisphere light, sky `#C6DCEA` to `#D9C9A8` with the
+  warmth, ground `#4A3B2E`. Its intensity rises as the sun falls, because a
+  low sun means the sky is doing more of the work. Nothing reads as black.
+- **Fill.** A dim directional light from the opposite side of the sun,
+  `#CFE0F0`, intensity 0.45, to keep the dark side readable.
 - The renderer uses ACES filmic tone mapping, exposure 1.0, and sRGB output.
 
-### 7.3 Camera default
+#### Sun controls
+
+A panel in the viewport's top-right, opened by a sun button.
+
+- **Sun dial.** A top-down circle. The tree sits in the middle and the sun
+  travels around it. The sun nearer the centre is higher in the sky, which is
+  how the sky looks from the ground. Drag to move it. Arrow keys move it in
+  5° steps, 15° with Shift.
+- **Time of day.** Four buttons: Morning, Midday, Golden, Dusk. Each sets
+  the sun's position, warmth, and shadow strength together. A button is
+  highlighted only when the lighting matches it exactly, so dragging the dial
+  away from a preset clears the highlight rather than lying.
+- **Shadow.** A slider from None to Full.
+
+The sun and the shadow are a view preference. They are not part of the tree,
+so they are not undoable and they do not travel into the export.
+
+### 7.3 Shading modes
+
+Three ways to draw the tree, chosen from a row of buttons in the viewport's
+top-right.
+
+| Mode | What it shows |
+|---|---|
+| **Lit** | The finished look, with the sun and its shadow. |
+| **Flat** | One flat colour per part, no lighting. For reading the silhouette. |
+| **Wireframe** | The triangles the tree is made of. |
+
+Shadows are only drawn in Lit mode. The mode is a view preference and is not
+undoable.
+
+### 7.4 Camera default
 
 - Perspective, 45° fov, near 0.05, far 500.
-- Position (6, 4.5, 8) looking at (0, 2, 0), framing a 6m tree.
-- On preset change, the camera eases to reframe the new tree over
-  `--motion-slow` rather than cutting.
+- The camera frames the tree from its height: the distance is 2.7× the tree's
+  height, and the target sits at 58% of it, because the canopy reaches wider
+  and taller than the trunk.
+- The frame is recomputed when the height changes by more than 20%, so a
+  tree that is twice as tall stays in view.
 
-### 7.4 Geometry palette
+### 7.5 Colours
 
-Generated geometry uses a small fixed material set so a tree always reads as a
-coherent object:
+The tree is painted with two colours the user chooses. They are part of the
+tree, so they are undoable and they travel into the export.
 
-| Material | Color | Use |
-|---|---|---|
-| Bark | `#6B4E35` | Trunks, branches, roots |
-| Bark light | `#8A6A4F` | Young branches, palm trunk rings |
-| Leaves | `#4E7D3E` | Foliage clumps, palm leaflets |
-| Leaves dark | `#3A6130` | Shadowed clumps, layered foliage |
-| Coconut | `#7A5C3E` | Coconut clusters |
+- **Trunk** — the bark, used by the trunk, branches, and roots.
+- **Leaves** — the foliage clumps.
+
+The other tones are derived, not chosen, so they always belong:
+
+| Tone | How it is made |
+|---|---|
+| Bark light | The bark colour, 20% towards white |
+| Leaves dark | The leaf colour, 24% towards black |
+| Coconut | Fixed `#7A5C3E` |
+
+Each colour is a row of six named swatches plus a custom swatch that opens
+the operating system's own colour picker. Named swatches come first: a
+beginner looking at a tree knows it is brown and not what hex brown is.
+
+- Bark: Warm brown, Pale grey, Dark brown, Red-brown, Grey-brown, Birch
+  white.
+- Leaves: Fresh green, Deep green, Olive, Autumn orange, Gold, Grey-green.
 
 Flat shading is available in the Low-poly style.
 

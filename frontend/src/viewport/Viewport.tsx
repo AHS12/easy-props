@@ -8,6 +8,7 @@ import {createViewportScene, type ViewportScene} from './scene/create-scene'
 import {createHandles, type HandleSet} from './scene/handles'
 import {createPicker, pickIndex, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
+import {ViewportOverlay} from './ViewportOverlay'
 
 /** A pointer that moves more than this counts as an orbit, not a click. */
 const CLICK_THRESHOLD_PX = 5
@@ -266,6 +267,15 @@ export function Viewport() {
                 setFaces(viewport.countFaces())
             }
 
+            if (state.lighting !== previous.lighting) {
+                viewport.setLighting(state.lighting)
+            }
+
+            if (state.shadingMode !== previous.shadingMode) {
+                viewport.setShadingMode(state.shadingMode)
+                viewport.syncScene(state.scene)
+            }
+
             if (state.selection !== previous.selection) {
                 applySelectionVisuals(viewport, state.selection)
                 refreshHandles()
@@ -273,6 +283,8 @@ export function Viewport() {
         })
 
         viewport.syncScene(store.getState().scene)
+        viewport.setLighting(store.getState().lighting)
+        viewport.setShadingMode(store.getState().shadingMode)
         applySelectionVisuals(viewport, store.getState().selection)
         refreshHandles()
         setFaces(viewport.countFaces())
@@ -308,6 +320,7 @@ export function Viewport() {
                     <line x1="0" y1="0" x2="8" y2="9" stroke="#5f8fd1" strokeWidth="2" strokeLinecap="round" />
                 </svg>
             </div>
+            <ViewportOverlay />
         </div>
     )
 }

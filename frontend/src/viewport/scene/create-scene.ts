@@ -6,10 +6,21 @@
  */
 
 import * as THREE from 'three'
+import {
+    DEFAULT_LIGHTING,
+    ambientColor,
+    sunColor,
+    sunDirection,
+    type SceneLighting,
+} from '../../assets/style/lighting'
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
 import type {Scene} from '../../core/scene/scene-model'
 import {attachCameraControls} from './camera-controls'
-import {createComponentRenderer, type ComponentRenderer} from './component-renderer'
+import {
+    createComponentRenderer,
+    type ComponentRenderer,
+    type ShadingMode,
+} from './component-renderer'
 import {VIEWPORT_COLORS} from './materials'
 
 export interface ViewportScene {
@@ -22,6 +33,10 @@ export interface ViewportScene {
     syncScene(scene: Scene): void
     /** Frames the whole tree. */
     frameScene(scene: Scene): void
+    /** Moves the sun and re-lights the scene. */
+    setLighting(lighting: SceneLighting): void
+    /** Switches between the lit, flat, and wireframe views. */
+    setShadingMode(mode: ShadingMode): void
     /** Applies a new style profile. The scene is resynced afterwards. */
     setStyle(styleId: StyleProfileId): void
     /** Faces in the content, excluding rendering helpers such as outlines. */
@@ -90,29 +105,34 @@ function createCamera(container: HTMLElement): THREE.PerspectiveCamera {
     return camera
 }
 
-function addLighting(scene: THREE.Scene): void {
+interface Lights {
+    readonly hemisphere: THREE.HemisphereLight
+    readonly sun: THREE.DirectionalLight
+    readonly fill: THREE.DirectionalLight
+}
+
+function addLighting(scene: THREE.Scene): Lights {
     // Fills the shadow side so nothing reads as black.
-    const hemisphere = new THREE.HemisphereLight(0xcfe3d0, 0x6b5a45, 0.8)
+    const hemisphere = new THREE.HemisphereLight(0xc6dcea, 0x4a3b2e, 0.75)
     scene.add(hemisphere)
 
-    const key = new THREE.DirectionalLight(0xfff6e8, 1.6)
-    key.position.set(-8, 9, 2)
-    key.castShadow = true
-    key.shadow.mapSize.set(2048, 2048)
-    key.shadow.radius = 4
-    key.shadow.camera.near = 0.5
-    key.shadow.camera.far = 30
-    key.shadow.camera.left = -8
-    key.shadow.camera.right = 8
-    key.shadow.camera.top = 8
-    key.shadow.camera.bottom = -8
-    key.shadow.bias = -0.0005
-    scene.add(key)
+    const sun = new THREE.DirectionalLight(0xfff4e2, 2.1)
+    sun.castShadow = true
+    sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.radius = 3
+    sun.shadow.camera.near = 0.5
+    sun.shadow.camera.far = 60
+    // A normal bias kills the acne that a low sun would otherwise bring.
+    sun.shadow.normalBias = 0.035
+    sun.shadow.bias = -0.0002
+    scene.add(sun)
+    scene.add(sun.target)
 
-    // Dim fill from the opposite side.
-    const fill = new THREE.DirectionalLight(0xd8e6f0, 0.45)
-    fill.position.set(6, 3, -5)
+    // Dim fill from the opposite side so the dark side stays readable.
+    const fill = new THREE.DirectionalLight(0xcfe0f0, 0.4)
     scene.add(fill)
+
+    return {hemisphere, sun, fill}
 }
 
 function addGround(scene: THREE.Scene): void {
@@ -147,7 +167,7 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
     scene.background = new THREE.Color(VIEWPORT_COLORS.background)
     scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.background), 18, 46)
 
-    addLighting(scene)
+    const lights = addLighting(scene)
     addGround(scene)
 
     const controls = attachCameraControls(camera, renderer.domElement)
@@ -156,6 +176,52 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
     scene.add(components.group)
 
     let currentStyleId = styleId
+    let shading: ShadingMode = 'lit'
+    let lighting: SceneLighting = DEFAULT_LIGHTING
+
+    /** The centre and radius the shadow camera has to cover. */
+    const bounds = new THREE.Box3()
+    const sphere = new THREE.Sphere()
+
+    const applyLighting = () => {
+        const direction = sunDirection(lighting)
+
+        lights.sun.target.position.copy(sphere.center)
+        lights.sun.target.updateMatrixWorld()
+
+        // The sun sits far enough back that its shadow map covers the tree.
+        const distance = Math.max(sphere.radius * 3, 12)
+        lights.sun.position.copy(sphere.center).add(direction.clone().multiplyScalar(distance))
+
+        lights.sun.color.copy(sunColor(lighting.warmth))
+        lights.sun.intensity = 1.7 + lighting.warmth * 0.8
+        lights.sun.castShadow = lighting.shadowStrength > 0.02
+        lights.sun.shadow.intensity = lighting.shadowStrength
+
+        // A low sun means the sky is doing more of the work, so the fill
+        // rises as the sun falls. Nothing reads as black.
+        const height = lighting.elevation / 90
+        lights.hemisphere.color.copy(ambientColor(lighting.warmth))
+        lights.hemisphere.groundColor.set(lighting.warmth > 0.6 ? '#5a4530' : '#4a3b2e')
+        lights.hemisphere.intensity = 0.85 + (1 - height) * 0.75
+
+        // The fill comes from the opposite side of the sun.
+        lights.fill.position.set(-direction.x, 0.4, -direction.z).multiplyScalar(10)
+        lights.fill.intensity = 0.45
+    }
+
+    const fitShadow = () => {
+        const radius = Math.max(sphere.radius, 2)
+        const camera = lights.sun.shadow.camera
+
+        camera.left = -radius
+        camera.right = radius
+        camera.top = radius
+        camera.bottom = -radius
+        camera.near = 0.1
+        camera.far = radius * 6
+        camera.updateProjectionMatrix()
+    }
 
     return {
         renderer,
@@ -165,7 +231,16 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         components,
 
         syncScene(nextScene) {
-            components.sync(nextScene, getStyleProfile(currentStyleId))
+            components.sync(nextScene, getStyleProfile(currentStyleId), shading)
+
+            bounds.setFromObject(components.group)
+            if (bounds.isEmpty()) {
+                bounds.set(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 4, 1))
+            }
+            bounds.getBoundingSphere(sphere)
+
+            fitShadow()
+            applyLighting()
         },
 
         frameScene(nextScene) {
@@ -182,6 +257,18 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
                 .copy(controls.target)
                 .add(new THREE.Vector3(-0.62, 0.36, 0.62).normalize().multiplyScalar(distance))
             controls.update()
+        },
+
+        setLighting(nextLighting) {
+            lighting = nextLighting
+            applyLighting()
+        },
+
+        setShadingMode(mode) {
+            shading = mode
+            // The shadow belongs to the finished look only.
+            renderer.shadowMap.enabled = mode === 'lit'
+            renderer.shadowMap.needsUpdate = true
         },
 
         setStyle(nextStyleId) {

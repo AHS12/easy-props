@@ -7,6 +7,7 @@
 import {treePresets} from '../../assets/trees/presets'
 import {generateTreeComponents} from '../../assets/trees/tree-generators'
 import {getStyleProfile} from '../../assets/style/style-profiles'
+import {DEFAULT_MATERIALS} from '../../assets/style/materials'
 import type {Scene} from './scene-model'
 
 export const DEFAULT_PRESET_ID = treePresets[0].id
@@ -33,6 +34,7 @@ export function createSceneFromPreset(presetId: string): Scene {
                 components,
                 seed: preset.seed,
                 parameters: preset.parameters,
+                materials: DEFAULT_MATERIALS,
             },
         ],
     }

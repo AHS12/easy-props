@@ -8,6 +8,12 @@
 import {create} from 'zustand'
 import type {StyleProfileId} from '../assets/style/style-profiles'
 import {getStyleProfile} from '../assets/style/style-profiles'
+import {
+    DEFAULT_LIGHTING,
+    TIME_OF_DAY,
+    type SceneLighting,
+    type TimeOfDay,
+} from '../assets/style/lighting'
 import type {SpinePoint} from '../assets/shared/geometry-utils'
 import {hashSeed} from '../assets/shared/random'
 import {
@@ -33,7 +39,8 @@ import {
     updateComponentParameters,
     updateTreeParameters,
 } from '../core/scene/scene-ops'
-import type {Scene} from '../core/scene/scene-model'
+import type {Scene, SceneMaterials} from '../core/scene/scene-model'
+import type {ShadingMode} from '../assets/style/shading'
 
 export type EditorStatus = {
     readonly state: 'ready' | 'busy' | 'error'
@@ -45,6 +52,10 @@ export interface EditorStore {
     style: StyleProfileId
     /** The preset the tree came from, so the rail can show which is active. */
     presetId: string
+    /** Where the sun is and how strong the shadow is. */
+    lighting: SceneLighting
+    /** How the viewport draws the tree. */
+    shadingMode: ShadingMode
     selection: SelectionState
     status: EditorStatus
     announcement: string
@@ -70,6 +81,14 @@ export interface EditorStore {
     previewTrunkSpine(spine: readonly SpinePoint[]): void
     /** Records the trunk edit that a drag ended with. */
     commitTrunkShape(before: Scene, spine: readonly SpinePoint[]): void
+    /** Changes the colours the tree is painted with. */
+    updateMaterials(patch: Partial<SceneMaterials>, label: string): void
+    /** Moves the sun. */
+    setLighting(lighting: SceneLighting): void
+    /** Moves the sun to a named time of day. */
+    setTimeOfDay(time: TimeOfDay): void
+    /** Switches the viewport between lit, flat, and wireframe. */
+    setShadingMode(mode: ShadingMode): void
     applyPreset(presetId: string): void
     /** Rerolls the tree's variation while keeping its shape. */
     randomizeTree(): void
@@ -117,6 +136,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         scene: createInitialScene(),
         style: 'low-poly',
         presetId: DEFAULT_PRESET_ID,
+        lighting: DEFAULT_LIGHTING,
+        shadingMode: 'lit',
         selection: EMPTY_SELECTION,
         status: {state: 'ready'},
         announcement: '',
@@ -192,6 +213,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     setTrunkSpineInScene(scene, FIRST_ASSET_ID, spine, getStyleProfile(style)),
                 before,
             ),
+
+        updateMaterials: (patch, label) =>
+            commit(label, (scene) => ({
+                ...scene,
+                assets: scene.assets.map((asset) =>
+                    asset.id === FIRST_ASSET_ID
+                        ? {...asset, materials: {...asset.materials, ...patch}}
+                        : asset,
+                ),
+            })),
+
+        setLighting: (lighting) => set({lighting}),
+
+        setTimeOfDay: (time) => set({lighting: TIME_OF_DAY[time]}),
+
+        setShadingMode: (shadingMode) => set({shadingMode}),
 
         applyPreset: (presetId) => {
             const state = get()

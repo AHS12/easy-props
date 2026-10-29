@@ -89,6 +89,9 @@ would keep.
 | 2.11 | Handle: trunk bend points | Drag to reshape the trunk |
 | 2.12 | Undo/redo | Command stack |
 | 2.13 | Style toggle | Top bar, live, preserving structure |
+| 2.14 | The sun | A movable sun with a shadow, time-of-day presets, and shadow strength |
+| 2.15 | Shading modes | Lit, flat, and wireframe in the viewport |
+| 2.16 | Colours | Bark and leaf colours from named swatches, carried into the export |
 
 ### Definition of done
 

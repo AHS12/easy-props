@@ -252,6 +252,17 @@ export interface SceneAsset {
   /** Flat list. parentId expresses hierarchy. */
   readonly components: readonly SceneComponent[]
   readonly seed: number
+  /** The tree's own parameters, shown as tree-level controls. */
+  readonly parameters: Readonly<Record<string, number | string>>
+  /** The colours the tree is painted with. Part of the tree, so it is
+   *  undoable and it travels into the export. */
+  readonly materials: SceneMaterials
+}
+
+/** The colours the user chooses. Everything else is derived from these. */
+export interface SceneMaterials {
+  readonly bark: string
+  readonly leaves: string
 }
 
 export interface Scene {
@@ -554,6 +565,12 @@ interface EditorStore {
   // serializable
   scene: Scene
   style: StyleProfileId
+  /** The preset the tree came from. */
+  presetId: string
+  /** Where the sun is and how strong the shadow is. */
+  lighting: SceneLighting
+  /** How the viewport draws the tree. */
+  shadingMode: ShadingMode
   selection: SelectionState
   status: { state: 'ready' | 'busy' | 'error'; message?: string }
   // non-serializable, deliberately kept out of the persisted state
@@ -570,7 +587,23 @@ Rules:
 - The Three.js scene is **not** in the store. It lives in the viewport
   module and reads the store.
 
-### 11.1 The theme store
+### 11.1 What is part of the tree and what is part of the view
+
+The distinction decides what is undoable and what travels into the export.
+
+| | Part of the tree | Part of the view |
+|---|---|---|
+| Shape, proportions | yes | |
+| Colours | yes | |
+| Style profile (low-poly / detailed) | yes | |
+| The sun and its shadow | | yes |
+| The shading mode (lit / flat / wireframe) | | yes |
+
+A view preference is not undoable and is not written to the project file.
+The style profile is on the left because it changes the geometry, so it
+belongs to the document and is undoable like any other edit.
+
+### 11.2 The theme store
 
 The theme is app chrome rather than editor content, so it has its own small
 store. It is deliberately separate from the editor store: switching the

@@ -13,6 +13,17 @@ export type AssetParameterValue = number | string | readonly SpinePoint[]
 
 export type AssetParameters = Readonly<Record<string, AssetParameterValue>>
 
+/**
+ * The colours the tree is painted with.
+ *
+ * Only two to choose from. The darker leaf tone is derived from the leaf
+ * colour, so a beginner never has to match two swatches by eye.
+ */
+export interface SceneMaterials {
+    readonly bark: string
+    readonly leaves: string
+}
+
 export interface SceneAsset {
     readonly id: string
     readonly kind: 'tree'
@@ -23,6 +34,8 @@ export interface SceneAsset {
     readonly seed: number
     /** The tree's own parameters, so the inspector can show tree-level controls. */
     readonly parameters: AssetParameters
+    /** The colours the tree is painted with. */
+    readonly materials: SceneMaterials
 }
 
 export interface Scene {

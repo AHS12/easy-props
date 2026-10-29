@@ -1,9 +1,11 @@
 import {useState} from 'react'
+import {ColourPicker} from '../components/ColourPicker'
 import {Segmented} from '../components/Segmented'
 import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
+import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {describeComponent} from '../assets/shared/component-types'
 import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
 import {findComponent} from '../core/scene/scene-model'
@@ -130,6 +132,7 @@ export function Inspector() {
     const selectedId = useEditorStore((state) => state.selection.selectedId)
     const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
     const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)
+    const updateMaterials = useEditorStore((state) => state.updateMaterials)
     const randomizeTree = useEditorStore((state) => state.randomizeTree)
 
     const asset = scene.assets[0]
@@ -163,6 +166,23 @@ export function Inspector() {
                             values={values}
                             onChange={(key, value) =>
                                 updateTreeParameters({[key]: value}, `change ${key}`)
+                            }
+                        />
+                    </Group>
+
+                    <Group title="Colours" help="The colours the tree is painted with.">
+                        <ColourPicker
+                            label="Trunk"
+                            value={asset?.materials.bark ?? '#6b4e35'}
+                            presets={BARK_COLOURS}
+                            onChange={(value) => updateMaterials({bark: value}, 'change trunk colour')}
+                        />
+                        <ColourPicker
+                            label="Leaves"
+                            value={asset?.materials.leaves ?? '#4e7d3e'}
+                            presets={LEAF_COLOURS}
+                            onChange={(value) =>
+                                updateMaterials({leaves: value}, 'change leaf colour')
                             }
                         />
                     </Group>
