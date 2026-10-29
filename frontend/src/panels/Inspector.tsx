@@ -5,12 +5,12 @@ import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
-import {TRUNK_CONTROL_POINTS} from '../assets/trees/components/trunk'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {describeComponent} from '../assets/shared/component-types'
 import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
 import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
+import {TRUNK_TREE_KEYS} from './trunk-controls'
 
 function formatValue(value: number, spec: NumberParameter): string {
     const decimals = spec.step < 1 ? 2 : 0
@@ -126,6 +126,14 @@ function Group({
     )
 }
 
+/**
+ * The trunk's shape is the tree's shape.
+ *
+ * The trunk's panel shows the tree's values for the five controls they share
+ * and writes them to the tree, so the two panels can never disagree and a
+ * change made with the trunk selected does not move the trunk out from under
+ * its branches. Only the point count is the part's own.
+ */
 export function Inspector() {
     const scene = useEditorStore((state) => state.scene)
     const selectedId = useEditorStore((state) => state.selection.selectedId)
@@ -140,19 +148,11 @@ export function Inspector() {
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
-    const trunk = asset?.components.find((entry) => entry.type === 'trunk')
 
-    // The trunk carries the tree's shape, so its controls are the tree's
-    // controls. Everything else has its own.
-    const isTreeLevel = !component || component.type === 'trunk'
-
-    if (isTreeLevel) {
+    // Nothing selected means the tree itself. A part, including the trunk,
+    // has a panel of its own.
+    if (!component) {
         const values = asset?.parameters ?? {}
-        const controlPoints = trunk?.parameters.controlPoints
-
-        const splitAt = treeParameterSpecs.findIndex((spec) => spec.key === 'twist') + 1
-        const beforeTwist = treeParameterSpecs.slice(0, splitAt)
-        const afterTwist = treeParameterSpecs.slice(splitAt)
 
         return (
             <aside className="inspector" data-coach="inspector">
@@ -160,9 +160,7 @@ export function Inspector() {
                     <div className="insp-title-row">
                         <div>
                             <div className="insp-title">Whole tree</div>
-                            <div className="insp-sub">
-                                {component ? describeComponent(component.type) : 'Nothing selected'}
-                            </div>
+                            <div className="insp-sub">Nothing selected</div>
                         </div>
                         <span className="chip chip--moss">Tree</span>
                     </div>
@@ -170,42 +168,8 @@ export function Inspector() {
 
                 <div className="insp-body">
                     <Group title="Shape" help="The overall size and shape of the tree.">
-                        {/* Twist is the last of the controls that shape the
-                            trunk's spine, so the point count sits right after
-                            it rather than at the end of the group. */}
                         <ParameterControls
-                            specs={beforeTwist}
-                            values={values}
-                            onChange={(key, value) =>
-                                updateTreeParameters({[key]: value}, `change ${key}`)
-                            }
-                        />
-
-                        {trunk ? (
-                            <Slider
-                                label={TRUNK_CONTROL_POINTS.label}
-                                value={
-                                    typeof controlPoints === 'number'
-                                        ? controlPoints
-                                        : TRUNK_CONTROL_POINTS.default
-                                }
-                                min={TRUNK_CONTROL_POINTS.min}
-                                max={TRUNK_CONTROL_POINTS.max}
-                                step={TRUNK_CONTROL_POINTS.step}
-                                minLabel={formatValue(TRUNK_CONTROL_POINTS.min, TRUNK_CONTROL_POINTS)}
-                                maxLabel={formatValue(TRUNK_CONTROL_POINTS.max, TRUNK_CONTROL_POINTS)}
-                                onChange={(next) =>
-                                    updateComponentParameters(
-                                        trunk.id,
-                                        {controlPoints: next},
-                                        'change control points',
-                                    )
-                                }
-                            />
-                        ) : null}
-
-                        <ParameterControls
-                            specs={afterTwist}
+                            specs={treeParameterSpecs}
                             values={values}
                             onChange={(key, value) =>
                                 updateTreeParameters({[key]: value}, `change ${key}`)
@@ -252,6 +216,32 @@ export function Inspector() {
 
     const generator = findComponentGenerator(component.generatorId)
     const specs = generator?.parameters ?? []
+    const isTrunk = component.type === 'trunk'
+
+    // A trunk's shared controls read from the tree, so the panel shows what is
+    // actually driving the shape.
+    const values = isTrunk
+        ? {
+              ...component.parameters,
+              ...Object.fromEntries(
+                  Object.entries(TRUNK_TREE_KEYS).map(([key, treeKey]) => [
+                      key,
+                      asset?.parameters[treeKey] ?? component.parameters[key],
+                  ]),
+              ),
+          }
+        : component.parameters
+
+    const change = (key: string, value: number | string) => {
+        const treeKey = isTrunk ? TRUNK_TREE_KEYS[key] : undefined
+
+        if (treeKey) {
+            updateTreeParameters({[treeKey]: value}, `change ${treeKey}`)
+            return
+        }
+
+        updateComponentParameters(component.id, {[key]: value}, `change ${key}`)
+    }
 
     return (
         <aside className="inspector">
@@ -259,41 +249,36 @@ export function Inspector() {
                 <div className="insp-title-row">
                     <div>
                         <div className="insp-title">{describeComponent(component.type)}</div>
-                        <div className="insp-sub">Selected part</div>
+                        <div className="insp-sub">
+                            {isTrunk ? "The tree's body" : 'Selected part'}
+                        </div>
                     </div>
                     <span className="chip chip--bark">Part</span>
                 </div>
-                <div className="insp-actions">
-                    <button
-                        type="button"
-                        className="btn btn--secondary btn--sm"
-                        onClick={() => copyComponent(component.id)}
-                    >
-                        Copy
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn--secondary btn--sm"
-                        onClick={() => deleteComponent(component.id)}
-                    >
-                        Remove
-                    </button>
-                </div>
+                {/* The trunk cannot be copied or removed: it is the tree. */}
+                {isTrunk ? null : (
+                    <div className="insp-actions">
+                        <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => copyComponent(component.id)}
+                        >
+                            Copy
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => deleteComponent(component.id)}
+                        >
+                            Remove
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="insp-body">
                 <Group title={generator?.label ?? 'Part'} help="What this part looks like.">
-                    <ParameterControls
-                        specs={specs}
-                        values={component.parameters}
-                        onChange={(key, value) =>
-                            updateComponentParameters(
-                                component.id,
-                                {[key]: value},
-                                `change ${key}`,
-                            )
-                        }
-                    />
+                    <ParameterControls specs={specs} values={values} onChange={change} />
                 </Group>
             </div>
 
@@ -301,7 +286,7 @@ export function Inspector() {
                 <button
                     type="button"
                     className="btn btn--ghost btn--sm"
-                    onClick={() => restoreComponent(component.id)}
+                    onClick={() => (isTrunk ? restoreTree() : restoreComponent(component.id))}
                 >
                     Restore default
                 </button>

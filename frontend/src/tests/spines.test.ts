@@ -16,6 +16,8 @@ import {LIBRARY_PARTS} from '../assets/library/library'
 import {createInitialScene} from '../core/scene/initial-scene'
 import {findComponent} from '../core/scene/scene-model'
 import {updateComponentParameters, updateTreeParameters} from '../core/scene/scene-ops'
+import {TRUNK_TREE_KEYS} from '../panels/trunk-controls'
+import {branchingTreeGenerator} from '../assets/trees/branching-tree-generator'
 import {dragPlaneFor, movedSpine, selectedSpine} from '../viewport/scene/spine-drag'
 
 const TREE_ASSET_ID = 'asset-1'
@@ -350,6 +352,34 @@ describe('control points', () => {
 
         expect(validated.spine).toHaveLength(7)
         expect(validated.controlPoints).toBe(7)
+    })
+})
+
+describe('the trunk panel writes where the shape lives', () => {
+    it('maps every shared trunk control onto a real tree control', () => {
+        const tree = branchingTreeGenerator.createDefaultParameters()
+
+        for (const treeKey of Object.values(TRUNK_TREE_KEYS)) {
+            expect(tree).toHaveProperty(treeKey)
+        }
+    })
+
+    it('sends thickness to the tree under its own name', () => {
+        expect(TRUNK_TREE_KEYS.baseRadius).toBe('trunkRadius')
+    })
+
+    it('keeps the point count on the part', () => {
+        expect(TRUNK_TREE_KEYS).not.toHaveProperty('controlPoints')
+    })
+
+    it('matches a trunk control to each tree key it maps to', () => {
+        const trunk = trunkGenerator.createDefaultParameters() as Record<string, unknown>
+        const tree = branchingTreeGenerator.createDefaultParameters() as Record<string, unknown>
+
+        for (const [trunkKey, treeKey] of Object.entries(TRUNK_TREE_KEYS)) {
+            expect(trunk).toHaveProperty(trunkKey)
+            expect(typeof tree[treeKey]).toBe(typeof trunk[trunkKey])
+        }
     })
 })
 

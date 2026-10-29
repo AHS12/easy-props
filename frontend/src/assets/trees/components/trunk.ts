@@ -21,7 +21,6 @@ import {
     choiceSchema,
     numberSchema,
     validateParameters,
-    type NumberParameter,
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
@@ -116,14 +115,6 @@ const CONTROL_POINTS = {
     unit: 'count',
     default: SPINE_POINT_COUNT,
 } as const satisfies ParameterSpec
-
-/**
- * The trunk's point count, exported so the tree panel can offer it.
- *
- * The trunk's controls are the tree's controls, so its count lives in the
- * tree's Shape group rather than on a panel of its own.
- */
-export const TRUNK_CONTROL_POINTS: NumberParameter = CONTROL_POINTS
 
 export const trunkParameterSpecs: readonly ParameterSpec[] = [
     HEIGHT,

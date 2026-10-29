@@ -342,10 +342,20 @@ stacking two browsing surfaces in 288px.
   (*"Drag the green handles to shape it"*) and fades after the first drag.
 
 **Inspector** — contextual, 320px.
-- Nothing selected: tree-level settings (Height, Thickness, Bend, Detail,
-  Style, Seed, Leaves).
+- Nothing selected: tree-level settings (Height, Thickness, Taper, Bend,
+  Twist, Branches, Branch length, Leaves, Leaf size, Leaf shape), colours,
+  and variation.
 - Something selected: that component's name, type chip, actions, then its
-  own parameter groups.
+  own parameter groups. This includes the trunk, which gets a panel of its
+  own with its Control points slider.
+- The trunk's five shared controls (Height, Thickness, Taper, Bend, Twist)
+  show the tree's values and write to the tree, because the trunk carries
+  the tree's shape. Only its point count is the part's own. Without this a
+  change made with the trunk selected would move the trunk and leave its
+  branches behind.
+- The trunk cannot be copied or removed: it is the tree. Its Restore default
+  resets the tree, and its subtitle says *"The tree's body"* so the shared
+  numbers are not a surprise.
 - Both end with a **Restore default** text button.
 
 **Status strip** — 28px, tertiary text. Shows app state (`Ready`,

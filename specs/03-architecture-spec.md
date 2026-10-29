@@ -410,9 +410,11 @@ silhouette, and removing them drops detail rather than reshaping what is
 left. Because the geometry is swept through those points, more points also
 means more cross-sections.
 
-The trunk's count appears in the tree's Shape group, right after Twist,
-because selecting the trunk shows the tree's controls: the trunk carries the
-tree's shape rather than having a panel of its own.
+The trunk's count sits on the trunk's own panel, alongside its other
+controls. That panel shows the tree's values for the five controls the two
+share and writes them to the tree, because the trunk carries the tree's
+shape and a change made in isolation would move the trunk out from under its
+branches. Only the point count is the part's own.
 
 A reshaped trunk keeps only its spine through a tree rebuild. Its other
 parameters carry the tree's shape, so keeping all of them would freeze the
