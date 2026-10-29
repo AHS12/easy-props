@@ -6,7 +6,7 @@ import {Slider} from '../components/Slider'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
-import {describeComponent} from '../assets/shared/component-types'
+import {describeComponent, type SurfacePush} from '../assets/shared/component-types'
 import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
 import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
@@ -145,6 +145,7 @@ export function Inspector() {
     const deleteComponent = useEditorStore((state) => state.deleteComponent)
     const restoreComponent = useEditorStore((state) => state.restoreComponent)
     const restoreTree = useEditorStore((state) => state.restoreTree)
+    const setPushes = useEditorStore((state) => state.setPushes)
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
@@ -217,6 +218,9 @@ export function Inspector() {
     const generator = findComponentGenerator(component.generatorId)
     const specs = generator?.parameters ?? []
     const isTrunk = component.type === 'trunk'
+    const pushes = Array.isArray(component.parameters.pushes)
+        ? (component.parameters.pushes as SurfacePush[])
+        : []
 
     // A trunk's shared controls read from the tree, so the panel shows what is
     // actually driving the shape.
@@ -280,6 +284,33 @@ export function Inspector() {
                 <Group title={generator?.label ?? 'Part'} help="What this part looks like.">
                     <ParameterControls specs={specs} values={values} onChange={change} />
                 </Group>
+
+                {pushes.length > 0 ? (
+                    <Group
+                        title="Surface"
+                        help="Pushes and pulls you have made on this part."
+                    >
+                        <div className="push-count">
+                            <span>
+                                {pushes.length} {pushes.length === 1 ? 'push' : 'pushes'}
+                            </span>
+                            <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => setPushes(component.id, pushes.slice(0, -1))}
+                            >
+                                Undo last
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => setPushes(component.id, [])}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </Group>
+                ) : null}
             </div>
 
             <div className="insp-foot">

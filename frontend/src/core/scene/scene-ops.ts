@@ -5,8 +5,9 @@
  * can hold on to before and after states without copying meshes.
  */
 
-import type {SceneComponent} from '../../assets/shared/component-types'
+import type {SceneComponent, SurfacePush} from '../../assets/shared/component-types'
 import type {StyleProfile} from '../../assets/style/style-profiles'
+import {MAX_PUSHES} from '../../assets/shared/pushes'
 import {resampleSpine, reshapesSpine, spineKindOf, spineLengthKey, type SpineLike} from '../../assets/shared/spines'
 import {buildBranchSpine} from '../../assets/trees/components/branch'
 import {buildRootSpine} from '../../assets/trees/components/root'
@@ -241,6 +242,15 @@ export function updateComponentParameters(
             }),
         ),
     }
+}
+
+/** Replaces a component's list of surface pushes. */
+export function setSurfacePushes(
+    scene: Scene,
+    componentId: string,
+    pushes: readonly SurfacePush[],
+): Scene {
+    return updateComponentParameters(scene, componentId, {pushes: pushes.slice(-MAX_PUSHES)})
 }
 
 /** Replaces a component's transform. */

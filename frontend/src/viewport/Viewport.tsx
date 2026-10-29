@@ -1,13 +1,15 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
+import type {SurfacePush} from '../assets/shared/component-types'
 import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {createViewportScene, type ViewportScene} from './scene/create-scene'
 import {createHandles, type HandleSet} from './scene/handles'
-import {createPicker, pickNearestHandle, pointerOnPlane} from './scene/picking'
+import {createPicker, pickNearestHandle, pickSurface, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
+import {beginPush, pushFor, type PushGesture} from './scene/push-drag'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import {ViewportOverlay} from './ViewportOverlay'
 
@@ -22,7 +24,6 @@ const UP: Record<CompassAxis, THREE.Vector3> = {
 }
 
 interface DragState {
-    /** The index of the spine point being dragged. */
     readonly index: number
     /** The spine as it was when the drag started. */
     readonly spine: PartSpine
@@ -39,6 +40,7 @@ export function Viewport() {
     const sceneRef = useRef<ViewportScene | null>(null)
     const pointerDownRef = useRef<{x: number; y: number} | null>(null)
     const dragRef = useRef<DragState | null>(null)
+    const pushRef = useRef<{gesture: PushGesture; latest: SurfacePush | null} | null>(null)
     const compassRef = useRef<CompassHandle>(null)
     const [faces, setFaces] = useState(0)
 
@@ -118,6 +120,21 @@ export function Viewport() {
         }
 
         const onPointerMove = (event: PointerEvent) => {
+            const push = pushRef.current
+
+            if (push) {
+                const next = pushFor(push.gesture, {x: event.clientX, y: event.clientY})
+
+                if (next) {
+                    push.latest = next
+                    store
+                        .getState()
+                        .previewPushes(push.gesture.componentId, [...push.gesture.base, next])
+                }
+
+                return
+            }
+
             const drag = dragRef.current
 
             if (drag) {
@@ -155,6 +172,37 @@ export function Viewport() {
             }
 
             const state = store.getState()
+
+            // The shape tool takes the pointer before anything else: a click
+            // on a surface is a push, not a selection.
+            if (state.shapeTool !== 'off') {
+                const hit = pickSurface(event.clientX, event.clientY, viewport.camera, canvas, [
+                    viewport.components.group,
+                ])
+
+                if (hit && hit.componentId === state.selection.selectedId) {
+                    const gesture = beginPush({
+                        scene: state.scene,
+                        componentId: hit.componentId,
+                        point: hit.point,
+                        normal: hit.normal,
+                        reach: hit.reach,
+                        tool: state.shapeTool,
+                        camera: viewport.camera,
+                        width: canvas.clientWidth,
+                        height: canvas.clientHeight,
+                        pointer: {x: event.clientX, y: event.clientY},
+                    })
+
+                    if (gesture) {
+                        pushRef.current = {gesture, latest: null}
+                        viewport.controls.enabled = false
+                    }
+                }
+
+                return
+            }
+
             const spine = selectedSpine(state.scene, state.selection.selectedId)
 
             if (!spine) {
@@ -187,10 +235,26 @@ export function Viewport() {
 
         const onPointerUp = (event: PointerEvent) => {
             const start = pointerDownRef.current
+            const push = pushRef.current
             const drag = dragRef.current
             pointerDownRef.current = null
             dragRef.current = null
+            pushRef.current = null
             viewport.controls.enabled = true
+
+            if (push) {
+                if (push.latest) {
+                    store
+                        .getState()
+                        .commitPushes(
+                            push.gesture.before,
+                            push.gesture.componentId,
+                            [...push.gesture.base, push.latest],
+                        )
+                }
+
+                return
+            }
 
             if (drag) {
                 if (drag.latest) {

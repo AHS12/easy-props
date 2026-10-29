@@ -146,6 +146,76 @@ export function pickNearestHandle(
     return best
 }
 
+/** Where a surface was hit, and how much of the part a push there should reach. */
+export interface SurfaceHit {
+    readonly componentId: string
+    /** In world space. */
+    readonly point: THREE.Vector3
+    /** The face normal, in world space. */
+    readonly normal: THREE.Vector3
+    /** A sensible push reach for a part this size, in metres. */
+    readonly reach: number
+}
+
+/**
+ * The surface of a component under the pointer.
+ *
+ * Used by the shape tool, which needs the point and the normal rather than
+ * just which component was hit.
+ */
+export function pickSurface(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+    targets: readonly THREE.Object3D[],
+): SurfaceHit | null {
+    const rect = domElement.getBoundingClientRect()
+
+    if (rect.width === 0 || rect.height === 0) {
+        return null
+    }
+
+    const pointer = new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(pointer, camera)
+
+    const hits = raycaster.intersectObjects([...targets], true)
+    const hit = hits[0]
+
+    if (!hit) {
+        return null
+    }
+
+    let object: THREE.Object3D | null = hit.object
+    let componentId: string | null = null
+
+    while (object) {
+        if (typeof object.userData.componentId === 'string') {
+            componentId = object.userData.componentId
+            break
+        }
+        object = object.parent
+    }
+
+    if (!componentId) {
+        return null
+    }
+
+    const normal = hit.face
+        ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+        : new THREE.Vector3(0, 1, 0)
+
+    const geometry = (hit.object as THREE.Mesh).geometry
+    const size = geometry.boundingSphere?.radius ?? 1
+
+    return {componentId, point: hit.point.clone(), normal, reach: Math.max(size * 0.4, 0.08)}
+}
+
 /**
  * Where the pointer ray meets a plane.
  *

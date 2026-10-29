@@ -7,9 +7,10 @@
  */
 
 import {z} from 'zod'
-import type {LimbSpinePoint} from '../../shared/component-types'
+import type {LimbSpinePoint, SurfacePush} from '../../shared/component-types'
 import type {PartGenerator} from '../../shared/generator-types'
-import {buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
+import {applySurfacePushes, buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
+import {surfacePushSchema} from '../../shared/pushes'
 import {
     numberSchema,
     validateParameters,
@@ -29,6 +30,8 @@ export type BranchParameters = {
     readonly controlPoints: number
     /** The draggable spine. Empty means "build the default from bend and curl". */
     readonly spine: readonly LimbSpinePoint[]
+    /** Pushes and pulls on the bark, applied to the built mesh. */
+    readonly pushes: readonly SurfacePush[]
 }
 
 /** How many points along a branch by default. */
@@ -140,6 +143,7 @@ const branchSchema = z.object({
     twist: numberSchema(TWIST),
     controlPoints: numberSchema(CONTROL_POINTS),
     spine: z.array(limbSpinePointSchema).min(2).catch([]),
+    pushes: z.array(surfacePushSchema).catch([]),
 })
 
 /**
@@ -184,6 +188,7 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
             twist: TWIST.default,
             controlPoints,
             spine: buildBranchSpine(bend, curl, LENGTH.default, controlPoints),
+            pushes: [],
         }
     },
 
@@ -228,6 +233,9 @@ export const branchGenerator: PartGenerator<BranchParameters> = {
             capBase: true,
             capTip: true,
         })
+
+        // Pushes move the surface, then the shading follows the new shape.
+        applySurfacePushes(geometry, parameters.pushes)
 
         if (context.style.flatShading) {
             geometry.deleteAttribute('normal')

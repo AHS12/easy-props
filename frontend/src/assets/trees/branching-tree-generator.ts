@@ -262,6 +262,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 spine,
                 leanAzimuth: azimuth,
                 leanWobble: wobble,
+                pushes: [],
             },
             seed: hashSeed(seed, 0),
             slot: 'trunk',
@@ -332,6 +333,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                 twist: randomRange(random, -10, 10),
                 controlPoints: BRANCH_POINTS,
                 spine: buildBranchSpine(bend, curl, length),
+                pushes: [],
             }
 
             const id = `cmp-branch-${nodes.length}`
@@ -413,6 +415,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                         twist: randomRange(random, -12, 12),
                         controlPoints: BRANCH_POINTS,
                         spine: buildBranchSpine(childBend, childCurl, childLength),
+                        pushes: [],
                     }
 
                     const id = `cmp-branch-${nodes.length + children.length}`
@@ -518,6 +521,7 @@ export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
                     curl,
                     controlPoints: ROOT_POINTS,
                     spine: buildRootSpine(drop, curl, rootLength),
+                    pushes: [],
                 },
                 seed: hashSeed(seed, 2000 + i),
                 slot: `root-${i}`,

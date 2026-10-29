@@ -6,9 +6,10 @@
  */
 
 import {z} from 'zod'
-import type {LimbSpinePoint} from '../../shared/component-types'
+import type {LimbSpinePoint, SurfacePush} from '../../shared/component-types'
 import type {PartGenerator} from '../../shared/generator-types'
-import {buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
+import {applySurfacePushes, buildTaperedTube, taperedRadius} from '../../shared/geometry-utils'
+import {surfacePushSchema} from '../../shared/pushes'
 import {
     numberSchema,
     validateParameters,
@@ -27,6 +28,8 @@ export type RootParameters = {
     readonly controlPoints: number
     /** The draggable spine. Empty means "build the default from drop and curl". */
     readonly spine: readonly LimbSpinePoint[]
+    /** Pushes and pulls on the bark, applied to the built mesh. */
+    readonly pushes: readonly SurfacePush[]
 }
 
 /** How many points along a root by default. */
@@ -124,6 +127,7 @@ const rootSchema = z.object({
     curl: numberSchema(CURL),
     controlPoints: numberSchema(CONTROL_POINTS),
     spine: z.array(limbSpinePointSchema).min(2).catch([]),
+    pushes: z.array(surfacePushSchema).catch([]),
 })
 
 /**
@@ -163,6 +167,7 @@ export const rootGenerator: PartGenerator<RootParameters> = {
             curl: CURL.default,
             controlPoints: CONTROL_POINTS.default,
             spine: buildRootSpine(DROP.default, CURL.default, LENGTH.default),
+            pushes: [],
         }
     },
 
@@ -207,6 +212,9 @@ export const rootGenerator: PartGenerator<RootParameters> = {
             capBase: true,
             capTip: true,
         })
+
+        // Pushes move the surface, then the shading follows the new shape.
+        applySurfacePushes(geometry, parameters.pushes)
 
         if (context.style.flatShading) {
             geometry.deleteAttribute('normal')

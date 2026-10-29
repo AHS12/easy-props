@@ -44,6 +44,25 @@ export interface LimbSpinePoint {
     readonly z: number
 }
 
+/**
+ * A push or a pull on a part's surface.
+ *
+ * Stored in the part's own space, so it moves with the part and means the
+ * same thing on every part. It is a parameter like any other: undo, save, and
+ * seed determinism all keep working because the mesh is regenerated from it
+ * rather than edited.
+ */
+export interface SurfacePush {
+    /** Where on the surface, in the part's own space. */
+    readonly point: readonly [number, number, number]
+    /** Which way, in the part's own space. Usual the surface normal. */
+    readonly direction: readonly [number, number, number]
+    /** How far, in metres. Negative pulls in. */
+    readonly strength: number
+    /** How far the push reaches, in metres. */
+    readonly radius: number
+}
+
 export const IDENTITY_TRANSFORM: Transform = {
     position: [0, 0, 0],
     rotation: [0, 0, 0],
