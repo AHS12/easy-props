@@ -165,9 +165,10 @@ determinism all keep working. There is no vertex, edge, or face selection.
 - [x] A part's number of control points can be changed without moving its
       shape, the same way a loop cut adds geometry without moving a
       silhouette.
-- [ ] A push changes only the part it was made on, and can be undone with
+- [x] A push changes only the part it was made on, and can be undone with
       `Ctrl+Z`.
 - [ ] A push survives save and reopen, and produces the same geometry.
+      (Deterministic and serialisable already; save and reopen arrive in M6.)
 - [x] Randomize produces a visibly different but structurally similar tree,
       and does not throw away a part the user added.
 - [x] Restore a part to its generator defaults.
