@@ -84,6 +84,13 @@ h4 {
     flex: 1;
 }
 
+.topbar__divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-subtle);
+    flex: none;
+}
+
 .brand {
     display: flex;
     align-items: center;
@@ -94,7 +101,7 @@ h4 {
     width: 26px;
     height: 26px;
     border-radius: 8px;
-    background: linear-gradient(150deg, var(--accent-moss-500), var(--accent-moss-700));
+    background: linear-gradient(150deg, var(--brand-mark-top), var(--brand-mark-bottom));
     display: grid;
     place-items: center;
     box-shadow: var(--shadow-1);
@@ -129,8 +136,8 @@ h4 {
 }
 
 .family-tab[aria-current='true'] {
-    color: var(--accent-moss-600);
-    background: var(--accent-moss-100);
+    color: var(--accent-moss-text);
+    background: var(--accent-moss-soft);
 }
 
 .family-tab:disabled {
@@ -168,12 +175,12 @@ h4 {
 }
 
 .btn--primary {
-    background: var(--accent-moss-600);
+    background: var(--accent-moss);
     color: var(--text-on-accent);
 }
 
 .btn--primary:hover:not(:disabled) {
-    background: var(--accent-moss-700);
+    background: var(--accent-moss-hover);
 }
 
 .btn--secondary {
@@ -184,7 +191,7 @@ h4 {
 }
 
 .btn--secondary:hover:not(:disabled) {
-    border-color: var(--accent-moss-500);
+    border-color: var(--accent-moss-strong);
 }
 
 .btn--ghost {
@@ -199,12 +206,12 @@ h4 {
 }
 
 .btn--danger {
-    background: var(--accent-clay-600);
+    background: var(--accent-clay);
     color: var(--text-on-accent);
 }
 
 .btn--danger:hover:not(:disabled) {
-    background: var(--accent-clay-700);
+    background: var(--accent-clay-hover);
 }
 
 .btn--icon {
@@ -310,9 +317,7 @@ h4 {
     padding: 0 var(--space-3) 0 34px;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    background: var(--surface-panel)
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23948877' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E")
-        no-repeat 10px center / 16px;
+    background: var(--surface-panel) var(--icon-search) no-repeat 10px center / 16px;
     font: 400 14px var(--font-sans);
     color: var(--text-primary);
 }
@@ -322,7 +327,7 @@ h4 {
 }
 
 .search:focus {
-    border-color: var(--accent-moss-500);
+    border-color: var(--accent-moss-strong);
     box-shadow: var(--shadow-focus);
 }
 
@@ -352,11 +357,11 @@ h4 {
 .preset-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-2);
-    border-color: var(--accent-moss-500);
+    border-color: var(--accent-moss-strong);
 }
 
 .preset-card[aria-pressed='true'] {
-    border-color: var(--accent-moss-600);
+    border-color: var(--accent-moss);
     border-width: 2px;
 }
 
@@ -364,13 +369,17 @@ h4 {
     height: 96px;
     display: grid;
     place-items: center;
-    background: linear-gradient(180deg, #eef2e9, #e3e9dc);
+    background: linear-gradient(180deg, var(--preset-thumb-top), var(--preset-thumb-bottom));
     border-bottom: 1px solid var(--border-subtle);
     position: relative;
 }
 
 .preset-card[aria-pressed='true'] .preset-card__thumb {
-    background: linear-gradient(180deg, #e9f0e4, #dbe6d3);
+    background: linear-gradient(
+        180deg,
+        var(--preset-thumb-top-selected),
+        var(--preset-thumb-bottom-selected)
+    );
 }
 
 .preset-card__check {
@@ -380,7 +389,7 @@ h4 {
     width: 18px;
     height: 18px;
     border-radius: var(--radius-pill);
-    background: var(--accent-moss-600);
+    background: var(--accent-moss);
     color: var(--text-on-accent);
     display: none;
     place-items: center;
@@ -403,7 +412,7 @@ h4 {
 }
 
 .preset-card[aria-pressed='true'] .preset-card__name {
-    color: var(--accent-moss-600);
+    color: var(--accent-moss-text);
 }
 
 .preset-card__sub {
@@ -463,18 +472,18 @@ h4 {
 }
 
 .chip--bark {
-    background: var(--accent-bark-100);
-    color: var(--accent-bark-600);
+    background: var(--accent-bark-soft);
+    color: var(--accent-bark-text);
 }
 
 .chip--moss {
-    background: var(--accent-moss-100);
-    color: var(--accent-moss-600);
+    background: var(--accent-moss-soft);
+    color: var(--accent-moss-text);
 }
 
 .chip--clay {
-    background: var(--accent-clay-100);
-    color: var(--accent-clay-600);
+    background: var(--accent-clay-soft);
+    color: var(--accent-clay-text);
 }
 
 /* ======================================================================
@@ -708,7 +717,7 @@ h4 {
     margin-top: -7px;
     border-radius: var(--radius-pill);
     background: var(--surface-panel);
-    border: 2px solid var(--accent-moss-600);
+    border: 2px solid var(--accent-moss-strong);
     box-shadow: var(--shadow-1);
 }
 

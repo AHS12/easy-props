@@ -3,6 +3,10 @@
  *
  * Source of truth: specs/02-ui-ux-spec.md
  * Components reference tokens only, never raw values.
+ *
+ * Two themes share one visual language. The accent is identical in both; only
+ * surfaces, borders, and text flip. The theme is applied by setting
+ * `data-theme="light" | "dark"` on the document element.
  */
 
 @font-face {
@@ -32,7 +36,7 @@
 
     /* ------------------------------------------------------------------
      * Color — text
-     * text-tertiary is for icons and large decorative text only (3.47:1).
+     * text-tertiary is for icons and large decorative text only.
      * ---------------------------------------------------------------- */
     --text-primary: #2b2620;
     --text-secondary: #6b6155;
@@ -41,18 +45,23 @@
 
     /* ------------------------------------------------------------------
      * Color — accents
+     * The moss accent is identical in both themes. Only the surrounding
+     * surfaces change, which is what keeps the brand recognisable.
      * ---------------------------------------------------------------- */
-    --accent-moss-600: #4e7d3e;
-    --accent-moss-500: #5c8c4a;
-    --accent-moss-700: #456f37;
-    --accent-moss-100: #e4eedf;
+    --accent-moss: #4e7d3e;
+    --accent-moss-hover: #456f37;
+    --accent-moss-strong: #5c8c4a;
+    --accent-moss-soft: #e4eedf;
+    --accent-moss-text: #3f6b2f;
 
-    --accent-clay-600: #b85c33;
-    --accent-clay-700: #a34f2a;
-    --accent-clay-100: #f7e6dc;
+    --accent-clay: #b85c33;
+    --accent-clay-hover: #a34f2a;
+    --accent-clay-soft: #f7e6dc;
+    --accent-clay-text: #b85c33;
 
-    --accent-bark-600: #7a5c3e;
-    --accent-bark-100: #f0e9e0;
+    --accent-bark: #7a5c3e;
+    --accent-bark-soft: #f0e9e0;
+    --accent-bark-text: #7a5c3e;
 
     /* ------------------------------------------------------------------
      * Color — state
@@ -67,6 +76,8 @@
 
     /* ------------------------------------------------------------------
      * Color — viewport
+     * The viewport is a dark woodland scene in both themes. The tree is the
+     * hero and its surroundings never compete with it.
      * ---------------------------------------------------------------- */
     --viewport-bg: #2b332c;
     --viewport-grid: #3a443a;
@@ -83,6 +94,21 @@
     --material-leaves: #4e7d3e;
     --material-leaves-dark: #3a6130;
     --material-coconut: #7a5c3e;
+
+    /* ------------------------------------------------------------------
+     * Color — artwork that cannot use a live colour
+     * ---------------------------------------------------------------- */
+    --brand-mark-top: #5c8c4a;
+    --brand-mark-bottom: #3f6b31;
+    --preset-thumb-top: #eef2e9;
+    --preset-thumb-bottom: #e3e9dc;
+    --preset-thumb-top-selected: #e9f0e4;
+    --preset-thumb-bottom-selected: #dbe6d3;
+
+    /* ------------------------------------------------------------------
+     * Icons — inline artwork cannot inherit a colour, so it is themed here
+     * ---------------------------------------------------------------- */
+    --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23948877' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
 
     /* ------------------------------------------------------------------
      * Typography
@@ -119,7 +145,7 @@
     --radius-pill: 999px;
 
     /* ------------------------------------------------------------------
-     * Elevation — warm-tinted, never black
+     * Elevation — warm-tinted in daylight
      * ---------------------------------------------------------------- */
     --shadow-1: 0 1px 2px rgba(43, 38, 32, 0.06), 0 2px 8px rgba(43, 38, 32, 0.04);
     --shadow-2: 0 4px 12px rgba(43, 38, 32, 0.1), 0 12px 32px rgba(43, 38, 32, 0.08);
@@ -161,6 +187,70 @@
     --handle-size: 6px;
 }
 
+/* ======================================================================
+   Dark theme — Forest Workshop at dusk
+   ====================================================================== */
+
+html[data-theme='dark'] {
+    --surface-page: #1a1815;
+    --surface-panel: #221f1a;
+    --surface-sunken: #2b2721;
+    --surface-raised: #2a2620;
+    --surface-hover: #2c2822;
+    --surface-selected: #2c3a27;
+
+    --border-subtle: #35302a;
+    --border-strong: #4b443a;
+
+    --text-primary: #f1ece1;
+    --text-secondary: #b3aa9b;
+    --text-tertiary: #9a9184;
+    --text-on-accent: #ffffff;
+
+    /* The accent fill stays put so white text keeps its contrast. Hover
+       lightens instead of darkening, and the outline colour lifts so it
+       stays visible on a dark surface. */
+    --accent-moss: #4e7d3e;
+    --accent-moss-hover: #5f9a4a;
+    --accent-moss-strong: #7fb163;
+    --accent-moss-soft: #26351f;
+    --accent-moss-text: #8fc46e;
+
+    --accent-clay: #b85c33;
+    --accent-clay-hover: #c2663a;
+    --accent-clay-soft: #3a241c;
+    --accent-clay-text: #e0895a;
+
+    --accent-bark: #c4a882;
+    --accent-bark-soft: #2e2820;
+    --accent-bark-text: #c4a882;
+
+    --state-error: #f2b8b5;
+    --state-error-surface: #3a201e;
+    --state-warning: #e8b96a;
+    --state-warning-surface: #33291a;
+    --state-success: #8fd19e;
+    --state-success-surface: #1e2e21;
+    --state-focus-ring: rgba(127, 177, 99, 0.4);
+
+    --brand-mark-top: #5c8c4a;
+    --brand-mark-bottom: #3f6b31;
+    --preset-thumb-top: #242820;
+    --preset-thumb-bottom: #1d211c;
+    --preset-thumb-top-selected: #28301f;
+    --preset-thumb-bottom-selected: #212a19;
+
+    --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9184' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
+
+    /* Shadows deepen against a dark surface. */
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.4);
+    --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ----------------------------------------------------------------------
+ * Reduced motion — opacity only, 80ms.
+ * ---------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
     :root {
         --motion-fast: 80ms linear;
@@ -169,6 +259,9 @@
     }
 }
 
+/* ----------------------------------------------------------------------
+ * Focus — visible, consistent, never removed.
+ * ---------------------------------------------------------------------- */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);

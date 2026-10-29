@@ -570,6 +570,22 @@ Rules:
 - The Three.js scene is **not** in the store. It lives in the viewport
   module and reads the store.
 
+### 11.1 The theme store
+
+The theme is app chrome rather than editor content, so it has its own small
+store. It is deliberately separate from the editor store: switching the
+theme must not touch the scene, and the scene must not be able to change the
+theme.
+
+The theme is applied by writing `data-theme` onto the document element, so
+the whole interface flips through one CSS cascade rather than a per-component
+branch. The choice is stored in local storage under `easy-props.theme`; it is
+a UI preference, not project data, so it does not belong in the Go-backed
+project file.
+
+Until the user makes an explicit choice, the store follows the operating
+system preference, including live changes to it.
+
 ---
 
 ## 12. Undo and redo

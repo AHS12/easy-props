@@ -1,9 +1,11 @@
 import {useEffect} from 'react'
+import {applyTheme, watchSystemTheme} from '../core/settings/theme'
 import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
 import {StatusStrip} from '../panels/StatusStrip'
 import {TopBar} from '../panels/TopBar'
 import {useEditorStore} from '../store/editor-store'
+import {useThemeStore} from '../store/theme-store'
 import {Viewport} from '../viewport/Viewport'
 
 export function App() {
@@ -21,6 +23,14 @@ export function App() {
 
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [deselect])
+
+    useEffect(() => {
+        applyTheme(useThemeStore.getState().theme)
+
+        // The operating system theme only wins while the user has not made
+        // an explicit choice.
+        return watchSystemTheme((theme) => useThemeStore.getState().follow(theme))
+    }, [])
 
     return (
         <div className="app-shell">

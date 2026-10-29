@@ -42,6 +42,7 @@ and the tooling to verify everything.
 | 1.7 | Shell state | Zustand store with `scene`, `style`, `selection`, `status` |
 | 1.8 | Placeholder scene | A single hand-built trunk mesh, so the viewport is never empty |
 | 1.9 | Tooling | ESLint (done), Vitest (done), typecheck script (done), `pnpm build`, `wails build` |
+| 1.10 | Light and dark themes | One visual language, two palettes, a top bar toggle, follows the operating system until the user chooses, remembered locally |
 
 ### Definition of done
 
@@ -52,6 +53,8 @@ and the tooling to verify everything.
 - [ ] Clicking the object selects it; the selection is visible; `Escape`
       deselects; selection is announced in the live region.
 - [ ] The window cannot be resized below 1024×640.
+- [ ] Both themes render, the accent is identical in both, and the theme is
+      remembered across restarts.
 - [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and
       `wails build` all pass.
 - [ ] No user-visible string contains a 3D modeling term.

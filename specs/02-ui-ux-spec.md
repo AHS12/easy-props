@@ -123,7 +123,95 @@ it is no longer an accent.
 `--text-tertiary` is barred from body copy and from text below 18px. If
 something needs tertiary-toned text, it needs a larger size or a darker tone.
 
-### 2.2 Typography
+### 2.2 Themes
+
+Two themes, one language. Forest Workshop in daylight, and the same
+language at dusk. The accent does not change; the surfaces do.
+
+#### Rules
+
+1. **The accent is identical in both themes.** `--accent-moss` stays
+   `#4e7d3e`. A brand that changes colour with the operating system is not a
+   brand.
+2. **Only surfaces, borders, and text flip.** Layout, spacing, typography,
+   component shapes, and motion are shared.
+3. **The viewport is dark in both themes.** The 3D scene is a woodland
+   clearing in daylight and at night. The tree is the hero, and its
+   surroundings never compete with it.
+4. **Hover direction flips.** In daylight a button darkens on hover; at dusk
+   it lightens, because there is nowhere darker to go. The token
+   `--accent-moss-hover` carries the role, not a direction.
+5. **Accent-coloured text gets its own token.** `--accent-moss-text` is
+   `#3f6b2f` in daylight and `#8fc46e` at dusk. The fill that passes
+   contrast on cream fails it on near-black, so the two roles cannot share a
+   value.
+
+#### How the theme is applied
+
+`data-theme="light" | "dark"` on the document element. One cascade flips the
+whole interface, so components never branch on the theme in code.
+
+#### Switching
+
+- One icon button in the top bar, between the asset tabs and the style
+  control. A moon in daylight, a sun at dusk.
+- The button names the outcome: "Switch to dark theme" / "Switch to light
+  theme".
+- The choice is remembered locally.
+- Until the user chooses, the app follows the operating system preference,
+  and keeps following it if the system changes.
+- The theme is applied before the first paint, so the window never flashes
+  the wrong theme on startup.
+
+#### Dark palette
+
+| Token | Value | Role |
+|---|---|---|
+| `--surface-page` | `#1a1815` | App background, warm near-black |
+| `--surface-panel` | `#221f1a` | Rail, inspector, cards |
+| `--surface-sunken` | `#2b2721` | Input tracks, segmented wells |
+| `--surface-raised` | `#2a2620` | Popovers, modals |
+| `--surface-hover` | `#2c2822` | Row hover |
+| `--surface-selected` | `#2c3a27` | Selected row tint |
+| `--border-subtle` | `#35302a` | Hairlines |
+| `--border-strong` | `#4b443a` | Input borders |
+| `--text-primary` | `#f1ece1` | Headings, values, labels |
+| `--text-secondary` | `#b3aa9b` | Descriptions, helper text |
+| `--text-tertiary` | `#9a9184` | Icons, meta |
+| `--accent-moss` | `#4e7d3e` | Primary action fill, unchanged |
+| `--accent-moss-hover` | `#5f9a4a` | Hover fill, lightens instead |
+| `--accent-moss-strong` | `#7fb163` | Borders, focus rings, outlines |
+| `--accent-moss-soft` | `#26351f` | Tinted backgrounds |
+| `--accent-moss-text` | `#8fc46e` | Accent-coloured text |
+| `--accent-clay-text` | `#e0895a` | Destructive text |
+| `--accent-bark-text` | `#c4a882` | Category text |
+| `--state-error` | `#f2b8b5` | Error text |
+| `--state-warning` | `#e8b96a` | Warning text |
+| `--state-success` | `#8fd19e` | Success text |
+
+Shadows deepen against a dark surface and switch from warm-tinted to
+near-black.
+
+#### Dark contrast verification
+
+| Foreground | Background | Ratio | Verdict |
+|---|---|---|---|
+| `--text-primary` `#f1ece1` | `--surface-page` `#1a1815` | 15.04:1 | AAA |
+| `--text-primary` `#f1ece1` | `--surface-panel` `#221f1a` | 13.94:1 | AAA |
+| `--text-secondary` `#b3aa9b` | `--surface-panel` | 7.15:1 | AAA |
+| `--text-tertiary` `#9a9184` | `--surface-panel` | 5.28:1 | AA |
+| `#ffffff` | `--accent-moss` `#4e7d3e` | 4.85:1 | AA |
+| `--accent-moss-text` `#8fc46e` | `--surface-panel` | 7.96:1 | AAA |
+| `--accent-moss-text` `#8fc46e` | `--accent-moss-soft` `#26351f` | 6.39:1 | AA |
+| `--accent-moss-strong` `#7fb163` | `--surface-panel` | 6.55:1 | AA |
+| `--accent-clay-text` `#e0895a` | `--surface-panel` | 6.17:1 | AA |
+| `--accent-bark-text` `#c4a882` | `--surface-panel` | 7.25:1 | AAA |
+| `--state-error` `#f2b8b5` | `--surface-panel` | 9.92:1 | AAA |
+
+The accent fill is unchanged between themes, which is why white button text
+keeps its 4.85:1 in both.
+
+### 2.3 Typography
 
 **Nunito** (already bundled with the Wails template) for all UI text, with a
 system fallback stack. It is a humanist sans with generous apertures and
@@ -150,7 +238,7 @@ do not jitter while dragging.
 - No display type in form controls, tables, or labels.
 - Micro-copy under 30 characters gets 1.3 line-height minimum.
 
-### 2.3 Space, radius, elevation
+### 2.4 Space, radius, elevation
 
 **1-4-9 rhythm.** Every gap is a multiple of 4px or 9px. No exceptions.
 
@@ -181,7 +269,7 @@ do not jitter while dragging.
 | `--shadow-3` | `0 16px 48px rgba(43,38,32,.18)` | Modals |
 | `--shadow-focus` | `0 0 0 3px rgba(92,140,74,.35)` | Focus ring, drawn outside the element |
 
-### 2.4 Motion
+### 2.5 Motion
 
 Product motion: short, functional, never ceremonial.
 
@@ -230,7 +318,8 @@ Product motion: short, functional, never ceremonial.
 - Left: app mark (a small stylized tree glyph) + `easy-props` 15px/700.
   Asset family tabs follow: **Tree** (active), **Rock**, **Bush**. Rock and
   Bush are disabled with a "Coming soon" tooltip; they signal the roadmap
-  without breaking the promise of the TDR.
+  without breaking the promise of the TDR. A hairline divider and the
+  **theme toggle** come next.
 - Center: the **Style** segmented control, `Low-poly │ Detailed`. It is
   centered because it changes everything on screen and must be findable
   without reading the inspector.
@@ -313,6 +402,20 @@ loading, and (for primary) the accent hover.
 - Loading: the label stays. A 14px spinner sits left of the label, and the
   width does not change.
 - Icon-only buttons always carry an `aria-label` and a tooltip.
+
+**Theme toggle** — a ghost icon button in the top bar.
+
+- 32×32, ghost variant, `--text-secondary` at rest.
+- Icon: a moon in the light theme (meaning "go dark"), a sun in the dark
+  theme (meaning "go light"). The icon shows the destination, not the
+  current state, so the user never has to remember which way round it goes.
+- `aria-label` and tooltip name the outcome: "Switch to dark theme" /
+  "Switch to light theme".
+- Hover: background `--surface-hover`, label colour to `--text-primary`.
+- Focus-visible: `--shadow-focus`.
+- Switching is instant. No transition on the whole interface, because a
+  cross-fade of the entire app is slow and distracting.
+- The choice is remembered locally and applied before the first paint.
 
 ### 4.2 Preset card
 
@@ -671,7 +774,7 @@ Flat shading is available in the Low-poly style.
 - **The 3D viewport** is `role="application"` with an accessible name
   (*"Tree viewport"*) and a keyboard-operable control surface.
 - **Contrast.** AA at minimum for text, 3:1 for control boundaries and
-  focus rings. §2.1 has the measured ratios.
+  focus rings. §2.1 and §2.2 have the measured ratios for both themes.
 - **Never color alone.** Selection carries an outline, errors carry an icon
   and text, style mode carries labels.
 - **Zoom.** The layout survives 200% browser zoom and a 320px-wide
@@ -744,3 +847,4 @@ beginners abandon.
 | §13 Responsive while editing | §3.2 |
 | §13 Dispose obsolete geometry | [03-architecture-spec §9](./03-architecture-spec.md) |
 | §14 Manual acceptance checks | [01-product-spec §6.1](./01-product-spec.md) |
+| Beginner-friendly and attractive (§4, §16) | §2.2 Themes, §4.1 Theme toggle, §9 Forbidden patterns |
