@@ -15,6 +15,7 @@
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {DAB_VARIANTS, dabCell} from './dab-texture'
+import {addClumpFruit, addStrands, leafGeometry} from './frond-mesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'
 
@@ -112,7 +113,9 @@ export function buildClump(
 
     // A clump is a few overlapping lobes, not one ball: a sphere with noise
     // still reads as a balloon, however broken its edge is.
-    const lobeCount = 1 + Math.round(Math.min(tree.lumpiness * (clump.edit.lumpinessScale ?? 1), 1) * 4)
+    // A conifer's skirt is the exception: its one clean cone is the whole point.
+    const lobeCount =
+        clump.sag > 0 ? 1 : 1 + Math.round(Math.min(tree.lumpiness * (clump.edit.lumpinessScale ?? 1), 1) * 4)
     const lobes = Array.from({length: lobeCount}, (_, lobe) => {
         const azimuth = lobe * GOLDEN_ANGLE + random() * 6.28
         const lift = randomRange(random, -0.25, 0.7)
@@ -186,7 +189,8 @@ export function buildClump(
     }
 
     const cardSize = clump.radius * 0.46 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
-    const density = (0.9 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 2.6) * detail
+    // Strands carry much of a weeping tree's leaves, so the clump above them can be lighter.
+    const density = (0.9 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 2.6) * detail * (1 - tree.strands * 0.45)
 
     const addCards = (
         lobe: {centre: Vec3; radius: number},
@@ -227,10 +231,14 @@ export function buildClump(
                 continue
             }
 
+            const rimX = lobe.centre[0] + d[0] * r
+            const rimZ = lobe.centre[2] + d[2] * r
             const local: Vec3 = [
-                lobe.centre[0] + d[0] * r,
-                lobe.centre[1] + d[1] * r * clump.flatten,
-                lobe.centre[2] + d[2] * r,
+                rimX,
+                lobe.centre[1] +
+                    d[1] * r * clump.flatten -
+                    (clump.sag * (rimX * rimX + rimZ * rimZ)) / clump.radius,
+                rimZ,
             ]
 
             // A card inside another lobe of this clump would never be seen.
@@ -291,14 +299,15 @@ export function buildClump(
         addCards(lobe, count, 0.84, 1.03, 1, 0, true)
     }
 
-    const geometry = new THREE.BufferGeometry()
+    const buffers = {positions, normals, colors, uvs, indices}
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-    geometry.setIndex(indices)
-    geometry.computeBoundingSphere()
+    if (tree.strands > 0) {
+        addStrands(buffers, clump, tree, detail)
+    }
 
-    return geometry
+    if (tree.fruitCount > 0) {
+        addClumpFruit(buffers, clump, tree)
+    }
+
+    return leafGeometry(buffers)
 }

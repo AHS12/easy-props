@@ -39,6 +39,76 @@ export interface WoodField {
     gradient(x: number, y: number, z: number): Vec3
     /** How far into a ridge's valley a point is, 0 on a crest and 1 at the bottom. */
     valley(x: number, y: number, z: number): number
+    /** How the bark pattern paints a point: positive is lighter, negative darker. */
+    mark(x: number, y: number, z: number): number
+}
+
+/** A pattern's wavelength as a share of the trunk's radius: about four grid cells. */
+const PATTERN_WAVELENGTH = 1.25
+/** How far a pattern carves, as a share of the local radius, at full depth. */
+const PATTERN_CARVE = 0.2
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
+
+/**
+ * A bark pattern at a point: how far it stands out, and how it paints.
+ *
+ * Built from waves in world space, so it needs no unwrapping and carries across
+ * joints. It has to be big: both carving and paint live on the mesh's vertices,
+ * so nothing finer than a few grid cells can show.
+ */
+function barkPatternAt(
+    pattern: PaintedTreeParameters['barkPattern'],
+    k: number,
+    x: number,
+    y: number,
+    z: number,
+    trunkX: number,
+    trunkZ: number,
+): {carve: number; paint: number} {
+    switch (pattern) {
+        case 'ringed': {
+            const ring = Math.abs(Math.sin(y * k + Math.sin(x * k * 0.3) * 0.25))
+
+            return {carve: Math.sqrt(ring) - 0.6, paint: ring - 0.75}
+        }
+
+        case 'plated': {
+            const u = (x * 0.8 + z * 0.6 + y * 0.55) * k
+            const v = (x * 0.6 - z * 0.8 - y * 0.55) * k + Math.sin(y * k * 0.4)
+            const crack = 1 - clamp01(Math.min(Math.abs(Math.sin(u)), Math.abs(Math.sin(v))) / 0.45)
+
+            return {carve: 0.35 - crack, paint: 0.2 - crack * 1.1}
+        }
+
+        case 'banded': {
+            const wobble = Math.sin(x * 2.1 + z * 1.7) * 1.7
+            const band = clamp01((Math.sin(y * k * 0.9 + wobble) - 0.45) / 0.35)
+            const gap = clamp01((Math.sin(x * k * 0.7 - z * k * 0.6 + y * 0.8) + 0.2) / 0.4)
+            const dash = band * gap
+
+            return {carve: -dash * 0.4, paint: 0.3 - dash * 1.4}
+        }
+
+        case 'peeling': {
+            const blotch =
+                Math.sin(x * k * 0.6 + Math.sin(y * k * 0.5) * 1.3) *
+                Math.sin(y * k * 0.45 + Math.sin(z * k * 0.6) * 1.1) *
+                Math.sin(z * k * 0.55 + x * k * 0.3)
+            const patch = clamp01(blotch * 3 + 0.5)
+
+            return {carve: patch * 0.5 - 0.25, paint: patch * 1.1 - 0.4}
+        }
+
+        case 'fibrous': {
+            const fibre = Math.sin(Math.atan2(z - trunkZ, x - trunkX) * 11 + y * k * 0.18 + Math.sin(y * k * 0.3))
+
+            return {carve: fibre * 0.35, paint: fibre * 0.4}
+        }
+
+        case 'none':
+            return {carve: 0, paint: 0}
+    }
 }
 
 const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`
@@ -153,6 +223,13 @@ export function createWoodField(
         r: hollowAt.r * tree.hollow * 0.85,
     }
 
+    const patternK = Math.PI / (PATTERN_WAVELENGTH * tree.trunkRadius * tree.patternScale)
+    const patternAt = (x: number, y: number, z: number) => {
+        const at = trunkAt(y)
+
+        return barkPatternAt(tree.barkPattern, patternK, x, y, z, at.x, at.z)
+    }
+
     const distance = (x: number, y: number, z: number): number => {
         const cell = grid.get(
             cellKey(Math.floor(x / CELL), Math.floor(y / CELL), Math.floor(z / CELL)),
@@ -240,6 +317,10 @@ export function createWoodField(
                 Math.sin(z * 8.3 + x * 2.9)
         }
 
+        if (tree.barkPattern !== 'none') {
+            result -= radius * PATTERN_CARVE * tree.patternDepth * patternAt(x, y, z).carve
+        }
+
         if (hollow.r > 0.001) {
             // The negative of a smooth union with the opening's inside.
             const inside = Math.hypot(x - hollow.x, (y - hollow.y) * 0.6, z - hollow.z) - hollow.r
@@ -272,6 +353,10 @@ export function createWoodField(
             const at = trunkAt(y)
 
             return (0.5 - 0.5 * ridgeWave(x, y, z, at.x, at.z)) * ridgeFade(y)
+        },
+
+        mark(x, y, z) {
+            return tree.barkPattern === 'none' ? 0 : patternAt(x, y, z).paint * tree.patternDepth
         },
     }
 }

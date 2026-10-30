@@ -369,7 +369,7 @@ h4 {
 }
 
 .preset-card__thumb {
-    height: 96px;
+    aspect-ratio: 1;
     display: grid;
     place-items: center;
     padding: var(--space-3);
@@ -381,6 +381,30 @@ h4 {
 .preset-card__thumb > svg {
     width: 100%;
     height: 100%;
+}
+
+.preset-card__thumb[data-pictured] {
+    padding: 0;
+}
+
+.preset-card__thumb > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preset-search {
+    margin-bottom: var(--space-1);
+}
+
+.preset-heading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    padding: var(--space-3) var(--space-1) var(--space-2);
 }
 
 .preset-card[aria-pressed='true'] .preset-card__thumb {

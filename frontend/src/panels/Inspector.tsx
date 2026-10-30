@@ -10,11 +10,12 @@ import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {
     COLOUR_KEYS,
     COLOUR_LABELS,
+    controlsForTree,
     isPaintedPart,
-    PALETTES,
+    resolvePalette,
     sectionsForPart,
+    validatePaintedTreeParameters,
     type Palette,
-    type PaletteId,
 } from '../assets/trees/painted'
 import {describeComponent, type SurfacePush} from '../assets/shared/component-types'
 import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
@@ -168,15 +169,9 @@ function Group({
 
 /** The palette a painted tree is using right now, from its stored values. */
 function currentPalette(values: Readonly<Record<string, unknown>>): Palette {
-    const id = (values.palette ?? 'blossom') as PaletteId
+    const palette = resolvePalette(validatePaintedTreeParameters(values).parameters)
 
-    if (id === 'custom') {
-        return Object.fromEntries(
-            COLOUR_KEYS.map((key) => [key, String(values[key] ?? PALETTES.blossom[key])]),
-        ) as unknown as Palette
-    }
-
-    return PALETTES[id]
+    return Object.fromEntries(COLOUR_KEYS.map((key) => [key, palette[key]])) as unknown as Palette
 }
 
 /**
@@ -223,14 +218,15 @@ function GroupedControls({
     onChange: (key: string, value: number | string) => void
     onColours: (patch: Readonly<Record<string, string>>) => void
 }) {
-    const groups = [...new Set(specs.map((spec) => spec.group ?? 'Shape'))]
+    const shown = controlsForTree(specs, values)
+    const groups = [...new Set(shown.map((spec) => spec.group ?? 'Shape'))]
 
     return (
         <>
             {groups.map((group) => (
                 <Group key={group} title={group}>
                     <ParameterControls
-                        specs={specs.filter((spec) => (spec.group ?? 'Shape') === group)}
+                        specs={shown.filter((spec) => (spec.group ?? 'Shape') === group)}
                         values={values}
                         onChange={onChange}
                     />
@@ -354,7 +350,11 @@ export function Inspector() {
     }
 
     const generator = findComponentGenerator(component.generatorId)
-    const specs = generator?.parameters ?? []
+    const isFrond = component.parameters.kind === 'frond'
+    // A frond has no lumps, and its Flatness is how hard it arches.
+    const specs = (generator?.parameters ?? [])
+        .filter((spec) => !isFrond || spec.key !== 'lumpinessScale')
+        .map((spec) => (isFrond && spec.key === 'flattenScale' ? {...spec, label: 'Arch'} : spec))
     const painted = isPaintedPart(component.generatorId)
     const isTrunk = component.type === 'trunk' && !painted
     // A painted limb hangs off the tree's plan, and its trunk is the tree.
@@ -394,7 +394,7 @@ export function Inspector() {
             <div className="insp-head">
                 <div className="insp-title-row">
                     <div>
-                        <div className="insp-title">{describeComponent(component.type)}</div>
+                        <div className="insp-title">{isFrond ? 'Frond' : describeComponent(component.type)}</div>
                         <div className="insp-sub">
                             {isTrunk ? "The tree's body" : 'Selected part'}
                         </div>
@@ -440,7 +440,7 @@ export function Inspector() {
                     <Group
                         title={
                             painted
-                                ? `This ${describeComponent(component.type).toLowerCase()}`
+                                ? `This ${isFrond ? 'frond' : describeComponent(component.type).toLowerCase()}`
                                 : (generator?.label ?? 'Part')
                         }
                         help={painted ? 'Changes only the part you clicked.' : 'What this part looks like.'}
@@ -452,7 +452,7 @@ export function Inspector() {
                                 value={
                                     typeof component.parameters.colour === 'string'
                                         ? component.parameters.colour
-                                        : currentPalette((component.parameters.tree ?? {}) as Record<string, unknown>).leafMid
+                                        : currentPalette(asset?.parameters ?? {}).leafMid
                                 }
                                 presets={LEAF_COLOURS}
                                 onChange={(value) => change('colour', value)}
@@ -509,7 +509,7 @@ export function Inspector() {
                 {sectionsForPart(component.generatorId, component.type).map((section) => (
                     <Group key={section.title} title={section.title} help={section.help}>
                         <ParameterControls
-                            specs={section.specs}
+                            specs={controlsForTree(section.specs, asset?.parameters ?? {})}
                             values={asset?.parameters ?? {}}
                             onChange={(key, value) => updateTreeParameters({[key]: value}, `change ${key}`)}
                         />

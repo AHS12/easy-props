@@ -268,6 +268,7 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
                     0.08 +
                         (n[1] * 0.5 + 0.5) * 0.62 -
                         field.valley(x, y, z) * 0.5 +
+                        field.mark(x, y, z) +
                         Math.min(1, Math.max(0, open)) * 0.26 +
                         blotch * 0.18 * tree.roughness,
                 ),

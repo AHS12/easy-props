@@ -8,18 +8,23 @@ import {
     barkGeometry,
     buildBark,
     buildClump,
+    controlsForTree,
     listBarkCells,
     prepareBark,
     sculptBarkCells,
     paintedTreeDefaults,
+    paintedTreeParameterSpecs,
     parseEdits,
     planPaintedTree,
     sectionsForPart,
     validatePaintedTreeParameters,
     type PaintedTreeParameters,
 } from '../assets/trees/painted'
+import {presetGroups, treePresets} from '../assets/trees/presets'
 import {generateTreeComponents} from '../assets/trees/tree-generators'
 
+/** A preset may spend more than the default tree, within reason for a game. */
+const PRESET_TRIANGLE_BUDGET = 25000
 const DETAILED = getStyleProfile('detailed')
 const LOW = getStyleProfile('low-poly')
 
@@ -198,7 +203,7 @@ describe('painted tree', () => {
     })
 
     it('builds the same bark however the work is sliced', () => {
-        const tree = {...paintedTreeDefaults, burls: 3, moss: 0.5}
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, burls: 3, moss: 0.5, barkPattern: 'plated', form: 'conifer'}
         const plan = planPaintedTree(tree, 11)
         const whole = buildBark(plan, tree, 11, 1)
         const context = prepareBark(plan, tree, 11, 1)
@@ -215,6 +220,74 @@ describe('painted tree', () => {
         }
 
         expect(sliced.index!.array).toEqual(whole.index!.array)
+    })
+
+    describe('every preset', () => {
+        const presets = treePresets.filter((preset) => preset.generatorId === 'painted-tree')
+        const validated = (preset: (typeof presets)[number]) => {
+            const result = validatePaintedTreeParameters(preset.parameters)
+
+            expect(result.issues).toEqual([])
+
+            return result.parameters
+        }
+
+        it('has a unique id and a heading', () => {
+            expect(new Set(treePresets.map((preset) => preset.id)).size).toBe(treePresets.length)
+            expect(presetGroups.flatMap((group) => group.presets).length).toBe(treePresets.length)
+        })
+
+        it.each(presets.map((preset) => [preset.id, preset] as const))('%s builds within budget', (_, preset) => {
+            const parts = buildParts(validated(preset), preset.seed)
+
+            expect(triangles(parts)).toBeLessThan(PRESET_TRIANGLE_BUDGET)
+
+            for (const part of parts) {
+                expect(part.geometry.getAttribute('position').array.every(Number.isFinite)).toBe(true)
+            }
+        })
+
+        it.each(presets.map((preset) => [preset.id, preset] as const))('%s is as tall as it says', (_, preset) => {
+            const tree = validated(preset)
+            const plan = planPaintedTree(tree, preset.seed)
+            const top = Math.max(
+                ...plan.limbs.map((limb) => limb.points[limb.points.length - 1][1]),
+                ...plan.clumps.map((clump) =>
+                    clump.kind === 'frond' ? clump.centre[1] + clump.radius * 0.5 : clump.centre[1] + clump.radius * clump.flatten,
+                ),
+            )
+
+            expect(Math.abs(top - tree.height) / tree.height).toBeLessThan(0.3)
+        })
+    })
+
+    it('hides the controls a form has no use for, and renames the ones it reuses', () => {
+        const palm = controlsForTree(paintedTreeParameterSpecs, {form: 'palm'})
+
+        expect(palm.map((spec) => spec.key)).not.toContain('limbCount')
+        expect(palm.find((spec) => spec.key === 'clumpCount')?.label).toBe('Fronds')
+        expect(controlsForTree(paintedTreeParameterSpecs, {form: 'crown'}).map((spec) => spec.key)).toContain('limbCount')
+    })
+
+    it('leaves a default tree as it was', () => {
+        expect(planPaintedTree(paintedTreeDefaults, 3).clumps.every((clump) => clump.sag === 0 && clump.kind === 'mass')).toBe(true)
+    })
+
+    it('can leave the crown bare', () => {
+        const parts = buildParts({...paintedTreeDefaults, clumpCount: 0}, 3)
+
+        expect(planPaintedTree({...paintedTreeDefaults, clumpCount: 0}, 3).clumps).toEqual([])
+        expect(triangles(parts)).toBeGreaterThan(0)
+    })
+
+    it('keeps a palm frond and its coconut share independent of its neighbours', () => {
+        const tree = {...paintedTreeDefaults, form: 'palm', clumpCount: 10, fruitCount: 5} as PaintedTreeParameters
+        const plan = planPaintedTree(tree, 2)
+        const edits = applyPartAction('', {generatorId: 'painted-clump', parameters: {key: 'f3'}}, {kind: 'remove'})!
+
+        expect(plan.clumps).toHaveLength(10)
+        expect(planPaintedTree({...tree, edits}, 2).clumps.map((clump) => clump.key)).not.toContain('f3')
+        expect(planPaintedTree({...tree, edits}, 2).clumps.find((clump) => clump.key === 'f0')?.azimuth).toBe(plan.clumps[0].azimuth)
     })
 
     it('survives a damaged edit list', () => {

@@ -17,6 +17,17 @@ const PAINTED_LEAVES: Readonly<Record<string, string>> = {
     'autumn-tree': '#e8962f',
 }
 
+/** Presets with a drawing of their own. Anything else gets the generic tree. */
+const KNOWN_ICONS: ReadonlySet<string> = new Set([
+    'round-canopy',
+    'wide-canopy',
+    'tall-narrow',
+    'twisted-fantasy',
+    'exposed-root-ancient',
+    'coconut-palm',
+    'tropical-palm',
+])
+
 interface PresetIconProps {
     presetId: string
 }
@@ -114,15 +125,15 @@ export function PresetIcon({presetId}: PresetIconProps) {
                     </g>
                 </>
             ) : null}
-            {PAINTED_LEAVES[presetId] ? (
+            {PAINTED_LEAVES[presetId] ?? !KNOWN_ICONS.has(presetId) ? (
                 <>
                     <path
                         d="M18 45c3-3 4-8 4-14-3-4-7-6-11-7l1-2c4 1 8 3 11 6 0-4 1-7 3-10l2 1c-2 4-2 7-2 10 3-3 7-5 11-6l1 2c-5 1-9 4-11 8 0 5 1 9 4 12z"
                         fill={BARK}
                     />
-                    <circle cx="16" cy="15" r="10" fill={PAINTED_LEAVES[presetId]} />
-                    <circle cx="32" cy="14" r="11" fill={PAINTED_LEAVES[presetId]} />
-                    <circle cx="24" cy="9" r="8" fill={PAINTED_LEAVES[presetId]} opacity="0.75" />
+                    <circle cx="16" cy="15" r="10" fill={PAINTED_LEAVES[presetId] ?? LEAF} />
+                    <circle cx="32" cy="14" r="11" fill={PAINTED_LEAVES[presetId] ?? LEAF} />
+                    <circle cx="24" cy="9" r="8" fill={PAINTED_LEAVES[presetId] ?? LEAF} opacity="0.75" />
                 </>
             ) : null}
         </svg>

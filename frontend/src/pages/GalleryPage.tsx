@@ -6,9 +6,9 @@
  */
 
 import {useEffect, useMemo, useState} from 'react'
-import {findPreset, shownPresets} from '../assets/trees/presets'
+import {findPreset, presetGroups} from '../assets/trees/presets'
 import {STARTER_PRESET_ID} from '../core/scene/initial-scene'
-import {PresetIcon} from '../panels/PresetIcon'
+import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
 import {useEditorStore} from '../store/editor-store'
 import '../styles/gallery-page.css'
@@ -449,25 +449,28 @@ export function GalleryPage() {
                         </div>
                     </div>
 
-                    <div className="preset-grid home__presets">
-                        {shownPresets.map((preset) => (
-                            <button
-                                key={preset.id}
-                                type="button"
-                                className="preset-card"
-                                title={preset.sub}
-                                onClick={() => start(preset.id, preset.name)}
-                            >
-                                <div className="preset-card__thumb">
-                                    <PresetIcon presetId={preset.id} />
-                                </div>
-                                <div className="preset-card__meta">
-                                    <div className="preset-card__name">{preset.name}</div>
-                                    <div className="preset-card__sub">{preset.sub}</div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
+                    {presetGroups.map((group) => (
+                        <div key={group.title}>
+                            <h3 className="preset-heading">{group.title}</h3>
+                            <div className="preset-grid home__presets">
+                                {group.presets.map((preset) => (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        className="preset-card"
+                                        title={preset.sub}
+                                        onClick={() => start(preset.id, preset.name)}
+                                    >
+                                        <PresetThumb presetId={preset.id} />
+                                        <div className="preset-card__meta">
+                                            <div className="preset-card__name">{preset.name}</div>
+                                            <div className="preset-card__sub">{preset.sub}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </section>
             </div>
         </main>

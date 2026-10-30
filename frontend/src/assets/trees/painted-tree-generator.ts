@@ -70,6 +70,7 @@ export const paintedTreeGenerator: TreeGenerator<PaintedTreeParameters> = {
                     seed,
                     key: clump.key,
                     base: clump.base,
+                    kind: clump.kind,
                     sizeScale: clump.edit.sizeScale ?? 1,
                     flattenScale: clump.edit.flattenScale ?? 1,
                     fullnessScale: clump.edit.fullnessScale ?? 1,

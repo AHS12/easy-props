@@ -41,10 +41,18 @@ export interface Clump {
     readonly base: Vec3
     readonly centre: Vec3
     readonly radius: number
-    /** The vertical radius over the horizontal one. */
+    /** The vertical radius over the horizontal one. On a frond, how hard it arches. */
     readonly flatten: number
     readonly seed: number
     readonly edit: ClumpEdit
+    /** A mass of leaves, or a palm frond whose radius is its length. */
+    readonly kind: 'mass' | 'frond'
+    /** How far the rim of a mass sags below its middle, as a share of its radius. */
+    readonly sag: number
+    /** Which way a frond leaves the trunk. */
+    readonly azimuth: number
+    /** How steeply a frond leaves the trunk, in radians. */
+    readonly elevation: number
 }
 
 export interface TreePlan {
@@ -246,6 +254,46 @@ function pathLength(limb: Limb): number {
     return length
 }
 
+/** How much of Height a trunk reaches, with the leaves making up the rest. */
+const TOP_OF_PALM_TRUNK = 0.86
+const TOP_OF_CONIFER_TRUNK = 0.97
+const CONIFER_SPOKES = 3
+
+interface Tier {
+    readonly index: number
+    readonly y: number
+    readonly radius: number
+    readonly flatten: number
+}
+
+/** A conifer's skirts, widest at the bottom, with the top one drawn up into a point. */
+function coniferTiers(tree: PaintedTreeParameters): Tier[] {
+    const count = tree.clumpCount
+    const low = tree.height * tree.forkHeight * 0.7
+    const width = tree.spread * 0.5 * tree.clumpSize
+    const radiusOf = (index: number) => width * (1 - (count === 1 ? 0 : index / (count - 1)) * 0.82)
+    let totalGap = 0
+
+    for (let index = 0; index < count - 1; index++) {
+        totalGap += radiusOf(index)
+    }
+
+    let climbed = 0
+
+    return Array.from({length: count}, (_, index) => {
+        const radius = radiusOf(index)
+        const flatten = index === count - 1 ? 1.15 : 1 - tree.clumpFlatten * 0.75
+        // The top tier ends exactly at Height.
+        const top = tree.height - radius * flatten
+        // A small tier sits closer to the next, so the top never comes apart.
+        const y = low + (top - low) * (totalGap > 0 ? climbed / totalGap : 0)
+
+        climbed += radius
+
+        return {index, y, radius, flatten}
+    })
+}
+
 /**
  * Grows the wood.
  *
@@ -266,7 +314,6 @@ function growWood(
     const leanAzimuth = random() * Math.PI * 2
     const lean = tree.lean * randomRange(random, 0.8, 1.2)
     const azimuthStart = random() * Math.PI * 2
-    const trunkLength = forkY * 1.22
     const turns = 1.25
     const windRadius = tree.corkscrew * trunkRadius * 1.1
 
@@ -276,19 +323,21 @@ function growWood(
         point[2],
     ]
 
-    const trunk = growLimb(
-        limbs.length,
+    // A palm's or a conifer's trunk is the whole height of the tree, and a
+    // palm leaves the ground leaning and curves back up.
+    const growTrunk = (length: number, trunkEdits: PaintedEdits): Limb => growLimb(
+        0,
         't',
         {
             start: [0, 0, 0],
             direction: normalize([Math.cos(leanAzimuth) * lean, 1, Math.sin(leanAzimuth) * lean]),
-            length: trunkLength,
+            length,
             baseRadius: trunkRadius,
-            tipRadius: trunkRadius * 0.6,
+            tipRadius: trunkRadius * (tree.form === 'conifer' ? 0.05 : 0.6),
             level: 0,
             steps: 16,
             wander: tree.trunkBend * 0.8,
-            rise: 0.1,
+            rise: tree.form === 'palm' ? 0.1 + tree.lean * 2 : 0.1,
             taperPower: 0.9,
             controlTs: [0.34, 0.67, 1],
             // The corkscrew leaves the base where it is, and winds harder
@@ -305,8 +354,16 @@ function growWood(
             },
         },
         seed,
-        edits,
+        trunkEdits,
     )
+
+    // The first pass finds how much height the trunk's lean costs, without hand
+    // edits, so dragging the trunk does not change how long it is.
+    const target = height * (tree.form === 'palm' ? TOP_OF_PALM_TRUNK : TOP_OF_CONIFER_TRUNK)
+    const trunk =
+        tree.form === 'crown'
+            ? growTrunk(forkY * 1.22, edits)
+            : growTrunk((target * target) / Math.max(tipOf(growTrunk(target, NO_EDITS))[1], 0.1), edits)
 
     limbs.push(trunk)
 
@@ -348,6 +405,51 @@ function growWood(
         )
 
         limbs.push(root)
+    }
+
+    if (tree.form === 'palm') {
+        return limbs
+    }
+
+    if (tree.form === 'conifer') {
+        for (const tier of coniferTiers(tree)) {
+            const leaving = along(trunk, tier.y / Math.max(trunk.points[trunk.points.length - 1][1], 0.01))
+
+            for (let spoke = 0; spoke < CONIFER_SPOKES; spoke++) {
+                const key = `c${tier.index}s${spoke}`
+
+                if (edits.limbs[key]?.removed) {
+                    continue
+                }
+
+                const own = createSeededRandom(hashSeed(seed, hashKey(key), 1))
+                const azimuth = azimuthStart + tier.index * GOLDEN_ANGLE + (spoke / CONIFER_SPOKES) * Math.PI * 2
+
+                limbs.push(
+                    growLimb(
+                        limbs.length,
+                        key,
+                        {
+                            start: leaving.point,
+                            direction: normalize([Math.cos(azimuth), -0.1 - tree.droop * 0.4, Math.sin(azimuth)]),
+                            length: tier.radius * randomRange(own, 0.7, 0.9),
+                            baseRadius: Math.max(leaving.radius * 0.5, 0.025),
+                            tipRadius: 0.008,
+                            level: 2,
+                            steps: 3,
+                            wander: 0.03,
+                            rise: -tree.droop * 0.3,
+                            taperPower: 1.1,
+                            controlTs: [0.5, 1],
+                        },
+                        seed,
+                        edits,
+                    ),
+                )
+            }
+        }
+
+        return limbs
     }
 
     // Heavy limbs: low ones reach out, high ones climb.
@@ -590,6 +692,83 @@ function placeClumps(
                 Math.min(Math.max((1 - tree.clumpFlatten * 0.75) * randomRange(random, 0.92, 1.08) * (edit.flattenScale ?? 1), 0.25), 1.4),
             seed: Math.floor(random() * 2147483647),
             edit,
+            kind: 'mass',
+            sag: 0,
+            azimuth: 0,
+            elevation: 0,
+        })
+    }
+
+    return clumps
+}
+
+/** A palm's crown: young fronds climb out of the top, old ones hang below them. */
+function placeFronds(limbs: readonly Limb[], tree: PaintedTreeParameters, seed: number, edits: PaintedEdits): Clump[] {
+    const trunk = limbs[0]
+    const base = tipOf(trunk)
+    const count = tree.clumpCount
+    const length = (tree.height * 0.3 + 0.7) * tree.clumpSize
+    const clumps: Clump[] = []
+
+    for (let index = 0; index < count; index++) {
+        const key = `f${index}`
+        const edit = edits.clumps[key] ?? {}
+
+        if (edit.removed) {
+            continue
+        }
+
+        const random = createSeededRandom(hashSeed(seed, hashKey(key), 2))
+        const age = count === 1 ? 0.5 : index / (count - 1)
+        const scatter = tree.gnarl * 0.5
+
+        clumps.push({
+            key,
+            base,
+            centre: add(base, edit.offset ?? [0, 0, 0]),
+            radius: length * randomRange(random, 0.85, 1.1) * (edit.sizeScale ?? 1),
+            flatten: edit.flattenScale ?? 1,
+            seed: Math.floor(random() * 2147483647),
+            edit,
+            kind: 'frond',
+            sag: 0,
+            azimuth: index * GOLDEN_ANGLE + randomRange(random, -scatter, scatter),
+            elevation: (1.15 - age * 1.2) + randomRange(random, -scatter, scatter) * 0.4,
+        })
+    }
+
+    return clumps
+}
+
+function placeTiers(tree: PaintedTreeParameters, seed: number, edits: PaintedEdits, limbs: readonly Limb[]): Clump[] {
+    const trunk = limbs[0]
+    const trunkTop = tipOf(trunk)[1]
+    const clumps: Clump[] = []
+
+    for (const tier of coniferTiers(tree)) {
+        const key = `c${tier.index}`
+        const edit = edits.clumps[key] ?? {}
+
+        if (edit.removed) {
+            continue
+        }
+
+        const random = createSeededRandom(hashSeed(seed, hashKey(key), 2))
+        const at = along(trunk, tier.y / Math.max(trunkTop, 0.01)).point
+        const base: Vec3 = [at[0], tier.y, at[2]]
+
+        clumps.push({
+            key,
+            base,
+            centre: add(base, edit.offset ?? [0, 0, 0]),
+            radius: tier.radius * randomRange(random, 0.95, 1.05) * (edit.sizeScale ?? 1),
+            flatten: Math.min(Math.max(tier.flatten * (edit.flattenScale ?? 1), 0.2), 1.4),
+            seed: Math.floor(random() * 2147483647),
+            edit,
+            kind: 'mass',
+            sag: 0.3 + tree.droop * 0.6,
+            azimuth: 0,
+            elevation: 0,
         })
     }
 
@@ -598,8 +777,12 @@ function placeClumps(
 
 const NO_EDITS: PaintedEdits = {limbs: {}, clumps: {}}
 
-/** The top of the leaves, with no hand edits. */
+/** The top of the leaves, with no hand edits, or of the wood on a bare tree. */
 function crownTop(limbs: readonly Limb[], seats: readonly Seat[], tree: PaintedTreeParameters, seed: number) {
+    if (seats.length === 0) {
+        return limbs.reduce((top, limb) => Math.max(top, tipOf(limb)[1]), 0)
+    }
+
     return placeClumps(limbs, seats, tree, seed, NO_EDITS).reduce(
         (top, clump) => Math.max(top, clump.centre[1] + clump.radius * clump.flatten),
         0,
@@ -614,7 +797,7 @@ function crownTop(limbs: readonly Limb[], seats: readonly Seat[], tree: PaintedT
  */
 function fitToHeight(tree: PaintedTreeParameters, seed: number): {stretch: number; seats: Seat[]} {
     const first = growWood(tree, seed, 1, NO_EDITS)
-    const seats = groupTips(first, tree.clumpCount)
+    const seats = tree.clumpCount === 0 ? [] : groupTips(first, tree.clumpCount)
     const pivot = tree.height * tree.forkHeight
     let stretch = 1
 
@@ -634,9 +817,18 @@ function fitToHeight(tree: PaintedTreeParameters, seed: number): {stretch: numbe
 
 function buildPlan(tree: PaintedTreeParameters, seed: number): TreePlan {
     const edits = parseEdits(tree.edits)
-    const {stretch, seats} = cachedFit(tree, seed)
-    const limbs = growWood(tree, seed, stretch, edits)
-    const clumps = placeClumps(limbs, seats, tree, seed, edits)
+    let limbs: readonly Limb[]
+    let clumps: readonly Clump[]
+
+    if (tree.form === 'crown') {
+        const {stretch, seats} = cachedFit(tree, seed)
+
+        limbs = growWood(tree, seed, stretch, edits)
+        clumps = placeClumps(limbs, seats, tree, seed, edits)
+    } else {
+        limbs = growWood(tree, seed, 1, edits)
+        clumps = tree.form === 'palm' ? placeFronds(limbs, tree, seed, edits) : placeTiers(tree, seed, edits, limbs)
+    }
 
     let x = 0
     let y = 0

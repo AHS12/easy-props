@@ -57,11 +57,35 @@ meaning a set of these values, not a new generator.
 
 | Group | Controls |
 |---|---|
-| Trunk | Height, Thickness, Lean, Bend, Corkscrew, Twist, Ridge depth, Ridges, Base flare, Roots, Root length |
+| Trunk | Kind of tree, Height, Thickness, Lean, Bend, Corkscrew, Twist, Ridge depth, Ridges, Base flare, Roots, Root length |
 | Branches | Big branches, Fork height, Spread, Angle, Droop, Gnarl, Side branches, Twigs |
-| Leaves | Clumps, Clump size, Merge, Flatness, Lumpiness, Leaf density, Leaf size |
-| Colours | Palette, Variation, and five pickers for your own colours |
-| Bark detail | Mesh detail, Roughness, Burls, Hollow, Moss |
+| Leaves | Clumps, Clump size, Merge, Flatness, Lumpiness, Leaf density, Leaf size, Frond, Hanging strands, Strand length |
+| Fruit | Fruit, Kind of fruit, Fruit size |
+| Colours | Palette, Bark colour, Variation, and five pickers for your own colours |
+| Bark detail | Bark pattern, Pattern depth, Pattern size, Mesh detail, Roughness, Burls, Hollow, Moss |
+
+## Kinds of tree
+
+Three forms share the wood, the colours, the edits and the export. Only the
+layout differs, and a form hides or renames the controls it does not use
+(`controlsForTree`).
+
+| Form | Layout | Clumps become |
+|---|---|---|
+| Branching | Limbs, branches, twigs; clumps on merged tips | Masses of leaves |
+| Palm | One curved trunk, no limbs | Fronds: feather, fan or blade |
+| Conifer | A trunk the whole height, short spokes at each tier | Skirts that sag at the rim |
+
+A frond is a clump with `kind: 'frond'`, so it can be clicked, moved, resized,
+recoloured and removed with no new editing code. Its radius is its length.
+
+Strands and fruit are options on any tree, not forms: a willow is a branching tree
+with long strands, and a festive fir is a conifer with fruit.
+
+Bark patterns (`barkPatternAt`) are waves in world space that both carve the wood
+and paint it, so they need no UV unwrap and travel in the export. Both live on the
+mesh's vertices, so a pattern has to be several grid cells wide: this gives bold
+stylized bark, not fine grain. Fine grain would need a bark texture and UVs.
 
 ## Editing one part
 
@@ -92,10 +116,17 @@ does not squash the rest of the tree.
 
 ## Presets
 
-Blossom, Spring and Autumn, plus Round canopy to compare against the old style.
-The other old presets, including the palms, are no longer offered. They stay
-findable so a saved tree that came from one can still be restored, and the palm
-generator's code is untouched.
+Over fifty, under eight headings, searchable in the editor. A preset is only the
+values that differ from the defaults, plus a seed. Every one is built by a test,
+which holds it under 25,000 triangles.
+
+A card shows a real render, drawn when the card comes on screen, one at a time
+while the app is idle, and kept in browser storage. An icon stands in until then.
+Bump `STORAGE_VERSION` in `preset-thumbnails.ts` when trees change.
+
+The old presets, including the old palms, are no longer offered except Round
+canopy. They stay findable so a saved tree that came from one can still be
+restored, and the old palm generator's code is untouched.
 
 ## Speed
 
@@ -117,7 +148,7 @@ eight, with the main thread never held for more than about 6 ms by the build.
 
 ## Not done yet
 
-- More recipes, and shapes the current limb rules cannot reach (pine, true willow).
+- Bark fine enough to read up close, which needs a texture and UVs.
 - A coarse preview while dragging: the bark still rebuilds in full at each step,
   so it can trail the leaves and handles slightly.
 - A distant, lighter version of each tree.
