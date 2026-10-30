@@ -13,7 +13,21 @@ import type {ComponentType, Transform} from './component-types'
 import type {ParameterSpec, ValidationResult} from './parameters'
 import type {RandomSource} from './random'
 
-export type MaterialKind = 'bark' | 'bark-light' | 'leaves' | 'leaves-dark' | 'coconut'
+export type MaterialKind = 'bark' | 'bark-light' | 'leaves' | 'leaves-dark' | 'coconut' | 'painted'
+
+/**
+ * How a part that paints itself is drawn.
+ *
+ * Such a part keeps its colour per vertex and its own shading normals, and may
+ * cut its outline out of a texture.
+ */
+export interface PaintedSurface {
+    readonly vertexColors: boolean
+    readonly map?: THREE.Texture
+    readonly alphaTest?: number
+    /** False for leaves, where a shadow map would only speckle soft shading. */
+    readonly receiveShadow?: boolean
+}
 
 export interface GenerationContext {
     /** Deterministic randomness for this generation. */
@@ -28,6 +42,7 @@ export interface GenerationContext {
 export interface GeneratedPart {
     readonly geometry: THREE.BufferGeometry
     readonly material: MaterialKind
+    readonly surface?: PaintedSurface
 }
 
 /**
@@ -74,6 +89,8 @@ export interface TreeGenerator<P extends object = object> {
     readonly version: number
     readonly label: string
     readonly parameters: readonly ParameterSpec[]
+    /** True when colours are one of its parameters, so the bark and leaf pickers do not apply. */
+    readonly paintsOwnColours?: boolean
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>
     generate(parameters: P, context: GenerationContext): readonly GeneratedComponent[]

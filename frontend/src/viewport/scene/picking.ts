@@ -43,12 +43,18 @@ export function createPicker(
 
             raycaster.setFromCamera(pointer, camera)
 
-            const hits = raycaster.intersectObjects([...getTargets()], true)
-            if (hits.length === 0) {
+            // The hidden selection outline is still in the scene, and a raycast
+            // does not care that it is hidden. Leaf cards face both ways, so
+            // their outline would otherwise be what every click lands on.
+            const hit = raycaster
+                .intersectObjects([...getTargets()], true)
+                .find((candidate) => !candidate.object.userData.isHelper)
+
+            if (!hit) {
                 return null
             }
 
-            let object: THREE.Object3D | null = hits[0].object
+            let object: THREE.Object3D | null = hit.object
             while (object) {
                 const componentId = object.userData.componentId
                 if (typeof componentId === 'string') {

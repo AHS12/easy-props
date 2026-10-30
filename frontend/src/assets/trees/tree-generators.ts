@@ -10,12 +10,12 @@ import type {TreeGenerator} from '../shared/generator-types'
 import {createSeededRandom} from '../shared/random'
 import type {StyleProfile} from '../style/style-profiles'
 import {branchingTreeGenerator} from './branching-tree-generator'
-import {grownTreeGenerator} from './grown-tree-generator'
+import {paintedTreeGenerator} from './painted-tree-generator'
 import {palmTreeGenerator} from './palm-tree-generator'
 
 export const treeGenerators: Readonly<Record<string, TreeGenerator>> = {
     [branchingTreeGenerator.id]: branchingTreeGenerator,
-    [grownTreeGenerator.id]: grownTreeGenerator,
+    [paintedTreeGenerator.id]: paintedTreeGenerator,
     [palmTreeGenerator.id]: palmTreeGenerator,
 }
 

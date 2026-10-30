@@ -298,6 +298,19 @@ tree in one click.
 
 ---
 
+## Painted trees — added after the gallery
+
+**Why:** the target is stylized game trees, not low-poly and not realistic. See
+[`05-painted-trees.md`](./05-painted-trees.md).
+
+- [x] A tree whose trunk and heavy limbs are one blended surface.
+- [x] Leaves as soft masses with a brush-stroke edge, painted per vertex.
+- [x] Height, seeds and palettes visibly change the tree, inside a triangle budget.
+- [ ] Imported and checked in a game engine.
+- [ ] More recipes, and a lighter distant version.
+
+---
+
 ## After the MVP
 
 Deferred, in priority order. None of these are committed.

@@ -11,6 +11,7 @@ import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import {findComponentGenerator} from '../../assets/trees/component-generators'
+import {createPartMaterial} from '../../assets/style/part-material'
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import type {Scene, SceneMaterials} from '../scene/scene-model'
 import {materialColor} from '../../viewport/scene/component-renderer'
@@ -18,9 +19,6 @@ import {materialColor} from '../../viewport/scene/component-renderer'
 export interface ExportOptions {
     readonly style: StyleProfile
 }
-
-const EXPORT_ROUGHNESS = 0.85
-const EXPORT_METALNESS = 0
 
 /** The geometry and materials an export has to dispose of afterwards. */
 interface ExportResources {
@@ -90,12 +88,7 @@ function buildComponentGroup(
         return undefined
     }
 
-    const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(materialColor(part.material, materials)),
-        roughness: EXPORT_ROUGHNESS,
-        metalness: EXPORT_METALNESS,
-        flatShading: style.flatShading,
-    })
+    const material = createPartMaterial(part, materialColor(part.material, materials), style.flatShading)
 
     resources.materials.push(material)
 

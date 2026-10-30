@@ -6,8 +6,8 @@
  */
 
 import {useEffect, useMemo, useState} from 'react'
-import {treePresets} from '../assets/trees/presets'
-import {DEFAULT_PRESET_ID} from '../core/scene/initial-scene'
+import {findPreset, treePresets} from '../assets/trees/presets'
+import {STARTER_PRESET_ID} from '../core/scene/initial-scene'
 import {PresetIcon} from '../panels/PresetIcon'
 import type {SavedTree} from '../platform/library'
 import {useEditorStore} from '../store/editor-store'
@@ -315,7 +315,7 @@ export function GalleryPage() {
                     <button
                         type="button"
                         className="btn btn--primary"
-                        onClick={() => start(DEFAULT_PRESET_ID, treePresets[0].name)}
+                        onClick={() => start(STARTER_PRESET_ID, findPreset(STARTER_PRESET_ID)?.name ?? 'My tree')}
                     >
                         New tree
                     </button>

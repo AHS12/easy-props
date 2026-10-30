@@ -1,6 +1,9 @@
 # Organic trees: geometry that holds together, and leaves that look like leaves
 
-Research and plan. Nothing here is built yet.
+Research and plan. **Superseded by [05-painted-trees.md](./05-painted-trees.md)**: the
+space-colonization tree was built and retired, because it aimed at realism rather than the
+stylized look this tool is for. Kept for the research: the leaf rendering, licensing and
+asset pipeline notes still apply.
 
 The current trees are assembled, not grown. Every limb is a separate tapered tube placed
 by an analytic curve, and every leaf is a blob on a tip. That is fine for blocks of green

@@ -10,6 +10,7 @@ import * as THREE from 'three'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import {ambientColor, DEFAULT_LIGHTING, sunColor, sunDirection} from '../../assets/style/lighting'
+import {createPartMaterial} from '../../assets/style/part-material'
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import {findComponentGenerator} from '../../assets/trees/component-generators'
 import {materialColor} from '../../viewport/scene/component-renderer'
@@ -40,9 +41,6 @@ const CAMERA_FOV = 35
 const FRAME_MARGIN = 1.06
 /** Behind-right and slightly above: the readable three-quarter view. */
 const VIEW_DIRECTION: readonly [number, number, number] = [0.62, 0.4, -0.62]
-
-const SURFACE_ROUGHNESS = 0.85
-const SURFACE_METALNESS = 0
 
 /**
  * The backdrop.
@@ -199,12 +197,7 @@ function buildComponentGroup(
         style,
     })
 
-    const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(materialColor(part.material, materials)),
-        roughness: SURFACE_ROUGHNESS,
-        metalness: SURFACE_METALNESS,
-        flatShading: style.flatShading,
-    })
+    const material = createPartMaterial(part, materialColor(part.material, materials), style.flatShading)
 
     resources.geometries.push(part.geometry)
     resources.materials.push(material)

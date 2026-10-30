@@ -6,7 +6,7 @@
  * remains the user's to change afterwards.
  */
 
-import {growthDefaults} from '../growth'
+import {paintedTreeDefaults} from '../painted'
 
 export interface TreePreset {
     readonly id: string
@@ -158,12 +158,35 @@ export const treePresets: readonly TreePreset[] = [
         },
     },
     {
-        id: 'grown-oak',
-        name: 'Grown oak',
-        sub: 'Grown, not assembled',
-        generatorId: 'grown-tree',
+        id: 'blossom-tree',
+        name: 'Blossom tree',
+        sub: 'Old, heavy and in flower',
+        generatorId: 'painted-tree',
         seed: 77123,
-        parameters: {...growthDefaults},
+        parameters: {...paintedTreeDefaults},
+    },
+    {
+        id: 'spring-tree',
+        name: 'Spring tree',
+        sub: 'Fresh, round and green',
+        generatorId: 'painted-tree',
+        seed: 5,
+        parameters: {...paintedTreeDefaults, palette: 'spring', gnarl: 0.3, spread: 8},
+    },
+    {
+        id: 'autumn-tree',
+        name: 'Autumn tree',
+        sub: 'Tall, gold and slender',
+        generatorId: 'painted-tree',
+        seed: 9,
+        parameters: {
+            ...paintedTreeDefaults,
+            palette: 'autumn',
+            height: 11,
+            spread: 6,
+            forkHeight: 0.5,
+            trunkRadius: 0.42,
+        },
     },
 ]
 

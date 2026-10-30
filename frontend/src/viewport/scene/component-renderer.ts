@@ -12,6 +12,7 @@ import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {MaterialKind} from '../../assets/shared/generator-types'
 import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
+import {createPartMaterial} from '../../assets/style/part-material'
 import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets/style/shading'
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import type {Scene, SceneMaterials} from '../../core/scene/scene-model'
@@ -58,6 +59,9 @@ export function materialColor(kind: MaterialKind, materials: SceneMaterials): st
             return darken(materials.leaves, 0.24)
         case 'coconut':
             return MATERIAL_COLORS.coconut
+        case 'painted':
+            // The colour is in the vertices. White leaves it alone.
+            return '#ffffff'
     }
 }
 
@@ -98,14 +102,14 @@ function buildComponent(
 
     const color = new THREE.Color(materialColor(part.material, materials))
 
-    const lit = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.85,
-        metalness: 0,
-        flatShading: style.flatShading,
-    })
+    const lit = createPartMaterial(part, color, style.flatShading)
 
-    const flat = new THREE.MeshBasicMaterial({color})
+    const flat = new THREE.MeshBasicMaterial({
+        color,
+        vertexColors: part.surface?.vertexColors ?? false,
+        map: part.surface?.map ?? null,
+        alphaTest: part.surface?.alphaTest ?? 0,
+    })
 
     const wire = new THREE.MeshBasicMaterial({
         color: new THREE.Color(VIEWPORT_COLORS.wireframe),
@@ -117,6 +121,7 @@ function buildComponent(
     mesh.receiveShadow = true
     mesh.name = `${component.type}_${component.id}`
     mesh.userData.componentId = component.id
+    mesh.userData.receivesShadow = part.surface?.receiveShadow ?? true
 
     // The outline shares the geometry, so it costs almost nothing.
     const outline = new THREE.Mesh(
@@ -126,6 +131,8 @@ function buildComponent(
             side: THREE.BackSide,
             transparent: true,
             opacity: 0.95,
+            map: part.surface?.map ?? null,
+            alphaTest: part.surface?.alphaTest ?? 0,
         }),
     )
     outline.name = `${component.type}_${component.id}_outline`
@@ -171,7 +178,7 @@ export function createComponentRenderer(): ComponentRenderer {
 
         // Shadows only belong to the finished look.
         component.mesh.castShadow = shading === 'lit'
-        component.mesh.receiveShadow = shading === 'lit'
+        component.mesh.receiveShadow = shading === 'lit' && component.mesh.userData.receivesShadow
     }
 
     const disposeComponent = (component: RenderedComponent) => {

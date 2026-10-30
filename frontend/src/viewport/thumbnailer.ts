@@ -23,6 +23,7 @@ const MATERIAL_BY_KIND = {
     leaves: MATERIAL_COLORS.leaves,
     'leaves-dark': MATERIAL_COLORS.leavesDark,
     coconut: MATERIAL_COLORS.coconut,
+    painted: '#ffffff',
 } as const
 
 /**

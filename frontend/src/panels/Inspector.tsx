@@ -216,22 +216,24 @@ export function Inspector() {
                         />
                     </Group>
 
-                    <Group title="Colours" help="The colours the tree is painted with.">
-                        <ColourPicker
-                            label="Trunk"
-                            value={asset?.materials.bark ?? '#6b4e35'}
-                            presets={BARK_COLOURS}
-                            onChange={(value) => updateMaterials({bark: value}, 'change trunk colour')}
-                        />
-                        <ColourPicker
-                            label="Leaves"
-                            value={asset?.materials.leaves ?? '#4e7d3e'}
-                            presets={LEAF_COLOURS}
-                            onChange={(value) =>
-                                updateMaterials({leaves: value}, 'change leaf colour')
-                            }
-                        />
-                    </Group>
+                    {asset && findTreeGenerator(asset.generatorId)?.paintsOwnColours ? null : (
+                        <Group title="Colours" help="The colours the tree is painted with.">
+                            <ColourPicker
+                                label="Trunk"
+                                value={asset?.materials.bark ?? '#6b4e35'}
+                                presets={BARK_COLOURS}
+                                onChange={(value) => updateMaterials({bark: value}, 'change trunk colour')}
+                            />
+                            <ColourPicker
+                                label="Leaves"
+                                value={asset?.materials.leaves ?? '#4e7d3e'}
+                                presets={LEAF_COLOURS}
+                                onChange={(value) =>
+                                    updateMaterials({leaves: value}, 'change leaf colour')
+                                }
+                            />
+                        </Group>
+                    )}
 
                     <Group title="Variation" help="Try a different tree with the same shape.">
                         <button type="button" className="btn btn--secondary" onClick={randomizeTree}>

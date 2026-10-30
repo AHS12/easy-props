@@ -12,6 +12,9 @@ import type {Scene} from './scene-model'
 
 export const DEFAULT_PRESET_ID = treePresets[0].id
 
+/** What a new tree starts as: the best thing the tool can make. */
+export const STARTER_PRESET_ID = 'blossom-tree'
+
 /** Builds a scene from a preset. */
 export function createSceneFromPreset(presetId: string): Scene {
     const preset = treePresets.find((candidate) => candidate.id === presetId) ?? treePresets[0]
