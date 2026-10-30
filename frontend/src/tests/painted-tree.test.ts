@@ -4,7 +4,13 @@ import {getStyleProfile} from '../assets/style/style-profiles'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {
     applyPartAction,
+    assembleBark,
+    barkGeometry,
+    buildBark,
     buildClump,
+    listBarkCells,
+    prepareBark,
+    sculptBarkCells,
     paintedTreeDefaults,
     parseEdits,
     planPaintedTree,
@@ -189,6 +195,26 @@ describe('painted tree', () => {
         expect(cards({...paintedTreeDefaults, edits}, edited, 0)).toBeGreaterThan(cards(paintedTreeDefaults, plan, 0))
         expect(cards({...paintedTreeDefaults, edits}, edited, 1)).toBe(cards(paintedTreeDefaults, plan, 1))
         expect(edited.clumps[1].key).toBe(second.key)
+    })
+
+    it('builds the same bark however the work is sliced', () => {
+        const tree = {...paintedTreeDefaults, burls: 3, moss: 0.5}
+        const plan = planPaintedTree(tree, 11)
+        const whole = buildBark(plan, tree, 11, 1)
+        const context = prepareBark(plan, tree, 11, 1)
+        const cells = listBarkCells(context)
+        const cellCount = cells.length / 3
+        const cuts = [0, 7, Math.floor(cellCount / 3), Math.floor(cellCount / 2), cellCount - 1, cellCount]
+        const chunks = cuts.slice(1).map((end, index) =>
+            sculptBarkCells(context, cells.slice(cuts[index] * 3, end * 3)),
+        )
+        const sliced = barkGeometry(assembleBark(context, cells, chunks))
+
+        for (const name of ['position', 'normal', 'color']) {
+            expect(sliced.getAttribute(name).array).toEqual(whole.getAttribute(name).array)
+        }
+
+        expect(sliced.index!.array).toEqual(whole.index!.array)
     })
 
     it('survives a damaged edit list', () => {

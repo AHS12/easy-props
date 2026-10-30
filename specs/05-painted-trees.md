@@ -97,11 +97,29 @@ The other old presets, including the palms, are no longer offered. They stay
 findable so a saved tree that came from one can still be restored, and the palm
 generator's code is untouched.
 
+## Speed
+
+Drawing a frame takes about 1 ms, and nearly all of a slider's cost is sculpting
+the bark. So the viewport builds a bark on a pool of Web Workers (`bark-pool.ts`):
+
+- It keeps showing the old tree until the new bark arrives, then shows bark and
+  leaves in one frame, so a slider never waits and the crown never leaves the wood.
+- A change that needs no new bark, like Leaf density, appears at once.
+- One build runs at a time. A fast drag skips the values it has already passed.
+- The threads practise on the first tree, so the first drag is not the slowest.
+- The camera reframes for a new Height only when the pointer is released.
+- Cells are sculpted in slices and joined in order, so the result is identical to
+  `buildBark`, which export still calls directly. A test holds this.
+- If workers cannot start, the same bark is built on the main thread.
+
+Measured in a browser on a Ryzen 7 5700X: about 84 ms on one thread, about 37 ms on
+eight, with the main thread never held for more than about 6 ms by the build.
+
 ## Not done yet
 
 - More recipes, and shapes the current limb rules cannot reach (pine, true willow).
-- A coarse preview while dragging: a limb drag rebuilds the full bark, about 60 to
-  80 ms a step, so it runs at roughly 15 frames a second.
+- A coarse preview while dragging: the bark still rebuilds in full at each step,
+  so it can trail the leaves and handles slightly.
 - A distant, lighter version of each tree.
 - Opens correctly in Blender. Not yet imported into Unreal or Godot, which are the
   real destinations. Each clump is its own mesh, so a tree is about a dozen draw

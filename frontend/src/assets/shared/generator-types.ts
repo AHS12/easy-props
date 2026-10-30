@@ -73,6 +73,13 @@ export interface PartGenerator<P extends object = object> {
      * that has one is also free to move: its position is not part of the mesh.
      */
     signature?(parameters: P): unknown
+    /**
+     * The same geometry as `generate`, built away from the interface.
+     *
+     * Null when that is not possible here, in which case the caller generates
+     * as usual. A heavy part has this so a slider never waits for its mesh.
+     */
+    buildOffThread?(parameters: P, style: StyleProfile): Promise<THREE.BufferGeometry> | null
 }
 
 /** A component produced by a tree generator, before it enters the scene. */

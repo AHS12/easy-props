@@ -16,7 +16,9 @@ import type {ParameterSpec, ValidationResult} from '../../shared/parameters'
 import type {StyleProfile} from '../../style/style-profiles'
 import {
     buildBark,
+    buildBarkOffThread,
     buildClump,
+    canBuildBarkOffThread,
     COLOUR_KEYS,
     getDabTexture,
     parseEdits,
@@ -111,6 +113,10 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
             material: 'painted',
             surface: {vertexColors: true},
         }
+    },
+
+    buildOffThread({tree, seed}, style) {
+        return canBuildBarkOffThread() ? buildBarkOffThread({tree, seed, detail: detailOf(style)}) : null
     },
 }
 

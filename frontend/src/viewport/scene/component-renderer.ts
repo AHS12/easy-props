@@ -33,7 +33,9 @@ export interface RenderedComponent {
     readonly outline: THREE.Mesh
     readonly materials: ComponentMaterials
     readonly materialKind: MaterialKind
-    readonly signature: string
+    /** What this part should look like, which a mesh on its way may not show yet. */
+    signature: string
+    readonly styleId: string
 }
 
 export interface ComponentRenderer {
@@ -176,14 +178,32 @@ function buildComponent(
         materials: {lit, flat, wire},
         materialKind: part.material,
         signature,
+        styleId: style.id,
     }
 }
 
-export function createComponentRenderer(): ComponentRenderer {
+/** What a sync was asked to show. */
+interface SyncRequest {
+    readonly scene: Scene
+    readonly style: StyleProfile
+    readonly shading: ShadingMode
+}
+
+/** How many times the threads practise on the first tree, so the first drag is not the slowest. */
+const WARM_UP_BUILDS = 3
+
+/**
+ * @param onContentArrived Called when a sync that waited for a mesh built
+ * elsewhere has finally been applied, since the scene changed after sync returned.
+ */
+export function createComponentRenderer(onContentArrived?: () => void): ComponentRenderer {
     const group = new THREE.Group()
     group.name = 'components'
 
     const rendered = new Map<string, RenderedComponent>()
+    let building = false
+    let wanted: SyncRequest | null = null
+    let warmedUp = false
 
     let shading: ShadingMode = 'lit'
 
@@ -209,67 +229,189 @@ export function createComponentRenderer(): ComponentRenderer {
         component.group.removeFromParent()
     }
 
+    /** Runs the threads through a first tree, off to the side, and throws the results away. */
+    const warmUp = (component: SceneComponent, style: StyleProfile) => {
+        const generator = findComponentGenerator(component.generatorId)
+
+        if (warmedUp || !generator?.buildOffThread) {
+            return
+        }
+
+        warmedUp = true
+
+        const parameters = generator.validate(component.parameters).parameters
+        const practise = (remaining: number) => {
+            if (remaining > 0) {
+                generator.buildOffThread!(parameters, style)?.then(
+                    (geometry) => {
+                        geometry.dispose()
+                        practise(remaining - 1)
+                    },
+                    () => {},
+                )
+            }
+        }
+
+        practise(WARM_UP_BUILDS)
+    }
+
+    /** Brings every part in line with the scene, here and now. */
+    const apply = ({scene, style, shading: nextShading}: SyncRequest) => {
+        const asset = scene.assets[0]
+
+        if (!asset) {
+            for (const component of rendered.values()) {
+                disposeComponent(component)
+            }
+            rendered.clear()
+            return
+        }
+
+        if (nextShading !== shading) {
+            shading = nextShading
+        }
+
+        const seen = new Set<string>()
+
+        for (const component of asset.components) {
+            seen.add(component.id)
+
+            const signature = signatureOf(component, style.id)
+            const existing = rendered.get(component.id)
+
+            if (existing && existing.signature === signature) {
+                // A part whose signature leaves out its position can move
+                // without a rebuild.
+                existing.group.position.set(...component.transform.position)
+
+                // The geometry is unchanged. Only the colours can differ.
+                const color = new THREE.Color(
+                    materialColor(existing.materialKind, asset.materials),
+                )
+                existing.materials.lit.color.copy(color)
+                existing.materials.flat.color.copy(color)
+                applyShading(existing)
+                continue
+            }
+
+            if (existing) {
+                disposeComponent(existing)
+                rendered.delete(component.id)
+            }
+
+            const created = buildComponent(component, style, signature, asset.materials)
+
+            if (created) {
+                applyShading(created)
+                rendered.set(component.id, created)
+                group.add(created.group)
+                warmUp(component, style)
+            }
+        }
+
+        for (const [id, component] of rendered) {
+            if (!seen.has(id)) {
+                disposeComponent(component)
+                rendered.delete(id)
+            }
+        }
+    }
+
+    /**
+     * Starts building the heavy mesh this request needs, if it needs one.
+     *
+     * A new style can change a part's material, so that still rebuilds in place.
+     */
+    const startHeavyBuild = (request: SyncRequest): boolean => {
+        const {scene, style} = request
+
+        for (const component of scene.assets[0]?.components ?? []) {
+            const generator = findComponentGenerator(component.generatorId)
+            const existing = rendered.get(component.id)
+
+            if (!generator?.buildOffThread || !existing || existing.styleId !== style.id) {
+                continue
+            }
+
+            const signature = signatureOf(component, style.id)
+
+            if (existing.signature === signature) {
+                continue
+            }
+
+            const build = generator.buildOffThread(generator.validate(component.parameters).parameters, style)
+
+            if (!build) {
+                continue
+            }
+
+            building = true
+
+            const finish = (geometry: THREE.BufferGeometry | null) => {
+                building = false
+
+                if (rendered.get(component.id) === existing) {
+                    if (geometry) {
+                        existing.mesh.geometry.dispose()
+                        existing.mesh.geometry = geometry
+                        existing.outline.geometry = geometry
+                        existing.signature = signature
+                    }
+
+                    // The rest of the tree joins it now, so the whole tree moves
+                    // in one frame. Without a mesh, this rebuilds it in place.
+                    apply(request)
+                    onContentArrived?.()
+                } else {
+                    geometry?.dispose()
+                }
+
+                if (wanted) {
+                    const next = wanted
+
+                    wanted = null
+                    sync(next)
+                }
+            }
+
+            build.then(finish, () => finish(null))
+
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Shows a request, as soon as all of it can be shown together.
+     *
+     * A heavy mesh is built elsewhere and everything waits for it, so leaves
+     * never drift away from the wood. One build runs at a time, and only the
+     * newest request is kept, so a fast drag skips values it has passed instead
+     * of falling behind. A change that needs no heavy mesh appears at once.
+     */
+    const sync = (request: SyncRequest) => {
+        if (building) {
+            wanted = request
+            return
+        }
+
+        if (!startHeavyBuild(request)) {
+            apply(request)
+        }
+    }
+
     return {
         group,
 
         sync(scene, style, nextShading) {
-            const asset = scene.assets[0]
-
-            if (!asset) {
-                for (const component of rendered.values()) {
-                    disposeComponent(component)
-                }
-                rendered.clear()
+            if (!scene.assets[0]) {
+                wanted = null
+                apply({scene, style, shading: nextShading})
                 return
             }
 
-            if (nextShading !== shading) {
-                shading = nextShading
-            }
-
-            const seen = new Set<string>()
-
-            for (const component of asset.components) {
-                seen.add(component.id)
-
-                const signature = signatureOf(component, style.id)
-                const existing = rendered.get(component.id)
-
-                if (existing && existing.signature === signature) {
-                    // A part whose signature leaves out its position can move
-                    // without a rebuild.
-                    existing.group.position.set(...component.transform.position)
-
-                    // The geometry is unchanged. Only the colours can differ.
-                    const color = new THREE.Color(
-                        materialColor(existing.materialKind, asset.materials),
-                    )
-                    existing.materials.lit.color.copy(color)
-                    existing.materials.flat.color.copy(color)
-                    applyShading(existing)
-                    continue
-                }
-
-                if (existing) {
-                    disposeComponent(existing)
-                    rendered.delete(component.id)
-                }
-
-                const created = buildComponent(component, style, signature, asset.materials)
-
-                if (created) {
-                    applyShading(created)
-                    rendered.set(component.id, created)
-                    group.add(created.group)
-                }
-            }
-
-            for (const [id, component] of rendered) {
-                if (!seen.has(id)) {
-                    disposeComponent(component)
-                    rendered.delete(id)
-                }
-            }
+            sync({scene, style, shading: nextShading})
         },
 
         get(componentId) {

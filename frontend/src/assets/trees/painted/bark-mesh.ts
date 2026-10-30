@@ -9,6 +9,9 @@
  * Thin wood is swept: tapered tubes of a few sides, ending in a point. A tube
  * starts inside the sculpted wood, so the change of method is never seen, and
  * a fine branch costs a few triangles instead of a very fine grid.
+ *
+ * Building one is split into stages, so the heavy stage can run on many threads
+ * at once. `buildBark` runs them all in place.
  */
 
 import * as THREE from 'three'
@@ -52,43 +55,59 @@ interface MeshBuffers {
     readonly indices: number[]
 }
 
+/** Everything the stages of one bark share. Built the same way on every thread. */
+export interface BarkContext {
+    readonly plan: TreePlan
+    readonly tree: PaintedTreeParameters
+    readonly detail: number
+    readonly field: WoodField
+    readonly cell: number
+    readonly sculptMin: number
+    readonly isSculpted: (limb: Limb, segment: number) => boolean
+    readonly sculptedSegments: readonly {a: Vec3; b: Vec3; radius: number}[]
+}
+
+/** One slice of the sculpting, which can be worked on anywhere. */
+export interface BarkChunk {
+    /** Per cell, which of its three far edges the surface crosses. */
+    readonly crossedEdges: Uint8Array
+    /** Which cells of this slice got a vertex. */
+    readonly vertexCells: Int32Array
+    readonly positions: Float64Array
+    readonly normals: Float64Array
+    readonly colors: Float64Array
+}
+
+/** A finished bark, as plain arrays that can cross between threads. */
+export interface BarkArrays {
+    readonly positions: Float32Array
+    readonly normals: Float32Array
+    readonly colors: Float32Array
+    readonly indices: Uint32Array
+}
+
 /** Grid corners are packed into one number so the sample cache is a plain map. */
 const OFFSET = 1 << 9
 const SPAN = 1 << 10
 const packed = (i: number, j: number, k: number) =>
     i + OFFSET + (j + OFFSET) * SPAN + (k + OFFSET) * SPAN * SPAN
 
+const EDGE_X = 1
+const EDGE_Y = 2
+const EDGE_Z = 4
+
 /**
- * Sculpts the field into a mesh with surface nets.
+ * The cells near the wood, as i, j, k triples: a tree is mostly air.
  *
- * Each grid cell the surface passes through gets one vertex, at the average of
- * where the surface crosses its edges. Each grid edge the surface crosses gets
- * one quad, joining the four cells around it.
+ * Surface nets gives each cell the surface passes through one vertex, at the
+ * average of where the surface crosses its edges, and each grid edge the surface
+ * crosses one quad, joining the four cells around it.
  */
-function sculpt(
-    field: WoodField,
-    sculpted: readonly {a: Vec3; b: Vec3; radius: number}[],
-    cell: number,
-    paintVertex: (x: number, y: number, z: number, n: Vec3) => void,
-    buffers: MeshBuffers,
-): void {
-    const samples = new Map<number, number>()
-    const sample = (i: number, j: number, k: number): number => {
-        const key = packed(i, j, k)
-        let value = samples.get(key)
+export function listBarkCells({sculptedSegments, cell}: BarkContext): Int32Array {
+    const seen = new Set<number>()
+    const cells: number[] = []
 
-        if (value === undefined) {
-            value = field.distance(i * cell, j * cell, k * cell)
-            samples.set(key, value)
-        }
-
-        return value
-    }
-
-    // Only the cells near the wood are ever sampled: a tree is mostly air.
-    const cells = new Map<number, readonly [number, number, number]>()
-
-    for (const {a, b, radius} of sculpted) {
+    for (const {a, b, radius} of sculptedSegments) {
         const reach = radius * 2.2 + cell * 2
         const minI = Math.floor((Math.min(a[0], b[0]) - reach) / cell)
         const maxI = Math.floor((Math.max(a[0], b[0]) + reach) / cell)
@@ -102,19 +121,58 @@ function sculpt(
                 for (let k = minK; k <= maxK; k++) {
                     const key = packed(i, j, k)
 
-                    if (!cells.has(key)) {
-                        cells.set(key, [i, j, k])
+                    if (!seen.has(key)) {
+                        seen.add(key)
+                        cells.push(i, j, k)
                     }
                 }
             }
         }
     }
 
-    // --- One vertex per crossed cell --------------------------------------
-    const vertexOf = new Map<number, number>()
+    return Int32Array.from(cells)
+}
+
+/**
+ * Works out the surface inside a slice of the cells.
+ *
+ * Almost all of the time goes here, and no slice needs another's result, so
+ * slices can run at once and be joined in order by `assembleBark`.
+ */
+export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkChunk {
+    const {field, cell, tree} = context
+    const palette = resolvePalette(tree)
+    const deep = new THREE.Color(palette.barkDeep)
+    const light = new THREE.Color(palette.barkLight)
+    const paint = new THREE.Color()
+    const moss = new THREE.Color(MOSS_COLOUR)
+    const occlusionReach = tree.trunkRadius * OCCLUSION_REACH
+
+    const samples = new Map<number, number>()
+    const sample = (i: number, j: number, k: number): number => {
+        const key = packed(i, j, k)
+        let value = samples.get(key)
+
+        if (value === undefined) {
+            value = field.distance(i * cell, j * cell, k * cell)
+            samples.set(key, value)
+        }
+
+        return value
+    }
+
+    const cellCount = cells.length / 3
+    const crossedEdges = new Uint8Array(cellCount)
+    const vertexCells: number[] = []
+    const positions: number[] = []
+    const normals: number[] = []
+    const colors: number[] = []
     const corners = new Float64Array(8)
 
-    for (const [key, [i, j, k]] of cells) {
+    for (let index = 0; index < cellCount; index++) {
+        const i = cells[index * 3]
+        const j = cells[index * 3 + 1]
+        const k = cells[index * 3 + 2]
         let inside = 0
 
         for (let c = 0; c < 8; c++) {
@@ -124,6 +182,13 @@ function sculpt(
                 inside++
             }
         }
+
+        const here = corners[0] < 0
+
+        crossedEdges[index] =
+            (here !== corners[1] < 0 ? EDGE_X : 0) |
+            (here !== corners[2] < 0 ? EDGE_Y : 0) |
+            (here !== corners[4] < 0 ? EDGE_Z : 0)
 
         if (inside === 0 || inside === 8) {
             continue
@@ -176,13 +241,73 @@ function sculpt(
 
         const n = field.gradient(x, y, z)
 
-        vertexOf.set(key, buffers.positions.length / 3)
-        buffers.positions.push(x, y, z)
-        buffers.normals.push(n[0], n[1], n[2])
-        paintVertex(x, y, z, n)
+        vertexCells.push(index)
+        positions.push(x, y, z)
+        normals.push(n[0], n[1], n[2])
+
+        // Lit from above, dark in the ridges and in the crooks of the joints. How
+        // open a point is comes straight from the field: step out along the normal
+        // and see how far the wood really is.
+        const open =
+            field.distance(
+                x + n[0] * occlusionReach,
+                y + n[1] * occlusionReach,
+                z + n[2] * occlusionReach,
+            ) / occlusionReach
+
+        // Blotches that do not line up with the grid, so bark and moss
+        // both look like patches rather than bands.
+        const blotch = Math.sin(x * 5.3 + z * 2.1) * Math.sin(y * 4.7 + x * 1.3) * Math.sin(z * 6.1 + y * 2.3)
+
+        paint.copy(deep).lerp(
+            light,
+            Math.min(
+                1,
+                Math.max(
+                    0,
+                    0.08 +
+                        (n[1] * 0.5 + 0.5) * 0.62 -
+                        field.valley(x, y, z) * 0.5 +
+                        Math.min(1, Math.max(0, open)) * 0.26 +
+                        blotch * 0.18 * tree.roughness,
+                ),
+            ),
+        )
+
+        // Moss settles on what faces the sky, and more of it low down.
+        const mossHere = tree.moss * Math.max(0, n[1] * 1.4 + blotch * 0.9 + 0.1)
+
+        paint.lerp(moss, Math.min(1, mossHere))
+        colors.push(paint.r, paint.g, paint.b)
     }
 
-    // --- One quad per crossed edge ----------------------------------------
+    return {
+        crossedEdges,
+        vertexCells: Int32Array.from(vertexCells),
+        positions: Float64Array.from(positions),
+        normals: Float64Array.from(normals),
+        colors: Float64Array.from(colors),
+    }
+}
+
+/** Joins the slices into one surface, in their original order. */
+function joinChunks(cells: Int32Array, chunks: readonly BarkChunk[], buffers: MeshBuffers): void {
+    const vertexOf = new Map<number, number>()
+    let offset = 0
+
+    for (const chunk of chunks) {
+        for (let v = 0; v < chunk.vertexCells.length; v++) {
+            const at = (offset + chunk.vertexCells[v]) * 3
+
+            vertexOf.set(packed(cells[at], cells[at + 1], cells[at + 2]), buffers.positions.length / 3)
+            buffers.positions.push(chunk.positions[v * 3], chunk.positions[v * 3 + 1], chunk.positions[v * 3 + 2])
+            buffers.normals.push(chunk.normals[v * 3], chunk.normals[v * 3 + 1], chunk.normals[v * 3 + 2])
+            buffers.colors.push(chunk.colors[v * 3], chunk.colors[v * 3 + 1], chunk.colors[v * 3 + 2])
+        }
+
+        offset += chunk.crossedEdges.length
+    }
+
     const pushTriangle = (a: number, b: number, c: number) => {
         const p = buffers.positions
 
@@ -225,20 +350,35 @@ function sculpt(
         pushTriangle(a, c, d)
     }
 
-    for (const [i, j, k] of cells.values()) {
-        const here = sample(i, j, k) < 0
+    offset = 0
 
-        if (here !== sample(i + 1, j, k) < 0) {
-            quadAround([packed(i, j - 1, k - 1), packed(i, j, k - 1), packed(i, j, k), packed(i, j - 1, k)])
+    for (const chunk of chunks) {
+        for (let index = 0; index < chunk.crossedEdges.length; index++) {
+            const edges = chunk.crossedEdges[index]
+
+            if (edges === 0) {
+                continue
+            }
+
+            const at = (offset + index) * 3
+            const i = cells[at]
+            const j = cells[at + 1]
+            const k = cells[at + 2]
+
+            if (edges & EDGE_X) {
+                quadAround([packed(i, j - 1, k - 1), packed(i, j, k - 1), packed(i, j, k), packed(i, j - 1, k)])
+            }
+
+            if (edges & EDGE_Y) {
+                quadAround([packed(i - 1, j, k - 1), packed(i, j, k - 1), packed(i, j, k), packed(i - 1, j, k)])
+            }
+
+            if (edges & EDGE_Z) {
+                quadAround([packed(i - 1, j - 1, k), packed(i, j - 1, k), packed(i, j, k), packed(i - 1, j, k)])
+            }
         }
 
-        if (here !== sample(i, j + 1, k) < 0) {
-            quadAround([packed(i - 1, j, k - 1), packed(i, j, k - 1), packed(i, j, k), packed(i - 1, j, k)])
-        }
-
-        if (here !== sample(i, j, k + 1) < 0) {
-            quadAround([packed(i - 1, j - 1, k), packed(i, j - 1, k), packed(i, j, k), packed(i - 1, j, k)])
-        }
+        offset += chunk.crossedEdges.length
     }
 }
 
@@ -313,20 +453,16 @@ function sweep(
     }
 }
 
-export function buildBark(
+export function prepareBark(
     plan: TreePlan,
     tree: PaintedTreeParameters,
     seed: number,
     detail: number,
-): THREE.BufferGeometry {
-    const {trunkRadius} = tree
-    const palette = resolvePalette(tree)
-    const cell = Math.max((trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), MIN_CELL)
+): BarkContext {
+    const cell = Math.max((tree.trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), MIN_CELL)
     const sculptMin = cell * SCULPT_MIN_CELLS
     const isSculpted = (limb: Limb, segment: number) =>
         limb.level < 3 && Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin
-    const field = createWoodField(plan.limbs, tree, seed, isSculpted)
-
     const sculptedSegments: {a: Vec3; b: Vec3; radius: number}[] = []
 
     for (const limb of plan.limbs) {
@@ -341,60 +477,37 @@ export function buildBark(
         }
     }
 
+    return {
+        plan,
+        tree,
+        detail,
+        field: createWoodField(plan.limbs, tree, seed, isSculpted),
+        cell,
+        sculptMin,
+        isSculpted,
+        sculptedSegments,
+    }
+}
+
+/** Joins the sculpted slices and adds the thin wood. */
+export function assembleBark(
+    context: BarkContext,
+    cells: Int32Array,
+    chunks: readonly BarkChunk[],
+): BarkArrays {
+    const {plan, tree, detail, field, sculptMin, isSculpted} = context
+    const palette = resolvePalette(tree)
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
     const paint = new THREE.Color()
-    const moss = new THREE.Color(MOSS_COLOUR)
     const buffers: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
-    const occlusionReach = trunkRadius * OCCLUSION_REACH
 
     const writeValue = (value: number) => {
         paint.copy(deep).lerp(light, Math.min(1, Math.max(0, value)))
         buffers.colors.push(paint.r, paint.g, paint.b)
     }
 
-    // Lit from above, dark in the ridges and in the crooks of the joints. How
-    // open a point is comes straight from the field: step out along the normal
-    // and see how far the wood really is.
-    sculpt(
-        field,
-        sculptedSegments,
-        cell,
-        (x, y, z, n) => {
-            const open =
-                field.distance(
-                    x + n[0] * occlusionReach,
-                    y + n[1] * occlusionReach,
-                    z + n[2] * occlusionReach,
-                ) / occlusionReach
-
-            // Blotches that do not line up with the grid, so bark and moss
-            // both look like patches rather than bands.
-            const blotch = Math.sin(x * 5.3 + z * 2.1) * Math.sin(y * 4.7 + x * 1.3) * Math.sin(z * 6.1 + y * 2.3)
-
-            paint.copy(deep).lerp(
-                light,
-                Math.min(
-                    1,
-                    Math.max(
-                        0,
-                        0.08 +
-                            (n[1] * 0.5 + 0.5) * 0.62 -
-                            field.valley(x, y, z) * 0.5 +
-                            Math.min(1, Math.max(0, open)) * 0.26 +
-                            blotch * 0.18 * tree.roughness,
-                    ),
-                ),
-            )
-
-            // Moss settles on what faces the sky, and more of it low down.
-            const mossHere = tree.moss * Math.max(0, n[1] * 1.4 + blotch * 0.9 + 0.1)
-
-            paint.lerp(moss, Math.min(1, mossHere))
-            buffers.colors.push(paint.r, paint.g, paint.b)
-        },
-        buffers,
-    )
+    joinChunks(cells, chunks, buffers)
 
     // Thin wood goes dark as it thins, so the tips read as ink.
     for (const limb of plan.limbs) {
@@ -420,13 +533,38 @@ export function buildBark(
         )
     }
 
+    return {
+        positions: Float32Array.from(buffers.positions),
+        normals: Float32Array.from(buffers.normals),
+        colors: Float32Array.from(buffers.colors),
+        indices: Uint32Array.from(buffers.indices),
+    }
+}
+
+export function barkGeometry({positions, normals, colors, indices}: BarkArrays): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry()
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3))
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
-    geometry.setIndex(buffers.indices)
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setIndex(
+        positions.length / 3 < 65535
+            ? new THREE.Uint16BufferAttribute(indices, 1)
+            : new THREE.BufferAttribute(indices, 1),
+    )
     geometry.computeBoundingSphere()
 
     return geometry
+}
+
+export function buildBark(
+    plan: TreePlan,
+    tree: PaintedTreeParameters,
+    seed: number,
+    detail: number,
+): THREE.BufferGeometry {
+    const context = prepareBark(plan, tree, seed, detail)
+    const cells = listBarkCells(context)
+
+    return barkGeometry(assembleBark(context, cells, [sculptBarkCells(context, cells)]))
 }

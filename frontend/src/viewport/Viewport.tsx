@@ -485,21 +485,38 @@ export function Viewport() {
         /**
          * Reframes the camera when the tree's height changes enough that it
          * would otherwise leave the frame.
+         *
+         * Never while the pointer is down: a camera that jumps during a drag
+         * makes the tree seem to jump, so it waits for the release.
          */
         let framedHeight = 0
+        let pointerHeld = false
         const reframeIfNeeded = (scene: Scene) => {
             const asset = scene.assets[0]
             const height = typeof asset?.parameters.height === 'number' ? asset.parameters.height : 0
 
-            if (Math.abs(height - framedHeight) > framedHeight * 0.2) {
+            if (!pointerHeld && Math.abs(height - framedHeight) > framedHeight * 0.2) {
                 framedHeight = height
                 viewport.frameScene(scene)
             }
         }
 
+        const onWindowPointerDown = () => {
+            pointerHeld = true
+        }
+        const onWindowPointerUp = () => {
+            pointerHeld = false
+            reframeIfNeeded(store.getState().scene)
+        }
+
+        window.addEventListener('pointerdown', onWindowPointerDown, true)
+        window.addEventListener('pointerup', onWindowPointerUp, true)
+        window.addEventListener('pointercancel', onWindowPointerUp, true)
+
         const unsubscribe = store.subscribe((state, previous) => {
             if (state.scene !== previous.scene) {
                 viewport.syncScene(state.scene)
+                applySelectionVisuals(viewport, state.selection)
                 setFaces(viewport.countFaces())
                 reframeIfNeeded(state.scene)
                 refreshHandles()
@@ -534,6 +551,11 @@ export function Viewport() {
             }
         })
 
+        viewport.setOnContentArrived(() => {
+            // Parts rebuilt just now have not been told whether they are selected.
+            applySelectionVisuals(viewport, store.getState().selection)
+            setFaces(viewport.countFaces())
+        })
         viewport.syncScene(store.getState().scene)
         viewport.setLighting(store.getState().lighting)
         viewport.setShadingMode(store.getState().shadingMode)
@@ -547,6 +569,10 @@ export function Viewport() {
             cancelAnimationFrame(frame)
             observer.disconnect()
             unsubscribe()
+
+            window.removeEventListener('pointerdown', onWindowPointerDown, true)
+            window.removeEventListener('pointerup', onWindowPointerUp, true)
+            window.removeEventListener('pointercancel', onWindowPointerUp, true)
 
             canvas.removeEventListener('pointermove', onPointerMove)
             canvas.removeEventListener('pointerdown', onPointerDown)

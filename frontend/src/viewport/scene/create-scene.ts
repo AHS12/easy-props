@@ -31,6 +31,8 @@ export interface ViewportScene {
     readonly components: ComponentRenderer
     /** Brings the viewport in line with the scene graph. */
     syncScene(scene: Scene): void
+    /** Told when a sync that waited for a mesh built elsewhere has been applied. */
+    setOnContentArrived(listener: (() => void) | null): void
     /** Frames the whole tree. */
     frameScene(scene: Scene): void
     /** Moves the sun and re-lights the scene. */
@@ -201,7 +203,12 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
 
     const controls = attachCameraControls(camera, renderer.domElement)
 
-    const components = createComponentRenderer()
+    let onContentArrived: (() => void) | null = null
+
+    const components = createComponentRenderer(() => {
+        fitToContent()
+        onContentArrived?.()
+    })
     scene.add(components.group)
 
     let currentStyleId = styleId
@@ -252,6 +259,17 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         camera.updateProjectionMatrix()
     }
 
+    const fitToContent = () => {
+        bounds.setFromObject(components.group)
+        if (bounds.isEmpty()) {
+            bounds.set(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 4, 1))
+        }
+        bounds.getBoundingSphere(sphere)
+
+        fitShadow()
+        applyLighting()
+    }
+
     return {
         renderer,
         scene,
@@ -261,15 +279,11 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
 
         syncScene(nextScene) {
             components.sync(nextScene, getStyleProfile(currentStyleId), shading)
+            fitToContent()
+        },
 
-            bounds.setFromObject(components.group)
-            if (bounds.isEmpty()) {
-                bounds.set(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 4, 1))
-            }
-            bounds.getBoundingSphere(sphere)
-
-            fitShadow()
-            applyLighting()
+        setOnContentArrived(listener) {
+            onContentArrived = listener
         },
 
         frameScene(nextScene) {
