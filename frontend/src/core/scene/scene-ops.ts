@@ -5,6 +5,8 @@
  * can hold on to before and after states without copying meshes.
  */
 
+import {applyPartAction, isPaintedPart, type PartAction} from '../../assets/trees/painted'
+import {getStyleProfile} from '../../assets/style/style-profiles'
 import type {SceneComponent, SurfacePush} from '../../assets/shared/component-types'
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import {MAX_PUSHES} from '../../assets/shared/pushes'
@@ -225,6 +227,44 @@ function respineAfterPatch(
     }
 }
 
+function findPaintedPart(
+    scene: Scene,
+    componentId: string,
+): {asset: Scene['assets'][number]; component: SceneComponent} | null {
+    for (const asset of scene.assets) {
+        const component = asset.components.find((candidate) => candidate.id === componentId)
+
+        if (component) {
+            return isPaintedPart(component.generatorId) ? {asset, component} : null
+        }
+    }
+
+    return null
+}
+
+/**
+ * Applies an edit to a part of a painted tree.
+ *
+ * Its shape comes from the tree's plan, so the edit goes to the plan and the
+ * tree is rebuilt: the wood re-blends and children follow their parent. Null
+ * when the part is not a painted one, or the edit does not apply to it.
+ */
+function editPaintedPart(scene: Scene, componentId: string, action: PartAction): Scene | null {
+    const found = findPaintedPart(scene, componentId)
+
+    if (!found) {
+        return null
+    }
+
+    const current = found.asset.parameters.edits
+    const edits = applyPartAction(typeof current === 'string' ? current : '', found.component, action)
+
+    // The tree's structure does not depend on the style.
+    return edits === null
+        ? scene
+        : updateTreeParameters(scene, found.asset.id, {edits}, getStyleProfile('detailed'))
+}
+
 /**
  * Merges a patch into a component's generator parameters.
  *
@@ -237,6 +277,12 @@ export function updateComponentParameters(
     patch: Readonly<Record<string, unknown>>,
 ): Scene {
     const keys = Object.keys(patch)
+
+    const painted = editPaintedPart(scene, componentId, {kind: 'patch', patch})
+
+    if (painted) {
+        return painted
+    }
 
     return {
         ...scene,
@@ -265,6 +311,14 @@ export function moveComponent(
     value: number,
 ): Scene {
     const index = {x: 0, y: 1, z: 2}[axis]
+    const source = findPaintedPart(scene, componentId)
+
+    if (source) {
+        const position = [...source.component.transform.position] as [number, number, number]
+        position[index] = value
+
+        return editPaintedPart(scene, componentId, {kind: 'move', position}) ?? scene
+    }
 
     return {
         ...scene,
@@ -285,6 +339,10 @@ export function setComponentPosition(
     componentId: string,
     position: readonly [number, number, number],
 ): Scene {
+    if (findPaintedPart(scene, componentId)) {
+        return editPaintedPart(scene, componentId, {kind: 'move', position}) ?? scene
+    }
+
     return {
         ...scene,
         assets: scene.assets.map((asset) =>
@@ -408,6 +466,10 @@ export function addComponent(
 
 /** Removes a part and everything hanging off it. */
 export function removeComponent(scene: Scene, componentId: string): Scene {
+    if (findPaintedPart(scene, componentId)) {
+        return editPaintedPart(scene, componentId, {kind: 'remove'}) ?? scene
+    }
+
     return {
         ...scene,
         assets: scene.assets.map((asset) => {
@@ -436,6 +498,11 @@ export function copyComponent(
     componentId: string,
     seedForId: (attempt: number) => string,
 ): Scene {
+    // Its shape comes from the tree's plan, so there is nothing to copy.
+    if (findPaintedPart(scene, componentId)) {
+        return scene
+    }
+
     return {
         ...scene,
         assets: scene.assets.map((asset) => {
@@ -473,6 +540,10 @@ export function copyComponent(
  * back in its place.
  */
 export function restoreComponentDefault(scene: Scene, componentId: string): Scene {
+    if (findPaintedPart(scene, componentId)) {
+        return editPaintedPart(scene, componentId, {kind: 'restore'}) ?? scene
+    }
+
     return {
         ...scene,
         assets: scene.assets.map((asset) =>

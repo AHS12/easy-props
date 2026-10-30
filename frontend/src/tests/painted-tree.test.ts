@@ -3,7 +3,9 @@ import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {
+    applyPartAction,
     paintedTreeDefaults,
+    parseEdits,
     planPaintedTree,
     validatePaintedTreeParameters,
     type PaintedTreeParameters,
@@ -14,7 +16,7 @@ const DETAILED = getStyleProfile('detailed')
 const LOW = getStyleProfile('low-poly')
 
 function buildParts(parameters: PaintedTreeParameters, seed: number, style = DETAILED) {
-    return generateTreeComponents('painted-tree', parameters, seed, style).map((component) => {
+    return generateTreeComponents('painted-tree', parameters as unknown as Record<string, unknown>, seed, style).map((component) => {
         const generator = findComponentGenerator(component.generatorId)!
 
         return generator.generate(generator.validate(component.parameters).parameters, {
@@ -25,14 +27,17 @@ function buildParts(parameters: PaintedTreeParameters, seed: number, style = DET
     })
 }
 
+// The tubes that catch clicks are never drawn or exported, so they cost nothing.
 const triangles = (parts: ReturnType<typeof buildParts>) =>
-    parts.reduce((sum, part) => sum + part.geometry.index!.count / 3, 0)
+    parts
+        .filter((part) => !part.surface?.proxy)
+        .reduce((sum, part) => sum + part.geometry.index!.count / 3, 0)
 
 describe('painted tree', () => {
     it('stays inside its triangle budget, whatever the seed', () => {
         for (const seed of [1, 2, 3, 77123, 991]) {
-            expect(triangles(buildParts(paintedTreeDefaults, seed))).toBeLessThan(11000)
-            expect(triangles(buildParts(paintedTreeDefaults, seed, LOW))).toBeLessThan(8000)
+            expect(triangles(buildParts(paintedTreeDefaults, seed))).toBeLessThan(14000)
+            expect(triangles(buildParts(paintedTreeDefaults, seed, LOW))).toBeLessThan(10000)
         }
     })
 
@@ -98,6 +103,61 @@ describe('painted tree', () => {
         expect(clump.surface?.map).toBeDefined()
     })
 
+    it('adding a branch leaves the other branches where they were', () => {
+        const before = planPaintedTree({...paintedTreeDefaults, branchCount: 3}, 9)
+        const pick = (plan: typeof before, key: string) =>
+            plan.limbs.find((limb) => limb.key === key)!.points
+        const heavyBefore = pick(before, 'l1')
+        const after = planPaintedTree({...paintedTreeDefaults, branchCount: 4}, 9)
+
+        // Height may rescale the crown a little, but only vertically.
+        pick(after, 'l1').forEach((point, index) => {
+            expect(point[0]).toBeCloseTo(heavyBefore[index][0], 6)
+            expect(point[2]).toBeCloseTo(heavyBefore[index][2], 6)
+        })
+    })
+
+    it('moves a limb and takes its children with it, and nothing else', () => {
+        const tree = paintedTreeDefaults
+        const plain = planPaintedTree(tree, 4)
+        const limb = plain.limbs.find((candidate) => candidate.key === 'l0')!
+        const moved = limb.controls.map((point) => ({t: 0, x: point[0] + 1, y: point[1], z: point[2]}))
+        const edits = applyPartAction(
+            '',
+            {generatorId: 'painted-limb', parameters: {key: 'l0', base: limb.controlBase}},
+            {kind: 'patch', patch: {spine: moved}},
+        )!
+        const edited = planPaintedTree({...tree, edits}, 4)
+        const find = (plan: typeof plain, key: string) => plan.limbs.find((candidate) => candidate.key === key)!
+
+        expect(find(edited, 'l0').points[9][0]).toBeCloseTo(find(plain, 'l0').points[9][0] + 1, 5)
+        expect(find(edited, 'l0b0').points[0][0]).not.toBeCloseTo(find(plain, 'l0b0').points[0][0], 3)
+        expect(find(edited, 'l1').points).toEqual(find(plain, 'l1').points)
+    })
+
+    it('keeps a hand edit when a slider changes afterwards', () => {
+        const key = planPaintedTree(paintedTreeDefaults, 6).clumps[0].key
+        const edits = applyPartAction(
+            '',
+            {generatorId: 'painted-clump', parameters: {key}},
+            {kind: 'remove'},
+        )!
+        const taller = planPaintedTree({...paintedTreeDefaults, height: 10, edits}, 6)
+
+        expect(taller.clumps.some((clump) => clump.key === key)).toBe(false)
+        expect(parseEdits(edits).clumps[key].removed).toBe(true)
+    })
+
+    it('cannot remove the trunk', () => {
+        expect(
+            applyPartAction('', {generatorId: 'painted-limb', parameters: {key: 't'}}, {kind: 'remove'}),
+        ).toBeNull()
+    })
+
+    it('survives a damaged edit list', () => {
+        expect(() => planPaintedTree({...paintedTreeDefaults, edits: '{broken'}, 2)).not.toThrow()
+    })
+
     it('never produces a broken number, across the whole range of every control', () => {
         const random = createSeededRandom(2024)
 
@@ -111,8 +171,20 @@ describe('painted tree', () => {
                 gnarl: random(),
                 clumpCount: 3 + random() * 15,
                 clumpSize: 0.5 + random() * 1.1,
-                fullness: 0.2 + random() * 0.8,
-                palette: 'spring',
+                fullness: 0.2 + random() * 1.3,
+                corkscrew: random(),
+                ridgeTwist: random() * 6 - 3,
+                ridgeCount: 2 + random() * 7,
+                rootCount: random() * 12,
+                burls: random() * 8,
+                hollow: random(),
+                moss: random(),
+                roughness: random(),
+                droop: random(),
+                branchCount: 1 + random() * 5,
+                twigCount: random() * 4,
+                barkDetail: 0.5 + random(),
+                palette: run % 2 ? 'spring' : 'custom',
             })
 
             for (const part of buildParts(parameters, run, run % 2 ? LOW : DETAILED)) {

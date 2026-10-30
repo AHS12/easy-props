@@ -65,7 +65,7 @@ export function selectedSpine(scene: Scene, selectedId: string | null): PartSpin
         return null
     }
 
-    const kind = spineKindOf(component.type)
+    const kind = component.parameters.worldSpine === true ? 'world' : spineKindOf(component.type)
     if (!kind) {
         return null
     }
@@ -135,7 +135,17 @@ export function movedSpine(
  * height. A limb points wherever its parent sent it, so the plane turns with
  * it.
  */
-export function dragPlaneFor(spine: PartSpine, index: number): THREE.Plane {
+export function dragPlaneFor(spine: PartSpine, index: number, camera?: THREE.Camera): THREE.Plane {
+    if (spine.kind === 'world') {
+        // A point with no axis of its own moves freely, so the plane faces
+        // the camera. Any fixed plane goes edge-on from some angle, and then a
+        // small move of the pointer throws the handle across the tree.
+        return new THREE.Plane().setFromNormalAndCoplanarPoint(
+            camera?.getWorldDirection(new THREE.Vector3()) ?? new THREE.Vector3(0, 0, 1),
+            spine.positions[index],
+        )
+    }
+
     const origin = new THREE.Vector3().applyMatrix4(spine.matrix)
 
     const axis =

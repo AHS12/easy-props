@@ -60,7 +60,7 @@ function countFaces(root: THREE.Object3D): number {
 
     root.traverse((object) => {
         const mesh = object as THREE.Mesh
-        if (!mesh.isMesh || mesh.userData.isHelper) {
+        if (!mesh.isMesh || mesh.userData.isHelper || mesh.userData.isProxy) {
             return
         }
 

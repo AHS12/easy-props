@@ -415,6 +415,7 @@ h4 {
 }
 
 .preset-card__name {
+    color: var(--text-primary);
     font-size: 13px;
     font-weight: 700;
     line-height: 1.25;

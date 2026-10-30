@@ -4,28 +4,47 @@
  * Everything drawn is derived from this, so bark and leaves agree by
  * construction. It is a pure function of the parameters and the seed, and the
  * last one is kept, because every part of one tree asks for it in turn.
+ *
+ * Every limb and clump has a stable name and draws from its own random stream,
+ * named after it. So adding a branch adds a branch instead of reshuffling the
+ * tree, and a hand edit has something lasting to attach to.
  */
 
-import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../../shared/random'
+import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
+import {parseEdits, type ClumpEdit, type PaintedEdits} from './edits'
 import type {PaintedTreeParameters} from './parameters'
 
 export type Vec3 = readonly [number, number, number]
 
 export interface Limb {
     readonly id: number
+    /** Its stable name: `t`, `r2`, `l1`, `l1b0`, `l1b0t1`. */
+    readonly key: string
     /** 0 is the trunk, 1 a heavy limb or root, 2 a branch, 3 a twig. */
     readonly level: number
     readonly points: readonly Vec3[]
     readonly radii: readonly number[]
+    /** Where along the limb its drag handles sit, 0 to 1. */
+    readonly controlTs: readonly number[]
+    /** Where those handles would be if they had not been dragged. */
+    readonly controlBase: readonly Vec3[]
+    /** Where they are now. */
+    readonly controls: readonly Vec3[]
+    readonly lengthScale: number
+    readonly thicknessScale: number
 }
 
 /** A mass of leaves: an ellipsoid whose surface the seed breaks up. */
 export interface Clump {
+    readonly key: string
+    /** Where it would sit if it had not been moved. */
+    readonly base: Vec3
     readonly centre: Vec3
     readonly radius: number
     /** The vertical radius over the horizontal one. */
     readonly flatten: number
     readonly seed: number
+    readonly edit: ClumpEdit
 }
 
 export interface TreePlan {
@@ -35,11 +54,9 @@ export interface TreePlan {
     readonly crownRadius: number
 }
 
-const SEED_WOOD = 11
-const SEED_CROWN = 12
-
 /** The golden angle, so limbs around a parent never line up. */
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+const DEGREES = Math.PI / 180
 
 const add = (a: Vec3, b: Vec3, scale = 1): Vec3 => [
     a[0] + b[0] * scale,
@@ -62,6 +79,17 @@ export function perpendicularTo(v: Vec3): Vec3 {
     return normalize(cross(v, Math.abs(v[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]))
 }
 
+/** Turns a part's name into a number to seed its own randomness with. */
+export function hashKey(key: string): number {
+    let hash = 2166136261
+
+    for (let index = 0; index < key.length; index++) {
+        hash = Math.imul(hash ^ key.charCodeAt(index), 16777619)
+    }
+
+    return hash >>> 0
+}
+
 interface LimbRecipe {
     readonly start: Vec3
     readonly direction: Vec3
@@ -76,6 +104,32 @@ interface LimbRecipe {
     readonly rise: number
     /** Above 1 the radius falls quickly at first, so a limb ends in a whip. */
     readonly taperPower: number
+    readonly controlTs: readonly number[]
+    /** Applied to the finished path, before any hand edit. */
+    readonly shape?: (point: Vec3, t: number) => Vec3
+}
+
+/** How much of each dragged handle's move reaches a point `t` along the limb. */
+function offsetAt(t: number, controlTs: readonly number[], offsets: readonly Vec3[]): Vec3 {
+    let previousT = 0
+    let previous: Vec3 = [0, 0, 0]
+
+    for (let index = 0; index < controlTs.length; index++) {
+        const nextT = controlTs[index]
+        const next = offsets[index] ?? [0, 0, 0]
+
+        if (t <= nextT) {
+            const f = nextT - previousT < 1e-6 ? 1 : (t - previousT) / (nextT - previousT)
+            const eased = f * f * (3 - 2 * f)
+
+            return add(previous, [next[0] - previous[0], next[1] - previous[1], next[2] - previous[2]], eased)
+        }
+
+        previousT = nextT
+        previous = next
+    }
+
+    return previous
 }
 
 /**
@@ -84,15 +138,27 @@ interface LimbRecipe {
  * The heading drifts by a slow sum of sines rather than a random walk: a walk
  * makes every limb jitter, and two slow waves make it bend with intent.
  */
-function growLimb(id: number, recipe: LimbRecipe, random: RandomSource): Limb {
-    const {steps, length, baseRadius, tipRadius, taperPower} = recipe
+function growLimb(
+    id: number,
+    key: string,
+    recipe: LimbRecipe,
+    seed: number,
+    edits: PaintedEdits,
+): Limb {
+    const random = createSeededRandom(hashSeed(seed, hashKey(key)))
+    const edit = edits.limbs[key] ?? {}
+    const lengthScale = edit.lengthScale ?? 1
+    const thicknessScale = edit.thicknessScale ?? 1
+    const {steps, tipRadius, taperPower} = recipe
+    const length = recipe.length * lengthScale
+    const baseRadius = recipe.baseRadius * thicknessScale
     const side = perpendicularTo(recipe.direction)
     const other = cross(recipe.direction, side)
     const phaseA = random() * Math.PI * 2
     const phaseB = random() * Math.PI * 2
     const waves = randomRange(random, 0.8, 1.4)
 
-    const points: Vec3[] = [recipe.start]
+    const path: Vec3[] = [recipe.start]
     const radii: number[] = [baseRadius]
     let heading = recipe.direction
     let at = recipe.start
@@ -110,11 +176,37 @@ function growLimb(id: number, recipe: LimbRecipe, random: RandomSource): Limb {
             ),
         )
         at = add(at, heading, length / steps)
-        points.push(at)
+        path.push(at)
         radii.push(tipRadius + (baseRadius - tipRadius) * Math.pow(1 - t, taperPower))
     }
 
-    return {id, level: recipe.level, points, radii}
+    const shaped = recipe.shape ? path.map((point, step) => recipe.shape!(point, step / steps)) : path
+    const offsets = edit.offsets ?? []
+    const points = shaped.map((point, step) => add(point, offsetAt(step / steps, recipe.controlTs, offsets)))
+    const sampled = (from: readonly Vec3[]) => recipe.controlTs.map((t) => sampleAt(from, t))
+
+    return {
+        id,
+        key,
+        level: recipe.level,
+        points,
+        radii,
+        controlTs: recipe.controlTs,
+        controlBase: sampled(shaped),
+        controls: sampled(points),
+        lengthScale,
+        thicknessScale,
+    }
+}
+
+function sampleAt(points: readonly Vec3[], t: number): Vec3 {
+    const last = points.length - 1
+    const position = Math.min(Math.max(t, 0), 1) * last
+    const index = Math.min(Math.floor(position), last - 1)
+    const a = points[index]
+    const b = points[index + 1]
+
+    return add(a, [b[0] - a[0], b[1] - a[1], b[2] - a[2]], position - index)
 }
 
 /** A point partway along a limb, with its radius and heading. */
@@ -122,15 +214,13 @@ function along(limb: Limb, t: number): {point: Vec3; radius: number; heading: Ve
     const last = limb.points.length - 1
     const position = Math.min(Math.max(t, 0), 1) * last
     const index = Math.min(Math.floor(position), last - 1)
-    const fraction = position - index
     const a = limb.points[index]
     const b = limb.points[index + 1]
-    const delta: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
 
     return {
-        point: add(a, delta, fraction),
-        radius: limb.radii[index] + (limb.radii[index + 1] - limb.radii[index]) * fraction,
-        heading: normalize(delta),
+        point: sampleAt(limb.points, t),
+        radius: limb.radii[index] + (limb.radii[index + 1] - limb.radii[index]) * (position - index),
+        heading: normalize([b[0] - a[0], b[1] - a[1], b[2] - a[2]]),
     }
 }
 
@@ -156,78 +246,126 @@ function pathLength(limb: Limb): number {
     return length
 }
 
-function growWood(parameters: PaintedTreeParameters, random: RandomSource): Limb[] {
-    const {height, spread, trunkRadius, forkHeight, limbCount, gnarl} = parameters
+/**
+ * Grows the wood.
+ *
+ * `stretch` is the vertical scale that fits the crown to the tree's height. It
+ * is applied limb by limb around each limb's own start, so a child stays on
+ * its parent and hand edits land exactly where they were dragged.
+ */
+function growWood(
+    tree: PaintedTreeParameters,
+    seed: number,
+    stretch: number,
+    edits: PaintedEdits,
+): Limb[] {
+    const random = createSeededRandom(hashSeed(seed, 11))
+    const {height, spread, trunkRadius, forkHeight, limbCount, gnarl} = tree
     const limbs: Limb[] = []
     const forkY = height * forkHeight
-    const lean = randomRange(random, 0.08, 0.22) * (0.4 + gnarl)
     const leanAzimuth = random() * Math.PI * 2
+    const lean = tree.lean * randomRange(random, 0.8, 1.2)
+    const azimuthStart = random() * Math.PI * 2
+    const trunkLength = forkY * 1.22
+    const turns = 1.25
+    const windRadius = tree.corkscrew * trunkRadius * 1.1
+
+    const fit = (start: Vec3) => (point: Vec3): Vec3 => [
+        point[0],
+        start[1] + (point[1] - start[1]) * stretch,
+        point[2],
+    ]
 
     const trunk = growLimb(
         limbs.length,
+        't',
         {
             start: [0, 0, 0],
             direction: normalize([Math.cos(leanAzimuth) * lean, 1, Math.sin(leanAzimuth) * lean]),
-            length: forkY * 1.22,
+            length: trunkLength,
             baseRadius: trunkRadius,
             tipRadius: trunkRadius * 0.6,
             level: 0,
-            steps: 12,
-            wander: 0.2 * gnarl,
+            steps: 16,
+            wander: tree.trunkBend * 0.8,
             rise: 0.1,
             taperPower: 0.9,
+            controlTs: [0.34, 0.67, 1],
+            // The corkscrew leaves the base where it is, and winds harder
+            // towards the middle of the trunk.
+            shape: (point, t) => {
+                const angle = t * turns * Math.PI * 2 + leanAzimuth
+                const reach = windRadius * Math.sin(Math.min(t * 1.6, 1) * Math.PI * 0.5)
+
+                return [
+                    point[0] + (Math.cos(angle) - Math.cos(leanAzimuth)) * reach,
+                    point[1],
+                    point[2] + (Math.sin(angle) - Math.sin(leanAzimuth)) * reach,
+                ]
+            },
         },
-        random,
+        seed,
+        edits,
     )
 
     limbs.push(trunk)
 
-    // Roots: short, thick and sinking, so the trunk stands in the ground
-    // rather than on it.
-    const rootCount = 5 + Math.round(gnarl * 2)
+    // Roots: short, thick and low, so the trunk stands in the ground rather
+    // than on it.
+    for (let index = 0; index < tree.rootCount; index++) {
+        const key = `r${index}`
 
-    for (let index = 0; index < rootCount; index++) {
+        if (edits.limbs[key]?.removed) {
+            continue
+        }
+
         const azimuth = index * GOLDEN_ANGLE + leanAzimuth
-
+        const own = createSeededRandom(hashSeed(seed, hashKey(key), 1))
         const root = growLimb(
-                limbs.length,
-                {
-                    start: [
-                        Math.cos(azimuth) * trunkRadius * 0.45,
-                        trunkRadius * randomRange(random, 0.55, 0.85),
-                        Math.sin(azimuth) * trunkRadius * 0.45,
-                    ],
-                    direction: normalize([Math.cos(azimuth), -0.3, Math.sin(azimuth)]),
-                    length: trunkRadius * randomRange(random, 2.2, 3.4),
-                    baseRadius: trunkRadius * randomRange(random, 0.42, 0.55),
-                    tipRadius: trunkRadius * 0.12,
-                    level: 1,
-                    steps: 5,
-                    wander: 0.08,
-                    rise: -0.6,
-                    taperPower: 0.9,
-                },
-                random,
-            )
+            limbs.length,
+            key,
+            {
+                start: [
+                    Math.cos(azimuth) * trunkRadius * 0.45,
+                    trunkRadius * randomRange(own, 0.55, 0.85),
+                    Math.sin(azimuth) * trunkRadius * 0.45,
+                ],
+                direction: normalize([Math.cos(azimuth), -0.3, Math.sin(azimuth)]),
+                length: trunkRadius * randomRange(own, 2.2, 3.4) * tree.rootLength,
+                baseRadius: trunkRadius * randomRange(own, 0.42, 0.55),
+                tipRadius: trunkRadius * 0.12,
+                level: 1,
+                steps: 5,
+                wander: 0.08,
+                rise: -0.6,
+                taperPower: 0.9,
+                controlTs: [0.5, 1],
+                // A root runs along the ground, it does not dive through it.
+                shape: (point) => [point[0], Math.max(point[1], -0.04), point[2]],
+            },
+            seed,
+            edits,
+        )
 
-        // A root runs along the ground, it does not dive through it.
-        limbs.push({
-            ...root,
-            points: root.points.map((point): Vec3 => [point[0], Math.max(point[1], -0.04), point[2]]),
-        })
+        limbs.push(root)
     }
 
     // Heavy limbs: low ones reach out, high ones climb.
-    const heavy: Limb[] = []
-    const azimuthStart = random() * Math.PI * 2
-
     for (let index = 0; index < limbCount; index++) {
+        const key = `l${index}`
+
+        if (edits.limbs[key]?.removed) {
+            continue
+        }
+
+        const own = createSeededRandom(hashSeed(seed, hashKey(key), 1))
         const share = limbCount === 1 ? 0.5 : index / (limbCount - 1)
         const leaving = along(trunk, 0.66 + share * 0.34)
-        const azimuth = azimuthStart + index * GOLDEN_ANGLE + randomRange(random, -0.3, 0.3)
-        const elevation = (10 + share * 52 + randomRange(random, -6, 6)) * (Math.PI / 180)
-        const limb = growLimb(
+        const azimuth = azimuthStart + index * GOLDEN_ANGLE + randomRange(own, -0.3, 0.3)
+        const elevation = (tree.limbAngle * (0.28 + share * 1.44) + randomRange(own, -6, 6)) * DEGREES
+        const heavy = growLimb(
             limbs.length,
+            key,
             {
                 start: leaving.point,
                 direction: normalize([
@@ -236,114 +374,126 @@ function growWood(parameters: PaintedTreeParameters, random: RandomSource): Limb
                     Math.sin(azimuth) * Math.cos(elevation),
                 ]),
                 length:
-                    (spread * 0.5 * randomRange(random, 0.82, 1.05)) /
+                    (spread * 0.5 * randomRange(own, 0.82, 1.05)) /
                     Math.max(Math.cos(elevation), 0.55),
-                baseRadius: leaving.radius * randomRange(random, 0.62, 0.74),
+                baseRadius: leaving.radius * randomRange(own, 0.62, 0.74),
                 tipRadius: 0.018,
                 level: 1,
                 steps: 9,
                 wander: 0.14 * (0.35 + gnarl),
-                rise: 0.4,
+                rise: 0.4 - tree.droop * 1.5,
                 taperPower: 1.55,
+                controlTs: [0.34, 0.67, 1],
+                shape: fit(leaving.point),
             },
-            random,
+            seed,
+            edits,
         )
 
-        limbs.push(limb)
-        heavy.push(limb)
-    }
+        limbs.push(heavy)
 
-    // Branches, then twigs. Children turn around their parent, and the lower
-    // they leave, the longer they are.
-    const branches: Limb[] = []
+        // Branches, then twigs. Children turn around their parent, and the
+        // lower they leave, the longer they are.
+        const heavyLength = pathLength(heavy)
+        const branchStart = own() * Math.PI * 2
 
-    for (const parent of heavy) {
-        const count = 3 + (random() < 0.5 ? 1 : 0)
-        const parentLength = pathLength(parent)
-        const start = random() * Math.PI * 2
+        for (let b = 0; b < tree.branchCount; b++) {
+            const branchKey = `${key}b${b}`
 
-        for (let index = 0; index < count; index++) {
-            const t = 0.34 + (index / Math.max(count - 1, 1)) * 0.56
-            const leaving = along(parent, t)
+            if (edits.limbs[branchKey]?.removed) {
+                continue
+            }
+
+            const branchOwn = createSeededRandom(hashSeed(seed, hashKey(branchKey), 1))
+            const t = 0.34 + (b / Math.max(tree.branchCount - 1, 1)) * 0.56
+            const from = along(heavy, t)
             const branch = growLimb(
                 limbs.length,
+                branchKey,
                 {
-                    start: leaving.point,
+                    start: from.point,
                     direction: leaveAxis(
-                        leaving.heading,
-                        randomRange(random, 0.55, 0.85),
-                        start + index * GOLDEN_ANGLE,
+                        from.heading,
+                        randomRange(branchOwn, 0.55, 0.85),
+                        branchStart + b * GOLDEN_ANGLE,
                     ),
-                    length: parentLength * (0.56 - t * 0.22) * randomRange(random, 0.85, 1.15),
-                    baseRadius: Math.max(leaving.radius * 0.72, 0.022),
+                    length: heavyLength * (0.56 - t * 0.22) * randomRange(branchOwn, 0.85, 1.15),
+                    baseRadius: Math.max(from.radius * 0.72, 0.022),
                     tipRadius: 0.01,
                     level: 2,
                     steps: 5,
                     wander: 0.14 * (0.35 + gnarl),
-                    rise: 0.45,
+                    rise: 0.45 - tree.droop * 1.2,
                     taperPower: 1.3,
+                    controlTs: [0.5, 1],
+                    shape: fit(from.point),
                 },
-                random,
+                seed,
+                edits,
             )
 
             limbs.push(branch)
-            branches.push(branch)
-        }
-    }
 
-    for (const parent of branches) {
-        const parentLength = pathLength(parent)
-        const start = random() * Math.PI * 2
+            const branchLength = pathLength(branch)
+            const twigStart = branchOwn() * Math.PI * 2
 
-        for (let index = 0; index < 2; index++) {
-            const leaving = along(parent, 0.42 + index * 0.34)
+            for (let twig = 0; twig < tree.twigCount; twig++) {
+                const twigKey = `${branchKey}t${twig}`
+                const twigOwn = createSeededRandom(hashSeed(seed, hashKey(twigKey), 1))
+                const leaving = along(branch, 0.35 + ((twig + 0.5) / tree.twigCount) * 0.6)
 
-            limbs.push(
-                growLimb(
-                    limbs.length,
-                    {
-                        start: leaving.point,
-                        direction: leaveAxis(
-                            leaving.heading,
-                            randomRange(random, 0.55, 0.95),
-                            start + index * Math.PI,
-                        ),
-                        length: parentLength * randomRange(random, 0.3, 0.46),
-                        baseRadius: Math.max(leaving.radius * 0.75, 0.012),
-                        tipRadius: 0.006,
-                        level: 3,
-                        steps: 2,
-                        wander: 0.1,
-                        rise: 0.2,
-                        taperPower: 1,
-                    },
-                    random,
-                ),
-            )
+                limbs.push(
+                    growLimb(
+                        limbs.length,
+                        twigKey,
+                        {
+                            start: leaving.point,
+                            direction: leaveAxis(
+                                leaving.heading,
+                                randomRange(twigOwn, 0.55, 0.95),
+                                twigStart + twig * 2.4,
+                            ),
+                            length: branchLength * randomRange(twigOwn, 0.3, 0.46),
+                            baseRadius: Math.max(leaving.radius * 0.75, 0.012),
+                            tipRadius: 0.006,
+                            level: 3,
+                            steps: 2,
+                            wander: 0.1,
+                            rise: 0.2,
+                            taperPower: 1,
+                            controlTs: [1],
+                        },
+                        seed,
+                        edits,
+                    ),
+                )
+            }
         }
     }
 
     return limbs
 }
 
+const tipOf = (limb: Limb) => limb.points[limb.points.length - 1]
+
+interface Seat {
+    readonly point: Vec3
+    /** The branches whose tips this clump sits over. */
+    readonly keys: readonly string[]
+}
+
 /**
- * Puts the masses of leaves over the wood.
+ * Decides which branch tips share a clump.
  *
  * Every branch tip wants a clump. The closest pairs merge until the count is
  * right: a crown is a few big shapes with air between them, not an even coat.
  */
-function placeClumps(
-    limbs: readonly Limb[],
-    parameters: PaintedTreeParameters,
-    random: RandomSource,
-): Clump[] {
-    let seats = limbs
+function groupTips(limbs: readonly Limb[], target: number): Seat[] {
+    let seats: Seat[] = limbs
         .filter((limb) => limb.level === 2)
-        .map((limb) => ({point: limb.points[limb.points.length - 1], weight: 1}))
+        .map((limb) => ({point: tipOf(limb), keys: [limb.key]}))
 
-    const target = Math.max(1, parameters.clumpCount)
-
-    while (seats.length > target) {
+    while (seats.length > Math.max(1, target)) {
         let bestA = 0
         let bestB = 1
         let best = Number.POSITIVE_INFINITY
@@ -364,86 +514,138 @@ function placeClumps(
 
         const a = seats[bestA]
         const b = seats[bestB]
-        const weight = a.weight + b.weight
+        const wa = a.keys.length
+        const wb = b.keys.length
         const point: Vec3 = [
-            (a.point[0] * a.weight + b.point[0] * b.weight) / weight,
-            (a.point[1] * a.weight + b.point[1] * b.weight) / weight,
-            (a.point[2] * a.weight + b.point[2] * b.weight) / weight,
+            (a.point[0] * wa + b.point[0] * wb) / (wa + wb),
+            (a.point[1] * wa + b.point[1] * wb) / (wa + wb),
+            (a.point[2] * wa + b.point[2] * wb) / (wa + wb),
         ]
 
         seats = seats.filter((_, index) => index !== bestA && index !== bestB)
-        seats.push({point, weight})
+        seats.push({point, keys: [...a.keys, ...b.keys]})
     }
 
-    const baseRadius = (parameters.spread * 0.17 + parameters.height * 0.03) * parameters.clumpSize
-    const countScale = Math.sqrt(11 / target)
+    return seats
+}
 
-    return seats.map((seat) => {
+/** Puts a clump over each group of tips, wherever those tips are now. */
+function placeClumps(
+    limbs: readonly Limb[],
+    seats: readonly Seat[],
+    tree: PaintedTreeParameters,
+    seed: number,
+    edits: PaintedEdits,
+): Clump[] {
+    const tips = new Map(limbs.filter((limb) => limb.level === 2).map((limb) => [limb.key, tipOf(limb)]))
+    const baseRadius = (tree.spread * 0.17 + tree.height * 0.03) * tree.clumpSize
+    const countScale = Math.sqrt(11 / Math.max(tree.clumpCount, 1))
+    const placed: {seat: Seat; point: Vec3}[] = []
+
+    for (const seat of seats) {
+        const live = seat.keys.map((key) => tips.get(key)).filter((tip): tip is Vec3 => tip !== undefined)
+
+        if (live.length > 0) {
+            const sum = live.reduce<Vec3>((total, tip) => add(total, tip), [0, 0, 0])
+
+            placed.push({seat, point: [sum[0] / live.length, sum[1] / live.length, sum[2] / live.length]})
+        }
+    }
+
+    const count = Math.max(placed.length, 1)
+    const middle = placed.reduce<Vec3>((total, {point}) => add(total, point, 1 / count), [0, 0, 0])
+    const clumps: Clump[] = []
+
+    for (const {seat, point} of placed) {
+        const key = [...seat.keys].sort()[0]
+        const edit = edits.clumps[key] ?? {}
+
+        if (edit.removed) {
+            continue
+        }
+
+        const random = createSeededRandom(hashSeed(seed, hashKey(key), 2))
         const radius =
             baseRadius *
             countScale *
-            (0.72 + 0.16 * Math.min(seat.weight, 3)) *
-            randomRange(random, 0.85, 1.15)
+            (1 + tree.clumpMerge * 0.35) *
+            (0.72 + 0.16 * Math.min(seat.keys.length, 3)) *
+            randomRange(random, 0.85, 1.15) *
+            (edit.sizeScale ?? 1)
+        // Merging pulls clumps together, and flatter clumps sit lower.
+        const pull = tree.clumpMerge * 0.32
+        const base: Vec3 = [
+            point[0] + (middle[0] - point[0]) * pull,
+            point[1] + (middle[1] - point[1]) * pull + radius * 0.34,
+            point[2] + (middle[2] - point[2]) * pull,
+        ]
+        const offset = edit.offset ?? [0, 0, 0]
 
-        return {
-            centre: [seat.point[0], seat.point[1] + radius * 0.34, seat.point[2]] as Vec3,
+        clumps.push({
+            key,
+            base,
+            centre: add(base, offset),
             radius,
-            flatten: randomRange(random, 0.62, 0.78),
+            flatten:
+                Math.min(Math.max((1 - tree.clumpFlatten * 0.75) * randomRange(random, 0.92, 1.08) * (edit.flattenScale ?? 1), 0.25), 1.4),
             seed: Math.floor(random() * 2147483647),
-        }
-    })
+            edit,
+        })
+    }
+
+    return clumps
+}
+
+const NO_EDITS: PaintedEdits = {limbs: {}, clumps: {}}
+
+/** The top of the leaves, with no hand edits. */
+function crownTop(limbs: readonly Limb[], seats: readonly Seat[], tree: PaintedTreeParameters, seed: number) {
+    return placeClumps(limbs, seats, tree, seed, NO_EDITS).reduce(
+        (top, clump) => Math.max(top, clump.centre[1] + clump.radius * clump.flatten),
+        0,
+    )
 }
 
 /**
- * Fits the crown to the tree's height.
+ * Finds the vertical scale that puts the top of the leaves at Height.
  *
- * Growth decides the shape and this decides the size, so Height means what it
- * says: everything above the fork is stretched or squashed vertically until the
- * top of the leaves is exactly where it was asked to be.
+ * Solved without the hand edits, so dragging one branch upward does not squash
+ * the rest of the tree to make room.
  */
-function fitToHeight(limbs: readonly Limb[], clumps: readonly Clump[], height: number) {
-    const forkY = limbs[0].points[limbs[0].points.length - 1][1] * 0.8
-    let scale = 3
+function fitToHeight(tree: PaintedTreeParameters, seed: number): {stretch: number; seats: Seat[]} {
+    const first = growWood(tree, seed, 1, NO_EDITS)
+    const seats = groupTips(first, tree.clumpCount)
+    const pivot = tree.height * tree.forkHeight
+    let stretch = 1
 
-    // Only the centres move, not the clumps' own size, so each clump is solved
-    // for separately and the one that would reach highest sets the scale.
-    for (const clump of clumps) {
-        const above = clump.centre[1] - forkY
+    for (let pass = 0; pass < 4; pass++) {
+        const limbs = pass === 0 ? first : growWood(tree, seed, stretch, NO_EDITS)
+        const top = crownTop(limbs, seats, tree, seed)
 
-        if (above > 1e-3) {
-            scale = Math.min(scale, (height - forkY - clump.radius * clump.flatten) / above)
+        if (top <= pivot + 0.01) {
+            break
         }
+
+        stretch = Math.min(Math.max(stretch * ((tree.height - pivot) / (top - pivot)), 0.1), 4)
     }
 
-    scale = Math.max(scale, 0.15)
-    const squash = (point: Vec3): Vec3 => [point[0], forkY + (point[1] - forkY) * scale, point[2]]
-
-    return {
-        limbs: limbs.map((limb) =>
-            limb.level === 0 || limb.points[0][1] < forkY
-                ? limb
-                : {...limb, points: limb.points.map(squash)},
-        ),
-        clumps: clumps.map((clump) => ({...clump, centre: squash(clump.centre)})),
-    }
+    return {stretch, seats}
 }
 
-function buildPlan(parameters: PaintedTreeParameters, seed: number): TreePlan {
-    const grown = growWood(parameters, createSeededRandom(hashSeed(seed, SEED_WOOD)))
-    const {limbs, clumps} = fitToHeight(
-        grown,
-        placeClumps(grown, parameters, createSeededRandom(hashSeed(seed, SEED_CROWN))),
-        parameters.height,
-    )
+function buildPlan(tree: PaintedTreeParameters, seed: number): TreePlan {
+    const edits = parseEdits(tree.edits)
+    const {stretch, seats} = cachedFit(tree, seed)
+    const limbs = growWood(tree, seed, stretch, edits)
+    const clumps = placeClumps(limbs, seats, tree, seed, edits)
 
     let x = 0
     let y = 0
     let z = 0
 
     for (const clump of clumps) {
-        x += clump.centre[0]
-        y += clump.centre[1]
-        z += clump.centre[2]
+        x += clump.base[0]
+        y += clump.base[1]
+        z += clump.base[2]
     }
 
     const count = Math.max(clumps.length, 1)
@@ -454,9 +656,9 @@ function buildPlan(parameters: PaintedTreeParameters, seed: number): TreePlan {
         crownRadius = Math.max(
             crownRadius,
             Math.hypot(
-                clump.centre[0] - crownCentre[0],
-                clump.centre[1] - crownCentre[1],
-                clump.centre[2] - crownCentre[2],
+                clump.base[0] - crownCentre[0],
+                clump.base[1] - crownCentre[1],
+                clump.base[2] - crownCentre[2],
             ) + clump.radius,
         )
     }
@@ -464,14 +666,28 @@ function buildPlan(parameters: PaintedTreeParameters, seed: number): TreePlan {
     return {limbs, clumps, crownCentre, crownRadius}
 }
 
+let fitKey = ''
+let fitResult: {stretch: number; seats: Seat[]} | null = null
+
+function cachedFit(tree: PaintedTreeParameters, seed: number) {
+    const key = JSON.stringify([{...tree, edits: ''}, seed])
+
+    if (!fitResult || key !== fitKey) {
+        fitResult = fitToHeight(tree, seed)
+        fitKey = key
+    }
+
+    return fitResult
+}
+
 let lastKey = ''
 let lastPlan: TreePlan | null = null
 
-export function planPaintedTree(parameters: PaintedTreeParameters, seed: number): TreePlan {
-    const key = JSON.stringify([parameters, seed])
+export function planPaintedTree(tree: PaintedTreeParameters, seed: number): TreePlan {
+    const key = JSON.stringify([tree, seed])
 
     if (!lastPlan || key !== lastKey) {
-        lastPlan = buildPlan(parameters, seed)
+        lastPlan = buildPlan(tree, seed)
         lastKey = key
     }
 

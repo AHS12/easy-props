@@ -21,7 +21,7 @@ export const treePresets: readonly TreePreset[] = [
     {
         id: 'round-canopy',
         name: 'Round canopy',
-        sub: 'Classic starter',
+        sub: 'The old style, to compare',
         generatorId: 'branching-tree',
         seed: 12345,
         parameters: {
@@ -37,6 +37,46 @@ export const treePresets: readonly TreePreset[] = [
             rootCount: 6,
         },
     },
+    {
+        id: 'blossom-tree',
+        name: 'Blossom tree',
+        sub: 'Old, heavy and in flower',
+        generatorId: 'painted-tree',
+        seed: 77123,
+        parameters: {...paintedTreeDefaults},
+    },
+    {
+        id: 'spring-tree',
+        name: 'Spring tree',
+        sub: 'Fresh, round and green',
+        generatorId: 'painted-tree',
+        seed: 5,
+        parameters: {...paintedTreeDefaults, palette: 'spring', gnarl: 0.3, spread: 8},
+    },
+    {
+        id: 'autumn-tree',
+        name: 'Autumn tree',
+        sub: 'Tall, gold and slender',
+        generatorId: 'painted-tree',
+        seed: 9,
+        parameters: {
+            ...paintedTreeDefaults,
+            palette: 'autumn',
+            height: 11,
+            spread: 6,
+            forkHeight: 0.5,
+            trunkRadius: 0.42,
+        },
+    },
+]
+
+/**
+ * Presets no longer offered.
+ *
+ * A saved tree remembers the preset it came from, and Restore goes back to it,
+ * so these stay findable even though nobody can start from one now.
+ */
+const retiredPresets: readonly TreePreset[] = [
     {
         id: 'wide-canopy',
         name: 'Wide canopy',
@@ -157,39 +197,11 @@ export const treePresets: readonly TreePreset[] = [
             coconutCount: 0,
         },
     },
-    {
-        id: 'blossom-tree',
-        name: 'Blossom tree',
-        sub: 'Old, heavy and in flower',
-        generatorId: 'painted-tree',
-        seed: 77123,
-        parameters: {...paintedTreeDefaults},
-    },
-    {
-        id: 'spring-tree',
-        name: 'Spring tree',
-        sub: 'Fresh, round and green',
-        generatorId: 'painted-tree',
-        seed: 5,
-        parameters: {...paintedTreeDefaults, palette: 'spring', gnarl: 0.3, spread: 8},
-    },
-    {
-        id: 'autumn-tree',
-        name: 'Autumn tree',
-        sub: 'Tall, gold and slender',
-        generatorId: 'painted-tree',
-        seed: 9,
-        parameters: {
-            ...paintedTreeDefaults,
-            palette: 'autumn',
-            height: 11,
-            spread: 6,
-            forkHeight: 0.5,
-            trunkRadius: 0.42,
-        },
-    },
 ]
 
 export function findPreset(id: string): TreePreset | undefined {
-    return treePresets.find((preset) => preset.id === id)
+    return [...treePresets, ...retiredPresets].find((preset) => preset.id === id)
 }
+
+/** The presets in the order they are shown: the new trees come first. */
+export const shownPresets: readonly TreePreset[] = [...treePresets.slice(1), treePresets[0]]

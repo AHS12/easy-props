@@ -1,6 +1,7 @@
 import {useState} from 'react'
 import {Segmented} from '../components/Segmented'
-import {treePresets} from '../assets/trees/presets'
+import {shownPresets} from '../assets/trees/presets'
+import {findTreeGenerator} from '../assets/trees/tree-generators'
 import {useEditorStore} from '../store/editor-store'
 import {PartsPanel} from './PartsPanel'
 import {PresetIcon} from './PresetIcon'
@@ -15,7 +16,7 @@ function PresetsPanel() {
         <>
             <div className="rail__title">Start from a tree</div>
             <div className="preset-grid" data-coach="presets">
-                {treePresets.map((preset) => (
+                {shownPresets.map((preset) => (
                     <button
                         key={preset.id}
                         type="button"
@@ -42,6 +43,19 @@ function PresetsPanel() {
 
 export function LeftRail() {
     const [mode, setMode] = useState<RailMode>('presets')
+    const generatorId = useEditorStore((state) => state.scene.assets[0]?.generatorId)
+
+    // The parts library builds old-style limbs and blobs, which do not blend
+    // into a painted tree. Its parts are edited on the tree itself.
+    if (generatorId && findTreeGenerator(generatorId)?.paintsOwnColours) {
+        return (
+            <aside className="rail">
+                <div className="rail__body">
+                    <PresetsPanel />
+                </div>
+            </aside>
+        )
+    }
 
     return (
         <aside className="rail">

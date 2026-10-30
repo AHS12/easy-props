@@ -18,6 +18,8 @@ export interface NumberParameter {
     readonly key: string
     readonly label: string
     readonly help?: string
+    /** The heading it sits under in the inspector. */
+    readonly group?: string
     readonly min: number
     readonly max: number
     readonly step: number
@@ -30,6 +32,8 @@ export interface ChoiceParameter<T extends string = string> {
     readonly key: string
     readonly label: string
     readonly help?: string
+    /** The heading it sits under in the inspector. */
+    readonly group?: string
     readonly options: readonly {value: T; label: string}[]
     readonly default: T
 }

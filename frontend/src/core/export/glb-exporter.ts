@@ -84,6 +84,11 @@ function buildComponentGroup(
 
     resources.geometries.push(part.geometry)
 
+    // A part that only exists to be clicked has nothing to show.
+    if (part.surface?.proxy) {
+        return undefined
+    }
+
     if (!isExportable(part.geometry)) {
         return undefined
     }

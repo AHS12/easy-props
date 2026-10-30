@@ -151,8 +151,10 @@ export function Viewport() {
             }
 
             const component = findComponent(state.scene, selected)
+            const fixed = component?.generatorId === 'painted-limb' || component?.generatorId === 'painted-bark'
+
             gizmo.setOrigin(
-                component ? new THREE.Vector3(...component.transform.position) : null,
+                component && !fixed ? new THREE.Vector3(...component.transform.position) : null,
             )
         }
 
@@ -395,7 +397,7 @@ export function Viewport() {
             dragRef.current = {
                 index,
                 spine,
-                plane: dragPlaneFor(spine, index),
+                plane: dragPlaneFor(spine, index, viewport.camera),
                 before: state.scene,
                 latest: null,
             }

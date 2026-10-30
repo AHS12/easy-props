@@ -356,8 +356,8 @@ describe('palm parameter validation', () => {
 describe('the palm presets', () => {
     it('keeps the five broadleaf presets where they were', () => {
         expect(treePresets[0].id).toBe('round-canopy')
-        expect(treePresets.map((preset) => preset.id)).toContain('coconut-palm')
-        expect(treePresets.map((preset) => preset.id)).toContain('tropical-palm')
+        expect(findPreset('coconut-palm')).toBeDefined()
+        expect(findPreset('tropical-palm')).toBeDefined()
     })
 
     it('generates a complete palm from each one', () => {

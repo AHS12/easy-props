@@ -71,6 +71,17 @@ export function materialColor(kind: MaterialKind, materials: SceneMaterials): st
  * When the signature is unchanged the geometry is reused.
  */
 function signatureOf(component: SceneComponent, styleId: string): string {
+    const generator = findComponentGenerator(component.generatorId)
+
+    if (generator?.signature) {
+        return JSON.stringify([
+            styleId,
+            component.generatorId,
+            component.generatorVersion,
+            generator.signature(generator.validate(component.parameters).parameters),
+        ])
+    }
+
     return JSON.stringify([
         styleId,
         component.generatorId,
@@ -104,6 +115,8 @@ function buildComponent(
 
     const lit = createPartMaterial(part, color, style.flatShading)
 
+    const isProxy = part.surface?.proxy === true
+
     const flat = new THREE.MeshBasicMaterial({
         color,
         vertexColors: part.surface?.vertexColors ?? false,
@@ -121,6 +134,9 @@ function buildComponent(
     mesh.receiveShadow = true
     mesh.name = `${component.type}_${component.id}`
     mesh.userData.componentId = component.id
+    // Hidden, but a raycast does not care: this is what the pointer lands on.
+    mesh.visible = !isProxy
+    mesh.userData.isProxy = isProxy
     mesh.userData.receivesShadow = part.surface?.receiveShadow ?? true
 
     // The outline shares the geometry, so it costs almost nothing.
@@ -133,10 +149,13 @@ function buildComponent(
             opacity: 0.95,
             map: part.surface?.map ?? null,
             alphaTest: part.surface?.alphaTest ?? 0,
+            ...(isProxy ? {side: THREE.FrontSide, depthTest: false, opacity: 0.4} : {}),
         }),
     )
     outline.name = `${component.type}_${component.id}_outline`
-    outline.scale.setScalar(1.03)
+    // A proxy already sits outside the bark, and its vertices are in world
+    // space, where scaling about the origin would slide it off the limb.
+    outline.scale.setScalar(isProxy ? 1 : 1.03)
     outline.visible = false
     outline.userData.isHelper = true
 
@@ -177,7 +196,7 @@ export function createComponentRenderer(): ComponentRenderer {
                   : component.materials.wire
 
         // Shadows only belong to the finished look.
-        component.mesh.castShadow = shading === 'lit'
+        component.mesh.castShadow = shading === 'lit' && component.mesh.visible
         component.mesh.receiveShadow = shading === 'lit' && component.mesh.userData.receivesShadow
     }
 
@@ -217,6 +236,10 @@ export function createComponentRenderer(): ComponentRenderer {
                 const existing = rendered.get(component.id)
 
                 if (existing && existing.signature === signature) {
+                    // A part whose signature leaves out its position can move
+                    // without a rebuild.
+                    existing.group.position.set(...component.transform.position)
+
                     // The geometry is unchanged. Only the colours can differ.
                     const color = new THREE.Color(
                         materialColor(existing.materialKind, asset.materials),

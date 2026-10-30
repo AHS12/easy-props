@@ -4,7 +4,7 @@
  * The tree is a preset, so the app never opens on an empty viewport.
  */
 
-import {treePresets} from '../../assets/trees/presets'
+import {findPreset, treePresets} from '../../assets/trees/presets'
 import {generateTreeComponents} from '../../assets/trees/tree-generators'
 import {getStyleProfile} from '../../assets/style/style-profiles'
 import {DEFAULT_MATERIALS} from '../../assets/style/materials'
@@ -17,7 +17,7 @@ export const STARTER_PRESET_ID = 'blossom-tree'
 
 /** Builds a scene from a preset. */
 export function createSceneFromPreset(presetId: string): Scene {
-    const preset = treePresets.find((candidate) => candidate.id === presetId) ?? treePresets[0]
+    const preset = findPreset(presetId) ?? treePresets[0]
 
     const components = generateTreeComponents(
         preset.generatorId,

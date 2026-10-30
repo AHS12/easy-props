@@ -200,6 +200,11 @@ function buildComponentGroup(
     const material = createPartMaterial(part, materialColor(part.material, materials), style.flatShading)
 
     resources.geometries.push(part.geometry)
+
+    // A part that only exists to be clicked has nothing to show.
+    if (part.surface?.proxy) {
+        return undefined
+    }
     resources.materials.push(material)
 
     const mesh = new THREE.Mesh(part.geometry, material)

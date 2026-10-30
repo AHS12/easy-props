@@ -14,12 +14,21 @@ import {
     paintedTreeParameterSpecs,
     planPaintedTree,
     validatePaintedTreeParameters,
+    type Limb,
     type PaintedTreeParameters,
 } from './painted'
 
+function typeOf(limb: Limb): GeneratedComponent['type'] {
+    if (limb.level === 0) {
+        return 'trunk'
+    }
+
+    return limb.key.startsWith('r') ? 'root' : 'branch'
+}
+
 export const paintedTreeGenerator: TreeGenerator<PaintedTreeParameters> = {
     id: 'painted-tree',
-    version: 1,
+    version: 2,
     label: 'Painted tree',
     parameters: paintedTreeParameterSpecs,
     paintsOwnColours: true,
@@ -40,7 +49,7 @@ export const paintedTreeGenerator: TreeGenerator<PaintedTreeParameters> = {
             id: 'cmp-bark-0',
             type: 'bark',
             generatorId: 'painted-bark',
-            generatorVersion: 1,
+            generatorVersion: 2,
             parentId: null,
             transform: IDENTITY_TRANSFORM,
             parameters: {tree: parameters, seed},
@@ -49,19 +58,60 @@ export const paintedTreeGenerator: TreeGenerator<PaintedTreeParameters> = {
         }
 
         const clumps = plan.clumps.map(
-            (clump, index): GeneratedComponent => ({
-                id: `cmp-clump-${index}`,
+            (clump): GeneratedComponent => ({
+                id: `cmp-clump-${clump.key}`,
                 type: 'foliage-cluster',
                 generatorId: 'painted-clump',
-                generatorVersion: 1,
+                generatorVersion: 2,
                 parentId: bark.id,
                 transform: {...IDENTITY_TRANSFORM, position: clump.centre},
-                parameters: {tree: parameters, seed, index},
+                parameters: {
+                    tree: parameters,
+                    seed,
+                    key: clump.key,
+                    base: clump.base,
+                    sizeScale: clump.edit.sizeScale ?? 1,
+                    flattenScale: clump.edit.flattenScale ?? 1,
+                    colour: clump.edit.colour ?? null,
+                },
                 seed: clump.seed,
-                slot: `clump-${index}`,
+                slot: `clump-${clump.key}`,
             }),
         )
 
-        return [bark, ...clumps]
+        // Twigs are too fine to aim at, and too many to be worth a part each.
+        const limbs = plan.limbs
+            .filter((limb) => limb.level < 3)
+            .map(
+                (limb): GeneratedComponent => ({
+                    id: `cmp-limb-${limb.key}`,
+                    type: typeOf(limb),
+                    generatorId: 'painted-limb',
+                    generatorVersion: 1,
+                    parentId: bark.id,
+                    transform: IDENTITY_TRANSFORM,
+                    parameters: {
+                        tree: parameters,
+                        seed,
+                        key: limb.key,
+                        base: limb.controlBase,
+                        // World positions, which the 'world' spine layout reads
+                        // directly: this limb's handles.
+                        spine: limb.controls.map((point, index) => ({
+                            t: limb.controlTs[index],
+                            x: point[0],
+                            y: point[1],
+                            z: point[2],
+                        })),
+                        worldSpine: true,
+                        lengthScale: limb.lengthScale,
+                        thicknessScale: limb.thicknessScale,
+                    },
+                    seed,
+                    slot: `limb-${limb.key}`,
+                }),
+            )
+
+        return [bark, ...clumps, ...limbs]
     },
 }

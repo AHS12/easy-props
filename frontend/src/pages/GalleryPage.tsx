@@ -6,7 +6,7 @@
  */
 
 import {useEffect, useMemo, useState} from 'react'
-import {findPreset, treePresets} from '../assets/trees/presets'
+import {findPreset, shownPresets} from '../assets/trees/presets'
 import {STARTER_PRESET_ID} from '../core/scene/initial-scene'
 import {PresetIcon} from '../panels/PresetIcon'
 import type {SavedTree} from '../platform/library'
@@ -450,7 +450,7 @@ export function GalleryPage() {
                     </div>
 
                     <div className="preset-grid home__presets">
-                        {treePresets.map((preset) => (
+                        {shownPresets.map((preset) => (
                             <button
                                 key={preset.id}
                                 type="button"

@@ -10,6 +10,13 @@ const BARK = 'var(--thumb-bark)'
 const LEAF = 'var(--thumb-leaf)'
 const LEAF_DARK = 'var(--thumb-leaf-dark)'
 
+/** Painted trees differ by colour first, so their icons do too. */
+const PAINTED_LEAVES: Readonly<Record<string, string>> = {
+    'blossom-tree': '#e68ad8',
+    'spring-tree': '#7fc04f',
+    'autumn-tree': '#e8962f',
+}
+
 interface PresetIconProps {
     presetId: string
 }
@@ -107,15 +114,15 @@ export function PresetIcon({presetId}: PresetIconProps) {
                     </g>
                 </>
             ) : null}
-            {presetId === 'blossom-tree' || presetId === 'spring-tree' || presetId === 'autumn-tree' ? (
+            {PAINTED_LEAVES[presetId] ? (
                 <>
                     <path
                         d="M18 45c3-3 4-8 4-14-3-4-7-6-11-7l1-2c4 1 8 3 11 6 0-4 1-7 3-10l2 1c-2 4-2 7-2 10 3-3 7-5 11-6l1 2c-5 1-9 4-11 8 0 5 1 9 4 12z"
                         fill={BARK}
                     />
-                    <circle cx="16" cy="15" r="10" fill={LEAF} />
-                    <circle cx="32" cy="14" r="11" fill={LEAF} />
-                    <circle cx="24" cy="9" r="8" fill={LEAF_DARK} />
+                    <circle cx="16" cy="15" r="10" fill={PAINTED_LEAVES[presetId]} />
+                    <circle cx="32" cy="14" r="11" fill={PAINTED_LEAVES[presetId]} />
+                    <circle cx="24" cy="9" r="8" fill={PAINTED_LEAVES[presetId]} opacity="0.75" />
                 </>
             ) : null}
         </svg>

@@ -15,8 +15,10 @@ import type {ComponentType} from './component-types'
  *
  * `vertical` is the trunk: along Y, offsets on X and Z.
  * `outward` is a branch, a root, or a palm frond: along X, offsets on Y and Z.
+ * `world` is a point that simply is where it is, for a part with no space of
+ * its own, such as a limb of a painted tree.
  */
-export type SpineKind = 'vertical' | 'outward'
+export type SpineKind = 'vertical' | 'outward' | 'world'
 
 /** A spine point of either layout. `x` belongs to the trunk, `y` to a limb. */
 export interface SpineLike {
@@ -48,6 +50,7 @@ export function spineLengthKey(type: ComponentType): string {
 const TWIST_AXIS: Readonly<Record<SpineKind, THREE.Vector3>> = {
     vertical: new THREE.Vector3(0, 1, 0),
     outward: new THREE.Vector3(1, 0, 0),
+    world: new THREE.Vector3(0, 1, 0),
 }
 
 /**
@@ -64,6 +67,10 @@ export function spinePointPosition(
     length: number,
     twistDegrees = 0,
 ): THREE.Vector3 {
+    if (kind === 'world') {
+        return new THREE.Vector3(point.x ?? 0, point.y ?? 0, point.z)
+    }
+
     const position =
         kind === 'vertical'
             ? new THREE.Vector3(point.x ?? 0, point.t * length, point.z)
@@ -87,6 +94,10 @@ export function withSpineOffsets<T extends SpineLike>(
     kind: SpineKind,
     local: THREE.Vector3,
 ): T {
+    if (kind === 'world') {
+        return {...point, x: local.x, y: local.y, z: local.z}
+    }
+
     return (
         kind === 'vertical'
             ? {...point, x: local.x, z: local.z}

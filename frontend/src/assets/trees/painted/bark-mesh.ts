@@ -12,7 +12,7 @@
  */
 
 import * as THREE from 'three'
-import type {Palette} from './parameters'
+import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Limb, type TreePlan, type Vec3} from './plan'
 import {createWoodField, type WoodField} from './wood-field'
 
@@ -26,6 +26,7 @@ const SETTLE_ITERATIONS = 2
 const GROUND_LEVEL = -0.02
 /** How far out occlusion looks, as a share of the trunk radius. */
 const OCCLUSION_REACH = 0.42
+const MOSS_COLOUR = '#6c9a3c'
 
 /** How many sides a tube gets, by its radius where it starts. */
 function sidesFor(radius: number, level: number, detail: number): number {
@@ -314,16 +315,17 @@ function sweep(
 
 export function buildBark(
     plan: TreePlan,
-    palette: Palette,
-    gnarl: number,
-    trunkRadius: number,
+    tree: PaintedTreeParameters,
+    seed: number,
     detail: number,
 ): THREE.BufferGeometry {
-    const cell = Math.max((trunkRadius * CELL_SHARE) / Math.sqrt(detail), MIN_CELL)
+    const {trunkRadius} = tree
+    const palette = resolvePalette(tree)
+    const cell = Math.max((trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), MIN_CELL)
     const sculptMin = cell * SCULPT_MIN_CELLS
     const isSculpted = (limb: Limb, segment: number) =>
         limb.level < 3 && Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin
-    const field = createWoodField(plan.limbs, gnarl, isSculpted)
+    const field = createWoodField(plan.limbs, tree, seed, isSculpted)
 
     const sculptedSegments: {a: Vec3; b: Vec3; radius: number}[] = []
 
@@ -342,6 +344,7 @@ export function buildBark(
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
     const paint = new THREE.Color()
+    const moss = new THREE.Color(MOSS_COLOUR)
     const buffers: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
     const occlusionReach = trunkRadius * OCCLUSION_REACH
 
@@ -365,12 +368,30 @@ export function buildBark(
                     z + n[2] * occlusionReach,
                 ) / occlusionReach
 
-            writeValue(
-                0.08 +
-                    (n[1] * 0.5 + 0.5) * 0.62 -
-                    field.valley(x, y, z) * 0.5 +
-                    Math.min(1, Math.max(0, open)) * 0.26,
+            // Blotches that do not line up with the grid, so bark and moss
+            // both look like patches rather than bands.
+            const blotch = Math.sin(x * 5.3 + z * 2.1) * Math.sin(y * 4.7 + x * 1.3) * Math.sin(z * 6.1 + y * 2.3)
+
+            paint.copy(deep).lerp(
+                light,
+                Math.min(
+                    1,
+                    Math.max(
+                        0,
+                        0.08 +
+                            (n[1] * 0.5 + 0.5) * 0.62 -
+                            field.valley(x, y, z) * 0.5 +
+                            Math.min(1, Math.max(0, open)) * 0.26 +
+                            blotch * 0.18 * tree.roughness,
+                    ),
+                ),
             )
+
+            // Moss settles on what faces the sky, and more of it low down.
+            const mossHere = tree.moss * Math.max(0, n[1] * 1.4 + blotch * 0.9 + 0.1)
+
+            paint.lerp(moss, Math.min(1, mossHere))
+            buffers.colors.push(paint.r, paint.g, paint.b)
         },
         buffers,
     )

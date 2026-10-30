@@ -1,6 +1,6 @@
 # 05 — Painted trees
 
-Status: first tree built. Replaces the grown-tree direction in
+Status: built, with per-part editing. Replaces the grown-tree direction in
 [`03-organic-trees.md`](./03-organic-trees.md).
 
 ## The target
@@ -47,22 +47,59 @@ Asserted in `tests/painted-tree.test.ts`, at default settings.
 
 | Style | Triangles |
 |---|---|
-| Detailed | under 11,000 |
-| Low-poly | under 8,000 |
+| Detailed | under 14,000 |
+| Low-poly | under 10,000 |
 
 ## Controls
 
-Colours, Height, Spread, Trunk thickness, Fork height, Big branches, Gnarl, Leaf
-clumps, Clump size, Fullness. A new kind of tree is a preset, meaning a set of
-these values, not a new generator.
+Whole-tree controls, grouped in the inspector. A new kind of tree is a preset,
+meaning a set of these values, not a new generator.
+
+| Group | Controls |
+|---|---|
+| Trunk | Height, Thickness, Lean, Bend, Corkscrew, Twist, Ridge depth, Ridges, Base flare, Roots, Root length |
+| Branches | Big branches, Fork height, Spread, Angle, Droop, Gnarl, Side branches, Twigs |
+| Leaves | Clumps, Clump size, Merge, Flatness, Lumpiness, Leaf density, Leaf size |
+| Colours | Palette, Variation, and five pickers for your own colours |
+| Bark detail | Mesh detail, Roughness, Burls, Hollow, Moss |
+
+## Editing one part
+
+Click the trunk, a root, a branch or a clump.
+
+- A limb has drag handles, Length and Thickness, and can be removed.
+- A clump can be moved, sized, flattened, recoloured and removed.
+
+Three decisions make this hold together:
+
+1. **One list of edits, on the tree.** An edit is a tree parameter, keyed by the
+   part's stable name, so undo, save and rebuild treat it like a slider and a
+   later slider change cannot lose it. Parts never own a copy of their shape.
+2. **Limbs are controls, not meshes.** The wood is one blended surface, so a limb
+   renders only an invisible tube for the pointer to land on, which is never
+   exported. Twigs have no part: there are too many, and they are too fine to hit.
+3. **Each part has its own random stream**, named after it. Adding a branch adds
+   a branch instead of reshuffling the tree.
+
+The crown is fitted to Height without the hand edits, so dragging one branch up
+does not squash the rest of the tree.
+
+## Presets
+
+Blossom, Spring and Autumn, plus Round canopy to compare against the old style.
+The other old presets, including the palms, are no longer offered. They stay
+findable so a saved tree that came from one can still be restored, and the palm
+generator's code is untouched.
 
 ## Not done yet
 
-- More recipes, and shapes the current limb rules cannot reach (pine, willow).
+- More recipes, and shapes the current limb rules cannot reach (pine, true willow).
+- A coarse preview while dragging: a limb drag rebuilds the full bark, about 60 to
+  80 ms a step, so it runs at roughly 15 frames a second.
 - A distant, lighter version of each tree.
-- The export has only been reloaded with three.js in a browser. It has not been
-  opened in Blender or imported into a game engine. Each clump is its own mesh,
-  so a tree is about a dozen draw calls until they are merged on export.
+- Opens correctly in Blender. Not yet imported into Unreal or Godot, which are the
+  real destinations. Each clump is its own mesh, so a tree is about a dozen draw
+  calls until they are merged on export.
 - The export test skips painted trees, because jsdom has no canvas to write the
   leaf texture with.
 - The style toggle only changes density on these trees, so "Low-poly" is a

@@ -1,4 +1,5 @@
 export * from './parameters'
+export * from './edits'
 export {planPaintedTree} from './plan'
 export type {Clump, Limb, TreePlan, Vec3} from './plan'
 export {buildBark} from './bark-mesh'

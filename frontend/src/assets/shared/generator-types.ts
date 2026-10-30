@@ -27,6 +27,11 @@ export interface PaintedSurface {
     readonly alphaTest?: number
     /** False for leaves, where a shadow map would only speckle soft shading. */
     readonly receiveShadow?: boolean
+    /**
+     * This part draws nothing and is never exported. Its mesh only gives the
+     * pointer something to land on and the selection something to outline.
+     */
+    readonly proxy?: boolean
 }
 
 export interface GenerationContext {
@@ -60,6 +65,14 @@ export interface PartGenerator<P extends object = object> {
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>
     generate(parameters: P, context: GenerationContext): GeneratedPart
+    /**
+     * Everything the mesh depends on, when that is less than the parameters.
+     *
+     * The renderer reuses a mesh while this stays the same, so a part whose
+     * parameters hold the whole tree need not rebuild for every slider. A part
+     * that has one is also free to move: its position is not part of the mesh.
+     */
+    signature?(parameters: P): unknown
 }
 
 /** A component produced by a tree generator, before it enters the scene. */
