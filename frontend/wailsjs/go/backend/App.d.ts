@@ -3,6 +3,8 @@
 import {backend} from '../models';
 import {context} from '../models';
 
+export function ClearDraft():Promise<void>;
+
 export function DeleteTree(arg1:string):Promise<void>;
 
 export function LibraryFolder():Promise<string>;
@@ -10,6 +12,8 @@ export function LibraryFolder():Promise<string>;
 export function ListTrees():Promise<Array<backend.TreeFile>>;
 
 export function OpenFileDialog(arg1:string,arg2:Array<string>):Promise<string>;
+
+export function ReadDraft():Promise<Array<number>>;
 
 export function ReadFile(arg1:string):Promise<Array<number>>;
 
@@ -19,7 +23,11 @@ export function ReadTreeThumbnail(arg1:string):Promise<Array<number>>;
 
 export function SaveFileDialog(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
 
+export function SetUnsaved(arg1:boolean):Promise<void>;
+
 export function Shutdown(arg1:context.Context):Promise<void>;
+
+export function WriteDraft(arg1:Array<number>):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;
 

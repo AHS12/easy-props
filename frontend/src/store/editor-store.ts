@@ -52,6 +52,11 @@ import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
 import {exportGLBFile, openProjectFile, saveProjectFile} from '../platform/desktop'
 import {
+    clearDraftText,
+    readDraftText,
+    writeDraftText,
+} from '../platform/draft'
+import {
     deleteTree,
     listTrees,
     newTreeId,
@@ -239,6 +244,25 @@ export interface EditorStore {
     /** Gives a saved tree a new name, leaving everything else and its preview. */
     renameTree(id: string, name: string): Promise<void>
     removeTree(id: string): Promise<void>
+
+    /**
+     * The document as it was last written.
+     *
+     * Compared by identity, not by value: the store keeps the same Scene
+     * object for an unchanged document, so undo back to the saved point
+     * makes the session clean again for free.
+     */
+    savedScene: Scene
+    savedStyle: StyleProfileId
+    /** True when there is a draft on disk worth offering back. */
+    draftAvailable: boolean
+    /** Reads the draft, if there is one. */
+    refreshDraft(): Promise<void>
+    /** Writes the current document as the draft, or clears it when clean. */
+    flushDraft(): Promise<void>
+    /** Brings the draft's document back into the session. */
+    restoreDraft(): Promise<void>
+    discardDraft(): Promise<void>
 }
 
 /** What the save prompt is asking for. */
@@ -247,6 +271,13 @@ export interface SavePrompt {
     /** The name offered, and the fallback if the field is left blank. */
     readonly name: string
     readonly asCopy: boolean
+}
+
+/** True when closing would lose something that was never saved. */
+export function hasUnsavedChanges(
+    state: Pick<EditorStore, 'scene' | 'style' | 'savedScene' | 'savedStyle'>,
+): boolean {
+    return state.scene !== state.savedScene || state.style !== state.savedStyle
 }
 
 const FIRST_ASSET_ID = 'asset-1'
@@ -299,6 +330,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         })
     }
 
+    /** Records the document as the saved one, and drops the draft with it. */
+    const markSaved = (scene: Scene, style: StyleProfileId) => {
+        set({savedScene: scene, savedStyle: style, draftAvailable: false})
+        void clearDraftText().catch(() => undefined)
+    }
+
     /** The one write path, so every save records the same things. */
     const saveNow = async (name: string, asCopy: boolean) => {
         const state = get()
@@ -327,15 +364,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 toast: {message: `Saved "${name}"`, undoable: false},
             })
 
+            markSaved(state.scene, state.style)
+
             await get().refreshGallery()
         } catch (error) {
             set({toast: {message: describeFailure(error, 'save'), undoable: false}})
         }
     }
 
+    const initialScene = createInitialScene()
+
     return {
-        scene: createInitialScene(),
+        scene: initialScene,
         style: 'low-poly',
+        savedScene: initialScene,
+        savedStyle: 'low-poly',
+        draftAvailable: false,
         presetId: DEFAULT_PRESET_ID,
         lighting: DEFAULT_LIGHTING,
         shadingMode: 'lit',
@@ -667,6 +711,87 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         cancelSave: () => set({savePrompt: null}),
 
+        refreshDraft: async () => {
+            try {
+                set({draftAvailable: (await readDraftText()) !== null})
+            } catch {
+                set({draftAvailable: false})
+            }
+        },
+
+        flushDraft: async () => {
+            const state = get()
+
+            try {
+                if (!hasUnsavedChanges(state)) {
+                    await clearDraftText()
+                    set({draftAvailable: false})
+                    return
+                }
+
+                const text = serializeProject({
+                    scene: state.scene,
+                    name: state.treeName,
+                    style: state.style,
+                    extras: state.projectExtras,
+                })
+
+                await writeDraftText(JSON.stringify({treeId: state.currentTreeId, text}))
+                set({draftAvailable: true})
+            } catch {
+                // A draft that cannot be written is not worth a toast: the
+                // user is mid-edit, and the next change tries again.
+            }
+        },
+
+        restoreDraft: async () => {
+            try {
+                const raw = await readDraftText()
+
+                if (!raw) {
+                    set({draftAvailable: false})
+                    return
+                }
+
+                const stored = JSON.parse(raw) as {treeId?: unknown; text?: unknown}
+
+                if (typeof stored.text !== 'string') {
+                    set({draftAvailable: false})
+                    return
+                }
+
+                const project = parseProject(stored.text)
+                const style = asStyleId(project.style)
+                const treeId = typeof stored.treeId === 'string' ? stored.treeId : null
+
+                set({
+                    scene: project.scene,
+                    style,
+                    treeName: project.name,
+                    // Only claim the gallery entry if it still exists.
+                    currentTreeId: get().gallery.some((tree) => tree.id === treeId)
+                        ? treeId
+                        : null,
+                    projectExtras: project.extras,
+                    selection: EMPTY_SELECTION,
+                    history: EMPTY_HISTORY,
+                    draftAvailable: false,
+                    page: 'editor',
+                    toast: {message: 'Picked up where you left off', undoable: false},
+                })
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        discardDraft: async () => {
+            try {
+                await clearDraftText()
+            } finally {
+                set({draftAvailable: false})
+            }
+        },
+
         openTree: async (id) => {
             try {
                 const project = parseProject(await readTree(id))
@@ -683,6 +808,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     history: EMPTY_HISTORY,
                     toast: {message: `Opened "${project.name}"`, undoable: false},
                 })
+
+                markSaved(project.scene, asStyleId(project.style))
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'open'), undoable: false}})
             }
@@ -748,6 +875,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 const path = await saveProjectFile(text, null, `${state.treeName}.json`)
 
                 if (path) {
+                    markSaved(state.scene, state.style)
                     set({toast: {message: `Saved ${fileNameOf(path)}`, undoable: false}})
                 }
             } catch (error) {
@@ -780,6 +908,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     history: EMPTY_HISTORY,
                     toast: {message: `Opened ${fileNameOf(opened.path)}`, undoable: false},
                 })
+
+                markSaved(project.scene, asStyleId(project.style))
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'open'), undoable: false}})
             }

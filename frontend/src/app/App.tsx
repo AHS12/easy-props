@@ -11,7 +11,8 @@ import {SaveDialog} from '../panels/SaveDialog'
 import {StatusStrip} from '../panels/StatusStrip'
 import {Toast} from '../panels/Toast'
 import {TopBar} from '../panels/TopBar'
-import {useEditorStore} from '../store/editor-store'
+import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
+import {setUnsaved} from '../platform/draft'
 import {useThemeStore} from '../store/theme-store'
 import {Viewport} from '../viewport/Viewport'
 
@@ -93,6 +94,51 @@ export function App() {
         // The operating system theme only wins while the user has not made
         // an explicit choice.
         return watchSystemTheme((theme) => useThemeStore.getState().follow(theme))
+    }, [])
+
+    // Autosave: once a change settles, write the draft, so closing the window
+    // cannot take unsaved work with it.
+    useEffect(() => {
+        let timer: number | undefined
+        let reported: boolean | null = null
+
+        const report = () => {
+            const dirty = hasUnsavedChanges(useEditorStore.getState())
+
+            if (dirty !== reported) {
+                reported = dirty
+                void setUnsaved(dirty)
+            }
+        }
+
+        const flush = () => {
+            report()
+            void useEditorStore.getState().flushDraft()
+        }
+
+        const unsubscribe = useEditorStore.subscribe((state, previous) => {
+            if (state.scene === previous.scene && state.style === previous.style) {
+                return
+            }
+
+            window.clearTimeout(timer)
+            timer = window.setTimeout(flush, 600)
+        })
+
+        // Leaving the window is the last moment before a close, so do not wait.
+        const onBlur = () => {
+            window.clearTimeout(timer)
+            flush()
+        }
+
+        window.addEventListener('blur', onBlur)
+        report()
+
+        return () => {
+            unsubscribe()
+            window.removeEventListener('blur', onBlur)
+            window.clearTimeout(timer)
+        }
     }, [])
 
     return (

@@ -198,6 +198,19 @@ func (a *App) ReadTreeThumbnail(id string) ([]byte, error) {
 	return contents, nil
 }
 
+// defaultLibraryFolder returns the folder the library lives in when libraryRoot
+// is empty. Nothing is created here: only libraryDir does that. The draft sits
+// beside this folder rather than inside it, and computing both paths the same
+// way is what lets a test say so without touching the user's config directory.
+func defaultLibraryFolder() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("easy-props: cannot locate the user config directory: %w", err)
+	}
+
+	return filepath.Join(configDir, "easy-props", "props"), nil
+}
+
 // libraryDir returns the library folder, creating it if it is missing. The
 // unexported libraryRoot overrides the default location; it is empty in the
 // running app, and set by tests so they never touch the user's real config
@@ -205,13 +218,14 @@ func (a *App) ReadTreeThumbnail(id string) ([]byte, error) {
 func (a *App) libraryDir() (string, error) {
 	root := a.libraryRoot
 	if root == "" {
-		configDir, err := os.UserConfigDir()
+		var err error
+
+		root, err = defaultLibraryFolder()
 		if err != nil {
-			return "", fmt.Errorf("easy-props: cannot locate the user config directory: %w", err)
+			return "", err
 		}
 
-		root = filepath.Join(configDir, "easy-props", "props")
-		migrateFromTreesFolder(filepath.Join(configDir, "easy-props"), root)
+		migrateFromTreesFolder(filepath.Dir(root), root)
 	}
 
 	if err := os.MkdirAll(root, 0o755); err != nil {

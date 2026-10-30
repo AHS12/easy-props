@@ -257,6 +257,10 @@ export function GalleryPage() {
     const gallery = useEditorStore((state) => state.gallery)
     const galleryLoading = useEditorStore((state) => state.galleryLoading)
     const refreshGallery = useEditorStore((state) => state.refreshGallery)
+    const draftAvailable = useEditorStore((state) => state.draftAvailable)
+    const refreshDraft = useEditorStore((state) => state.refreshDraft)
+    const restoreDraft = useEditorStore((state) => state.restoreDraft)
+    const discardDraft = useEditorStore((state) => state.discardDraft)
     const currentTreeId = useEditorStore((state) => state.currentTreeId)
     const treeName = useEditorStore((state) => state.treeName)
     const setTreeName = useEditorStore((state) => state.setTreeName)
@@ -271,7 +275,8 @@ export function GalleryPage() {
 
     useEffect(() => {
         void refreshGallery()
-    }, [refreshGallery])
+        void refreshDraft()
+    }, [refreshGallery, refreshDraft])
 
     const start = (presetId: string, name: string) => {
         setTreeName(name)
@@ -318,6 +323,36 @@ export function GalleryPage() {
             </header>
 
             <div className="home__body">
+                {draftAvailable ? (
+                    <section className="home__section">
+                        <div className="home__draft">
+                            <div>
+                                <h2 className="home__draft-title">You left some work unsaved</h2>
+                                <p className="home__draft-text">
+                                    The app was closed before you saved. Pick it up, or start
+                                    again from a saved prop.
+                                </p>
+                            </div>
+                            <div className="home__draft-actions">
+                                <button
+                                    type="button"
+                                    className="btn btn--primary btn--sm"
+                                    onClick={() => void restoreDraft()}
+                                >
+                                    Pick up where I left off
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn--ghost btn--sm"
+                                    onClick={() => void discardDraft()}
+                                >
+                                    Discard it
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+
                 <section className="home__section">
                     <div className="home__heading">
                         <div>
