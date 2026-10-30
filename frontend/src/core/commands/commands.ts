@@ -11,8 +11,10 @@ import {treePresets} from '../../assets/trees/presets'
 import type {EditorStore} from '../../store/editor-store'
 
 export type CommandId =
+    | 'gallery'
     | 'save-project'
     | 'save-project-as'
+    | 'save-to-file'
     | 'open-project'
     | 'export-model'
     | 'undo'
@@ -47,27 +49,42 @@ const selected = (state: EditorStore) => state.selection.selectedId
 
 export const COMMANDS: readonly Command[] = [
     {
+        id: 'gallery',
+        label: 'My trees',
+        group: 'File',
+        shortcut: 'Ctrl+G',
+        keywords: 'home gallery start saved open recent',
+        run: (state) => state.showGallery(),
+    },
+    {
         id: 'save-project',
-        label: 'Save project',
+        label: 'Save tree',
         group: 'File',
         shortcut: 'Ctrl+S',
-        keywords: 'write disk json keep',
-        run: (state) => void state.saveProject(),
+        keywords: 'write disk json keep gallery my trees',
+        run: (state) => void state.saveTree(),
     },
     {
         id: 'save-project-as',
-        label: 'Save project as',
+        label: 'Save a copy',
         group: 'File',
         shortcut: 'Ctrl+Shift+S',
-        keywords: 'write disk json copy name',
-        run: (state) => void state.saveProject(true),
+        keywords: 'write disk json duplicate new version',
+        run: (state) => void state.saveTree(true),
+    },
+    {
+        id: 'save-to-file',
+        label: 'Save to a file',
+        group: 'File',
+        keywords: 'write disk json dialog choose folder',
+        run: (state) => void state.saveProjectToFile(),
     },
     {
         id: 'open-project',
-        label: 'Open project',
+        label: 'Open a file',
         group: 'File',
         shortcut: 'Ctrl+O',
-        keywords: 'load read disk json',
+        keywords: 'load read disk json dialog',
         run: (state) => void state.openProject(),
     },
     {

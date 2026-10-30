@@ -9,6 +9,8 @@
  * failures into plain sentences.
  */
 
+import {textFromBinding} from './bytes'
+
 const PROJECT_FILTERS = ['*.json']
 const EXPORT_FILTERS = ['*.glb']
 
@@ -60,7 +62,7 @@ export async function openProjectFile(): Promise<{path: string; text: string} | 
 
     const bytes = await app.ReadFile(path)
 
-    return {path, text: new TextDecoder().decode(new Uint8Array(bytes))}
+    return {path, text: textFromBinding(bytes)}
 }
 
 /** Asks where to save, then writes. Returns the path, or null if cancelled. */

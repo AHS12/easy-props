@@ -28,7 +28,8 @@ export function TopBar() {
     const setStyle = useEditorStore((state) => state.setStyle)
     const history = useEditorStore((state) => state.history)
     const undo = useEditorStore((state) => state.undo)
-    const saveProject = useEditorStore((state) => state.saveProject)
+    const saveTree = useEditorStore((state) => state.saveTree)
+    const showGallery = useEditorStore((state) => state.showGallery)
     const exportModel = useEditorStore((state) => state.exportModel)
     const redo = useEditorStore((state) => state.redo)
     const theme = useThemeStore((state) => state.theme)
@@ -117,10 +118,18 @@ export function TopBar() {
             <button
                 type="button"
                 className="btn btn--secondary"
-                title="Save project (Ctrl+S)"
-                onClick={() => void saveProject()}
+                title="Your saved trees"
+                onClick={showGallery}
             >
-                Save project
+                My trees
+            </button>
+            <button
+                type="button"
+                className="btn btn--secondary"
+                title="Save to your trees (Ctrl+S)"
+                onClick={() => void saveTree()}
+            >
+                Save
             </button>
             <button
                 type="button"

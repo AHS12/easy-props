@@ -48,8 +48,17 @@ import {
 } from '../core/scene/scene-ops'
 import {STYLE_ORDER} from '../assets/style/style-profiles'
 import {exportGLB} from '../core/export/glb-exporter'
+import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
 import {exportGLBFile, openProjectFile, saveProjectFile} from '../platform/desktop'
+import {
+    deleteTree,
+    listTrees,
+    newTreeId,
+    readTree,
+    writeTree,
+    type SavedTree,
+} from '../platform/library'
 import {findAttachment} from '../core/scene/attachment'
 import type {Scene, SceneMaterials} from '../core/scene/scene-model'
 import type {ShadingMode} from '../assets/style/shading'
@@ -66,7 +75,10 @@ function fileNameOf(path: string): string {
     return parts[parts.length - 1] || path
 }
 
-function describeFailure(error: unknown, action: 'save' | 'open' | 'export'): string {
+function describeFailure(
+    error: unknown,
+    action: 'save' | 'open' | 'export' | 'read' | 'delete',
+): string {
     if (error instanceof ProjectFileError) {
         return error.message
     }
@@ -74,6 +86,23 @@ function describeFailure(error: unknown, action: 'save' | 'open' | 'export'): st
     const detail = error instanceof Error ? error.message : String(error)
 
     return `Could not ${action} the file. ${detail}`
+}
+
+/** A name that is not already in the gallery. "Oak" becomes "Oak 2". */
+function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
+    const taken = new Set(gallery.map((tree) => tree.name))
+
+    if (!taken.has(base)) {
+        return base
+    }
+
+    let count = 2
+
+    while (taken.has(`${base} ${count}`)) {
+        count += 1
+    }
+
+    return `${base} ${count}`
 }
 import type {LibraryPart} from '../assets/library/library'
 import {findComponentGenerator} from '../assets/trees/component-generators'
@@ -180,12 +209,29 @@ export interface EditorStore {
     filePath: string | null
     /** Keys an older build should write back untouched. */
     projectExtras: Readonly<Record<string, unknown>>
-    /** Writes the project. `saveAs` always asks for a new path. */
-    saveProject(saveAs?: boolean): Promise<void>
-    /** Replaces the session with a project from disk. */
+    /** Writes the project to a file the user picks. */
+    saveProjectToFile(): Promise<void>
+    /** Opens a project file the user picks. */
     openProject(): Promise<void>
-    /** Writes a GLB beside wherever the user chooses. */
+    /** Writes a GLB wherever the user chooses. */
     exportModel(): Promise<void>
+
+    /** Every tree in the gallery, newest first. */
+    gallery: readonly SavedTree[]
+    galleryLoading: boolean
+    /** Which screen is showing. The app opens on the gallery. */
+    page: 'gallery' | 'editor'
+    showGallery(): void
+    showEditor(): void
+    /** The gallery entry this session belongs to, once it has one. */
+    currentTreeId: string | null
+    treeName: string
+    setTreeName(name: string): void
+    refreshGallery(): Promise<void>
+    /** Saves the tree being edited, updating its entry. A copy is a new one. */
+    saveTree(asCopy?: boolean): Promise<void>
+    openTree(id: string): Promise<void>
+    removeTree(id: string): Promise<void>
 }
 
 const FIRST_ASSET_ID = 'asset-1'
@@ -379,6 +425,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({
                 scene,
                 presetId,
+                page: 'editor',
                 history: pushHistory(state.history, 'change tree', before, {
                     scene,
                     style: state.style,
@@ -514,27 +561,115 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         filePath: null,
         projectExtras: {},
+        gallery: [],
+        galleryLoading: false,
+        page: 'gallery',
+        showGallery: () => set({page: 'gallery'}),
+        showEditor: () => set({page: 'editor'}),
+        currentTreeId: null,
+        treeName: 'My tree',
 
-        saveProject: async (saveAs) => {
+        setTreeName: (name) => set({treeName: name}),
+
+        refreshGallery: async () => {
+            set({galleryLoading: true})
+
+            try {
+                set({gallery: await listTrees(), galleryLoading: false})
+            } catch (error) {
+                set({
+                    galleryLoading: false,
+                    toast: {message: describeFailure(error, 'read'), undoable: false},
+                })
+            }
+        },
+
+        saveTree: async (asCopy) => {
             const state = get()
+            const copy = asCopy === true || state.currentTreeId === null
+            const id = copy ? newTreeId() : state.currentTreeId
+            const name = copy ? copyNameOf(state.treeName, state.gallery) : state.treeName
+
             const text = serializeProject({
                 scene: state.scene,
+                name,
                 style: state.style,
                 extras: state.projectExtras,
             })
 
             try {
-                const path = await saveProjectFile(
-                    text,
-                    saveAs ? null : state.filePath,
-                    'my-tree.json',
-                )
+                // A preview is worth a few milliseconds: a gallery of names is
+                // a list, a gallery of trees is a gallery.
+                const thumbnail = await renderTreeThumbnail(state.scene, {
+                    style: getStyleProfile(state.style),
+                })
+
+                await writeTree(id as string, text, thumbnail)
+
+                set({
+                    currentTreeId: id,
+                    treeName: name,
+                    toast: {message: `${copy ? 'Saved a copy' : 'Saved'} "${name}"`, undoable: false},
+                })
+
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+        },
+
+        openTree: async (id) => {
+            try {
+                const project = parseProject(await readTree(id))
+
+                set({
+                    scene: project.scene,
+                    style: asStyleId(project.style),
+                    treeName: project.name,
+                    currentTreeId: id,
+                    page: 'editor',
+                    filePath: null,
+                    projectExtras: project.extras,
+                    selection: EMPTY_SELECTION,
+                    history: EMPTY_HISTORY,
+                    toast: {message: `Opened "${project.name}"`, undoable: false},
+                })
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        removeTree: async (id) => {
+            const state = get()
+
+            try {
+                await deleteTree(id)
+
+                set({
+                    currentTreeId: state.currentTreeId === id ? null : state.currentTreeId,
+                    toast: {message: 'Tree deleted', undoable: false},
+                })
+
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'delete'), undoable: false}})
+            }
+        },
+
+        saveProjectToFile: async () => {
+            const state = get()
+            const text = serializeProject({
+                scene: state.scene,
+                name: state.treeName,
+                style: state.style,
+                extras: state.projectExtras,
+            })
+
+            try {
+                const path = await saveProjectFile(text, null, `${state.treeName}.json`)
 
                 if (path) {
-                    set({
-                        filePath: path,
-                        toast: {message: `Saved ${fileNameOf(path)}`, undoable: false},
-                    })
+                    set({toast: {message: `Saved ${fileNameOf(path)}`, undoable: false}})
                 }
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'save'), undoable: false}})
@@ -556,6 +691,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 set({
                     scene: project.scene,
                     style: asStyleId(project.style),
+                    treeName: project.name,
+                    // A file chosen from disk is not a gallery entry.
+                    currentTreeId: null,
+                    page: 'editor',
                     filePath: opened.path,
                     projectExtras: project.extras,
                     selection: EMPTY_SELECTION,

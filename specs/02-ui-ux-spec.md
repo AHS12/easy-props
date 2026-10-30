@@ -912,7 +912,13 @@ beginners abandon.
 3. A modal dialog asking "Are you sure?" for anything undoable.
 4. Hover-only actions with no click or keyboard equivalent.
 5. An empty viewport on launch.
-6. A "New Project" or template gallery blocking the viewport.
+6. ~~A "New Project" or template gallery blocking the viewport.~~ **Revised in
+   the gallery milestone.** The original rule assumed one tree per session, so
+   a chooser was friction. The app now holds a collection, and the gallery is
+   the start page: it shows what the user has made, and starting or opening
+   from it is one click. It is a page, not a modal — it never blocks the
+   viewport, because there is no viewport behind it. See the "Tree gallery"
+   section of [`04-roadmap.md`](./04-roadmap.md).
 7. Nested cards inside cards.
 8. Icon-only buttons with no label or tooltip.
 9. The accent color used on anything other than a primary action, a

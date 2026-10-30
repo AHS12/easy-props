@@ -254,6 +254,37 @@ Save. Reopen. All intact.
 
 ---
 
+## Tree gallery — added after M5
+
+**Why:** M1–M5 assumed one tree per session, so saving meant "overwrite the
+file". In use the opposite was true: every save replaced the last one and the
+work of a week was one document. The app now holds a collection.
+
+### What it is
+
+A dedicated page, and the first thing the app shows. Not a sidebar tab, not a
+modal: it is where a beginner lands, sees their work, and starts or opens a
+tree in one click.
+
+| Part | Decision |
+|---|---|
+| Storage | One project file per tree in `%APPDATA%/easy-props/trees`, plus a PNG preview beside it. No database: files are readable, copyable, syncable, and a corrupt one loses one tree, not the collection. |
+| Identity | A tree you are editing keeps one entry. `Ctrl+S` updates it. `Ctrl+Shift+S` saves a copy as a new entry, so the gallery grows only when the user chooses. |
+| Previews | Rendered from the same generators as the viewport, framed to the tree's bounds, one shared WebGL renderer for every thumbnail. |
+| Naming | Automatic from the starting preset ("Round canopy", then "Round canopy 2"), renameable in place. |
+| Files on disk | Still the same format as Save to a file, so the two paths cannot drift, and a gallery tree can be exported or handed over as a plain file. |
+
+### Definition of done
+
+- [x] Saving twice updates one entry rather than making two.
+- [x] A copy gets its own entry and a distinct name.
+- [x] Every entry shows a preview of the tree it holds.
+- [x] Deleting asks once, and only deletes that tree.
+- [x] The library refuses ids that would write outside its folder.
+- [x] An unreadable file is listed but cannot be opened.
+
+---
+
 ## After the MVP
 
 Deferred, in priority order. None of these are committed.

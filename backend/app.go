@@ -19,6 +19,11 @@ import (
 // App is the Wails application struct.
 type App struct {
 	ctx context.Context
+
+	// libraryRoot overrides where the tree library lives. It is empty in the
+	// running app, which then uses the folder under the user config directory;
+	// tests set it to a scratch folder so they never touch the real one.
+	libraryRoot string
 }
 
 // NewApp creates a new App application struct.

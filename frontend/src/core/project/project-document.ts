@@ -20,6 +20,8 @@ export const PROJECT_GENERATOR = 'easy-props'
 /** What loading a project gives back. */
 export interface LoadedProject {
     readonly scene: Scene
+    /** What the user calls this tree. */
+    readonly name: string
     /** Which style profile the tree was made in. */
     readonly style: string
     /**
@@ -92,6 +94,8 @@ const documentSchema = z.looseObject({
     generator: z.literal(PROJECT_GENERATOR),
     createdAt: z.string().min(1),
     modifiedAt: z.string().min(1),
+    // Optional because the first gallery-less build wrote files without it.
+    name: z.string().min(1).optional(),
     style: z.string().min(1),
     scene: sceneSchema,
 })
@@ -101,9 +105,12 @@ const KNOWN_KEYS = new Set([
     'generator',
     'createdAt',
     'modifiedAt',
+    'name',
     'style',
     'scene',
 ])
+
+const DEFAULT_NAME = 'My tree'
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -241,6 +248,7 @@ export function parseProject(text: string): LoadedProject {
         // The envelope is checked above; parameters belong to the generators,
         // which validate them when they build.
         scene: parsed.scene as unknown as Scene,
+        name: parsed.name ?? DEFAULT_NAME,
         style: parsed.style,
         extras,
     }
@@ -248,6 +256,8 @@ export function parseProject(text: string): LoadedProject {
 
 export interface SaveInput {
     readonly scene: Scene
+    /** What the user calls this tree. */
+    readonly name?: string
     /** The style profile the tree is made in. */
     readonly style: string
     readonly extras?: Readonly<Record<string, unknown>>
@@ -268,6 +278,7 @@ export function serializeProject(input: SaveInput): string {
         generator: PROJECT_GENERATOR,
         createdAt: created,
         modifiedAt: now,
+        name: input.name ?? DEFAULT_NAME,
         style: input.style,
         scene: input.scene,
     }

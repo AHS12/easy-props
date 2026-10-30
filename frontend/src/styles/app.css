@@ -1445,6 +1445,321 @@ h4 {
 }
 
 /* ======================================================================
+   Gallery
+   ====================================================================== */
+
+/* The name and the save button share one row; the hint sits under it. */
+.gallery-head {
+    padding: var(--space-1) 0 var(--space-3);
+}
+
+.gallery-head__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* The name is the edit button: one control, no separate pencil to hunt for. */
+.gallery-head__name {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font: var(--text-h2);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.gallery-head__name:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-subtle);
+}
+
+.gallery-head__name:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+.gallery-head__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gallery-head__pencil {
+    flex: none;
+    color: var(--text-tertiary);
+    opacity: 0.6;
+    transition: opacity var(--motion-fast);
+}
+
+.gallery-head__name:hover .gallery-head__pencil {
+    opacity: 1;
+}
+
+.gallery-head__input {
+    flex: 1;
+    min-width: 0;
+    height: var(--control-height-sm);
+    padding: 0 var(--space-2);
+    border: 1px solid var(--accent-moss-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-panel);
+    font: var(--text-h2);
+    color: var(--text-primary);
+}
+
+.gallery-head__save {
+    flex: none;
+}
+
+.gallery-head__hint {
+    margin: var(--space-1) 0 0;
+    padding: 0 var(--space-2);
+    font: var(--text-caption);
+    color: var(--text-secondary);
+}
+
+/*
+ * The search field keeps its own look; only the right padding grows, to hold
+ * the clear button, and the platform's second clear button is hidden so there
+ * is never a pair of them.
+ */
+.gallery-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--space-3);
+}
+
+.gallery-search .search {
+    padding-right: 34px;
+}
+
+.gallery-search .search::-webkit-search-cancel-button {
+    display: none;
+}
+
+.gallery-search__clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.gallery-search__clear:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.gallery-search__clear:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+/* One column: the rail is about 300px wide, and a card is a row. */
+.gallery-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gallery-card {
+    position: relative;
+}
+
+/* The card body is a button, so the whole card opens from the keyboard. */
+.gallery-card__open {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    /* The right padding is room for the delete button. */
+    padding: var(--space-2) 32px var(--space-2) var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-1);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast), border-color var(--motion-fast),
+        box-shadow var(--motion-fast);
+}
+
+.gallery-card__open:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent-moss-strong);
+    box-shadow: var(--shadow-2);
+}
+
+.gallery-card__open:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+.gallery-card[data-current='true'] .gallery-card__open {
+    background: var(--accent-moss-soft);
+    border-color: var(--accent-moss);
+}
+
+.gallery-card[data-current='true'] .gallery-card__open:hover {
+    border-color: var(--accent-moss-strong);
+}
+
+.gallery-card__thumb {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    overflow: hidden;
+}
+
+.gallery-card__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gallery-card__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.gallery-card__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.gallery-card__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.gallery-card__time {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+}
+
+/* Said in words, not only in colour, so it survives a colour-blind look. */
+.gallery-card__badge {
+    font: var(--text-micro);
+    letter-spacing: var(--tracking-micro);
+    text-transform: uppercase;
+    color: var(--text-on-accent);
+    background: var(--accent-moss);
+    border-radius: var(--radius-pill);
+    padding: 1px var(--space-2);
+}
+
+.gallery-card__delete {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.gallery-card__delete:hover {
+    background: var(--accent-clay-soft);
+    color: var(--accent-clay-text);
+}
+
+.gallery-card__delete:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+/* Deleting asks once, in place, instead of opening a browser dialog. */
+.gallery-card__confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--accent-clay);
+    border-radius: var(--radius-md);
+    background: var(--accent-clay-soft);
+}
+
+.gallery-card__question {
+    margin: 0;
+    font: var(--text-label);
+    color: var(--text-primary);
+}
+
+.gallery-card__choices {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.gallery-card__choices .btn {
+    flex: 1;
+}
+
+/* A quiet line while the disc is read, never a spinner over an empty panel. */
+.gallery-note {
+    margin: var(--space-6) 0;
+    text-align: center;
+    font: var(--text-caption);
+    color: var(--text-tertiary);
+}
+
+/* Opacity and colour only; nothing here has to travel to be understood. */
+@media (prefers-reduced-motion: reduce) {
+    .gallery-head__name,
+    .gallery-head__pencil,
+    .gallery-search__clear,
+    .gallery-card__open,
+    .gallery-card__delete {
+        transition: none;
+    }
+}
+
+/* ======================================================================
    Toast
    ====================================================================== */
 

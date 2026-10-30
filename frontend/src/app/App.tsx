@@ -5,6 +5,7 @@ import {CoachMarks} from '../panels/CoachMarks'
 import {CommandPalette} from '../panels/CommandPalette'
 import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
+import {GalleryPage} from '../pages/GalleryPage'
 import {ShortcutsPanel} from '../panels/ShortcutsPanel'
 import {StatusStrip} from '../panels/StatusStrip'
 import {Toast} from '../panels/Toast'
@@ -15,6 +16,7 @@ import {Viewport} from '../viewport/Viewport'
 
 export function App() {
     const announcement = useEditorStore((state) => state.announcement)
+    const page = useEditorStore((state) => state.page)
     const [paletteOpen, setPaletteOpen] = useState(false)
     const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
@@ -53,6 +55,16 @@ export function App() {
                 return
             }
 
+            // The start page has no tree on screen, so only the two commands
+            // that open a panel still mean anything there.
+            if (
+                useEditorStore.getState().page === 'gallery' &&
+                command.id !== 'palette' &&
+                command.id !== 'shortcuts'
+            ) {
+                return
+            }
+
             // Escape closes the panels first, so it never does two things.
             if (pressed === 'Esc' && (paletteOpen || shortcutsOpen)) {
                 event.preventDefault()
@@ -66,7 +78,6 @@ export function App() {
         }
 
         window.addEventListener('keydown', onKeyDown)
-
         return () => window.removeEventListener('keydown', onKeyDown)
     })
 
@@ -80,13 +91,19 @@ export function App() {
 
     return (
         <div className="app-shell">
-            <TopBar />
-            <div className="app-body">
-                <LeftRail />
-                <Viewport />
-                <Inspector />
-            </div>
-            <StatusStrip />
+            {page === 'gallery' ? (
+                <GalleryPage />
+            ) : (
+                <>
+                    <TopBar />
+                    <div className="app-body">
+                        <LeftRail />
+                        <Viewport />
+                        <Inspector />
+                    </div>
+                    <StatusStrip />
+                </>
+            )}
             <CoachMarks />
             <Toast />
             <CommandPalette
