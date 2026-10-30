@@ -230,8 +230,21 @@ export interface EditorStore {
     refreshGallery(): Promise<void>
     /** Saves the tree being edited, updating its entry. A copy is a new one. */
     saveTree(asCopy?: boolean): Promise<void>
+    /** The name prompt, while saving something that needs a name. */
+    savePrompt: SavePrompt | null
+    /** Saves with the name the user chose. A blank name keeps the suggestion. */
+    finishSave(name: string): Promise<void>
+    cancelSave(): void
     openTree(id: string): Promise<void>
     removeTree(id: string): Promise<void>
+}
+
+/** What the save prompt is asking for. */
+export interface SavePrompt {
+    readonly title: string
+    /** The name offered, and the fallback if the field is left blank. */
+    readonly name: string
+    readonly asCopy: boolean
 }
 
 const FIRST_ASSET_ID = 'asset-1'
@@ -282,6 +295,40 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 presetId: state.presetId,
             }),
         })
+    }
+
+    /** The one write path, so every save records the same things. */
+    const saveNow = async (name: string, asCopy: boolean) => {
+        const state = get()
+        const copy = asCopy || state.currentTreeId === null
+        const id = copy ? newTreeId() : state.currentTreeId
+
+        const text = serializeProject({
+            scene: state.scene,
+            name,
+            style: state.style,
+            extras: state.projectExtras,
+        })
+
+        try {
+            // A preview is worth a few milliseconds: a gallery of names is a
+            // list, a gallery of trees is a gallery.
+            const thumbnail = await renderTreeThumbnail(state.scene, {
+                style: getStyleProfile(state.style),
+            })
+
+            await writeTree(id as string, text, thumbnail)
+
+            set({
+                currentTreeId: id,
+                treeName: name,
+                toast: {message: `Saved "${name}"`, undoable: false},
+            })
+
+            await get().refreshGallery()
+        } catch (error) {
+            set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+        }
     }
 
     return {
@@ -587,36 +634,36 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         saveTree: async (asCopy) => {
             const state = get()
             const copy = asCopy === true || state.currentTreeId === null
-            const id = copy ? newTreeId() : state.currentTreeId
-            const name = copy ? copyNameOf(state.treeName, state.gallery) : state.treeName
 
-            const text = serializeProject({
-                scene: state.scene,
-                name,
-                style: state.style,
-                extras: state.projectExtras,
-            })
-
-            try {
-                // A preview is worth a few milliseconds: a gallery of names is
-                // a list, a gallery of trees is a gallery.
-                const thumbnail = await renderTreeThumbnail(state.scene, {
-                    style: getStyleProfile(state.style),
-                })
-
-                await writeTree(id as string, text, thumbnail)
-
+            // Only a save that needs a name asks for one. Updating a tree you
+            // already named should not interrupt you.
+            if (copy) {
                 set({
-                    currentTreeId: id,
-                    treeName: name,
-                    toast: {message: `${copy ? 'Saved a copy' : 'Saved'} "${name}"`, undoable: false},
+                    savePrompt: {
+                        title: asCopy === true ? 'Save a copy' : 'Name your tree',
+                        name: copyNameOf(state.treeName, state.gallery),
+                        asCopy: true,
+                    },
                 })
 
-                await get().refreshGallery()
-            } catch (error) {
-                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+                return
             }
+
+            await saveNow(state.treeName, false)
         },
+
+        savePrompt: null,
+
+        finishSave: async (name) => {
+            const prompt = get().savePrompt
+            const chosen = name.trim()
+
+            set({savePrompt: null})
+
+            await saveNow(chosen === '' ? (prompt?.name ?? get().treeName) : chosen, prompt?.asCopy ?? true)
+        },
+
+        cancelSave: () => set({savePrompt: null}),
 
         openTree: async (id) => {
             try {

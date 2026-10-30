@@ -7,6 +7,7 @@ import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
 import {GalleryPage} from '../pages/GalleryPage'
 import {ShortcutsPanel} from '../panels/ShortcutsPanel'
+import {SaveDialog} from '../panels/SaveDialog'
 import {StatusStrip} from '../panels/StatusStrip'
 import {Toast} from '../panels/Toast'
 import {TopBar} from '../panels/TopBar'
@@ -50,6 +51,11 @@ export function App() {
 
             const pressed = shortcutOf(event)
             const command = COMMANDS.find((entry) => entry.shortcut === pressed)
+
+            // The save prompt owns the keyboard while it is open.
+            if (useEditorStore.getState().savePrompt) {
+                return
+            }
 
             if (!command) {
                 return
@@ -106,6 +112,7 @@ export function App() {
             )}
             <CoachMarks />
             <Toast />
+            <SaveDialog />
             <CommandPalette
                 open={paletteOpen}
                 onClose={() => setPaletteOpen(false)}
