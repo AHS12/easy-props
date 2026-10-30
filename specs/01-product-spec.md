@@ -190,7 +190,7 @@ new user-facing term must be agreed here first.
 | Normal, tangent | *(never shown)* | |
 | Shader, material graph | **Material** | Fixed presets only in MVP |
 | Seed | **Seed** | Plus a shuffle button |
-| LOD | *(never shown in MVP)* | |
+| LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. See [07](./07-ui-overhaul.md) |
 | Pivot | *(never shown)* | |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
