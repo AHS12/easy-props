@@ -70,7 +70,7 @@ export function SaveDialog() {
                 />
 
                 <p className="save-dialog__hint">
-                    Leave it blank to keep “{prompt.name}”. You can rename it later in My trees.
+                    Leave it blank to keep “{prompt.name}”. You can rename it later in My props.
                 </p>
 
                 <div className="save-dialog__actions">

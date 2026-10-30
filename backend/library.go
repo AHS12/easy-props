@@ -210,7 +210,8 @@ func (a *App) libraryDir() (string, error) {
 			return "", fmt.Errorf("easy-props: cannot locate the user config directory: %w", err)
 		}
 
-		root = filepath.Join(configDir, "easy-props", "trees")
+		root = filepath.Join(configDir, "easy-props", "props")
+		migrateFromTreesFolder(filepath.Join(configDir, "easy-props"), root)
 	}
 
 	if err := os.MkdirAll(root, 0o755); err != nil {
@@ -218,6 +219,24 @@ func (a *App) libraryDir() (string, error) {
 	}
 
 	return root, nil
+}
+
+// migrateFromTreesFolder carries a library saved under the old name over to
+// the new one. The folder was called "trees" before the app was understood to
+// hold more than trees; a rename keeps whatever was saved in it.
+func migrateFromTreesFolder(parent string, current string) {
+	previous := filepath.Join(parent, "trees")
+
+	if _, err := os.Stat(previous); err != nil {
+		return
+	}
+
+	if _, err := os.Stat(current); err == nil {
+		// Both exist: the new one is already in use, so leave the old alone.
+		return
+	}
+
+	_ = os.Rename(previous, current)
 }
 
 // treePath returns the path of the file named id with the given suffix, or the

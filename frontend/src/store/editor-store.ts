@@ -236,6 +236,8 @@ export interface EditorStore {
     finishSave(name: string): Promise<void>
     cancelSave(): void
     openTree(id: string): Promise<void>
+    /** Gives a saved tree a new name, leaving everything else and its preview. */
+    renameTree(id: string, name: string): Promise<void>
     removeTree(id: string): Promise<void>
 }
 
@@ -683,6 +685,36 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 })
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        renameTree: async (id, name) => {
+            const chosen = name.trim()
+
+            if (chosen === '') {
+                return
+            }
+
+            try {
+                const project = parseProject(await readTree(id))
+                const text = serializeProject({
+                    scene: project.scene,
+                    name: chosen,
+                    style: project.style,
+                    extras: project.extras,
+                })
+
+                // No thumbnail: the library keeps the preview it already has.
+                await writeTree(id, text, null)
+
+                set({
+                    ...(get().currentTreeId === id ? {treeName: chosen} : {}),
+                    toast: {message: `Renamed to "${chosen}"`, undoable: false},
+                })
+
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
             }
         },
 

@@ -268,7 +268,7 @@ tree in one click.
 
 | Part | Decision |
 |---|---|
-| Storage | One project file per tree in `%APPDATA%/easy-props/trees`, plus a PNG preview beside it. No database: files are readable, copyable, syncable, and a corrupt one loses one tree, not the collection. |
+| Storage | One project file per prop in `%APPDATA%/easy-props/props`, plus a PNG preview beside it. No database: files are readable, copyable, syncable, and a corrupt one loses one prop, not the collection. The folder was called `trees` before the app was understood to hold rocks and bushes too; a saved library is moved over on first use. |
 | Identity | A tree you are editing keeps one entry. `Ctrl+S` updates it. `Ctrl+Shift+S` saves a copy as a new entry, so the gallery grows only when the user chooses. |
 | Previews | Rendered from the same generators as the viewport, framed to the tree's bounds, one shared WebGL renderer for every thumbnail. |
 | Naming | Automatic from the starting preset ("Round canopy", then "Round canopy 2"), renameable in place. |

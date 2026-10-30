@@ -87,11 +87,78 @@ interface CardProps {
     onAskDelete(): void
     onDelete(): void
     onCancel(): void
+    onRename(name: string): void
 }
 
 /** One saved tree. The body opens it; delete is a sibling, not a nested button. */
-function TreeCard({tree, current, confirming, onOpen, onAskDelete, onDelete, onCancel}: CardProps) {
+function TreeCard({
+    tree,
+    current,
+    confirming,
+    onOpen,
+    onAskDelete,
+    onDelete,
+    onCancel,
+    onRename,
+}: CardProps) {
     const name = displayName(tree)
+    const [renaming, setRenaming] = useState(false)
+    const [draft, setDraft] = useState(name)
+
+    const commitRename = () => {
+        setRenaming(false)
+
+        if (draft.trim() !== '' && draft.trim() !== name) {
+            onRename(draft.trim())
+        }
+    }
+
+    if (renaming) {
+        return (
+            <li className="gallery-card home-card" data-current={current ? 'true' : 'false'}>
+                <div className="home-card__rename">
+                    <label className="visually-hidden" htmlFor={`rename-${tree.id}`}>
+                        New name for {name}
+                    </label>
+                    <input
+                        className="home-card__input"
+                        id={`rename-${tree.id}`}
+                        value={draft}
+                        maxLength={60}
+                        autoFocus
+                        onFocus={(event) => event.currentTarget.select()}
+                        placeholder={name}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault()
+                                commitRename()
+                            } else if (event.key === 'Escape') {
+                                event.preventDefault()
+                                setRenaming(false)
+                            }
+                        }}
+                    />
+                    <div className="home-card__rename-actions">
+                        <button
+                            type="button"
+                            className="btn btn--primary btn--sm"
+                            onClick={commitRename}
+                        >
+                            Rename
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            onClick={() => setRenaming(false)}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </li>
+        )
+    }
 
     if (confirming) {
         return (
@@ -147,15 +214,41 @@ function TreeCard({tree, current, confirming, onOpen, onAskDelete, onDelete, onC
                     </span>
                 </span>
             </button>
-            <button
-                type="button"
-                className="gallery-card__delete"
-                aria-label={`Delete ${name}`}
-                title={`Delete ${name}`}
-                onClick={onAskDelete}
-            >
-                <span aria-hidden="true">×</span>
-            </button>
+            <div className="home-card__actions">
+                <button
+                    type="button"
+                    className="gallery-card__delete home-card__rename-button"
+                    aria-label={`Rename ${name}`}
+                    title={`Rename ${name}`}
+                    onClick={() => {
+                        setDraft(name)
+                        setRenaming(true)
+                    }}
+                >
+                    <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M4 20h4L20 8l-4-4L4 16z" />
+                    </svg>
+                </button>
+                <button
+                    type="button"
+                    className="gallery-card__delete"
+                    aria-label={`Delete ${name}`}
+                    title={`Delete ${name}`}
+                    onClick={onAskDelete}
+                >
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
         </li>
     )
 }
@@ -169,6 +262,7 @@ export function GalleryPage() {
     const setTreeName = useEditorStore((state) => state.setTreeName)
     const applyPreset = useEditorStore((state) => state.applyPreset)
     const openTree = useEditorStore((state) => state.openTree)
+    const renameTree = useEditorStore((state) => state.renameTree)
     const removeTree = useEditorStore((state) => state.removeTree)
     const showEditor = useEditorStore((state) => state.showEditor)
 
@@ -227,10 +321,10 @@ export function GalleryPage() {
                 <section className="home__section">
                     <div className="home__heading">
                         <div>
-                            <h1 className="home__title">Your trees</h1>
+                            <h1 className="home__title">Your props</h1>
                             <p className="home__sub">
                                 {currentTreeId === null
-                                    ? 'Save a tree and it lives here, ready to open again.'
+                                    ? 'Save a prop and it lives here, ready to open again.'
                                     : `You are editing “${treeName}”.`}
                             </p>
                         </div>
@@ -240,8 +334,8 @@ export function GalleryPage() {
                                 <input
                                     className="search"
                                     type="search"
-                                    placeholder="Search your trees"
-                                    aria-label="Search your trees"
+                                    placeholder="Search your props"
+                                    aria-label="Search your props"
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
                                 />
@@ -271,7 +365,7 @@ export function GalleryPage() {
                             </span>
                             <h2>Nothing saved yet</h2>
                             <p>
-                                Pick a tree below, make it yours, then press{' '}
+                                Pick a starting point below, make it yours, then press{' '}
                                 <kbd>Ctrl</kbd> <span aria-hidden="true">+</span> <kbd>S</kbd> to
                                 keep it here.
                             </p>
@@ -303,6 +397,7 @@ export function GalleryPage() {
                                         void removeTree(tree.id)
                                     }}
                                     onCancel={() => setConfirmingId(null)}
+                                    onRename={(name) => void renameTree(tree.id, name)}
                                 />
                             ))}
                         </ul>

@@ -50,10 +50,10 @@ const selected = (state: EditorStore) => state.selection.selectedId
 export const COMMANDS: readonly Command[] = [
     {
         id: 'gallery',
-        label: 'My trees',
+        label: 'My props',
         group: 'File',
         shortcut: 'Ctrl+G',
-        keywords: 'home gallery start saved open recent',
+        keywords: 'home gallery library start saved open recent props',
         run: (state) => state.showGallery(),
     },
     {

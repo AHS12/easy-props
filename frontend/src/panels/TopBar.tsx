@@ -118,10 +118,10 @@ export function TopBar() {
             <button
                 type="button"
                 className="btn btn--secondary"
-                title="Your saved trees"
+                title="Your saved props"
                 onClick={showGallery}
             >
-                My trees
+                My props
             </button>
             <button
                 type="button"

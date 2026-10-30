@@ -199,16 +199,58 @@
     gap: var(--space-2);
 }
 
-.home-card .gallery-card__delete {
+.home-card {
+    position: relative;
+}
+
+/* Rename and delete sit together, and stay quiet until the card is pointed at. */
+.home-card__actions {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
+    display: flex;
+    gap: 4px;
     opacity: 0;
     transition: opacity var(--motion-fast) ease;
 }
 
-.home-card {
-    position: relative;
+.home-card:hover .home-card__actions,
+.home-card:focus-within .home-card__actions {
+    opacity: 1;
+}
+
+.home-card__actions .gallery-card__delete {
+    position: static;
+    opacity: 1;
+}
+
+.home-card__rename {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2);
+}
+
+.home-card__input {
+    width: 100%;
+    padding: var(--space-2);
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--text-primary);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+}
+
+.home-card__input:focus-visible {
+    outline: none;
+    border-color: var(--accent-moss, #7a9c6a);
+    box-shadow: var(--shadow-focus);
+}
+
+.home-card__rename-actions {
+    display: flex;
+    gap: var(--space-2);
 }
 
 .home-card:hover .gallery-card__delete,
