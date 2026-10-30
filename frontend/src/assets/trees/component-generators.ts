@@ -7,13 +7,21 @@
 
 import type {PartGenerator} from '../shared/generator-types'
 import {branchGenerator} from './components/branch'
+import {coconutClusterGenerator} from './components/coconut-cluster'
 import {foliageGenerator} from './components/foliage-cluster'
+import {palmCrownGenerator} from './components/palm-crown'
+import {palmFrondGenerator} from './components/palm-frond'
+import {palmTrunkGenerator} from './components/palm-trunk'
 import {rootGenerator} from './components/root'
 import {trunkGenerator} from './components/trunk'
 
 export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [branchGenerator.id]: branchGenerator,
+    [coconutClusterGenerator.id]: coconutClusterGenerator,
     [foliageGenerator.id]: foliageGenerator,
+    [palmCrownGenerator.id]: palmCrownGenerator,
+    [palmFrondGenerator.id]: palmFrondGenerator,
+    [palmTrunkGenerator.id]: palmTrunkGenerator,
     [rootGenerator.id]: rootGenerator,
     [trunkGenerator.id]: trunkGenerator,
 }

@@ -4,6 +4,7 @@ import {Segmented} from '../components/Segmented'
 import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
 import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findTreeGenerator} from '../assets/trees/tree-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {describeComponent, type SurfacePush} from '../assets/shared/component-types'
@@ -186,6 +187,12 @@ export function Inspector() {
     if (!component) {
         const values = asset?.parameters ?? {}
 
+        // The whole-tree controls come from whichever generator this asset
+        // was made with: a palm has controls a branching tree does not.
+        const specs =
+            (asset ? findTreeGenerator(asset.generatorId)?.parameters : undefined) ??
+            treeParameterSpecs
+
         return (
             <aside className="inspector" data-coach="inspector">
                 <div className="insp-head">
@@ -201,7 +208,7 @@ export function Inspector() {
                 <div className="insp-body">
                     <Group title="Shape" help="The overall size and shape of the tree.">
                         <ParameterControls
-                            specs={treeParameterSpecs}
+                            specs={specs}
                             values={values}
                             onChange={(key, value) =>
                                 updateTreeParameters({[key]: value}, `change ${key}`)

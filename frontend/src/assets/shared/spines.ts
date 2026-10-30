@@ -14,7 +14,7 @@ import type {ComponentType} from './component-types'
  * How a part's spine is laid out in its own space.
  *
  * `vertical` is the trunk: along Y, offsets on X and Z.
- * `outward` is a branch or a root: along X, offsets on Y and Z.
+ * `outward` is a branch, a root, or a palm frond: along X, offsets on Y and Z.
  */
 export type SpineKind = 'vertical' | 'outward'
 
@@ -33,6 +33,7 @@ export function spineKindOf(type: ComponentType): SpineKind | null {
             return 'vertical'
         case 'branch':
         case 'root':
+        case 'palm-frond':
             return 'outward'
         default:
             return null
@@ -96,12 +97,16 @@ export function withSpineOffsets<T extends SpineLike>(
 /**
  * Whether a parameter change means the spine should be rebuilt.
  *
- * These are the controls that shape the part: Bend, Curl, and Drop rebuild
- * its default curve, and the point count resamples whatever the user has
- * dragged. Dragging a handle overrides the first three, and touching any of
- * them overrides the drag, so no control is ever dead.
+ * These are the controls that shape the part: Bend, Curl, Drop, and Arch
+ * rebuild its default curve, and the point count resamples whatever the user
+ * has dragged. Dragging a handle overrides the first three, and touching any
+ * of them overrides the drag, so no control is ever dead.
  */
 export function reshapesSpine(type: ComponentType, key: string): boolean {
+    if (type === 'palm-frond') {
+        return key === 'arch' || key === 'archAmount'
+    }
+
     if (type !== 'trunk' && type !== 'branch' && type !== 'root') {
         return false
     }

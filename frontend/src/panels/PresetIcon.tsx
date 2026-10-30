@@ -72,6 +72,41 @@ export function PresetIcon({presetId}: PresetIconProps) {
                     <path d="M5 18a18 9 0 0 1 36 0 18 9 0 0 0-36 0z" fill={LEAF_DARK} />
                 </>
             ) : null}
+
+            {presetId === 'coconut-palm' ? (
+                <>
+                    <path d="M21 44c0-9 2-16 6-22l3 2c-4 5-5 12-5 20z" fill={BARK} />
+                    <g stroke={LEAF} strokeWidth="2" strokeLinecap="round">
+                        <path d="M28 23c-3-6-7-10-12-12" />
+                        <path d="M29 23c3-6 7-10 12-12" />
+                        <path d="M28 22c-1-5-2-9-3-13" />
+                        <path d="M29 22c1-5 2-9 3-13" />
+                    </g>
+                    <g stroke={LEAF_DARK} strokeWidth="2" strokeLinecap="round">
+                        <path d="M28 24c-5 1-10 4-13 7" />
+                        <path d="M29 24c5 1 10 4 13 7" />
+                    </g>
+                    <circle cx="26" cy="26.5" r="2.2" fill={BARK} />
+                    <circle cx="31" cy="27" r="1.8" fill={BARK} />
+                </>
+            ) : null}
+
+            {presetId === 'tropical-palm' ? (
+                <>
+                    <path d="M21 44c0-7 1-12 2-16h4c1 4 2 9 2 16z" fill={BARK} />
+                    <g stroke={LEAF} strokeWidth="2" strokeLinecap="round">
+                        <path d="M24 28c-3-6-6-10-11-12" />
+                        <path d="M26 28c3-6 6-10 11-12" />
+                        <path d="M25 27c-1-6 0-11 1-16" />
+                        <path d="M24 29c-5-2-11-2-15 1" />
+                        <path d="M26 29c5-2 11-2 15 1" />
+                    </g>
+                    <g stroke={LEAF_DARK} strokeWidth="2" strokeLinecap="round">
+                        <path d="M24 30c-4 3-8 6-11 10" />
+                        <path d="M26 30c4 3 8 6 11 10" />
+                    </g>
+                </>
+            ) : null}
         </svg>
     )
 }

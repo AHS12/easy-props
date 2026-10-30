@@ -7,13 +7,21 @@
 
 import type {ComponentType} from '../shared/component-types'
 
-export type LibraryCategory = 'trunks' | 'branches' | 'roots' | 'foliage'
+export type LibraryCategory =
+    | 'trunks'
+    | 'branches'
+    | 'roots'
+    | 'foliage'
+    | 'fronds'
+    | 'coconuts'
 
 export const LIBRARY_CATEGORIES: readonly LibraryCategory[] = [
     'trunks',
     'branches',
     'roots',
     'foliage',
+    'fronds',
+    'coconuts',
 ]
 
 export const CATEGORY_LABELS: Readonly<Record<LibraryCategory, string>> = {
@@ -21,6 +29,8 @@ export const CATEGORY_LABELS: Readonly<Record<LibraryCategory, string>> = {
     branches: 'Branches',
     roots: 'Roots',
     foliage: 'Leaves',
+    fronds: 'Fronds',
+    coconuts: 'Coconuts',
 }
 
 /**
@@ -33,6 +43,7 @@ export type AttachmentRule =
     | 'along the trunk'
     | 'on a branch'
     | 'at a branch tip'
+    | 'on the crown'
 
 export interface LibraryPart {
     readonly id: string
@@ -193,6 +204,60 @@ export const LIBRARY_PARTS: readonly LibraryPart[] = [
         type: 'foliage-cluster',
         parameters: {shape: 'irregular', size: 0.75, roughness: 0.8},
         attachment: 'at a branch tip',
+    },
+
+    // --- Fronds ---------------------------------------------------------
+    {
+        id: 'frond-arched',
+        name: 'Arched frond',
+        category: 'fronds',
+        description: 'Curves up, then bows over at the tip.',
+        generatorId: 'palm-frond',
+        type: 'palm-frond',
+        parameters: {length: 2.8, width: 0.32, leaflets: 16, arch: 'arched', archAmount: 0.55, twist: 0},
+        attachment: 'on the crown',
+    },
+    {
+        id: 'frond-drooping',
+        name: 'Drooping frond',
+        category: 'fronds',
+        description: 'Hangs over and falls below where it started.',
+        generatorId: 'palm-frond',
+        type: 'palm-frond',
+        parameters: {length: 2.6, width: 0.3, leaflets: 18, arch: 'drooping', archAmount: 0.6, twist: 0},
+        attachment: 'on the crown',
+    },
+    {
+        id: 'frond-upright',
+        name: 'Upright frond',
+        category: 'fronds',
+        description: 'Reaches up and flattens out, like a young palm.',
+        generatorId: 'palm-frond',
+        type: 'palm-frond',
+        parameters: {length: 2.2, width: 0.26, leaflets: 14, arch: 'upright', archAmount: 0.5, twist: 0},
+        attachment: 'on the crown',
+    },
+
+    // --- Coconuts -------------------------------------------------------
+    {
+        id: 'coconuts-three',
+        name: 'Three coconuts',
+        category: 'coconuts',
+        description: 'A small bunch hanging under the crown.',
+        generatorId: 'coconut-cluster',
+        type: 'coconut-cluster',
+        parameters: {count: 3, size: 0.16, spread: 0.16},
+        attachment: 'on the crown',
+    },
+    {
+        id: 'coconuts-bunch',
+        name: 'Heavy bunch',
+        category: 'coconuts',
+        description: 'A big cluster of ripe coconuts.',
+        generatorId: 'coconut-cluster',
+        type: 'coconut-cluster',
+        parameters: {count: 6, size: 0.2, spread: 0.22},
+        attachment: 'on the crown',
     },
 ]
 

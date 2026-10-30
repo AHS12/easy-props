@@ -13,9 +13,49 @@ import {
     updateTreeParameters,
 } from '../core/scene/scene-ops'
 import type {SceneComponent} from '../assets/shared/component-types'
+import type {Scene} from '../core/scene/scene-model'
 import {getStyleProfile} from '../assets/style/style-profiles'
 
 const STYLE = getStyleProfile('low-poly')
+
+const CROWN_ID = 'cmp-crown-0'
+
+const CROWN_PARTS = LIBRARY_PARTS.filter((part) => part.attachment === 'on the crown')
+
+/** The starter tree, which is a branching tree and so has no crown. */
+function sceneWithoutCrown(): Scene {
+    const scene = createInitialScene()
+    const asset = scene.assets[0]
+
+    return {
+        ...scene,
+        assets: [
+            {...asset, components: asset.components.filter((c) => c.type !== 'palm-crown')},
+        ],
+    }
+}
+
+/** The same tree with a palm crown sitting on top of its trunk. */
+function sceneWithCrown(): Scene {
+    const scene = sceneWithoutCrown()
+    const asset = scene.assets[0]
+    const trunk = asset.components.find((c) => c.type === 'trunk')
+
+    const crown: SceneComponent = {
+        id: CROWN_ID,
+        type: 'palm-crown',
+        generatorId: 'palm-crown',
+        generatorVersion: 1,
+        parentId: trunk?.id ?? null,
+        transform: {position: [0, 4.2, 0], rotation: [0, 0, 0], scale: [1, 1, 1]},
+        parameters: {size: 0.42, spread: 0.3, lobes: 6},
+        seed: 7331,
+        slot: null,
+        edited: true,
+    }
+
+    return {...scene, assets: [{...asset, components: [...asset.components, crown]}]}
+}
 
 function manualPart(id: string, parentId: string | null = null): SceneComponent {
     return {
@@ -36,7 +76,7 @@ describe('the library', () => {
     it('has a part in every category', () => {
         const categories = new Set(LIBRARY_PARTS.map((part) => part.category))
 
-        expect(categories.size).toBe(4)
+        expect(categories.size).toBe(6)
     })
 
     it('gives every part a unique id', () => {
@@ -63,6 +103,24 @@ describe('the library', () => {
             expect(part.description.length).toBeGreaterThan(0)
             expect(part.description.toLowerCase()).not.toContain('poly')
             expect(part.description.toLowerCase()).not.toContain('mesh')
+        }
+    })
+
+    it('gives every palm part parameters its generator accepts straight away', () => {
+        const palmParts = LIBRARY_PARTS.filter(
+            (part) => part.category === 'fronds' || part.category === 'coconuts',
+        )
+
+        expect(palmParts.length).toBeGreaterThan(0)
+
+        for (const part of palmParts) {
+            const generator = findComponentGenerator(part.generatorId)
+
+            expect(generator, `${part.id} has no generator`).toBeDefined()
+
+            const validated = generator!.validate(part.parameters)
+
+            expect(validated.issues, part.id).toEqual([])
         }
     })
 })
@@ -99,6 +157,46 @@ describe('attachment', () => {
             expect(Number.isFinite(attachment.position[1])).toBe(true)
             expect(Number.isFinite(attachment.position[2])).toBe(true)
         }
+    })
+
+    it('puts every frond and coconut bunch on the crown of a palm', () => {
+        const scene = sceneWithCrown()
+
+        expect(CROWN_PARTS.length).toBeGreaterThan(0)
+
+        for (const part of CROWN_PARTS) {
+            const attachment = findAttachment(scene, part)
+
+            expect(attachment.parentId, part.id).toBe(CROWN_ID)
+        }
+    })
+
+    it('puts a frond near the top of the trunk when the tree has no crown', () => {
+        const scene = sceneWithoutCrown()
+        const trunk = scene.assets[0].components.find((c) => c.type === 'trunk')!
+
+        for (const part of CROWN_PARTS) {
+            const attachment = findAttachment(scene, part)
+
+            expect(attachment.parentId, part.id).toBe(trunk.id)
+            expect(attachment.position[1], part.id).toBeGreaterThan(0)
+        }
+    })
+
+    it('hangs the coconuts below the fronds', () => {
+        const scene = sceneWithCrown()
+
+        const fronds = LIBRARY_PARTS.filter((part) => part.category === 'fronds')
+        const coconuts = LIBRARY_PARTS.filter((part) => part.category === 'coconuts')
+
+        const highestCoconut = Math.max(
+            ...coconuts.map((part) => findAttachment(scene, part).position[1]),
+        )
+        const lowestFrond = Math.min(
+            ...fronds.map((part) => findAttachment(scene, part).position[1]),
+        )
+
+        expect(highestCoconut).toBeLessThan(lowestFrond)
     })
 })
 

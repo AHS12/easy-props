@@ -210,13 +210,29 @@ Save. Reopen. All intact.
 
 ### Definition of done
 
-- [ ] The coconut palm preset reads unmistakably as a palm.
-- [ ] Fronds arch and droop according to their parameters.
-- [ ] Leaflets are real geometry, not a texture.
-- [ ] Coconuts cluster under the crown.
-- [ ] Both palms work in both styles.
-- [ ] The palm generator is a separate implementation, not a branch generator
+- [ ] The coconut palm preset reads unmistakably as a palm. *(not yet seen by
+      eye: the presets, icons and structure are in place and tested, but the
+      built app has not been looked at)*
+- [x] Fronds arch and droop according to their parameters.
+- [x] Leaflets are real geometry, not a texture.
+- [x] Coconuts cluster under the crown.
+- [x] Both palms work in both styles. *(structure is style-independent by test)*
+- [x] The palm generator is a separate implementation, not a branch generator
       in disguise.
+
+### What is in
+
+Four part generators — `palm-trunk` (ringed, swept through the spine),
+`palm-crown`, `palm-frond` (rib plus leaflets, with a draggable spine and
+`arch` rebuilding it), `coconut-cluster` — under a `palm-tree` tree generator
+that puts the crown on the trunk's actual tip, so a bent or twisted palm still
+carries its fronds. Two presets, and fronds and coconuts as library parts with
+a new `on the crown` attachment that falls back to the top of an ordinary
+tree.
+
+The whole-tree inspector now reads the controls of whichever generator the
+asset uses. It was importing the branching tree's list directly, so a palm
+would have had no controls at all.
 
 ---
 
@@ -238,7 +254,6 @@ Save. Reopen. All intact.
 | 5.8 | Export flow | Native save dialog, toast on success, clear failure |
 | 5.9 | Export verification | Load the GLB back with `GLTFLoader` in a test |
 | 5.10 | Manual verification | Open the GLB in Blender or a compatible viewer |
-
 ### Definition of done
 
 - [ ] Save, close, reopen, and the tree is identical, including every

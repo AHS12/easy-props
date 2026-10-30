@@ -10,6 +10,7 @@ import type {StyleProfile} from '../../assets/style/style-profiles'
 import {MAX_PUSHES} from '../../assets/shared/pushes'
 import {resampleSpine, reshapesSpine, spineKindOf, spineLengthKey, type SpineLike} from '../../assets/shared/spines'
 import {buildBranchSpine} from '../../assets/trees/components/branch'
+import {buildFrondSpine, type FrondArch} from '../../assets/trees/components/palm-frond'
 import {buildRootSpine} from '../../assets/trees/components/root'
 import {respineForBend, SPINE_POINT_COUNT, type BendAmount} from '../../assets/trees/components/trunk'
 import {generateTreeComponents} from '../../assets/trees/tree-generators'
@@ -204,6 +205,18 @@ function respineAfterPatch(
                     numberOr(parameters.curl, 0),
                     length,
                     count,
+                ),
+            }
+
+        case 'palm-frond':
+            // A frond has no point count of its own, so the builder's own
+            // count is the one that keeps its handles steady.
+            return {
+                ...parameters,
+                spine: buildFrondSpine(
+                    parameters.arch as FrondArch,
+                    numberOr(parameters.archAmount, 0.55),
+                    length,
                 ),
             }
 

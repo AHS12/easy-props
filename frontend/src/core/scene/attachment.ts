@@ -12,6 +12,20 @@ import type {SceneComponent, SpinePoint} from '../../assets/shared/component-typ
 import {hashSeed} from '../../assets/shared/random'
 import type {Scene, SceneAsset} from './scene-model'
 
+/** How far out from the trunk's axis a part on the crown starts. */
+const CROWN_REACH = 0.15
+
+/** A frond starts just above the crown's centre, a coconut bunch just below. */
+const FROND_LIFT = 0.08
+const COCONUT_DROP = 0.1
+
+/** Out and up for a frond, out and down for a bunch of coconuts. */
+const FROND_PITCH = 0.35
+const COCONUT_PITCH = -0.5
+
+/** Where a palm part goes on a tree with no crown: near the top of the trunk. */
+const CROWN_FALLBACK_T = 0.92
+
 export interface Attachment {
     readonly parentId: string | null
     readonly position: readonly [number, number, number]
@@ -157,6 +171,33 @@ export function findAttachment(
                 parentId: host.id,
                 position: [point.x, point.y, point.z],
                 rotation: rotationTowards(direction.clone().setY(direction.y + 0.4).normalize()),
+                seed,
+            }
+        }
+
+        case 'on the crown': {
+            const crown = findByType(asset, 'palm-crown')
+            const coconuts = part.type === 'coconut-cluster'
+
+            // A palm's crown is the real host. An ordinary tree has none, so
+            // the part goes near the top of its trunk instead and still ends
+            // up where a frond would be.
+            const origin = crown
+                ? new THREE.Vector3(...crown.transform.position)
+                : trunkPointAt(trunk, CROWN_FALLBACK_T)
+
+            const point = origin.clone().addScaledVector(outward, CROWN_REACH)
+            point.y = origin.y + (coconuts ? -COCONUT_DROP : FROND_LIFT)
+
+            const direction = outward
+                .clone()
+                .setY(coconuts ? COCONUT_PITCH : FROND_PITCH)
+                .normalize()
+
+            return {
+                parentId: crown ? crown.id : trunk.id,
+                position: [point.x, point.y, point.z],
+                rotation: rotationTowards(direction),
                 seed,
             }
         }
