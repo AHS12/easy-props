@@ -21,6 +21,6 @@ export {skeletonToBark, type BarkOptions} from './sweep'
 
 export {limbHandles, type LimbHandle} from './handles'
 
-export {assignOrders, applyPipeModel, type Skeleton, type SkeletonNode} from './skeleton'
+export {assignOrders, applyPipeModel, pruneDeadTwigs, type Skeleton, type SkeletonNode} from './skeleton'
 
-export {sampleAttractors, type Vec3} from './envelope'
+export {crownReach, sampleAttractors, type Vec3} from './envelope'

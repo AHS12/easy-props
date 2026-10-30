@@ -29,6 +29,14 @@ export type GrowthParameters = {
     readonly crownShape: CrownShape
     /** How ragged that outline is, 0 for a neat shape and 1 for a wild one. */
     readonly irregularity: number
+    /**
+     * How empty the middle of the crown is, 0 for solid and 1 for a shell.
+     *
+     * A solid crown lets a limb earn a branch anywhere, which is what makes
+     * an evenly filled bush. A hollow one puts its points near the surface, so
+     * a limb has to reach outward before there is anything to grow towards.
+     */
+    readonly interiorHollowing: number
     /** The radius of the trunk at the ground, in metres. */
     readonly trunkRadius: number
     /** How many points the branches grow towards. */
@@ -39,6 +47,14 @@ export type GrowthParameters = {
     readonly killDistance: number
     /** How far a branch advances in one growth step, in metres. */
     readonly stepLength: number
+    /**
+     * How much further a limb reaches than a crowded joint, 1 to 2.5.
+     *
+     * The first child of a joint is the limb carrying on; the ones after it
+     * leave from its side. Stepping the carrying limb further is what turns a
+     * uniform fuzz of equal-length twigs into long limbs with fine tips.
+     */
+    readonly limbStretch: number
     /** The hard cap on how many joints the tree may have. */
     readonly maxNodes: number
     /** How strongly branches bend upward as they grow. */
@@ -49,6 +65,13 @@ export type GrowthParameters = {
     readonly pipeExponent: number
     /** The thinnest a twig may become, in metres. */
     readonly minTwigRadius: number
+    /**
+     * The shortest twig worth keeping, in metres.
+     *
+     * A shoot shorter than this cannot hold a leaf, so it is dead wood: it is
+     * cut away after growth rather than drawn and lit.
+     */
+    readonly minTwigLength: number
     /** How far up the tree the crown starts, as a share of the height. */
     readonly crownBaseFraction: number
 }
@@ -100,6 +123,17 @@ const IRREGULARITY = {
     max: 1,
     step: 0.05,
     default: 0.3,
+} as const satisfies ParameterSpec
+
+const INTERIOR_HOLLOWING = {
+    kind: 'number',
+    key: 'interiorHollowing',
+    label: 'Open middle',
+    help: 'How empty the middle of the crown is. A hollow crown grows its branches out to the edge and lets light through the middle.',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    default: 0.5,
 } as const satisfies ParameterSpec
 
 const TRUNK_RADIUS = {
@@ -162,6 +196,17 @@ const STEP_LENGTH = {
     default: 0.22,
 } as const satisfies ParameterSpec
 
+const LIMB_STRETCH = {
+    kind: 'number',
+    key: 'limbStretch',
+    label: 'Long limbs',
+    help: 'How much further a growing limb reaches than a crowded joint. Higher values give long heavy branches instead of a bush of twigs.',
+    min: 1,
+    max: 2.5,
+    step: 0.05,
+    default: 1.6,
+} as const satisfies ParameterSpec
+
 const MAX_NODES = {
     kind: 'number',
     key: 'maxNodes',
@@ -219,6 +264,18 @@ const MIN_TWIG_RADIUS = {
     default: 0.008,
 } as const satisfies ParameterSpec
 
+const MIN_TWIG_LENGTH = {
+    kind: 'number',
+    key: 'minTwigLength',
+    label: 'Shortest twig',
+    help: 'The shortest twig worth keeping. A twig this short cannot hold a leaf, so it is trimmed away instead of drawn.',
+    min: 0.05,
+    max: 0.5,
+    step: 0.01,
+    unit: 'm',
+    default: 0.12,
+} as const satisfies ParameterSpec
+
 const CROWN_BASE = {
     kind: 'number',
     key: 'crownBaseFraction',
@@ -235,16 +292,19 @@ export const growthParameterSpecs: readonly ParameterSpec[] = [
     CROWN_WIDTH,
     CROWN_SHAPE,
     IRREGULARITY,
+    INTERIOR_HOLLOWING,
     TRUNK_RADIUS,
     ATTRACTORS,
     PERCEPTION,
     KILL_DISTANCE,
     STEP_LENGTH,
+    LIMB_STRETCH,
     MAX_NODES,
     REACH_FOR_LIGHT,
     DROOP,
     PIPE_EXPONENT,
     MIN_TWIG_RADIUS,
+    MIN_TWIG_LENGTH,
     CROWN_BASE,
 ]
 
@@ -264,16 +324,19 @@ const growthSchema = z.object({
     crownWidth: numberSchema(CROWN_WIDTH),
     crownShape: choiceSchema(CROWN_SHAPE),
     irregularity: numberSchema(IRREGULARITY),
+    interiorHollowing: numberSchema(INTERIOR_HOLLOWING),
     trunkRadius: numberSchema(TRUNK_RADIUS),
     attractorCount: wholeNumberSchema(ATTRACTORS),
     perceptionRadius: numberSchema(PERCEPTION),
     killDistance: numberSchema(KILL_DISTANCE),
     stepLength: numberSchema(STEP_LENGTH),
+    limbStretch: numberSchema(LIMB_STRETCH),
     maxNodes: wholeNumberSchema(MAX_NODES),
     reachForLight: numberSchema(REACH_FOR_LIGHT),
     droop: numberSchema(DROOP),
     pipeExponent: numberSchema(PIPE_EXPONENT),
     minTwigRadius: numberSchema(MIN_TWIG_RADIUS),
+    minTwigLength: numberSchema(MIN_TWIG_LENGTH),
     crownBaseFraction: numberSchema(CROWN_BASE),
 })
 
@@ -283,16 +346,19 @@ export const growthDefaults: GrowthParameters = {
     crownWidth: CROWN_WIDTH.default,
     crownShape: CROWN_SHAPE.default,
     irregularity: IRREGULARITY.default,
+    interiorHollowing: INTERIOR_HOLLOWING.default,
     trunkRadius: TRUNK_RADIUS.default,
     attractorCount: ATTRACTORS.default,
     perceptionRadius: PERCEPTION.default,
     killDistance: KILL_DISTANCE.default,
     stepLength: STEP_LENGTH.default,
+    limbStretch: LIMB_STRETCH.default,
     maxNodes: MAX_NODES.default,
     reachForLight: REACH_FOR_LIGHT.default,
     droop: DROOP.default,
     pipeExponent: PIPE_EXPONENT.default,
     minTwigRadius: MIN_TWIG_RADIUS.default,
+    minTwigLength: MIN_TWIG_LENGTH.default,
     crownBaseFraction: CROWN_BASE.default,
 }
 

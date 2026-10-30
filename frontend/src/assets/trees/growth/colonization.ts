@@ -15,7 +15,7 @@
 import {createSeededRandom, hashSeed} from '../../shared/random'
 import {sampleAttractors} from './envelope'
 import type {GrowthParameters} from './parameters'
-import {applyPipeModel, assignOrders} from './skeleton'
+import {applyPipeModel, assignOrders, pruneDeadTwigs} from './skeleton'
 import type {Skeleton, SkeletonNode} from './skeleton'
 
 /** The angle that turns each new child around its parent. */
@@ -27,6 +27,16 @@ const ATTRACTOR_SEED = 1
 
 /** How many edges along a limb count as fully old, for the droop weighting. */
 const DROOP_DEPTH = 14
+
+/**
+ * How many children a joint may have before it counts as fully crowded.
+ *
+ * A joint's first child is the limb carrying on and gets the whole stretch; by
+ * the time it has three children it is a fork, and forks step at the plain
+ * step length. The taper between the two is what gives a tree thick limbs with
+ * fine growth on them instead of an even fuzz.
+ */
+const CROWDED_CHILDREN = 3
 
 /** How many rounds growth may take, so no parameter set can make this hang. */
 const MAX_ROUNDS = 512
@@ -192,6 +202,7 @@ export function growSkeleton(parameters: GrowthParameters, seed: number): Skelet
     const killDistance = Math.max(0.001, parameters.killDistance)
     const reachForLight = parameters.reachForLight
     const droop = parameters.droop
+    const limbStretch = Math.min(Math.max(parameters.limbStretch, 1), 2.5)
     const crownBase = Math.min(Math.max(parameters.crownBaseFraction, 0), 0.95) * height
     const widestReach = Math.max(parameters.crownWidth, 0.01) * 0.5 * CROWN_OVERREACH
 
@@ -481,11 +492,21 @@ export function growSkeleton(parameters: GrowthParameters, seed: number): Skelet
             const binormalZ = tx * perpY - ty * perpX
             const cos = Math.cos(angle)
             const sin = Math.sin(angle)
-            const offset = Math.min(provisionalRadius(parameters, depth) * 0.9, stepLength * 0.6)
 
-            const childX = x + dx * stepLength + (perpX * cos + binormalX * sin) * offset
-            const childY = y + dy * stepLength + (perpY * cos + binormalY * sin) * offset
-            const childZ = z + dz * stepLength + (perpZ * cos + binormalZ * sin) * offset
+            // How far this joint reaches. A joint that is carrying a limb has
+            // already spent a child on it, so it reaches less than one that is
+            // still a tip: the first child of a joint is the limb continuing
+            // and steps at the full stretch, the ones after it are side shoots
+            // and step at the plain length. Without this every joint grows at
+            // the same rate and the tree is a bush of equal twigs.
+            const crowded = Math.min(children[joint], CROWDED_CHILDREN) / CROWDED_CHILDREN
+            const step = stepLength * (1 + (limbStretch - 1) * (1 - crowded))
+
+            const offset = Math.min(provisionalRadius(parameters, depth) * 0.9, step * 0.6)
+
+            const childX = x + dx * step + (perpX * cos + binormalX * sin) * offset
+            const childY = y + dy * step + (perpY * cos + binormalY * sin) * offset
+            const childZ = z + dz * step + (perpZ * cos + binormalZ * sin) * offset
 
             children[joint]++
 
@@ -592,8 +613,12 @@ export function growSkeleton(parameters: GrowthParameters, seed: number): Skelet
         })
     }
 
+    // Growth is finished, so the joints are a plain list before anything is
+    // derived from them. Trimming comes first because it removes joints, and
+    // orders and radii are counted per joint: three passes, each reading the
+    // result of the one before.
     const nodes = applyPipeModel(
-        assignOrders(raw),
+        assignOrders(pruneDeadTwigs(raw, parameters.minTwigLength)),
         parameters.pipeExponent,
         parameters.minTwigRadius,
         parameters.trunkRadius,

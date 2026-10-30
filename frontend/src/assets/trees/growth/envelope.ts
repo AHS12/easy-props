@@ -23,13 +23,59 @@ const NOISE_REACH = 0.45
 const MAX_TRIES = 64
 
 /**
+ * The steepest outward bias the hollowing may ask for.
+ *
+ * `1 / (1 - hollowing)` runs away as the hollowing reaches 1, and a point
+ * exactly on the rim has no direction to grow in. Leaving a two-percent gap
+ * keeps the shell a shell: at 0.98 the exponent is 50, which puts all but the
+ * innermost points within a few centimetres of the surface.
+ */
+const MIN_HOLLOWING_GAP = 0.02
+
+/**
+ * The largest share of the points that may be pushed out to the shell.
+ *
+ * Never all of them. A growing joint can only reach a point it can see inside
+ * its branch reach, and the trunk top sits in the middle of the crown: push
+ * every point to the rim and the tree has nothing within reach to grow towards,
+ * so it stops after a few joints and the crown is never built. The share that
+ * stays where it was drawn is the path outward, and it is small enough that the
+ * inside of the crown still thins out.
+ */
+const MAX_SHELL_SHARE = 0.85
+
+/**
+ * Pushes a radius fraction towards the outside of the crown.
+ *
+ * A crown sampled uniformly fills its volume, so a branch can earn a twig
+ * anywhere and the result is an even bush. Biasing the fraction outward with
+ * `1 - (1 - u)^(1 / (1 - hollowing))` concentrates the points in a shell: at 0
+ * nothing changes, and as the hollowing rises the middle of the crown empties
+ * out and a limb has to travel outward before there is anything to grow
+ * towards. That is what makes limbs long and the inside of the crown open.
+ */
+function biasOutward(fraction: number, hollowing: number): number {
+    if (hollowing <= 0) {
+        return fraction
+    }
+
+    const strength = 1 / Math.max(1 - hollowing, MIN_HOLLOWING_GAP)
+
+    return 1 - Math.pow(1 - fraction, strength)
+}
+
+/**
  * The crown's outline at a given fraction of its height.
  *
  * `t` runs from 0 where the crown starts to 1 at the top of the tree, and the
  * result is a fraction of the crown radius. No shape ever returns more than 1,
  * which is what keeps a grown tree inside the width that was asked for.
+ *
+ * Exported because anything that has to know whether a joint is near the
+ * outside of the crown — leaf pads, for one — needs the same outline the
+ * points were sampled in.
  */
-function crownProfile(shape: CrownShape, t: number): number {
+export function crownReach(shape: CrownShape, t: number): number {
     const clamped = Math.min(Math.max(t, 0), 1)
 
     switch (shape) {
@@ -84,6 +130,7 @@ export function sampleAttractors(parameters: GrowthParameters, random: RandomSou
     const crownHeight = top - base
     const shape = parameters.crownShape
     const irregularity = Math.min(Math.max(parameters.irregularity, 0), 1)
+    const hollowing = Math.min(Math.max(parameters.interiorHollowing, 0), 1)
 
     // The raggedness is a property of the tree, not of where the random source
     // happens to be, so the noise gets its own seed, drawn once.
@@ -97,7 +144,7 @@ export function sampleAttractors(parameters: GrowthParameters, random: RandomSou
 
         for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
             t = random()
-            const profile = crownProfile(shape, t)
+            const profile = crownReach(shape, t)
 
             // Accepting with probability profile squared makes a height as
             // likely as the area of the ring it cuts through.
@@ -128,7 +175,14 @@ export function sampleAttractors(parameters: GrowthParameters, random: RandomSou
             reach = Math.min(1, Math.max(0.2, reach * (1 + NOISE_REACH * irregularity * noise)))
         }
 
-        const radius = crownRadius * reach * Math.sqrt(random())
+        // A uniform point in the volume is a uniform fraction of the radius
+        // squared, so the square root is drawn first. A share of the points is
+        // then pushed outward from that fraction; the rest stays where it was
+        // drawn, which is what keeps the middle of the crown thin rather than
+        // empty and keeps the tree able to grow into itself.
+        const inside = Math.sqrt(random())
+        const pushed = random() < Math.min(hollowing, MAX_SHELL_SHARE)
+        const radius = crownRadius * reach * (pushed ? biasOutward(inside, hollowing) : inside)
         const y = base + crownHeight * t
 
         points.push([nx * radius, y, nz * radius])

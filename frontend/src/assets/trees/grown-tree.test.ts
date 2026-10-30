@@ -120,23 +120,11 @@ describe('the grown oak preset', () => {
     })
 
     it('offers every growth control to the inspector', () => {
-        expect(growthParameterSpecs.map((spec) => spec.key)).toEqual([
-            'height',
-            'crownWidth',
-            'crownShape',
-            'irregularity',
-            'trunkRadius',
-            'attractorCount',
-            'perceptionRadius',
-            'killDistance',
-            'stepLength',
-            'maxNodes',
-            'reachForLight',
-            'droop',
-            'pipeExponent',
-            'minTwigRadius',
-            'crownBaseFraction',
-        ])
+        // Every parameter has a control, and no control is left without a
+        // parameter. Compared as sets: the inspector's order is presentational.
+        expect(growthParameterSpecs.map((spec) => spec.key).sort()).toEqual(
+            Object.keys(growthDefaults).sort(),
+        )
         expect(findTreeGenerator('grown-tree')?.parameters).toBe(growthParameterSpecs)
     })
 })
