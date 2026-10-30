@@ -6,6 +6,8 @@
  * remains the user's to change afterwards.
  */
 
+import {growthDefaults} from '../growth'
+
 export interface TreePreset {
     readonly id: string
     readonly name: string
@@ -154,6 +156,14 @@ export const treePresets: readonly TreePreset[] = [
             leaflets: 22,
             coconutCount: 0,
         },
+    },
+    {
+        id: 'grown-oak',
+        name: 'Grown oak',
+        sub: 'Grown, not assembled',
+        generatorId: 'grown-tree',
+        seed: 77123,
+        parameters: {...growthDefaults},
     },
 ]
 

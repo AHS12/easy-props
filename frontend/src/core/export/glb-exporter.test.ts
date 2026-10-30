@@ -93,10 +93,17 @@ describe('GLB export', () => {
                 }
             }
 
-            expect(
-                names(loaded).some((name) => /^trunk_.+/.test(name)),
-                preset.id,
-            ).toBe(true)
+            // Every component gets its own group, named after its type, so a
+            // tree can be told apart once it is in Blender. The grown tree is
+            // a single bark surface rather than a trunk and branches, which is
+            // why this asks for each component's name instead of a trunk.
+            const expected = scene.assets[0].components.map(
+                (component) => `${component.type}_${component.id}`,
+            )
+
+            for (const name of expected) {
+                expect(names(loaded), preset.id).toContain(name)
+            }
         }
     }, 120000)
 

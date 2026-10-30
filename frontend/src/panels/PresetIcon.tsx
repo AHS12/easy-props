@@ -107,6 +107,27 @@ export function PresetIcon({presetId}: PresetIconProps) {
                     </g>
                 </>
             ) : null}
+            {presetId === 'grown-oak' ? (
+                <>
+                    <path d="M22 45c0-10 1-17 2-24h3c1 7 2 14 2 24z" fill={BARK} />
+                    <g stroke={BARK} strokeWidth="1.6" strokeLinecap="round" fill="none">
+                        <path d="M25 27c-5-4-8-9-9-15" />
+                        <path d="M28 25c4-4 7-9 8-15" />
+                        <path d="M25 21c-6-2-10-5-12-10" />
+                        <path d="M29 20c5-2 9-5 11-10" />
+                        <path d="M24 28c-7 0-12-1-16-4" />
+                        <path d="M30 27c6 0 11-1 15-4" />
+                    </g>
+                    <g stroke={BARK} strokeWidth="1.1" strokeLinecap="round" fill="none">
+                        <path d="M16 12c-3-3-4-6-4-9" />
+                        <path d="M36 12c3-3 4-6 4-9" />
+                        <path d="M8 24c-3 0-5 1-7 3" />
+                        <path d="M44 23c2 0 4 1 5 3" />
+                        <path d="M16 17c-2-4-2-8-1-12" />
+                        <path d="M36 17c2-4 2-8 1-12" />
+                    </g>
+                </>
+            ) : null}
         </svg>
     )
 }

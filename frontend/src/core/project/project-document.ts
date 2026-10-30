@@ -58,6 +58,7 @@ const componentSchema = z.object({
         'palm-frond',
         'palm-crown',
         'coconut-cluster',
+        'bark',
     ]),
     generatorId: z.string().min(1),
     generatorVersion: z.number().int(),
