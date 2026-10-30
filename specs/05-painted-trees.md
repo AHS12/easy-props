@@ -68,7 +68,13 @@ meaning a set of these values, not a new generator.
 Click the trunk, a root, a branch or a clump.
 
 - A limb has drag handles, Length and Thickness, and can be removed.
-- A clump can be moved, sized, flattened, recoloured and removed.
+- A clump can be moved, sized, flattened, recoloured and removed, and has its own
+  leaf density, leaf size and lumpiness.
+
+A part's panel holds only what changes that part. The tree's counts stay in the
+Whole tree panel, because a count under a selected clump could delete that clump
+while it is being edited. The trunk is the exception: there is one, nothing can
+take it away, so its panel also has its shape, bark detail and bark colours.
 
 Three decisions make this hold together:
 

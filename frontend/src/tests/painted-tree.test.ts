@@ -4,9 +4,11 @@ import {getStyleProfile} from '../assets/style/style-profiles'
 import {findComponentGenerator} from '../assets/trees/component-generators'
 import {
     applyPartAction,
+    buildClump,
     paintedTreeDefaults,
     parseEdits,
     planPaintedTree,
+    sectionsForPart,
     validatePaintedTreeParameters,
     type PaintedTreeParameters,
 } from '../assets/trees/painted'
@@ -152,6 +154,41 @@ describe('painted tree', () => {
         expect(
             applyPartAction('', {generatorId: 'painted-limb', parameters: {key: 't'}}, {kind: 'remove'}),
         ).toBeNull()
+    })
+
+    it('offers the controls that belong with the part you clicked', () => {
+        const keysFor = (generatorId: string, type: string) =>
+            sectionsForPart(generatorId, type).flatMap((section) => [
+                ...section.specs.map((spec) => spec.key),
+                ...section.colours,
+            ])
+
+        expect(keysFor('painted-limb', 'trunk')).toEqual(expect.arrayContaining(['corkscrew', 'moss', 'barkDeep']))
+        expect(keysFor('painted-limb', 'trunk')).not.toContain('rootCount')
+        expect(keysFor('painted-bark', 'bark')).toEqual(keysFor('painted-limb', 'trunk'))
+    })
+
+    it('never offers a control that could delete the selected part', () => {
+        expect(sectionsForPart('painted-clump', 'foliage-cluster')).toEqual([])
+        expect(sectionsForPart('painted-limb', 'branch')).toEqual([])
+        expect(sectionsForPart('painted-limb', 'root')).toEqual([])
+    })
+
+    it('changes the leaves of one clump and leaves the others alone', () => {
+        const plan = planPaintedTree(paintedTreeDefaults, 8)
+        const [first, second] = plan.clumps
+        const edits = applyPartAction(
+            '',
+            {generatorId: 'painted-clump', parameters: {key: first.key}},
+            {kind: 'patch', patch: {fullnessScale: 2}},
+        )!
+        const edited = planPaintedTree({...paintedTreeDefaults, edits}, 8)
+        const cards = (tree: PaintedTreeParameters, source: typeof plan, index: number) =>
+            buildClump(source, source.clumps[index], tree, 1).index!.count
+
+        expect(cards({...paintedTreeDefaults, edits}, edited, 0)).toBeGreaterThan(cards(paintedTreeDefaults, plan, 0))
+        expect(cards({...paintedTreeDefaults, edits}, edited, 1)).toBe(cards(paintedTreeDefaults, plan, 1))
+        expect(edited.clumps[1].key).toBe(second.key)
     })
 
     it('survives a damaged edit list', () => {

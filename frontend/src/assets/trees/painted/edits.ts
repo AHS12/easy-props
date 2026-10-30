@@ -20,6 +20,9 @@ export interface ClumpEdit {
     readonly offset?: Vec3
     readonly sizeScale?: number
     readonly flattenScale?: number
+    readonly fullnessScale?: number
+    readonly leafSizeScale?: number
+    readonly lumpinessScale?: number
     readonly colour?: string
     readonly removed?: boolean
 }
@@ -202,6 +205,18 @@ function clumpAfter(
 
             if (finite(patch.flattenScale)) {
                 next.flattenScale = patch.flattenScale
+            }
+
+            if (finite(patch.fullnessScale)) {
+                next.fullnessScale = patch.fullnessScale
+            }
+
+            if (finite(patch.leafSizeScale)) {
+                next.leafSizeScale = patch.leafSizeScale
+            }
+
+            if (finite(patch.lumpinessScale)) {
+                next.lumpinessScale = patch.lumpinessScale
             }
 
             if (typeof patch.colour === 'string') {

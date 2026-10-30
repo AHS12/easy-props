@@ -12,6 +12,7 @@ import {
     COLOUR_LABELS,
     isPaintedPart,
     PALETTES,
+    sectionsForPart,
     type Palette,
     type PaletteId,
 } from '../assets/trees/painted'
@@ -179,11 +180,38 @@ function currentPalette(values: Readonly<Record<string, unknown>>): Palette {
 }
 
 /**
- * The whole-tree controls of a tree that groups them, under their headings.
+ * Pickers for some of a painted tree's colours.
  *
- * Colour pickers join the Colours group. Picking one takes the current palette
- * as a starting point, so changing one colour does not lose the other four.
+ * Picking one takes the current palette as a starting point, so changing one
+ * colour does not lose the other four.
  */
+function PaletteColours({
+    keys,
+    values,
+    onColours,
+}: {
+    keys: readonly (keyof Palette)[]
+    values: Readonly<Record<string, unknown>>
+    onColours: (patch: Readonly<Record<string, string>>) => void
+}) {
+    const palette = currentPalette(values)
+
+    return (
+        <>
+            {keys.map((key) => (
+                <ColourPicker
+                    key={key}
+                    label={COLOUR_LABELS[key]}
+                    value={palette[key]}
+                    presets={key.startsWith('bark') ? BARK_COLOURS : LEAF_COLOURS}
+                    onChange={(value) => onColours({...palette, [key]: value, palette: 'custom'})}
+                />
+            ))}
+        </>
+    )
+}
+
+/** The whole-tree controls of a tree that groups them, under their headings. */
 function GroupedControls({
     specs,
     values,
@@ -196,7 +224,6 @@ function GroupedControls({
     onColours: (patch: Readonly<Record<string, string>>) => void
 }) {
     const groups = [...new Set(specs.map((spec) => spec.group ?? 'Shape'))]
-    const palette = currentPalette(values)
 
     return (
         <>
@@ -207,19 +234,9 @@ function GroupedControls({
                         values={values}
                         onChange={onChange}
                     />
-                    {group === 'Colours'
-                        ? COLOUR_KEYS.map((key) => (
-                              <ColourPicker
-                                  key={key}
-                                  label={COLOUR_LABELS[key]}
-                                  value={palette[key]}
-                                  presets={key.startsWith('bark') ? BARK_COLOURS : LEAF_COLOURS}
-                                  onChange={(value) =>
-                                      onColours({...palette, [key]: value, palette: 'custom'})
-                                  }
-                              />
-                          ))
-                        : null}
+                    {group === 'Colours' ? (
+                        <PaletteColours keys={COLOUR_KEYS} values={values} onColours={onColours} />
+                    ) : null}
                 </Group>
             ))}
         </>
@@ -247,6 +264,7 @@ export function Inspector() {
     const restoreTree = useEditorStore((state) => state.restoreTree)
     const setPushes = useEditorStore((state) => state.setPushes)
     const moveComponent = useEditorStore((state) => state.moveComponent)
+    const deselect = useEditorStore((state) => state.deselect)
 
     const asset = scene.assets[0]
     const component = selectedId ? findComponent(scene, selectedId) : undefined
@@ -384,9 +402,17 @@ export function Inspector() {
                     <span className="chip chip--bark">Part</span>
                 </div>
                 {/* The trunk cannot be copied or removed: it is the tree. */}
-                {!canRemove ? null : (
+                {!canRemove && !painted ? null : (
                     <div className="insp-actions">
-                        {painted ? null : (
+                        {painted ? (
+                            <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                onClick={deselect}
+                            >
+                                Whole tree
+                            </button>
+                        ) : (
                             <button
                                 type="button"
                                 className="btn btn--secondary btn--sm"
@@ -395,36 +421,48 @@ export function Inspector() {
                                 Copy
                             </button>
                         )}
-                        <button
-                            type="button"
-                            className="btn btn--secondary btn--sm"
-                            onClick={() => deleteComponent(component.id)}
-                        >
-                            Remove
-                        </button>
+                        {canRemove ? (
+                            <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                onClick={() => deleteComponent(component.id)}
+                            >
+                                Remove
+                            </button>
+                        ) : null}
                     </div>
                 )}
             </div>
 
             <div className="insp-body">
-                <Group title={generator?.label ?? 'Part'} help="What this part looks like.">
-                    <ParameterControls specs={specs} values={values} onChange={change} />
-                    {component.generatorId === 'painted-clump' ? (
-                        <ColourPicker
-                            label="Colour"
-                            value={
-                                typeof component.parameters.colour === 'string'
-                                    ? component.parameters.colour
-                                    : currentPalette((component.parameters.tree ?? {}) as Record<string, unknown>).leafMid
-                            }
-                            presets={LEAF_COLOURS}
-                            onChange={(value) => change('colour', value)}
-                        />
-                    ) : null}
-                    {component.generatorId === 'painted-limb' ? (
-                        <p className="group__help">Drag the white handles in the view to reshape it.</p>
-                    ) : null}
-                </Group>
+                {/* The bark has no controls of its own: it is all its limbs. */}
+                {specs.length === 0 ? null : (
+                    <Group
+                        title={
+                            painted
+                                ? `This ${describeComponent(component.type).toLowerCase()}`
+                                : (generator?.label ?? 'Part')
+                        }
+                        help={painted ? 'Changes only the part you clicked.' : 'What this part looks like.'}
+                    >
+                        <ParameterControls specs={specs} values={values} onChange={change} />
+                        {component.generatorId === 'painted-clump' ? (
+                            <ColourPicker
+                                label="Colour"
+                                value={
+                                    typeof component.parameters.colour === 'string'
+                                        ? component.parameters.colour
+                                        : currentPalette((component.parameters.tree ?? {}) as Record<string, unknown>).leafMid
+                                }
+                                presets={LEAF_COLOURS}
+                                onChange={(value) => change('colour', value)}
+                            />
+                        ) : null}
+                        {component.generatorId === 'painted-limb' ? (
+                            <p className="group__help">Drag the white handles in the view to reshape it.</p>
+                        ) : null}
+                    </Group>
+                )}
 
                 {/* The trunk is the tree's base, so moving it would take the
                     root of everything with it. */}
@@ -467,17 +505,34 @@ export function Inspector() {
                         </div>
                     </Group>
                 ) : null}
+
+                {sectionsForPart(component.generatorId, component.type).map((section) => (
+                    <Group key={section.title} title={section.title} help={section.help}>
+                        <ParameterControls
+                            specs={section.specs}
+                            values={asset?.parameters ?? {}}
+                            onChange={(key, value) => updateTreeParameters({[key]: value}, `change ${key}`)}
+                        />
+                        <PaletteColours
+                            keys={section.colours}
+                            values={asset?.parameters ?? {}}
+                            onColours={(patch) => updateTreeParameters(patch, 'change colours')}
+                        />
+                    </Group>
+                ))}
             </div>
 
-            <div className="insp-foot">
-                <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => (isTrunk ? restoreTree() : restoreComponent(component.id))}
-                >
-                    Restore default
-                </button>
-            </div>
+            {component.generatorId === 'painted-bark' ? null : (
+                <div className="insp-foot">
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => (isTrunk ? restoreTree() : restoreComponent(component.id))}
+                    >
+                        Restore default
+                    </button>
+                </div>
+            )}
         </aside>
     )
 }

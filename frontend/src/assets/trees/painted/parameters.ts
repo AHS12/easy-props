@@ -125,6 +125,46 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.moss,
 ]
 
+/** A heading in a part's panel: tree controls that belong with that part. */
+export interface ControlSection {
+    readonly title: string
+    readonly help: string
+    readonly specs: readonly ParameterSpec[]
+    readonly colours: readonly (keyof Palette)[]
+}
+
+const specsInGroup = (group: string) => paintedTreeParameterSpecs.filter((spec) => spec.group === group)
+
+const section = (
+    title: string,
+    help: string,
+    specs: readonly ParameterSpec[],
+    colours: readonly (keyof Palette)[] = [],
+): ControlSection => ({title, help, specs, colours})
+
+const TRUNK_SECTIONS: readonly ControlSection[] = [
+    section(
+        'Trunk shape',
+        'The shape of the trunk.',
+        specsInGroup(TRUNK).filter((spec) => spec !== NUMBERS.rootCount && spec !== NUMBERS.rootLength),
+    ),
+    section('Bark detail', 'The surface of the wood.', specsInGroup(BARK)),
+    section('Bark colours', 'The colours of the wood.', [], ['barkDeep', 'barkLight']),
+]
+
+/**
+ * The tree controls to offer with a selected part.
+ *
+ * Only the trunk has any, because there is one trunk and no slider can take it
+ * away. Roots, branches and clumps come and go with the tree's counts, so a
+ * tree control under one could delete the very part being edited.
+ */
+export function sectionsForPart(generatorId: string, type: string): readonly ControlSection[] {
+    return generatorId === 'painted-bark' || (generatorId === 'painted-limb' && type === 'trunk')
+        ? TRUNK_SECTIONS
+        : []
+}
+
 /**
  * The colours of a palette, shadow to highlight.
  *

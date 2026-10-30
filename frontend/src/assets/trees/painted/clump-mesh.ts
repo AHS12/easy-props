@@ -112,7 +112,7 @@ export function buildClump(
 
     // A clump is a few overlapping lobes, not one ball: a sphere with noise
     // still reads as a balloon, however broken its edge is.
-    const lobeCount = 1 + Math.round(tree.lumpiness * 4)
+    const lobeCount = 1 + Math.round(Math.min(tree.lumpiness * (clump.edit.lumpinessScale ?? 1), 1) * 4)
     const lobes = Array.from({length: lobeCount}, (_, lobe) => {
         const azimuth = lobe * GOLDEN_ANGLE + random() * 6.28
         const lift = randomRange(random, -0.25, 0.7)
@@ -185,8 +185,8 @@ export function buildClump(
         colors.push(paint.r, paint.g, paint.b)
     }
 
-    const cardSize = clump.radius * 0.46 * tree.leafSize
-    const density = (0.9 + tree.fullness * 2.6) * detail
+    const cardSize = clump.radius * 0.46 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
+    const density = (0.9 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 2.6) * detail
 
     const addCards = (
         lobe: {centre: Vec3; radius: number},
