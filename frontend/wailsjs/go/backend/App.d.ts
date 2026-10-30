@@ -5,6 +5,8 @@ import {context} from '../models';
 
 export function ClearDraft():Promise<void>;
 
+export function ConfirmClose():Promise<void>;
+
 export function DeleteTree(arg1:string):Promise<void>;
 
 export function LibraryFolder():Promise<string>;

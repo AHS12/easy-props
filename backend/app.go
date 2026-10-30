@@ -30,18 +30,24 @@ type App struct {
 	// libraryRoot overrides the library. It is empty in the running app.
 	draftRoot string
 
-	// messageDialog shows a message dialog and reports the button the user
-	// chose. It is nil in the running app, which then calls the Wails runtime;
-	// tests replace it so the close guard can be exercised without a window.
-	messageDialog func(ctx context.Context, options runtime.MessageDialogOptions) (string, error)
+	// closeRuntime performs the two window operations the close guard needs:
+	// telling the interface an event happened, and closing the window. It is
+	// nil in the running app, which then calls the Wails runtime; tests replace
+	// it so the guard can be exercised without a window.
+	closeRuntime closeRuntime
 
-	// mu guards unsaved, which the frontend sets from its own goroutine while
-	// the window may be closing on the main one.
+	// mu guards unsaved and allowClose, which the frontend sets from its own
+	// goroutine while the window may be closing on the main one.
 	mu sync.Mutex
 
 	// unsaved records whether the session holds changes that exist only in
 	// memory. The close guard reads it; see BeforeClose.
 	unsaved bool
+
+	// allowClose records that the user has already agreed to the close in the
+	// interface's own dialog, so the next close goes through without asking
+	// again. It is set by ConfirmClose and read by BeforeClose.
+	allowClose bool
 }
 
 // NewApp creates a new App application struct.
@@ -62,21 +68,10 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.ctx = nil
 }
 
-// The words the close guard asks its question with. They name no file format
-// and no tree: what the session holds is the frontend's business, and Go only
-// knows that it is unsaved.
-const (
-	closeQuestionTitle   = "Close easy-props?"
-	closeQuestionMessage = "You have unsaved changes. They are kept as a draft, so you can pick up where you left off next time."
-
-	// closeButton is the answer that lets the window close.
-	closeButton = "Close"
-
-	// keepEditingButton is the answer that keeps it open. It is both the
-	// default and the cancel button, so the safe answer is the one a stray
-	// Return or Escape lands on.
-	keepEditingButton = "Keep editing"
-)
+// CloseRequestedEvent is the event the window asks its interface about before
+// closing with unsaved work. The interface shows its own dialog when it hears
+// this, and calls ConfirmClose when the user agrees to the close.
+const CloseRequestedEvent = "app:close-requested"
 
 // SetUnsaved remembers whether the session has unsaved changes, for the close
 // guard. The frontend calls it whenever that changes; false means the session
@@ -96,67 +91,83 @@ func (a *App) hasUnsavedChanges() bool {
 	return a.unsaved
 }
 
-// BeforeClose is called by Wails before the window closes. It reports whether
-// the close may go ahead: true allows it, false keeps the window open.
+// BeforeClose is called by Wails before the window closes. The return value says
+// whether to prevent the close, not whether to allow it.
 //
-// Nothing unsaved means nothing to ask about, so the close is allowed. With
-// unsaved changes the user is asked, and the close is allowed only when they
-// choose it. When the question cannot be asked at all — no startup context yet,
-// or a failing dialog — the close is allowed too: an app someone cannot leave
-// is a worse bug than an unsaved change.
-//
-// The context Wails hands in is deliberately ignored. The dialog is shown with
-// the context Startup saved, because that is the one attached to a live
-// frontend; a nil saved context is how "the app has not started" is recognised.
+// Nothing unsaved means nothing to ask about, so the close is not prevented. So
+// is a close the user already agreed to in the interface's own dialog, and so is
+// a close with no startup context to ask: an app someone cannot leave is a worse
+// bug than an unsaved change. Otherwise the interface is asked to show its own
+// dialog and this close is prevented; the interface calls ConfirmClose when the
+// user agrees, and the close it triggers comes back through here and goes
+// through.
 func (a *App) BeforeClose(context.Context) bool {
-	if !a.hasUnsavedChanges() {
-		return true
-	}
+	// The fields are read under the lock and the decision is made after it is
+	// released: emitting an event wakes the interface, whose answer comes back
+	// through ConfirmClose and needs the same mutex.
+	a.mu.Lock()
+	unsaved, allowed, ctx := a.unsaved, a.allowClose, a.ctx
+	a.mu.Unlock()
 
-	dialogCtx, err := a.dialogContext()
-	if err != nil {
-		return true
-	}
-
-	answer, err := a.showMessageDialog(dialogCtx, runtime.MessageDialogOptions{
-		Type:          runtime.QuestionDialog,
-		Title:         closeQuestionTitle,
-		Message:       closeQuestionMessage,
-		Buttons:       []string{closeButton, keepEditingButton},
-		DefaultButton: keepEditingButton,
-		CancelButton:  keepEditingButton,
-	})
-	if err != nil {
-		return true
-	}
-
-	return isCloseAnswer(answer)
-}
-
-// showMessageDialog shows options and returns the button the user chose. Tests
-// replace App.messageDialog to answer without a window.
-func (a *App) showMessageDialog(ctx context.Context, options runtime.MessageDialogOptions) (string, error) {
-	if a.messageDialog != nil {
-		return a.messageDialog(ctx, options)
-	}
-
-	return runtime.MessageDialog(ctx, options)
-}
-
-// isCloseAnswer reports whether answer chose the close. The labels above are
-// what macOS and the App options ask for, and macOS returns the label that was
-// pressed. Windows and Linux render a QuestionDialog as their native Yes/No
-// question and answer "Yes" or "No" instead, so the affirmative one has to name
-// the close as well — otherwise clicking Yes on those platforms would leave the
-// window open with no way to close it. Every other answer, including an empty
-// one, keeps the window open.
-func isCloseAnswer(answer string) bool {
-	switch strings.TrimSpace(answer) {
-	case closeButton, "Yes":
-		return true
-	default:
+	// Wails reads this return value as "prevent the close", not "allow it".
+	if !unsaved || allowed {
 		return false
 	}
+
+	// No context means Startup never ran, so there is no interface to ask.
+	if ctx == nil {
+		return false
+	}
+
+	a.closeRuntimeOrDefault().emit(ctx, CloseRequestedEvent)
+
+	return true
+}
+
+// ConfirmClose closes the window once the user has agreed in the interface's
+// own dialog. It is the interface's answer to CloseRequestedEvent, and does
+// nothing when the app never started.
+func (a *App) ConfirmClose() {
+	a.mu.Lock()
+	a.allowClose = true
+	ctx := a.ctx
+	a.mu.Unlock()
+
+	if ctx == nil {
+		return
+	}
+
+	a.closeRuntimeOrDefault().quit(ctx)
+}
+
+// closeRuntime is the part of the Wails runtime the close guard drives: telling
+// the interface an event happened, and closing the window.
+type closeRuntime interface {
+	emit(ctx context.Context, eventName string)
+	quit(ctx context.Context)
+}
+
+// closeRuntimeOrDefault returns closeRuntime, or the real Wails runtime when
+// tests have not replaced it.
+func (a *App) closeRuntimeOrDefault() closeRuntime {
+	if a.closeRuntime != nil {
+		return a.closeRuntime
+	}
+
+	return wailsCloseRuntime{}
+}
+
+// wailsCloseRuntime is the runtime the app itself runs on.
+type wailsCloseRuntime struct{}
+
+// emit hands the event to the interface.
+func (wailsCloseRuntime) emit(ctx context.Context, eventName string) {
+	runtime.EventsEmit(ctx, eventName)
+}
+
+// quit closes the window, ending the app.
+func (wailsCloseRuntime) quit(ctx context.Context) {
+	runtime.Quit(ctx)
 }
 
 // OpenFileDialog shows the native open dialog and returns the path the user

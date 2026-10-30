@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // newDraftApp returns an App whose draft folder is a fresh temporary folder, so
@@ -212,141 +210,154 @@ func TestWriteDraftReplacesExistingDraftAndLeavesNoTempFiles(t *testing.T) {
 	}
 }
 
-// recordingDialog replaces the dialog with one that answers answer, and reports
-// whether it was asked at all.
-func recordingDialog(app *App, answer string, err error) *int {
-	calls := new(int)
-
-	app.messageDialog = func(ctx context.Context, options runtime.MessageDialogOptions) (string, error) {
-		*calls++
-
-		if err != nil {
-			return "", err
-		}
-
-		return answer, nil
-	}
-
-	return calls
+// recordingRuntime replaces the two window operations the close guard drives
+// with ones that record what it asked for, so the tests need no window.
+type recordingRuntime struct {
+	events []string
+	quits  int
 }
 
-func TestBeforeCloseAllowsCloseWhenNothingIsUnsaved(t *testing.T) {
-	app := NewApp()
-	calls := recordingDialog(app, keepEditingButton, nil)
+func (r *recordingRuntime) emit(_ context.Context, eventName string) {
+	r.events = append(r.events, eventName)
+}
 
-	if got := app.BeforeClose(context.Background()); !got {
-		t.Fatal("BeforeClose with nothing unsaved = false, want true")
+func (r *recordingRuntime) quit(context.Context) {
+	r.quits++
+}
+
+// newCloseGuardApp returns an App that has started, as if the frontend were
+// listening, together with the recording that stands in for its window.
+func newCloseGuardApp(t *testing.T) (*App, *recordingRuntime) {
+	t.Helper()
+
+	app := NewApp()
+	app.Startup(context.Background())
+
+	recorded := &recordingRuntime{}
+	app.closeRuntime = recorded
+
+	return app, recorded
+}
+
+func TestBeforeCloseDoesNotPreventWhenNothingIsUnsaved(t *testing.T) {
+	app, recorded := newCloseGuardApp(t)
+
+	if got := app.BeforeClose(context.Background()); got {
+		t.Fatal("BeforeClose with nothing unsaved = true, want false so the close goes through")
 	}
 
 	app.SetUnsaved(true)
 	app.SetUnsaved(false)
 
-	if got := app.BeforeClose(context.Background()); !got {
-		t.Fatal("BeforeClose after SetUnsaved(false) = false, want true")
+	if got := app.BeforeClose(context.Background()); got {
+		t.Fatal("BeforeClose after SetUnsaved(false) = true, want false so the close goes through")
 	}
 
-	if *calls != 0 {
-		t.Fatalf("the guard asked %d times with nothing unsaved, want no question", *calls)
+	if len(recorded.events) != 0 {
+		t.Fatalf("the guard asked the interface %v with nothing unsaved, want no request", recorded.events)
+	}
+
+	if recorded.quits != 0 {
+		t.Fatalf("the guard closed the window %d times with nothing unsaved, want none", recorded.quits)
 	}
 }
 
-func TestBeforeCloseAllowsCloseWithoutAStartupContext(t *testing.T) {
-	app := NewApp()
-	calls := recordingDialog(app, keepEditingButton, nil)
+func TestBeforeClosePreventsAndAsksWhenSomethingIsUnsaved(t *testing.T) {
+	app, recorded := newCloseGuardApp(t)
 	app.SetUnsaved(true)
 
-	// Startup never ran, so there is no frontend to ask. The close is allowed:
-	// an app nobody can leave is a worse bug than an unsaved change.
+	// The close is prevented so the interface can ask in its own dialog.
 	if got := app.BeforeClose(context.Background()); !got {
-		t.Fatal("BeforeClose with no startup context = false, want true")
+		t.Fatal("BeforeClose with unsaved changes = false, want true to prevent while the interface asks")
 	}
 
-	if *calls != 0 {
-		t.Fatalf("the guard asked %d times without a startup context, want no question", *calls)
-	}
-}
-
-func TestBeforeCloseUsesTheDialogAnswer(t *testing.T) {
-	tests := []struct {
-		name    string
-		answer  string
-		err     error
-		want    bool
-		comment string
-	}{
-		{name: "close chosen", answer: "Close", want: true},
-		{name: "keep editing chosen", answer: "Keep editing", want: false},
-		{name: "native yes", answer: "Yes", want: true, comment: "Windows and Linux answer Yes/No"},
-		{name: "native no", answer: "No", want: false},
-		{name: "no answer at all", answer: "", want: false},
-		{name: "dialog failed", err: errors.New("no dialog"), want: true},
+	// The name is pinned: the frontend listens for exactly this one.
+	want := []string{"app:close-requested"}
+	if !reflect.DeepEqual(recorded.events, want) {
+		t.Fatalf("the guard asked the interface with %v, want %v", recorded.events, want)
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			app := NewApp()
-			app.Startup(context.Background())
-			recordingDialog(app, test.answer, test.err)
-			app.SetUnsaved(true)
+	if recorded.quits != 0 {
+		t.Fatalf("the guard closed the window %d times before the user agreed, want none", recorded.quits)
+	}
 
-			if got := app.BeforeClose(context.Background()); got != test.want {
-				t.Fatalf("BeforeClose with answer %q (error %v) = %v, want %v", test.answer, test.err, got, test.want)
-			}
-		})
+	// Nothing has been decided yet, so a second attempt asks again.
+	if got := app.BeforeClose(context.Background()); !got {
+		t.Fatalf("second BeforeClose with unsaved changes = false, want true to prevent again")
+	}
+
+	// Exactly one request per attempt, and still no quit.
+	if len(recorded.events) != 2 {
+		t.Fatalf("the guard asked the interface %v, want two requests", recorded.events)
+	}
+
+	if recorded.quits != 0 {
+		t.Fatalf("the guard closed the window %d times, want none", recorded.quits)
 	}
 }
 
-func TestBeforeCloseAsksTheCloseQuestion(t *testing.T) {
+func TestBeforeCloseDoesNotPreventWithoutAStartupContext(t *testing.T) {
 	app := NewApp()
-	app.Startup(context.Background())
+	recorded := &recordingRuntime{}
+	app.closeRuntime = recorded
 	app.SetUnsaved(true)
 
-	var asked []runtime.MessageDialogOptions
-	app.messageDialog = func(ctx context.Context, options runtime.MessageDialogOptions) (string, error) {
-		asked = append(asked, options)
-
-		return keepEditingButton, nil
+	// Startup never ran, so there is no frontend to ask. The close goes through,
+	// unprevented: an app nobody can leave is a worse bug than an unsaved change.
+	if got := app.BeforeClose(context.Background()); got {
+		t.Fatal("BeforeClose with unsaved changes and no startup context = true, want false so the close goes through")
 	}
 
-	app.BeforeClose(context.Background())
-
-	if len(asked) != 1 {
-		t.Fatalf("the guard asked %d times, want once", len(asked))
+	if len(recorded.events) != 0 {
+		t.Fatalf("the guard asked the interface %v without a startup context, want no request", recorded.events)
 	}
 
-	got := asked[0]
+	if recorded.quits != 0 {
+		t.Fatalf("the guard closed the window %d times without a startup context, want none", recorded.quits)
+	}
+}
 
-	if got.Type != runtime.QuestionDialog {
-		t.Fatalf("dialog type = %q, want %q", got.Type, runtime.QuestionDialog)
+func TestConfirmCloseLetsTheNextCloseThrough(t *testing.T) {
+	app, recorded := newCloseGuardApp(t)
+	app.SetUnsaved(true)
+
+	if got := app.BeforeClose(context.Background()); !got {
+		t.Fatal("BeforeClose with unsaved changes = false, want true to prevent while the interface asks")
 	}
 
-	if got.Title != "Close easy-props?" {
-		t.Fatalf("dialog title = %q", got.Title)
+	app.ConfirmClose()
+
+	if recorded.quits != 1 {
+		t.Fatalf("ConfirmClose closed the window %d times, want once", recorded.quits)
 	}
 
-	wantMessage := "You have unsaved changes. They are kept as a draft, so you can pick up where you left off next time."
-	if got.Message != wantMessage {
-		t.Fatalf("dialog message = %q, want %q", got.Message, wantMessage)
+	// The user agreed, so the close that follows is not prevented.
+	if got := app.BeforeClose(context.Background()); got {
+		t.Fatal("BeforeClose after ConfirmClose = true, want false so the close goes through unasked")
 	}
 
-	wantButtons := []string{"Close", "Keep editing"}
-	if !reflect.DeepEqual(got.Buttons, wantButtons) {
-		t.Fatalf("dialog buttons = %v, want %v", got.Buttons, wantButtons)
+	if len(recorded.events) != 1 {
+		t.Fatalf("the guard asked the interface %v, want only the first request", recorded.events)
+	}
+}
+
+func TestConfirmCloseWithoutAStartupContextDoesNothing(t *testing.T) {
+	app := NewApp()
+	recorded := &recordingRuntime{}
+	app.closeRuntime = recorded
+
+	// Startup never ran, so there is no window to close; this must not panic.
+	app.ConfirmClose()
+
+	if recorded.quits != 0 {
+		t.Fatalf("ConfirmClose closed the window %d times without a startup context, want none", recorded.quits)
 	}
 
-	if got.DefaultButton != "Keep editing" {
-		t.Fatalf("dialog default button = %q, want %q", got.DefaultButton, "Keep editing")
-	}
+	// The agreement is remembered all the same.
+	app.SetUnsaved(true)
 
-	if got.CancelButton != "Keep editing" {
-		t.Fatalf("dialog cancel button = %q, want %q", got.CancelButton, "Keep editing")
-	}
-
-	// The guard's message says nothing about the contents it is protecting.
-	for _, word := range []string{"tree", "json"} {
-		if strings.Contains(strings.ToLower(got.Message), word) {
-			t.Fatalf("dialog message %q mentions %q, want a message that knows nothing of the contents", got.Message, word)
-		}
+	if got := app.BeforeClose(context.Background()); got {
+		t.Fatal("BeforeClose after ConfirmClose = true, want false so the close goes through")
 	}
 }
 

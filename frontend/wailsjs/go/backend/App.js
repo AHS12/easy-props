@@ -6,6 +6,10 @@ export function ClearDraft() {
   return window['go']['backend']['App']['ClearDraft']();
 }
 
+export function ConfirmClose() {
+  return window['go']['backend']['App']['ConfirmClose']();
+}
+
 export function DeleteTree(arg1) {
   return window['go']['backend']['App']['DeleteTree'](arg1);
 }
