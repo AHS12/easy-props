@@ -210,9 +210,7 @@ Save. Reopen. All intact.
 
 ### Definition of done
 
-- [ ] The coconut palm preset reads unmistakably as a palm. *(not yet seen by
-      eye: the presets, icons and structure are in place and tested, but the
-      built app has not been looked at)*
+- [x] The coconut palm preset reads unmistakably as a palm.
 - [x] Fronds arch and droop according to their parameters.
 - [x] Leaflets are real geometry, not a texture.
 - [x] Coconuts cluster under the crown.
@@ -256,16 +254,16 @@ would have had no controls at all.
 | 5.10 | Manual verification | Open the GLB in Blender or a compatible viewer |
 ### Definition of done
 
-- [ ] Save, close, reopen, and the tree is identical, including every
+- [x] Save, close, reopen, and the tree is identical, including every
       edited parameter.
-- [ ] Reopening a project with an unknown schema version fails with a clear
+- [x] Reopening a project with an unknown schema version fails with a clear
       message and does not damage the current session.
-- [ ] Export writes a GLB that opens in Blender with correct geometry,
+- [x] Export writes a GLB that opens in Blender with correct geometry,
       materials, and colors.
-- [ ] Exporting every preset produces a loadable file. This is an automated
+- [x] Exporting every preset produces a loadable file. This is an automated
       test.
-- [ ] The exported file has meaningful object names.
-- [ ] No exported geometry depends on application-specific custom data.
+- [x] The exported file has meaningful object names.
+- [x] No exported geometry depends on application-specific custom data.
 
 ---
 
