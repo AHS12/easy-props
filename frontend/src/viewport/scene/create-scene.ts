@@ -14,6 +14,7 @@ import {
     type SceneLighting,
 } from '../../assets/style/lighting'
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
+import type {FaceCounts} from '../../core/export/pipeline/budget'
 import type {Scene} from '../../core/scene/scene-model'
 import {attachCameraControls} from './camera-controls'
 import {
@@ -43,6 +44,10 @@ export interface ViewportScene {
     setStyle(styleId: StyleProfileId): void
     /** Faces in the content, excluding rendering helpers such as outlines. */
     countFaces(): number
+    /** The same faces, by what they will be exported as. */
+    countFacesByMesh(): FaceCounts
+    /** Shows a share of the full detail. The scene is resynced afterwards. */
+    setDetail(detail: number): void
     resize(): void
     dispose(): void
 }
@@ -204,6 +209,8 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
     const controls = attachCameraControls(camera, renderer.domElement)
 
     let onContentArrived: (() => void) | null = null
+    let detail = 1
+
 
     const components = createComponentRenderer(() => {
         fitToContent()
@@ -278,7 +285,7 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         components,
 
         syncScene(nextScene) {
-            components.sync(nextScene, getStyleProfile(currentStyleId), shading)
+            components.sync(nextScene, getStyleProfile(currentStyleId), shading, detail)
             fitToContent()
         },
 
@@ -320,6 +327,28 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
 
         countFaces() {
             return countFaces(components.group)
+        },
+
+        countFacesByMesh() {
+            const counts = {wood: 0, leaves: 0}
+
+            for (const {mesh} of components.all()) {
+                if (!mesh.userData.isProxy) {
+                    const faces = countFaces(mesh)
+
+                    if (mesh.userData.role === 'foliage') {
+                        counts.leaves += faces
+                    } else {
+                        counts.wood += faces
+                    }
+                }
+            }
+
+            return counts
+        },
+
+        setDetail(next) {
+            detail = next
         },
 
         resize() {

@@ -1,4 +1,5 @@
 import {useState} from 'react'
+import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {Slider} from '../components/Slider'
 import {
     SHADING_MODES,
@@ -74,6 +75,8 @@ function MoveIcon() {
 export function ViewportOverlay() {
     const shadingMode = useEditorStore((state) => state.shadingMode)
     const setShadingMode = useEditorStore((state) => state.setShadingMode)
+    const previewLevel = useEditorStore((state) => state.previewLevel)
+    const setPreviewLevel = useEditorStore((state) => state.setPreviewLevel)
     const lighting = useEditorStore((state) => state.lighting)
     const setLighting = useEditorStore((state) => state.setLighting)
     const setTimeOfDay = useEditorStore((state) => state.setTimeOfDay)
@@ -109,6 +112,21 @@ export function ViewportOverlay() {
                     >
                         <MoveIcon />
                     </button>
+                </div>
+
+                <div className="tool-group" role="group" aria-label="Detail level">
+                    {LEVEL_SHARES.map((_, level) => (
+                        <button
+                            key={level}
+                            type="button"
+                            className="tool"
+                            aria-pressed={level === previewLevel}
+                            title={`Detail level ${level} (LOD${level})`}
+                            onClick={() => setPreviewLevel(level)}
+                        >
+                            {level}
+                        </button>
+                    ))}
                 </div>
 
                 <div className="tool-group" role="group" aria-label="How the tree is drawn">

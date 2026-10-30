@@ -1902,3 +1902,14 @@ h4 {
     display: flex;
     gap: var(--space-4);
 }
+
+.statusbar__right [data-over='true'] {
+    color: var(--warning, #c98a2b);
+}
+
+.statusbar__select {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}

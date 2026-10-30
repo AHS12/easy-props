@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
+import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
 import type {SurfacePush} from '../assets/shared/component-types'
@@ -59,6 +60,14 @@ export function Viewport() {
     const compassRef = useRef<CompassHandle>(null)
     const brushRef = useRef<HTMLDivElement>(null)
     const [faces, setFaces] = useState(0)
+    const reportFaces = (viewport: ViewportScene) => {
+        setFaces(viewport.countFaces())
+
+        // A budget is about the full prop, whichever level is being looked at.
+        if (useEditorStore.getState().previewLevel === 0) {
+            useEditorStore.getState().setFaceCounts(viewport.countFacesByMesh())
+        }
+    }
     const shapeTool = useEditorStore((state) => state.shapeTool)
 
     /**
@@ -517,7 +526,7 @@ export function Viewport() {
             if (state.scene !== previous.scene) {
                 viewport.syncScene(state.scene)
                 applySelectionVisuals(viewport, state.selection)
-                setFaces(viewport.countFaces())
+                reportFaces(viewport)
                 reframeIfNeeded(state.scene)
                 refreshHandles()
                 // The gizmo sits on the part, so it moves with it. A drag
@@ -528,7 +537,13 @@ export function Viewport() {
             if (state.style !== previous.style) {
                 viewport.setStyle(state.style)
                 viewport.syncScene(state.scene)
-                setFaces(viewport.countFaces())
+                reportFaces(viewport)
+            }
+
+            if (state.previewLevel !== previous.previewLevel) {
+                viewport.setDetail(LEVEL_SHARES[state.previewLevel])
+                viewport.syncScene(state.scene)
+                reportFaces(viewport)
             }
 
             if (state.lighting !== previous.lighting) {
@@ -554,7 +569,7 @@ export function Viewport() {
         viewport.setOnContentArrived(() => {
             // Parts rebuilt just now have not been told whether they are selected.
             applySelectionVisuals(viewport, store.getState().selection)
-            setFaces(viewport.countFaces())
+            reportFaces(viewport)
         })
         viewport.syncScene(store.getState().scene)
         viewport.setLighting(store.getState().lighting)
@@ -562,7 +577,7 @@ export function Viewport() {
         applySelectionVisuals(viewport, store.getState().selection)
         refreshHandles()
         refreshGizmo()
-        setFaces(viewport.countFaces())
+        reportFaces(viewport)
         reframeIfNeeded(store.getState().scene)
 
         return () => {

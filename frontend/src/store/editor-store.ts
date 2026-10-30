@@ -47,10 +47,11 @@ import {
     updateTreeParameters,
 } from '../core/scene/scene-ops'
 import {STYLE_ORDER} from '../assets/style/style-profiles'
-import {exportGLB} from '../core/export/glb-exporter'
+import {loadBudgetTarget, saveBudgetTarget} from '../core/export/export-preferences'
+import type {BudgetTargetId, FaceCounts} from '../core/export/pipeline/budget'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
-import {exportGLBFile, openProjectFile, saveProjectFile} from '../platform/desktop'
+import {openProjectFile, saveProjectFile} from '../platform/desktop'
 import {
     clearDraftText,
     readDraftText,
@@ -218,8 +219,20 @@ export interface EditorStore {
     saveProjectToFile(): Promise<void>
     /** Opens a project file the user picks. */
     openProject(): Promise<void>
-    /** Writes a GLB wherever the user chooses. */
-    exportModel(): Promise<void>
+    /** Opens the export panel. */
+    exportModel(): void
+    exportOpen: boolean
+    closeExport(): void
+    /** Closes the export panel and says what it wrote. */
+    finishExport(message: string): void
+    /** Which detail level the viewport is showing. */
+    previewLevel: number
+    setPreviewLevel(level: number): void
+    /** The faces the current prop will export with at full detail. */
+    faceCounts: FaceCounts
+    setFaceCounts(counts: FaceCounts): void
+    budgetTarget: BudgetTargetId
+    setBudgetTarget(target: BudgetTargetId): void
 
     /** Every tree in the gallery, newest first. */
     gallery: readonly SavedTree[]
@@ -915,19 +928,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
         },
 
-        exportModel: async () => {
-            const state = get()
-
-            try {
-                const bytes = await exportGLB(state.scene, {style: getStyleProfile(state.style)})
-                const path = await exportGLBFile(bytes, 'my-tree.glb')
-
-                if (path) {
-                    set({toast: {message: `Exported ${fileNameOf(path)}`, undoable: false}})
-                }
-            } catch (error) {
-                set({toast: {message: describeFailure(error, 'export'), undoable: false}})
-            }
+        exportModel: () => set({exportOpen: true}),
+        exportOpen: false,
+        closeExport: () => set({exportOpen: false}),
+        finishExport: (message) => set({exportOpen: false, toast: {message, undoable: false}}),
+        previewLevel: 0,
+        setPreviewLevel: (previewLevel) => set({previewLevel}),
+        faceCounts: {wood: 0, leaves: 0},
+        setFaceCounts: (faceCounts) => set({faceCounts}),
+        budgetTarget: loadBudgetTarget(),
+        setBudgetTarget: (budgetTarget) => {
+            saveBudgetTarget(budgetTarget)
+            set({budgetTarget})
         },
 
         undo: () => {

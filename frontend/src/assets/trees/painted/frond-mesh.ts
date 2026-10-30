@@ -21,6 +21,12 @@ const FROND_SEGMENTS = 12
 const FRUIT_RINGS = 4
 const FRUIT_SIDES = 6
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+/** The most a leaflet may widen to cover for the ones a lighter level leaves out. */
+const MAX_LEAF_GROWTH = 3
+/** Below this share of its detail, a level keeps one fruit in three, for the colour. */
+const FEW_FRUIT_BELOW = 0.2
+/** Below this share, fruit is a plainer ball. */
+const FRUIT_PLAIN_BELOW = 0.7
 
 export interface LeafBuffers {
     readonly positions: number[]
@@ -170,12 +176,20 @@ function leafNormal(point: RachisPoint, sideSign: number): Vec3 {
     ])
 }
 
-function addStem(buffers: LeafBuffers, path: readonly RachisPoint[], radius: number, paint: (value: number) => THREE.Color) {
-    for (let ring = 0; ring < path.length - 1; ring += 2) {
+function addStem(
+    buffers: LeafBuffers,
+    path: readonly RachisPoint[],
+    radius: number,
+    paint: (value: number) => THREE.Color,
+    share: number,
+) {
+    const stride = share < 0.25 ? 6 : share < 0.6 ? 4 : 2
+
+    for (let ring = 0; ring < path.length - 1; ring += stride) {
         const a = path[ring]
-        const b = path[Math.min(ring + 2, path.length - 1)]
+        const b = path[Math.min(ring + stride, path.length - 1)]
         const ra = radius * (1 - ring / path.length)
-        const rb = radius * (1 - (ring + 2) / path.length)
+        const rb = radius * (1 - (ring + stride) / path.length)
         const corners = [0, 1, 2, 3].map((corner) => {
             const from = corner < 2 ? a : b
             const r = corner < 2 ? ra : rb
@@ -207,9 +221,10 @@ function addFeather(
     detail: number,
     paint: (value: number) => THREE.Color,
     random: () => number,
+    share: number,
 ) {
-    const count = Math.round((12 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 24) * detail)
-    const width = clump.radius * 0.05 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
+    const count = Math.max(2, Math.round((12 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 24) * detail * share))
+    const width = clump.radius * 0.05 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH)
 
     for (let pair = 0; pair < count; pair++) {
         const t = 0.1 + (pair / count) * 0.9
@@ -246,11 +261,12 @@ function addFan(
     detail: number,
     paint: (value: number) => THREE.Color,
     random: () => number,
+    share: number,
 ) {
-    const count = Math.round((14 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 16) * detail)
+    const count = Math.max(3, Math.round((14 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 16) * detail * share))
     const at = sampleFrond(path, 0.55)
     const reach = clump.radius * 0.55
-    const width = clump.radius * 0.13 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
+    const width = clump.radius * 0.13 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH)
 
     for (let spoke = 0; spoke < count; spoke++) {
         const share = spoke / Math.max(count - 1, 1)
@@ -286,12 +302,14 @@ function addBlade(
     tree: PaintedTreeParameters,
     paint: (value: number) => THREE.Color,
     random: () => number,
+    share: number,
 ) {
     const start = 2
+    const stride = share < 0.25 ? 4 : share < 0.6 ? 2 : 1
     const halfWidth = clump.radius * 0.17 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
     let previous: {left: number; middle: number; right: number} | null = null
 
-    for (let ring = start; ring < path.length; ring++) {
+    for (let ring = start; ring < path.length; ring = ring === path.length - 1 ? path.length : Math.min(ring + stride, path.length - 1)) {
         const at = path[ring]
         const t = (ring - start) / (path.length - 1 - start)
         const wide = halfWidth * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.75)), 0.6) + 0.001
@@ -317,18 +335,20 @@ function addBlade(
 }
 
 /** A rounded little ball. */
-export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number, tree: PaintedTreeParameters) {
+export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number, tree: PaintedTreeParameters, share = 1) {
+    const rings = share < FRUIT_PLAIN_BELOW ? 3 : FRUIT_RINGS
+    const sides = share < FRUIT_PLAIN_BELOW ? 4 : FRUIT_SIDES
     const {deep, light} = FRUIT_COLOURS[tree.fruitKind]
     const low = new THREE.Color(deep)
     const high = new THREE.Color(light)
     const paint = new THREE.Color()
     const first = buffers.positions.length / 3
 
-    for (let ring = 0; ring <= FRUIT_RINGS; ring++) {
-        const polar = (ring / FRUIT_RINGS) * Math.PI
+    for (let ring = 0; ring <= rings; ring++) {
+        const polar = (ring / rings) * Math.PI
 
-        for (let side = 0; side < FRUIT_SIDES; side++) {
-            const azimuth = (side / FRUIT_SIDES) * Math.PI * 2
+        for (let side = 0; side < sides; side++) {
+            const azimuth = (side / sides) * Math.PI * 2
             const n: Vec3 = [Math.sin(polar) * Math.cos(azimuth), Math.cos(polar), Math.sin(polar) * Math.sin(azimuth)]
 
             pushVertex(
@@ -340,13 +360,13 @@ export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number,
         }
     }
 
-    for (let ring = 0; ring < FRUIT_RINGS; ring++) {
-        for (let side = 0; side < FRUIT_SIDES; side++) {
-            const next = (side + 1) % FRUIT_SIDES
-            const a = first + ring * FRUIT_SIDES + side
-            const b = first + ring * FRUIT_SIDES + next
-            const c = first + (ring + 1) * FRUIT_SIDES + next
-            const d = first + (ring + 1) * FRUIT_SIDES + side
+    for (let ring = 0; ring < rings; ring++) {
+        for (let side = 0; side < sides; side++) {
+            const next = (side + 1) % sides
+            const a = first + ring * sides + side
+            const b = first + ring * sides + next
+            const c = first + (ring + 1) * sides + next
+            const d = first + (ring + 1) * sides + side
 
             buffers.indices.push(a, c, b, a, d, c)
         }
@@ -357,12 +377,12 @@ export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number,
 export const fruitRadius = (tree: PaintedTreeParameters) => (0.06 + tree.height * 0.008) * tree.fruitSize
 
 /** Curtains of leaves falling from the rim and underside of a clump. */
-export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, detail: number) {
+export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, detail: number, share = 1) {
     const random = createSeededRandom(hashSeed(clump.seed, 5))
     const paint = leafColours(tree, clump)
-    const count = Math.round(tree.strands * 30 * detail)
+    const count = Math.round(tree.strands * 30 * detail * Math.sqrt(share))
     const fall = Math.max(clump.base[1] - GROUND_CLEARANCE, 0.1) * tree.strandLength
-    const width = clump.radius * 0.11 * tree.leafSize * (clump.edit.leafSizeScale ?? 1)
+    const width = clump.radius * 0.11 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH)
 
     for (let strand = 0; strand < count; strand++) {
         const azimuth = strand * GOLDEN_ANGLE + randomRange(random, -0.3, 0.3)
@@ -373,7 +393,7 @@ export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTree
             Math.sin(azimuth) * out,
         ]
         const length = fall * randomRange(random, 0.7, 1)
-        const leaves = Math.max(5, Math.round((length / (width * 1.5)) * 0.5))
+        const leaves = Math.max(share < 1 ? 2 : 5, Math.round((length / (width * 1.5)) * 0.5))
         const sway = randomRange(random, 0.02, 0.07) * length
         const phase = random() * Math.PI * 2
         const outward = normalize([Math.cos(azimuth), 0.5, Math.sin(azimuth)])
@@ -406,7 +426,7 @@ export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTree
 }
 
 /** Fruit scattered over the skin of a clump, more of it underneath. */
-export function addClumpFruit(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters) {
+export function addClumpFruit(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, share = 1) {
     const random = createSeededRandom(hashSeed(clump.seed, 6))
     const radius = fruitRadius(tree)
 
@@ -416,37 +436,48 @@ export function addClumpFruit(buffers: LeafBuffers, clump: Clump, tree: PaintedT
         const ring = Math.sqrt(1 - y * y)
         const reach = clump.radius * randomRange(random, 0.8, 0.98)
 
+        if (share < FEW_FRUIT_BELOW && index % 3 !== 0) {
+            continue
+        }
+
         addFruitBall(
             buffers,
             [Math.cos(azimuth) * ring * reach, y * reach * clump.flatten, Math.sin(azimuth) * ring * reach],
             radius,
             tree,
+            share,
         )
     }
 }
 
 /** Builds one frond, in its own space: where it leaves the trunk is the origin. */
-export function buildFrond(plan: TreePlan, clump: Clump, tree: PaintedTreeParameters, detail: number): THREE.BufferGeometry {
+export function buildFrond(
+    plan: TreePlan,
+    clump: Clump,
+    tree: PaintedTreeParameters,
+    detail: number,
+    share = 1,
+): THREE.BufferGeometry {
     const buffers = emptyLeafBuffers()
     const random = createSeededRandom(clump.seed)
     const paint = leafColours(tree, clump)
     const path = frondPath(clump, tree)
 
-    addStem(buffers, path, Math.max(clump.radius * 0.016, 0.012), paint)
+    addStem(buffers, path, Math.max(clump.radius * 0.016, 0.012), paint, share)
 
     if (tree.frondStyle === 'fan') {
-        addFan(buffers, path, clump, tree, detail, paint, random)
+        addFan(buffers, path, clump, tree, detail, paint, random, share)
     } else if (tree.frondStyle === 'blade') {
-        addBlade(buffers, path, clump, tree, paint, random)
+        addBlade(buffers, path, clump, tree, paint, random, share)
     } else {
-        addFeather(buffers, path, clump, tree, detail, paint, random)
+        addFeather(buffers, path, clump, tree, detail, paint, random, share)
     }
 
     // Coconuts sit in a ring where the fronds meet the trunk, so a frond carries
     // its share of them. The count is for the whole crown.
     const index = plan.clumps.indexOf(clump)
     const fronds = Math.max(plan.clumps.length, 1)
-    const fruitHere = Math.floor((tree.fruitCount + fronds - 1 - index) / fronds)
+    const fruitHere = share < FEW_FRUIT_BELOW ? 0 : Math.floor((tree.fruitCount + fronds - 1 - index) / fronds)
     const ball = fruitRadius(tree)
     const fruitRandom = createSeededRandom(hashSeed(clump.seed, 6))
 
@@ -462,6 +493,7 @@ export function buildFrond(plan: TreePlan, clump: Clump, tree: PaintedTreeParame
             ],
             ball,
             tree,
+            share,
         )
     }
 

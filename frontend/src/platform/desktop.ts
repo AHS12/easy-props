@@ -12,13 +12,15 @@
 import {textFromBinding} from './bytes'
 
 const PROJECT_FILTERS = ['*.json']
-const EXPORT_FILTERS = ['*.glb']
+const BROWSER_DOWNLOADS = 'Downloads'
 
 interface WailsApp {
     OpenFileDialog(title: string, filters: string[]): Promise<string>
     SaveFileDialog(title: string, defaultName: string, filters: string[]): Promise<string>
     ReadFile(path: string): Promise<number[]>
     WriteFile(path: string, contents: number[]): Promise<void>
+    ChooseFolder(title: string, start: string): Promise<string>
+    WriteFiles(folder: string, files: {name: string; contents: number[]}[]): Promise<void>
 }
 
 declare global {
@@ -89,27 +91,44 @@ export async function saveProjectFile(
     return target
 }
 
-/** Asks where to put a GLB, then writes it. Returns the path, or null. */
-export async function exportGLBFile(
-    bytes: ArrayBuffer,
-    suggestedName: string,
-): Promise<string | null> {
+/**
+ * Asks for a folder and returns it, or null if cancelled. A browser has no
+ * folders to offer, so it answers with where downloads go.
+ */
+export async function chooseFolder(start: string): Promise<string | null> {
     const app = desktop()
 
     if (!app) {
-        await writeWithBrowser(suggestedName, new Uint8Array(bytes), 'model/gltf-binary')
-        return suggestedName
+        return BROWSER_DOWNLOADS
     }
 
-    const target = await app.SaveFileDialog('Export model', suggestedName, EXPORT_FILTERS)
+    return (await app.ChooseFolder('Export to folder', start)) || null
+}
 
-    if (!target) {
-        return null
+/** Where an export ends up, in words. */
+export const exportFolderLabel = (folder: string, name: string) =>
+    desktop() ? `${folder}/${name}` : folder
+
+/** Writes an export's files into a folder of its own, named after the prop. */
+export async function writeExportFiles(
+    folder: string,
+    name: string,
+    files: readonly {name: string; bytes: Uint8Array}[],
+): Promise<void> {
+    const app = desktop()
+
+    if (!app) {
+        for (const file of files) {
+            await writeWithBrowser(file.name, file.bytes, 'application/octet-stream')
+        }
+
+        return
     }
 
-    await app.WriteFile(target, [...new Uint8Array(bytes)])
-
-    return target
+    await app.WriteFiles(
+        `${folder}/${name}`,
+        files.map((file) => ({name: file.name, contents: [...file.bytes]})),
+    )
 }
 
 function openWithBrowser(): Promise<{path: string; text: string} | null> {

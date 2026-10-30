@@ -134,8 +134,8 @@ export function TopBar() {
             <button
                 type="button"
                 className="btn btn--primary"
-                title="Export a GLB (Ctrl+E)"
-                onClick={() => void exportModel()}
+                title="Export for a game engine (Ctrl+E)"
+                onClick={() => exportModel()}
             >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3v12" />

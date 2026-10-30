@@ -19,11 +19,18 @@ import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Limb, type TreePlan, type Vec3} from './plan'
 import {createWoodField, type WoodField} from './wood-field'
 
+/** Below these shares of full detail, the thin wood they name is left out. */
+const TWIGS_DROPPED_BELOW = 0.2
+/** The least detail the viewport ever asks for. Below it is an export's lighter level. */
+const FULL_FLOOR_DETAIL = 0.68
+const BRANCHES_DROPPED_BELOW = 0.13
 /** Grid size against trunk radius, at full detail. */
 const CELL_SHARE = 0.27
 const MIN_CELL = 0.05
 /** Wood thinner than this many cells cannot be sculpted cleanly. */
 const SCULPT_MIN_CELLS = 1.15
+/** Thinner than this, a trunk is a bush's stem, and a tube suits it. */
+const SLIM_TRUNK_MIN = 0.12
 const SETTLE_ITERATIONS = 2
 /** Below this a face is underground and is not drawn. */
 const GROUND_LEVEL = -0.02
@@ -37,7 +44,7 @@ function sidesFor(radius: number, level: number, detail: number): number {
         return 3
     }
 
-    return Math.max(3, Math.round((radius > 0.1 ? 8 : radius > 0.04 ? 6 : 4) * detail))
+    return Math.max(level === 0 && radius > 0.15 ? 5 : 3, Math.round((radius > 0.1 ? 8 : radius > 0.04 ? 6 : 4) * detail))
 }
 
 function tangentAt(limb: Limb, ring: number): Vec3 {
@@ -394,12 +401,22 @@ function sweep(
 ): void {
     const first = buffers.positions.length / 3
     const sides = sidesFor(limb.radii[startRing], limb.level, detail)
-    const ringCount = limb.points.length - startRing
+    // A lighter level takes every second or third ring, always keeping the tip.
+    const stride = limb.level === 0 ? 1 : detail < 0.15 ? 3 : detail < 0.5 ? 2 : 1
+    const rings: number[] = []
+
+    for (let at = startRing; at < limb.points.length - 1; at += stride) {
+        rings.push(at)
+    }
+
+    rings.push(limb.points.length - 1)
+
+    const ringCount = rings.length
     const buried: boolean[] = []
     let frame = perpendicularTo(tangentAt(limb, startRing))
 
     for (let ring = 0; ring < ringCount; ring++) {
-        const at = startRing + ring
+        const at = rings[ring]
         const tangent = tangentAt(limb, at)
         // Carry the frame along rather than rebuilding it, so rings never spin
         // against each other.
@@ -460,7 +477,15 @@ export function prepareBark(
     seed: number,
     detail: number,
 ): BarkContext {
-    const cell = Math.max((tree.trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), MIN_CELL)
+    // A lighter level can go below what a fine surface needs, so its floor rises with it.
+    const floor = MIN_CELL * Math.sqrt(Math.max(FULL_FLOOR_DETAIL / detail, 1))
+    // A palm's slim trunk has no flare, and stays a sculpted surface at every level, not a bare tube.
+    const trunkRadius = Math.max(...plan.limbs[0].radii)
+    const coarse = Math.max((tree.trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), floor)
+    // With no leaves to carry a level, the wood takes the whole saving.
+    const bareScale = plan.clumps.length === 0 && detail < 0.15 ? 1.6 : 1
+    const slim = trunkRadius > SLIM_TRUNK_MIN && plan.clumps.some((clump) => clump.kind === 'frond')
+    const cell = slim ? Math.min(coarse, (trunkRadius / SCULPT_MIN_CELLS) * 0.9) : coarse * bareScale
     const sculptMin = cell * SCULPT_MIN_CELLS
     const isSculpted = (limb: Limb, segment: number) =>
         limb.level < 3 && Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin
@@ -512,6 +537,23 @@ export function assembleBark(
 
     // Thin wood goes dark as it thins, so the tips read as ink.
     for (const limb of plan.limbs) {
+        // The finest wood goes first as a level gets lighter, smallest first.
+        // A branch goes only if its tip is lost in the leaves. Otherwise it is
+        // part of the outline, as every branch of a bare tree is.
+        const tip = limb.points[limb.points.length - 1]
+        const hidden = plan.clumps.some(
+            (clump) => Math.hypot(tip[0] - clump.centre[0], tip[1] - clump.centre[1], tip[2] - clump.centre[2]) < clump.radius,
+        )
+
+        const bare = plan.clumps.length === 0
+
+        if (
+            (limb.level === 3 && detail < TWIGS_DROPPED_BELOW && (hidden || bare)) ||
+            (limb.level === 2 && detail < BRANCHES_DROPPED_BELOW && hidden)
+        ) {
+            continue
+        }
+
         let start = 0
 
         while (start < limb.points.length - 1 && isSculpted(limb, start)) {

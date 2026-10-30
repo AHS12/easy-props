@@ -115,16 +115,22 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
         return [wood, seed, palette.barkDeep, palette.barkLight, parseEdits(tree.edits).limbs]
     },
 
-    generate({tree, seed}, context) {
-        return {
-            geometry: buildBark(planPaintedTree(tree, seed), tree, seed, detailOf(context.style)),
-            material: 'painted',
-            surface: {vertexColors: true},
-        }
+    scalesWithDetail: true,
+
+    dress(geometry) {
+        return {geometry, material: 'painted', surface: {vertexColors: true}, role: 'solid'}
     },
 
-    buildOffThread({tree, seed}, style) {
-        return canBuildBarkOffThread() ? buildBarkOffThread({tree, seed, detail: detailOf(style)}) : null
+    generate({tree, seed}, context) {
+        const detail = detailOf(context.style) * (context.detail ?? 1)
+
+        return this.dress!(buildBark(planPaintedTree(tree, seed), tree, seed, detail))
+    },
+
+    buildOffThread({tree, seed}, style, detail = 1) {
+        return canBuildBarkOffThread()
+            ? buildBarkOffThread({tree, seed, detail: detailOf(style) * detail})
+            : null
     },
 }
 
@@ -265,16 +271,25 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
         ]
     },
 
+    scalesWithDetail: true,
+
     generate({tree, seed, key}, context) {
         const plan = planPaintedTree(tree, seed)
         const clump = findClump(tree, seed, key)
 
         return {
             geometry: clump
-                ? (clump.kind === 'frond' ? buildFrond : buildClump)(plan, clump, tree, detailOf(context.style))
+                ? (clump.kind === 'frond' ? buildFrond : buildClump)(
+                      plan,
+                      clump,
+                      tree,
+                      detailOf(context.style),
+                      context.detail ?? 1,
+                  )
                 : new THREE.BufferGeometry(),
             material: 'painted',
             surface: {vertexColors: true, map: getDabTexture(), alphaTest: 0.5, receiveShadow: false},
+            role: 'foliage',
         }
     },
 }
@@ -332,6 +347,8 @@ export const paintedLimbGenerator: PartGenerator<PaintedKeyedParameters> = {
     },
 
     validate: validateKeyed,
+
+    scalesWithDetail: true,
 
     signature({tree, seed, key}) {
         const limb = planPaintedTree(tree, seed).limbs.find((candidate) => candidate.key === key)

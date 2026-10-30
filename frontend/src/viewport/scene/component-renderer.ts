@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three'
+import {roleOfPart} from '../../assets/shared/generator-types'
 import {findComponentGenerator} from '../../assets/trees/component-generators'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
@@ -41,7 +42,7 @@ export interface RenderedComponent {
 export interface ComponentRenderer {
     readonly group: THREE.Group
     /** Brings the renderer in line with the scene graph. */
-    sync(scene: Scene, style: StyleProfile, shading: ShadingMode): void
+    sync(scene: Scene, style: StyleProfile, shading: ShadingMode, detail?: number): void
     get(componentId: string): RenderedComponent | undefined
     /** Every rendered component. */
     all(): readonly RenderedComponent[]
@@ -98,6 +99,7 @@ function buildComponent(
     style: StyleProfile,
     signature: string,
     materials: SceneMaterials,
+    detail: number,
 ): RenderedComponent | undefined {
     const generator = findComponentGenerator(component.generatorId)
 
@@ -111,6 +113,7 @@ function buildComponent(
         random: createSeededRandom(component.seed),
         seed: component.seed,
         style,
+        detail,
     })
 
     const color = new THREE.Color(materialColor(part.material, materials))
@@ -139,6 +142,7 @@ function buildComponent(
     // Hidden, but a raycast does not care: this is what the pointer lands on.
     mesh.visible = !isProxy
     mesh.userData.isProxy = isProxy
+    mesh.userData.role = roleOfPart(part)
     mesh.userData.receivesShadow = part.surface?.receiveShadow ?? true
 
     // The outline shares the geometry, so it costs almost nothing.
@@ -182,11 +186,15 @@ function buildComponent(
     }
 }
 
+/** A style id that also says which detail level is showing. Full detail is just the style. */
+const levelledId = (styleId: string, detail: number) => (detail === 1 ? styleId : `${styleId}@${detail}`)
+
 /** What a sync was asked to show. */
 interface SyncRequest {
     readonly scene: Scene
     readonly style: StyleProfile
     readonly shading: ShadingMode
+    readonly detail: number
 }
 
 /** How many times the threads practise on the first tree, so the first drag is not the slowest. */
@@ -256,7 +264,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
     }
 
     /** Brings every part in line with the scene, here and now. */
-    const apply = ({scene, style, shading: nextShading}: SyncRequest) => {
+    const apply = ({scene, style, shading: nextShading, detail}: SyncRequest) => {
         const asset = scene.assets[0]
 
         if (!asset) {
@@ -276,7 +284,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
         for (const component of asset.components) {
             seen.add(component.id)
 
-            const signature = signatureOf(component, style.id)
+            const signature = signatureOf(component, levelledId(style.id, detail))
             const existing = rendered.get(component.id)
 
             if (existing && existing.signature === signature) {
@@ -299,7 +307,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 rendered.delete(component.id)
             }
 
-            const created = buildComponent(component, style, signature, asset.materials)
+            const created = buildComponent(component, style, signature, asset.materials, detail)
 
             if (created) {
                 applyShading(created)
@@ -323,7 +331,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
      * A new style can change a part's material, so that still rebuilds in place.
      */
     const startHeavyBuild = (request: SyncRequest): boolean => {
-        const {scene, style} = request
+        const {scene, style, detail} = request
 
         for (const component of scene.assets[0]?.components ?? []) {
             const generator = findComponentGenerator(component.generatorId)
@@ -333,13 +341,13 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 continue
             }
 
-            const signature = signatureOf(component, style.id)
+            const signature = signatureOf(component, levelledId(style.id, detail))
 
             if (existing.signature === signature) {
                 continue
             }
 
-            const build = generator.buildOffThread(generator.validate(component.parameters).parameters, style)
+            const build = generator.buildOffThread(generator.validate(component.parameters).parameters, style, detail)
 
             if (!build) {
                 continue
@@ -404,14 +412,14 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
     return {
         group,
 
-        sync(scene, style, nextShading) {
+        sync(scene, style, nextShading, detail = 1) {
             if (!scene.assets[0]) {
                 wanted = null
-                apply({scene, style, shading: nextShading})
+                apply({scene, style, shading: nextShading, detail})
                 return
             }
 
-            sync({scene, style, shading: nextShading})
+            sync({scene, style, shading: nextShading, detail})
         },
 
         get(componentId) {

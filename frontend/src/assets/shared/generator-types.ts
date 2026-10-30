@@ -15,6 +15,17 @@ import type {RandomSource} from './random'
 
 export type MaterialKind = 'bark' | 'bark-light' | 'leaves' | 'leaves-dark' | 'coconut' | 'painted'
 
+/** What a part is made of, which decides how an export treats it. */
+export type PartRole = 'solid' | 'foliage' | 'thin'
+
+/** A simple solid for an engine to collide with: two parallel rings, each a circle. */
+export interface CollisionShape {
+    readonly start: readonly [number, number, number]
+    readonly end: readonly [number, number, number]
+    readonly startRadius: number
+    readonly endRadius: number
+}
+
 /**
  * How a part that paints itself is drawn.
  *
@@ -41,6 +52,8 @@ export interface GenerationContext {
     readonly seed: number
     /** The style profile in effect. */
     readonly style: StyleProfile
+    /** The share of this part's full detail to build, 1 down to about 0.1. */
+    readonly detail?: number
 }
 
 /** The geometry of one component, ready to be added to the scene. */
@@ -48,6 +61,8 @@ export interface GeneratedPart {
     readonly geometry: THREE.BufferGeometry
     readonly material: MaterialKind
     readonly surface?: PaintedSurface
+    /** Left out, it follows from the material. See `roleOfPart`. */
+    readonly role?: PartRole
 }
 
 /**
@@ -79,7 +94,22 @@ export interface PartGenerator<P extends object = object> {
      * Null when that is not possible here, in which case the caller generates
      * as usual. A heavy part has this so a slider never waits for its mesh.
      */
-    buildOffThread?(parameters: P, style: StyleProfile): Promise<THREE.BufferGeometry> | null
+    buildOffThread?(parameters: P, style: StyleProfile, detail?: number): Promise<THREE.BufferGeometry> | null
+    /** Turns what `buildOffThread` made into the part `generate` would have returned. */
+    dress?(geometry: THREE.BufferGeometry): GeneratedPart
+    /** True when `context.detail` lightens this part. An export thins out any other part itself. */
+    readonly scalesWithDetail?: boolean
+}
+
+/** What a part is: its own word for it, or what its material implies. */
+export function roleOfPart(part: GeneratedPart): PartRole {
+    if (part.role) {
+        return part.role
+    }
+
+    return part.material === 'leaves' || part.material === 'leaves-dark' || part.material === 'coconut'
+        ? 'foliage'
+        : 'solid'
 }
 
 /** A component produced by a tree generator, before it enters the scene. */
@@ -114,4 +144,8 @@ export interface TreeGenerator<P extends object = object> {
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>
     generate(parameters: P, context: GenerationContext): readonly GeneratedComponent[]
+    /** Simple solids in the tree's own space. Left out, an export makes its own from the solid parts. */
+    collision?(parameters: P, seed: number): readonly CollisionShape[]
+    /** Where its base meets the ground. The origin when left out. */
+    pivot?(parameters: P, seed: number): readonly [number, number, number]
 }

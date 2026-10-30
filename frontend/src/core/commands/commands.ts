@@ -92,8 +92,8 @@ export const COMMANDS: readonly Command[] = [
         label: 'Export model',
         group: 'File',
         shortcut: 'Ctrl+E',
-        keywords: 'glb gltf blender unreal export download',
-        run: (state) => void state.exportModel(),
+        keywords: 'glb gltf blender unreal godot export download lod collision',
+        run: (state) => state.exportModel(),
     },
     {
         id: 'undo',
