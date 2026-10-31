@@ -13,7 +13,8 @@ import {findBudgetTarget} from '../core/export/pipeline/budget'
 import {ENGINE_LABELS, type EngineId} from '../core/export/pipeline/types'
 import {chooseFolder} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
-import '../styles/save-dialog.css'
+import {Dialog, Select} from '../components/controls'
+import {Row} from '../components/PropertyRow'
 
 const ENGINES = Object.keys(ENGINE_LABELS) as EngineId[]
 
@@ -33,10 +34,10 @@ function Checklist({
     onToggle(key: string): void
 }) {
     return (
-        <fieldset className="batch-dialog__group">
+        <fieldset className="checklist">
             <legend>{title}</legend>
             {entries.map(({key, label}) => (
-                <label key={key} className="export-dialog__check">
+                <label key={key} className="checklist__item">
                     <input type="checkbox" checked={chosen.has(key)} onChange={() => onToggle(key)} />
                     {label}
                 </label>
@@ -63,12 +64,9 @@ export function BatchExportDialog() {
     useEffect(() => {
         if (open) {
             void refreshGallery()
+            setPreferences(loadExportPreferences())
         }
     }, [open, refreshGallery])
-
-    if (!open) {
-        return null
-    }
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -111,163 +109,133 @@ export function BatchExportDialog() {
     const summary = batch?.summary
 
     return (
-        <div
-            className="save-dialog"
-            onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                    event.preventDefault()
-                    closeBatch()
-                }
-            }}
-        >
-            <div
-                className="save-dialog__panel export-dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="batch-dialog-title"
-            >
-                <h2 className="save-dialog__title" id="batch-dialog-title">
-                    Export many
-                </h2>
-
-                {summary ? (
-                    <>
-                        <p role="status">
-                            {summary.cancelled ? 'Cancelled. ' : ''}
-                            Exported {summary.exported} of {summary.total}, {formatSize(summary.bytes)} in all.
-                        </p>
-                        {summary.overBudget.length > 0 ? (
-                            <>
-                                <p className="save-dialog__hint">
-                                    Over the {findBudgetTarget(budgetTarget).label} budget:
-                                </p>
-                                <ul className="export-dialog__files">
-                                    {summary.overBudget.map(({name, faces}) => (
-                                        <li key={name}>
-                                            <span>{name}</span>
-                                            <span>{faces.toLocaleString()} faces</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </>
+        <Dialog open={open} onClose={closeBatch} title="Export many" width={560}>
+            {summary ? (
+                <>
+                    <p className="dialog__hint" role="status">
+                        {summary.cancelled ? 'Cancelled. ' : ''}
+                        Exported {summary.exported} of {summary.total}, {formatSize(summary.bytes)} in all.
+                    </p>
+                    {summary.overBudget.length > 0 ? (
+                        <>
+                            <p className="dialog__hint">Over the {findBudgetTarget(budgetTarget).label} budget:</p>
+                            <ul className="file-list tabular">
+                                {summary.overBudget.map(({name, faces}) => (
+                                    <li key={name}>
+                                        <span>{name}</span>
+                                        <span>{faces.toLocaleString()} faces</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : null}
+                    {summary.failures.length > 0 ? (
+                        <>
+                            <p className="dialog__hint">Could not be exported:</p>
+                            <ul className="file-list" role="alert">
+                                {summary.failures.map(({name, message}) => (
+                                    <li key={name}>
+                                        <span>{name}</span>
+                                        <span>{message}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : null}
+                    <div className="dialog__actions">
+                        <button type="button" className="button button--primary" onClick={clearBatch}>
+                            Done
+                        </button>
+                    </div>
+                </>
+            ) : batch ? (
+                <>
+                    <progress className="dialog__progress" max={batch.total} value={batch.done} aria-label="Props exported" />
+                    <p className="dialog__hint" role="status">
+                        {batch.done} of {batch.total}
+                        {batch.current ? `, now ${batch.current}` : ''}. You can close this and keep working.
+                    </p>
+                    <div className="dialog__actions">
+                        <button type="button" className="button" onClick={cancelBatch}>
+                            Cancel the batch
+                        </button>
+                        <button type="button" className="button button--primary" onClick={closeBatch}>
+                            Keep working
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <form
+                    className="dialog__form"
+                    onSubmit={(event) => {
+                        event.preventDefault()
+                        void start()
+                    }}
+                >
+                    <div className="checklists">
+                        {gallery.length > 0 ? (
+                            <Checklist
+                                title="Your props"
+                                entries={gallery.map((tree) => ({key: `saved:${tree.id}`, label: tree.name}))}
+                                chosen={chosen}
+                                onToggle={toggle}
+                            />
                         ) : null}
-                        {summary.failures.length > 0 ? (
-                            <>
-                                <p className="save-dialog__hint">Could not be exported:</p>
-                                <ul className="export-dialog__files" role="alert">
-                                    {summary.failures.map(({name, message}) => (
-                                        <li key={name}>
-                                            <span>{name}</span>
-                                            <span>{message}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </>
-                        ) : null}
-                        <div className="save-dialog__actions">
-                            <button type="button" className="btn btn--primary" onClick={clearBatch}>
-                                Done
-                            </button>
-                        </div>
-                    </>
-                ) : batch ? (
-                    <>
-                        <progress max={batch.total} value={batch.done} aria-label="Props exported" />
-                        <p className="save-dialog__hint" role="status">
-                            {batch.done} of {batch.total}
-                            {batch.current ? `, now ${batch.current}` : ''}. You can close this and keep working.
-                        </p>
-                        <div className="save-dialog__actions">
-                            <button type="button" className="btn btn--ghost" onClick={cancelBatch}>
-                                Cancel the batch
-                            </button>
-                            <button type="button" className="btn btn--primary" onClick={closeBatch}>
-                                Keep working
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <form
-                        className="batch-dialog__form"
-                        onSubmit={(event) => {
-                            event.preventDefault()
-                            void start()
-                        }}
-                    >
-                        <div className="batch-dialog__list">
-                            {gallery.length > 0 ? (
-                                <Checklist
-                                    title="Your props"
-                                    entries={gallery.map((tree) => ({key: `saved:${tree.id}`, label: tree.name}))}
-                                    chosen={chosen}
-                                    onToggle={toggle}
-                                />
-                            ) : null}
-                            {presetGroups.map((group) => (
-                                <Checklist
-                                    key={group.title}
-                                    title={group.title}
-                                    entries={group.presets.map((preset) => ({
-                                        key: `preset:${preset.id}`,
-                                        label: preset.name,
-                                    }))}
-                                    chosen={chosen}
-                                    onToggle={toggle}
-                                />
-                            ))}
-                        </div>
+                        {presetGroups.map((group) => (
+                            <Checklist
+                                key={group.title}
+                                title={group.title}
+                                entries={group.presets.map((preset) => ({
+                                    key: `preset:${preset.id}`,
+                                    label: preset.name,
+                                }))}
+                                chosen={chosen}
+                                onToggle={toggle}
+                            />
+                        ))}
+                    </div>
 
-                        <label className="save-dialog__label" htmlFor="batch-variations">
-                            Variations of each
-                        </label>
-                        <input
-                            className="save-dialog__input"
-                            id="batch-variations"
-                            type="number"
-                            min={1}
-                            max={MAX_VARIATIONS}
-                            value={variations}
-                            onChange={(event) =>
-                                setVariations(Math.min(MAX_VARIATIONS, Math.max(1, Math.trunc(Number(event.target.value)) || 1)))
-                            }
-                        />
+                    <div className="form-rows">
+                        <Row label="Variations of each">
+                            <input
+                                className="field field--short"
+                                aria-label="Variations of each"
+                                type="number"
+                                min={1}
+                                max={MAX_VARIATIONS}
+                                value={variations}
+                                onChange={(event) =>
+                                    setVariations(Math.min(MAX_VARIATIONS, Math.max(1, Math.trunc(Number(event.target.value)) || 1)))
+                                }
+                            />
+                        </Row>
+                        <Row label="Engine">
+                            <Select
+                                label="Engine"
+                                value={preferences.engine}
+                                onChange={(next) => change({engine: next})}
+                                options={ENGINES.map((id) => ({value: id, label: ENGINE_LABELS[id]}))}
+                            />
+                        </Row>
+                    </div>
 
-                        <label className="save-dialog__label" htmlFor="batch-engine">
-                            Engine
-                        </label>
-                        <select
-                            className="save-dialog__input"
-                            id="batch-engine"
-                            value={preferences.engine}
-                            onChange={(event) => change({engine: event.target.value as EngineId})}
-                        >
-                            {ENGINES.map((id) => (
-                                <option key={id} value={id}>
-                                    {ENGINE_LABELS[id]}
-                                </option>
-                            ))}
-                        </select>
+                    {preferences.engine === 'godot' ? <p className="dialog__note">{GODOT_IMPORT_NOTE}</p> : null}
 
-                        {preferences.engine === 'godot' ? (
-                            <p className="export-dialog__note">{GODOT_IMPORT_NOTE}</p>
-                        ) : null}
+                    <p className="dialog__hint">
+                        {preferences.levels} detail levels{preferences.collision ? ' and collision' : ''} each, as in
+                        Export. Files go in one folder, and replace any with the same names.
+                    </p>
 
-                        <p className="save-dialog__hint">
-                            {preferences.levels} detail levels{preferences.collision ? ' and collision' : ''} each, as in
-                            Export. Files go in one folder, and replace any with the same names.
-                        </p>
-
-                        <div className="save-dialog__actions">
-                            <button type="button" className="btn btn--ghost" onClick={closeBatch}>
-                                Close
-                            </button>
-                            <button type="submit" className="btn btn--primary" disabled={total === 0}>
-                                Export {total} {total === 1 ? 'prop' : 'props'}
-                            </button>
-                        </div>
-                    </form>
-                )}
-            </div>
-        </div>
+                    <div className="dialog__actions">
+                        <button type="button" className="button" onClick={closeBatch}>
+                            Close
+                        </button>
+                        <button type="submit" className="button button--primary" disabled={total === 0}>
+                            Export {total} {total === 1 ? 'prop' : 'props'}
+                        </button>
+                    </div>
+                </form>
+            )}
+        </Dialog>
     )
 }

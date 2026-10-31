@@ -1,7 +1,40 @@
 # 07 — UI overhaul, settings and command palette
 
-Status: planned, nothing built yet. Extends [`02-ui-ux-spec.md`](./02-ui-ux-spec.md).
-Where the two disagree, this one is newer.
+Status: built on 2026-10-31, apart from the items in [What shipped](#what-shipped).
+Extends [`02-ui-ux-spec.md`](./02-ui-ux-spec.md). Where the two disagree, this one is newer.
+
+## What shipped
+
+**Spike result: HeroUI v3 stays.** Measured in a dev build with 30 sliders on screen, against
+React Aria directly and the old native slider.
+
+| Check | HeroUI | React Aria | Native |
+|---|---|---|---|
+| Time to render one change, median | 4.2 ms | 3.7 ms | 0.9 ms |
+| Time to mount 30, median | 8.5 ms | 13 ms | 2.6 ms |
+
+All are well inside a 16 ms frame, and the tree rebuild dominates a drag either way. Tailwind's
+reset is safe because the old CSS was replaced rather than kept beside it. Bundle growth from
+the old build: 346 KB of JavaScript for HeroUI, React Aria and Lucide, and about 460 KB of CSS
+(50 KB gzipped).
+
+HeroUI is used for the slider, switch, select, tooltip, modal, popover and menus, and only
+imported from `components/` and the two files that draw menus. The Outliner uses React Aria's
+`Tree`. The theme lives in `styles/tokens.css` and `styles/app.css`.
+
+**Beyond this spec:** the window is frameless on the desktop, with the menu bar as its title bar
+and our own window controls, and the interface uses the system font. Nunito is gone.
+
+**Cut, or left for later:**
+
+| Item | Why |
+|---|---|
+| Live preview in the palette | The spec allowed cutting it. Applying a preset per arrow key would disturb undo and the bark workers |
+| Preset right-click menu | Optional in the spec, and nobody needs it yet |
+| Name pattern setting | Nothing reads a pattern yet, so the "only real settings" rule keeps it out |
+| Preview quality while dragging | No such feature exists yet, same rule |
+| Open logs | The app writes no logs yet, same rule |
+| Interaction checks on the real desktop | The window, its first paint and reading `settings.json` were checked in the built app. Everything else was checked in a browser. Dragging the window and its controls still needs a person |
 
 ## The goal
 
@@ -73,6 +106,7 @@ spec still stands.
 | Surfaces | Neutral dark greys, so the colours of a tree are judged fairly. Today's warm tint shifts how they read |
 | Accent | The existing moss green, for primary actions only |
 | Selection | One bright colour, used only for selection, in the viewport and the outliner alike |
+| Selection colour | Amber, chosen against the greens and pinks of trees |
 | Text size | 13 px body and 12 px labels, a little smaller than today |
 | Row height | 28 px |
 | Icons | One icon set, Lucide, replacing the hand-drawn inline SVGs |

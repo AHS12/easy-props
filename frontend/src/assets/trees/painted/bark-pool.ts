@@ -50,8 +50,16 @@ interface Pool {
     run(task: BarkTask, transfer?: Transferable[]): Promise<BarkTaskResult>
 }
 
+/** A number of threads chosen in settings, or null for automatic. */
+let chosenSize: number | null = null
+
+export function setBarkThreads(count: number | null): void {
+    chosenSize = count
+}
+
 function createPool(onBroken: () => void): Pool {
-    const size = Math.min(MAX_WORKERS, Math.max(2, Math.floor((navigator.hardwareConcurrency || 4) / 2)))
+    const size =
+        chosenSize ?? Math.min(MAX_WORKERS, Math.max(2, Math.floor((navigator.hardwareConcurrency || 4) / 2)))
     const workers: Worker[] = []
     const idle: Worker[] = []
     const waiting: Pending[] = []

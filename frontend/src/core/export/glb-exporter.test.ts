@@ -15,7 +15,7 @@ import {sceneExportSource} from './scene-source'
 const STYLE = getStyleProfile('low-poly')
 
 /**
- * Presets whose lighter levels are outside the spec's 25%, and by how much is tolerated.
+ * Presets whose lighter levels are outside the 25% target, and by how much is tolerated.
  * Too light costs nothing. Too heavy is small props and bare wood, where what is
  * left is already near the least that still reads, and the old-style tree, whose
  * wood the generic simplifier can only take so far.
@@ -175,7 +175,7 @@ describe('game-ready export', () => {
         expect(exportNameOf('  ')).toBe('prop')
     })
 
-    it('writes the files the spec lists', async () => {
+    it('writes the expected files', async () => {
         const files = await exportPreset('blossom-tree')
 
         expect(files.map((file) => file.name).sort()).toEqual([

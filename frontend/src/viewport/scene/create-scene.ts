@@ -40,6 +40,17 @@ export interface ViewportScene {
     setLighting(lighting: SceneLighting): void
     /** Switches between the lit, flat, and wireframe views. */
     setShadingMode(mode: ShadingMode): void
+    /** Frames one part, or the whole prop for null. */
+    frameComponent(componentId: string | null): void
+    setBackdrop(backdrop: 'sky' | 'grey' | 'colour', colour: string): void
+    setGridVisible(visible: boolean): void
+    setShadowsAllowed(allowed: boolean): void
+    setFieldOfView(degrees: number): void
+    /** Draws at this share of the screen's resolution. */
+    setRenderScale(scale: number): void
+    setScaleFigureVisible(visible: boolean): void
+    /** The prop's size in metres: width, height, depth. */
+    contentSize(): readonly [number, number, number]
     /** Applies a new style profile. The scene is resynced afterwards. */
     setStyle(styleId: StyleProfileId): void
     /** Faces in the content, excluding rendering helpers such as outlines. */
@@ -82,9 +93,9 @@ function countFaces(root: THREE.Object3D): number {
     return Math.round(triangles)
 }
 
-function createRenderer(container: HTMLElement): THREE.WebGLRenderer {
+function createRenderer(container: HTMLElement, antialias: boolean): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        antialias,
         powerPreference: 'high-performance',
     })
 
@@ -194,8 +205,31 @@ function addGround(scene: THREE.Scene): void {
     scene.add(major)
 }
 
-export function createViewportScene(container: HTMLElement, styleId: StyleProfileId): ViewportScene {
-    const renderer = createRenderer(container)
+/** A plain 1.8 m figure, for judging a prop's size. */
+function createScaleFigure(): THREE.Group {
+    const material = new THREE.MeshStandardMaterial({color: '#c9ccd1', roughness: 0.75})
+    const figure = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 1.02, 6, 16), material)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), material)
+
+    body.position.y = 0.72
+    body.scale.z = 0.72
+    head.position.y = 1.665
+    body.castShadow = true
+    head.castShadow = true
+    figure.add(body, head)
+    figure.visible = false
+    figure.name = 'scale_figure'
+
+    return figure
+}
+
+export function createViewportScene(
+    container: HTMLElement,
+    styleId: StyleProfileId,
+    antialias = true,
+): ViewportScene {
+    const renderer = createRenderer(container, antialias)
     const camera = createCamera(container)
     const scene = new THREE.Scene()
 
@@ -207,6 +241,13 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
     addGround(scene)
 
     const controls = attachCameraControls(camera, renderer.domElement)
+
+    const figure = createScaleFigure()
+    scene.add(figure)
+
+    const horizon = scene.fog.color.clone()
+    let shadowsAllowed = true
+    let shadowsWanted = true
 
     let onContentArrived: (() => void) | null = null
     let detail = 1
@@ -275,6 +316,9 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
 
         fitShadow()
         applyLighting()
+
+        // The figure stands clear of the crown, on the side the camera starts.
+        figure.position.set(bounds.min.x - 0.6, 0, bounds.max.z + 0.6)
     }
 
     return {
@@ -317,8 +361,78 @@ export function createViewportScene(container: HTMLElement, styleId: StyleProfil
         setShadingMode(mode) {
             shading = mode
             // The shadow belongs to the finished look only.
-            renderer.shadowMap.enabled = mode === 'lit'
+            shadowsWanted = mode === 'lit'
+            renderer.shadowMap.enabled = shadowsWanted && shadowsAllowed
             renderer.shadowMap.needsUpdate = true
+        },
+
+        frameComponent(componentId) {
+            const part = componentId
+                ? components.all().find((component) => component.id === componentId)
+                : undefined
+            const box = new THREE.Box3().setFromObject(part ? part.mesh : components.group)
+
+            if (box.isEmpty()) {
+                return
+            }
+
+            const fit = box.getBoundingSphere(new THREE.Sphere())
+            const fov = THREE.MathUtils.degToRad(camera.fov)
+            const distance = Math.max((fit.radius * 1.25) / Math.sin(fov / 2), controls.minDistance)
+            const direction = camera.position.clone().sub(controls.target).normalize()
+
+            controls.target.copy(fit.center)
+            camera.position.copy(fit.center).addScaledVector(direction, Math.min(distance, controls.maxDistance))
+            controls.update()
+        },
+
+        setBackdrop(backdrop, colour) {
+            const color =
+                backdrop === 'grey' ? new THREE.Color('#6f7174') : backdrop === 'colour' ? new THREE.Color(colour) : null
+
+            scene.background = color ?? sky
+            ;(scene.fog as THREE.Fog).color.copy(color ?? horizon)
+        },
+
+        setGridVisible(visible) {
+            for (const name of ['grid_minor', 'grid_major']) {
+                scene.getObjectByName(name)!.visible = visible
+            }
+        },
+
+        setShadowsAllowed(allowed) {
+            shadowsAllowed = allowed
+            renderer.shadowMap.enabled = shadowsWanted && shadowsAllowed
+            renderer.shadowMap.needsUpdate = true
+            // Materials bake the shadow state into their shaders.
+            scene.traverse((object) => {
+                const material = (object as THREE.Mesh).material as THREE.Material | undefined
+
+                if (material && !Array.isArray(material)) {
+                    material.needsUpdate = true
+                }
+            })
+        },
+
+        setFieldOfView(degrees) {
+            camera.fov = degrees
+            camera.updateProjectionMatrix()
+        },
+
+        setRenderScale(scale) {
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale)
+            renderer.setSize(container.clientWidth, container.clientHeight)
+        },
+
+        setScaleFigureVisible(visible) {
+            figure.visible = visible
+        },
+
+        contentSize() {
+            const box = new THREE.Box3().setFromObject(components.group)
+            const size = box.isEmpty() ? new THREE.Vector3() : box.getSize(new THREE.Vector3())
+
+            return [size.x, size.y, size.z]
         },
 
         setStyle(nextStyleId) {

@@ -105,8 +105,7 @@ export interface SceneComponent {
 /**
  * The plain-language name of a component type.
  *
- * This is the binding terminology mapping from the product spec: the user
- * sees "Leaf clump", never "foliage cluster".
+ * The user sees "Leaf clump", never "foliage cluster".
  */
 const TYPE_LABELS: Readonly<Record<ComponentType, string>> = {
     trunk: 'Trunk',

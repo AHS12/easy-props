@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
     <title>easy-props</title>
     <script>
         // Applied before the app loads so the window never flashes the wrong
@@ -12,10 +13,12 @@
                 var stored = localStorage.getItem('easy-props.theme')
                 var theme = stored === 'light' || stored === 'dark'
                     ? stored
-                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
                 document.documentElement.dataset.theme = theme
+                document.documentElement.classList.add(theme)
             } catch (error) {
-                document.documentElement.dataset.theme = 'light'
+                document.documentElement.dataset.theme = 'dark'
+                document.documentElement.classList.add('dark')
             }
         })()
     </script>

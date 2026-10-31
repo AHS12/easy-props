@@ -1,67 +1,38 @@
-import {useState} from 'react'
-import {LEVEL_SHARES} from '../core/export/pipeline/types'
-import {Slider} from '../components/Slider'
+/**
+ * The controls over the view: tools on the left, how it is drawn on the right.
+ */
+
+import {Dropdown, Popover} from '@heroui/react'
 import {
-    SHADING_MODES,
-    SHADING_MODE_HELP,
-    SHADING_MODE_LABELS,
-    type ShadingMode,
-} from '../assets/style/shading'
+    Box, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, Wind,
+} from 'lucide-react'
+import {useEffect, useState, type ReactNode} from 'react'
+import {PropertyRow} from '../components/PropertyRow'
+import {Tooltip} from '../components/controls'
+import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
+import {LEVEL_SHARES} from '../core/export/pipeline/types'
+import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode} from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
 import {useEditorStore} from '../store/editor-store'
+import {useUiStore} from '../store/ui-store'
 import {SunDial} from './SunDial'
+import {viewportHandle, type ViewAngle} from './viewport-bridge'
 
-function SunIcon() {
-    return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
-        </svg>
-    )
-}
+const STATS_REFRESH_MS = 500
 
-function ModeIcon({mode}: {mode: ShadingMode}) {
-    if (mode === 'wind') {
-        return (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h6" />
-            </svg>
-        )
-    }
+const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, flat: Box, wireframe: Grid2x2, wind: Wind}
 
-    if (mode === 'wireframe') {
-        return (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
-                <path d="M12 2.5 21 7v10l-9 4.5L3 17V7z" />
-                <path d="M3 7l9 4.5L21 7M12 11.5V21M12 2.5V11" />
-            </svg>
-        )
-    }
-
-    if (mode === 'flat') {
-        return (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="8.5" fill="currentColor" stroke="none" opacity="0.25" />
-                <circle cx="12" cy="12" r="8.5" />
-            </svg>
-        )
-    }
-
-    return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <circle cx="12" cy="10" r="4.2" />
-            <path d="M12 14.5V21M9 21h6" />
-        </svg>
-    )
-}
+const ANGLES: readonly {id: ViewAngle; label: string}[] = [
+    {id: 'perspective', label: 'Perspective'},
+    {id: 'front', label: 'Front'},
+    {id: 'side', label: 'Side'},
+    {id: 'top', label: 'Top'},
+]
 
 /** The time of day the lighting exactly matches, if any. */
 function matchingTime(azimuth: number, elevation: number): TimeOfDay | null {
     for (const [time, preset] of Object.entries(TIME_OF_DAY)) {
-        if (
-            Math.abs(preset.azimuth - azimuth) < 0.5 &&
-            Math.abs(preset.elevation - elevation) < 0.5
-        ) {
+        if (Math.abs(preset.azimuth - azimuth) < 0.5 && Math.abs(preset.elevation - elevation) < 0.5) {
             return time as TimeOfDay
         }
     }
@@ -69,14 +40,148 @@ function matchingTime(azimuth: number, elevation: number): TimeOfDay | null {
     return null
 }
 
-/** The four-way arrow everyone reads as "move". */
-function MoveIcon() {
+function ToolButton({
+    label,
+    keys,
+    pressed,
+    disabledReason,
+    onPress,
+    children,
+}: {
+    label: string
+    keys?: string
+    pressed?: boolean
+    disabledReason?: string | null
+    onPress(): void
+    children: ReactNode
+}) {
+    const text = disabledReason ?? (keys ? `${label} (${keys.replace(/\+ $/, '+Space')})` : label)
+
     return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v18M3 12h18" />
-            <path d="M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5" />
-            <path d="M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" />
-        </svg>
+        <Tooltip text={text} placement="bottom" always>
+            <button
+                type="button"
+                className="tool"
+                aria-label={label}
+                aria-pressed={pressed}
+                aria-disabled={disabledReason ? true : undefined}
+                data-unavailable={disabledReason ? true : undefined}
+                onClick={onPress}
+            >
+                {children}
+            </button>
+        </Tooltip>
+    )
+}
+
+function ToolMenu({
+    label,
+    trigger,
+    items,
+}: {
+    label: string
+    trigger: ReactNode
+    items: readonly {id: string; label: string; help?: string; checked?: boolean; run(): void}[]
+}) {
+    return (
+        <Dropdown>
+            <Dropdown.Trigger className="tool tool--menu" aria-label={label}>
+                {trigger}
+                <ChevronDown size={11} aria-hidden="true" />
+            </Dropdown.Trigger>
+            <Dropdown.Popover className="menu-popover" placement="bottom end" offset={4}>
+                <Dropdown.Menu className="menu-list" onAction={(id) => items.find((item) => item.id === id)?.run()}>
+                    {items.map((item) => (
+                        <Dropdown.Item key={item.id} id={item.id} textValue={item.label} className="menu-item" data-checked={item.checked}>
+                            <span className="menu-item__tick" aria-hidden="true">
+                                {item.checked ? '✓' : ''}
+                            </span>
+                            <span className="menu-item__stack">
+                                <span className="menu-item__label">{item.label}</span>
+                                {item.help ? <span className="menu-item__help">{item.help}</span> : null}
+                            </span>
+                        </Dropdown.Item>
+                    ))}
+                </Dropdown.Menu>
+            </Dropdown.Popover>
+        </Dropdown>
+    )
+}
+
+function LightingButton() {
+    const lighting = useEditorStore((state) => state.lighting)
+    const setLighting = useEditorStore((state) => state.setLighting)
+    const setTimeOfDay = useEditorStore((state) => state.setTimeOfDay)
+    const activeTime = matchingTime(lighting.azimuth, lighting.elevation)
+
+    return (
+        <Popover>
+            <Popover.Trigger>
+                <Tooltip text="Sun and shadow" placement="bottom" always>
+                    <button type="button" className="tool" aria-label="Sun and shadow">
+                        <Sun size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip>
+            </Popover.Trigger>
+            <Popover.Content className="sun-panel" placement="bottom end" offset={6}>
+                <Popover.Dialog aria-label="Sun and shadow">
+                    <div className="sun-panel__dial">
+                        <SunDial lighting={lighting} onChange={setLighting} />
+                        <p className="sun-panel__caption">Drag to move the sun</p>
+                    </div>
+                    <div className="time-grid" role="group" aria-label="Time of day">
+                        {(Object.keys(TIME_OF_DAY) as TimeOfDay[]).map((time) => (
+                            <button
+                                key={time}
+                                type="button"
+                                className="time-button"
+                                aria-pressed={activeTime === time}
+                                onClick={() => setTimeOfDay(time)}
+                            >
+                                {TIME_OF_DAY_LABELS[time]}
+                            </button>
+                        ))}
+                    </div>
+                    <PropertyRow
+                        label="Shadow"
+                        value={lighting.shadowStrength}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        onChange={(value) => setLighting({...lighting, shadowStrength: value})}
+                    />
+                </Popover.Dialog>
+            </Popover.Content>
+        </Popover>
+    )
+}
+
+/** Off by default: faces per mesh, draw calls, and size in metres. */
+function StatsOverlay() {
+    const faceCounts = useEditorStore((state) => state.faceCounts)
+    const [stats, setStats] = useState(() => viewportHandle()?.stats() ?? null)
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setStats(viewportHandle()?.stats() ?? null), STATS_REFRESH_MS)
+
+        return () => window.clearInterval(timer)
+    }, [])
+
+    return (
+        <dl className="stats tabular" aria-label="Stats">
+            <dt>Wood</dt>
+            <dd>{faceCounts.wood.toLocaleString()} faces</dd>
+            <dt>Leaves</dt>
+            <dd>{faceCounts.leaves.toLocaleString()} faces</dd>
+            {stats ? (
+                <>
+                    <dt>Draw calls</dt>
+                    <dd>{stats.drawCalls}</dd>
+                    <dt>Size</dt>
+                    <dd>{stats.size.map((value) => value.toFixed(1)).join(' × ')} m</dd>
+                </>
+            ) : null}
+        </dl>
     )
 }
 
@@ -85,113 +190,100 @@ export function ViewportOverlay() {
     const setShadingMode = useEditorStore((state) => state.setShadingMode)
     const previewLevel = useEditorStore((state) => state.previewLevel)
     const setPreviewLevel = useEditorStore((state) => state.setPreviewLevel)
-    const lighting = useEditorStore((state) => state.lighting)
-    const setLighting = useEditorStore((state) => state.setLighting)
-    const setTimeOfDay = useEditorStore((state) => state.setTimeOfDay)
     const moveTool = useEditorStore((state) => state.moveTool)
     const setMoveTool = useEditorStore((state) => state.setMoveTool)
+    const showStats = useUiStore((state) => state.showStats)
+    const showScaleFigure = useUiStore((state) => state.showScaleFigure)
+    const maximized = useUiStore((state) => state.maximized)
+    const editor = useEditorStore()
 
-    const [sunOpen, setSunOpen] = useState(false)
+    const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
+    const ShadingIcon = SHADING_ICONS[shadingMode]
+    const command = (id: string) => () => {
+        const found = findCommand(id)
 
-    const activeTime = matchingTime(lighting.azimuth, lighting.elevation)
+        if (found) {
+            runCommand(found)
+        }
+    }
 
     return (
-        <div className="viewport-tools">
-            <div className="viewport-tools__row">
-                <button
-                    type="button"
-                    className="tool"
-                    aria-expanded={sunOpen}
-                    aria-label="Sun and shadow"
-                    title="Sun and shadow"
-                    onClick={() => setSunOpen((open) => !open)}
-                >
-                    <SunIcon />
-                </button>
-
-                <div className="tool-group" role="group" aria-label="Move tool">
-                    <button
-                        type="button"
-                        className="tool"
-                        aria-pressed={moveTool}
-                        aria-label="Move part"
-                        title="Move — drag an arrow to move the selected part along that axis"
-                        onClick={() => setMoveTool(!moveTool)}
+        <>
+            <div className="viewport-tools viewport-tools--left" role="toolbar" aria-label="Tools">
+                <div className="tool-group">
+                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool} onPress={() => setMoveTool(false)}>
+                        <MousePointer2 size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton
+                        label="Move"
+                        keys={shortcutFor('tool-move')}
+                        pressed={moveTool}
+                        disabledReason={moveTool ? null : moveReason}
+                        onPress={command('tool-move')}
                     >
-                        <MoveIcon />
-                    </button>
-                </div>
-
-                <div className="tool-group" role="group" aria-label="Detail level">
-                    {LEVEL_SHARES.map((_, level) => (
-                        <button
-                            key={level}
-                            type="button"
-                            className="tool"
-                            aria-pressed={level === previewLevel}
-                            title={`Detail level ${level} (LOD${level})`}
-                            onClick={() => setPreviewLevel(level)}
-                        >
-                            {level}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="tool-group" role="group" aria-label="How the tree is drawn">
-                    {SHADING_MODES.map((mode) => (
-                        <button
-                            key={mode}
-                            type="button"
-                            className="tool"
-                            aria-pressed={mode === shadingMode}
-                            aria-label={SHADING_MODE_LABELS[mode]}
-                            title={`${SHADING_MODE_LABELS[mode]} — ${SHADING_MODE_HELP[mode]}`}
-                            onClick={() => setShadingMode(mode)}
-                        >
-                            <ModeIcon mode={mode} />
-                        </button>
-                    ))}
+                        <Move size={14} aria-hidden="true" />
+                    </ToolButton>
                 </div>
             </div>
 
-            {sunOpen ? (
-                <div className="sun-panel">
-                    <div className="sun-panel__dial">
-                        <SunDial lighting={lighting} onChange={setLighting} />
-                        <p className="sun-panel__caption">Drag to move the sun</p>
-                    </div>
-
-                    <div className="field">
-                        <div className="field__label">
-                            <span>Time of day</span>
-                        </div>
-                        <div className="time-grid">
-                            {(Object.keys(TIME_OF_DAY) as TimeOfDay[]).map((time) => (
-                                <button
-                                    key={time}
-                                    type="button"
-                                    className="time-btn"
-                                    aria-pressed={activeTime === time}
-                                    onClick={() => setTimeOfDay(time)}
-                                >
-                                    {TIME_OF_DAY_LABELS[time]}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <Slider
-                        label="Shadow"
-                        value={lighting.shadowStrength}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        minLabel="None"
-                        maxLabel="Full"
-                        onChange={(value) => setLighting({...lighting, shadowStrength: value})}
+            <div className="viewport-tools viewport-tools--right" role="toolbar" aria-label="View">
+                <div className="tool-group">
+                    <ToolMenu
+                        label={`Shading: ${SHADING_MODE_LABELS[shadingMode]}`}
+                        trigger={
+                            <>
+                                <ShadingIcon size={14} aria-hidden="true" />
+                                <span>{SHADING_MODE_LABELS[shadingMode]}</span>
+                            </>
+                        }
+                        items={SHADING_MODES.map((mode) => ({
+                            id: mode,
+                            label: SHADING_MODE_LABELS[mode],
+                            help: SHADING_MODE_HELP[mode],
+                            checked: mode === shadingMode,
+                            run: () => setShadingMode(mode),
+                        }))}
+                    />
+                    <ToolMenu
+                        label={`Detail level ${previewLevel}`}
+                        trigger={
+                            <>
+                                <Layers size={14} aria-hidden="true" />
+                                <span>LOD{previewLevel}</span>
+                            </>
+                        }
+                        items={LEVEL_SHARES.map((share, level) => ({
+                            id: String(level),
+                            label: `Level ${level} (LOD${level})`,
+                            help: level === 0 ? 'Full detail, seen up close' : `About ${Math.round(share * 100)}% of the faces, for further away`,
+                            checked: level === previewLevel,
+                            run: () => setPreviewLevel(level),
+                        }))}
                     />
                 </div>
-            ) : null}
-        </div>
+                <div className="tool-group">
+                    <LightingButton />
+                    <ToolMenu
+                        label="Camera angle"
+                        trigger={<Camera size={14} aria-hidden="true" />}
+                        items={ANGLES.map(({id, label}) => ({id, label, run: () => viewportHandle()?.setView(id)}))}
+                    />
+                    <ToolButton label="Frame" keys={shortcutFor('frame')} onPress={command('frame')}>
+                        <Frame size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton label="Stats" pressed={showStats} onPress={command('toggle-stats')}>
+                        <Info size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton label="A person for scale" pressed={showScaleFigure} onPress={command('toggle-scale-figure')}>
+                        <PersonStanding size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton label={maximized ? 'Restore the panels' : 'Maximize'} keys={shortcutFor('maximize')} pressed={maximized} onPress={command('maximize')}>
+                        {maximized ? <Minimize size={14} aria-hidden="true" /> : <Maximize size={14} aria-hidden="true" />}
+                    </ToolButton>
+                </div>
+            </div>
+
+            {showStats ? <StatsOverlay /> : null}
+        </>
     )
 }

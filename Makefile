@@ -1,0 +1,90 @@
+# Common tasks. Run `make` to list them.
+
+FRONTEND := frontend
+
+# Vitest and Vite need a newer Node than 20.18, so tests fetch and use their own.
+VITEST := cd $(FRONTEND) && pnpm dlx node@22 node_modules/vitest/vitest.mjs
+
+VERSION := $(shell node -p "require('./wails.json').info.productVersion")
+DIST := build/dist
+
+ifeq ($(OS),Windows_NT)
+    # From PowerShell or cmd there is no Unix shell or rm, mkdir and cp, so use Git's.
+    SHELL := C:/Program Files/Git/bin/bash.exe
+    export PATH := C:\Program Files\Git\usr\bin;$(PATH)
+    APP := build/bin/easy-props.exe
+else
+    APP := build/bin/easy-props.app/Contents/MacOS/easy-props
+endif
+
+.DEFAULT_GOAL := help
+
+.PHONY: help install dev web build build-frontend installer mac dmg release run test test-go test-frontend test-watch typecheck lint check clean
+
+help: ## List the tasks
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
+
+install: ## Install the frontend packages
+	pnpm --dir $(FRONTEND) install
+
+dev: ## Run the desktop app with hot reload
+	wails dev
+
+web: ## Run only the frontend, in a browser
+	pnpm --dir $(FRONTEND) dev
+
+build: ## Build the desktop app into build/bin
+	wails build
+
+build-frontend: ## Type-check and bundle only the frontend
+	pnpm --dir $(FRONTEND) build
+
+# NSIS does not add itself to PATH when it installs, so the recipe adds it.
+installer: ## Build the Windows installer into build/dist (Windows, needs NSIS)
+	PATH="/c/Program Files (x86)/NSIS:$$PATH" wails build -clean -nsis
+	mkdir -p $(DIST)
+	cp build/bin/easy-props-amd64-installer.exe $(DIST)/easy-props-$(VERSION)-windows-amd64-setup.exe
+	@echo Created $(DIST)/easy-props-$(VERSION)-windows-amd64-setup.exe
+
+mac: ## Build the universal Mac app (Mac only)
+	wails build -clean -platform darwin/universal
+	codesign --force --deep -s - build/bin/easy-props.app
+
+dmg: mac ## Build the Mac disk image into build/dist (Mac only)
+	./build/darwin/make_dmg.sh $(VERSION)
+
+release: ## Build the installers this computer can make, and skip the rest
+ifeq ($(OS),Windows_NT)
+	$(MAKE) installer
+	@echo Skipped the Mac DMG: it can only be built on a Mac.
+else ifeq ($(shell uname -s),Darwin)
+	$(MAKE) dmg
+	@echo Skipped the Windows installer: it is only built on Windows.
+else
+	@echo Skipped the Windows installer and the Mac DMG: they need Windows and a Mac.
+endif
+
+run: build ## Build the desktop app and open it
+	./$(APP)
+
+test: test-go test-frontend ## Run every test
+
+test-go: ## Run the Go tests
+	go test ./backend/
+
+test-frontend: ## Run the frontend tests
+	$(VITEST) run
+
+test-watch: ## Run the frontend tests on every change
+	$(VITEST)
+
+typecheck: ## Check the TypeScript types
+	pnpm --dir $(FRONTEND) typecheck
+
+lint: ## Lint the frontend
+	pnpm --dir $(FRONTEND) lint
+
+check: typecheck lint test ## Everything to run before a commit
+
+clean: ## Delete build output
+	rm -rf build/bin $(DIST) $(FRONTEND)/dist

@@ -1,11 +1,15 @@
-import {useCallback, useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef} from 'react'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
 import type {SurfacePush} from '../assets/shared/component-types'
 import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
+import {useSetting, useSettingsStore, settingValue} from '../store/settings-store'
+import {useUiStore} from '../store/ui-store'
+import {applyCameraScheme, type CameraScheme} from './scene/camera-controls'
 import {createViewportScene, type ViewportScene} from './scene/create-scene'
+import {registerViewport, type ViewAngle} from './viewport-bridge'
 import {createHandles, type HandleSet} from './scene/handles'
 import {createPicker, pickNearestAxis, pickNearestHandle, pickSurface, pointerOnAxis, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
@@ -59,16 +63,15 @@ export function Viewport() {
     const moveRef = useRef<MoveState | null>(null)
     const compassRef = useRef<CompassHandle>(null)
     const brushRef = useRef<HTMLDivElement>(null)
-    const [faces, setFaces] = useState(0)
     const reportFaces = (viewport: ViewportScene) => {
-        setFaces(viewport.countFaces())
-
         // A budget is about the full prop, whichever level is being looked at.
         if (useEditorStore.getState().previewLevel === 0) {
             useEditorStore.getState().setFaceCounts(viewport.countFacesByMesh())
         }
     }
     const shapeTool = useEditorStore((state) => state.shapeTool)
+    // The browser cannot change this on a live canvas, so a change rebuilds the view.
+    const antialias = useSetting('antialias') === true
 
     /**
      * Looks down an axis, keeping the current distance from what the camera is
@@ -99,7 +102,7 @@ export function Viewport() {
         }
 
         const store = useEditorStore
-        const viewport = createViewportScene(container, store.getState().style)
+        const viewport = createViewportScene(container, store.getState().style, antialias)
         sceneRef.current = viewport
 
         const canvas = viewport.renderer.domElement
@@ -121,8 +124,18 @@ export function Viewport() {
         const hit = new THREE.Vector3()
 
         let frame = 0
-        const render = () => {
+        let lastDrawn = 0
+        const render = (now: number) => {
             frame = requestAnimationFrame(render)
+
+            const limit = Number(settingValue('frameLimit'))
+
+            // A small allowance, so a 60 limit on a 60 Hz display does not halve it.
+            if (limit > 0 && now - lastDrawn < 1000 / limit - 2) {
+                return
+            }
+
+            lastDrawn = now
             viewport.controls.update()
             viewport.renderer.render(viewport.scene, viewport.camera)
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
@@ -566,6 +579,66 @@ export function Viewport() {
             }
         })
 
+        registerViewport({
+            frame: () => viewport.frameComponent(store.getState().selection.selectedId),
+            setView: (angle: ViewAngle) => {
+                const target = viewport.controls.target
+                const distance = Math.max(viewport.camera.position.distanceTo(target), 0.5)
+
+                if (angle === 'perspective') {
+                    viewport.camera.up.set(0, 1, 0)
+                    viewport.camera.position
+                        .copy(target)
+                        .add(new THREE.Vector3(-0.62, 0.36, 0.62).normalize().multiplyScalar(distance))
+                    viewport.controls.update()
+                } else {
+                    const [axis, sign] = ({front: ['z', 1], side: ['x', 1], top: ['y', 1]} as const)[angle]
+
+                    snapToAxis(axis, sign)
+                }
+            },
+            stats: () => ({
+                drawCalls: viewport.renderer.info.render.calls,
+                size: viewport.contentSize(),
+            }),
+        })
+
+        // Settings apply at once. The scheme's listener has to be swapped, and the
+        // rest only touch what changed.
+        let schemeOff = () => undefined as void
+        const applySettings = () => {
+            const values = useSettingsStore.getState().values
+            const invert = values.invertZoom === true
+
+            viewport.controls.rotateSpeed = Number(values.orbitSpeed)
+            viewport.controls.zoomSpeed = Number(values.zoomSpeed) * (invert ? -1 : 1)
+            viewport.setFieldOfView(Number(values.fov))
+            viewport.setBackdrop(values.backdrop as 'sky' | 'grey' | 'colour', String(values.backdropColour))
+            viewport.setGridVisible(values.grid === true)
+            viewport.setRenderScale(Number(values.renderScale) / 100)
+            schemeOff()
+            schemeOff = applyCameraScheme(viewport.controls, canvas, values.cameraScheme as CameraScheme)
+        }
+
+        applySettings()
+        viewport.setShadowsAllowed(settingValue('shadows') === true)
+        viewport.setScaleFigureVisible(useUiStore.getState().showScaleFigure)
+
+        const unsubscribeSettings = useSettingsStore.subscribe((state, previous) => {
+            if (state.values !== previous.values) {
+                applySettings()
+
+                if (state.values.shadows !== previous.values.shadows) {
+                    viewport.setShadowsAllowed(state.values.shadows === true)
+                }
+            }
+        })
+        const unsubscribeUi = useUiStore.subscribe((state, previous) => {
+            if (state.showScaleFigure !== previous.showScaleFigure) {
+                viewport.setScaleFigureVisible(state.showScaleFigure)
+            }
+        })
+
         viewport.setOnContentArrived(() => {
             // Parts rebuilt just now have not been told whether they are selected.
             applySelectionVisuals(viewport, store.getState().selection)
@@ -584,6 +657,10 @@ export function Viewport() {
             cancelAnimationFrame(frame)
             observer.disconnect()
             unsubscribe()
+            unsubscribeSettings()
+            unsubscribeUi()
+            schemeOff()
+            registerViewport(null)
 
             window.removeEventListener('pointerdown', onWindowPointerDown, true)
             window.removeEventListener('pointerup', onWindowPointerUp, true)
@@ -600,15 +677,12 @@ export function Viewport() {
             canvas.remove()
             sceneRef.current = null
         }
-    }, [])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- snapToAxis never changes.
+    }, [antialias])
 
     return (
-        <div className="viewport" data-tool={shapeTool}>
+        <div className="viewport" data-tool={shapeTool} data-coach="viewport">
             <div ref={containerRef} style={{position: 'absolute', inset: 0}} />
-            <div className="viewport__hint">
-                Left drag to orbit · right drag to pan · scroll to zoom
-            </div>
-            <div className="viewport__faces">{faces.toLocaleString()} faces</div>
             <div ref={brushRef} className="viewport__brush" data-visible="false" />
             <Compass ref={compassRef} onSnap={snapToAxis} />
             <ViewportOverlay />

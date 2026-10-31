@@ -1,0 +1,400 @@
+/**
+ * Every setting, as data.
+ *
+ * The settings page and the palette both render from this list, so adding a
+ * setting takes one entry. A setting is listed only once the feature it controls
+ * works.
+ */
+
+import {z} from 'zod'
+
+export type SettingPage = 'General' | 'Appearance' | 'Viewport' | 'Performance' | 'Export'
+
+export const SETTING_PAGES: readonly SettingPage[] = ['General', 'Appearance', 'Viewport', 'Performance', 'Export']
+
+interface Common {
+    readonly key: string
+    readonly page: SettingPage
+    readonly label: string
+    readonly help: string
+    readonly keywords?: string
+}
+
+export interface ToggleSetting extends Common {
+    readonly kind: 'toggle'
+    readonly default: boolean
+}
+
+export interface ChoiceSetting extends Common {
+    readonly kind: 'choice'
+    readonly default: string
+    readonly options: readonly {readonly value: string; readonly label: string}[]
+}
+
+export interface NumberSetting extends Common {
+    readonly kind: 'number'
+    readonly default: number
+    readonly min: number
+    readonly max: number
+    readonly step: number
+    readonly unit?: string
+}
+
+export interface ColourSetting extends Common {
+    readonly kind: 'colour'
+    readonly default: string
+}
+
+export type SettingSpec = ToggleSetting | ChoiceSetting | NumberSetting | ColourSetting
+
+export const SETTING_SPECS = [
+    {
+        key: 'startOn',
+        page: 'General',
+        kind: 'choice',
+        label: 'Start on',
+        help: 'What you see when the app opens.',
+        default: 'home',
+        options: [
+            {value: 'home', label: 'Home'},
+            {value: 'last', label: 'Last prop'},
+        ],
+    },
+    {
+        key: 'autosaveDelay',
+        page: 'General',
+        kind: 'choice',
+        label: 'Autosave',
+        help: 'How soon after a change your draft is written, so a crash cannot take your work.',
+        keywords: 'draft interval',
+        default: '600',
+        options: [
+            {value: '600', label: 'Right away'},
+            {value: '5000', label: 'After 5 seconds'},
+            {value: '30000', label: 'After 30 seconds'},
+        ],
+    },
+    {
+        key: 'confirmRemove',
+        page: 'General',
+        kind: 'toggle',
+        label: 'Confirm before removing a part',
+        help: 'Ask first. Off by default, because Undo always brings a part back.',
+        keywords: 'delete',
+        default: false,
+    },
+    {
+        key: 'theme',
+        page: 'Appearance',
+        kind: 'choice',
+        label: 'Theme',
+        help: 'Follow your system, or always use one.',
+        keywords: 'dark light mode',
+        default: 'system',
+        options: [
+            {value: 'system', label: 'System'},
+            {value: 'dark', label: 'Dark'},
+            {value: 'light', label: 'Light'},
+        ],
+    },
+    {
+        key: 'scale',
+        page: 'Appearance',
+        kind: 'number',
+        label: 'Interface scale',
+        help: 'Makes the whole interface larger or smaller.',
+        keywords: 'zoom size text',
+        default: 100,
+        min: 90,
+        max: 130,
+        step: 10,
+        unit: '%',
+    },
+    {
+        key: 'reduceMotion',
+        page: 'Appearance',
+        kind: 'toggle',
+        label: 'Reduce motion',
+        help: 'Turns off interface animation. Your system setting is respected either way.',
+        keywords: 'animation accessibility',
+        default: false,
+    },
+    {
+        key: 'helpOnHover',
+        page: 'Appearance',
+        kind: 'toggle',
+        label: 'Show help on hover',
+        help: 'Explains a control when you rest the pointer on its name.',
+        keywords: 'tooltip',
+        default: true,
+    },
+    {
+        key: 'cameraScheme',
+        page: 'Viewport',
+        kind: 'choice',
+        label: 'Camera scheme',
+        help: 'Which mouse buttons move the camera, to match the tool you already know.',
+        keywords: 'mouse navigation orbit pan',
+        default: 'easy-props',
+        options: [
+            {value: 'easy-props', label: 'Easy-props: left orbits, right pans'},
+            {value: 'blender', label: 'Blender: middle orbits, Shift+middle pans'},
+            {value: 'unreal', label: 'Unreal: Alt+left orbits, Alt+middle pans'},
+        ],
+    },
+    {
+        key: 'orbitSpeed',
+        page: 'Viewport',
+        kind: 'number',
+        label: 'Orbit speed',
+        help: 'How fast the camera turns as you drag.',
+        default: 1,
+        min: 0.2,
+        max: 3,
+        step: 0.1,
+    },
+    {
+        key: 'zoomSpeed',
+        page: 'Viewport',
+        kind: 'number',
+        label: 'Zoom speed',
+        help: 'How far one turn of the wheel moves the camera.',
+        default: 1,
+        min: 0.2,
+        max: 3,
+        step: 0.1,
+    },
+    {
+        key: 'invertZoom',
+        page: 'Viewport',
+        kind: 'toggle',
+        label: 'Invert zoom',
+        help: 'Swaps the direction of the mouse wheel.',
+        default: false,
+    },
+    {
+        key: 'fov',
+        page: 'Viewport',
+        kind: 'number',
+        label: 'Field of view',
+        help: 'Wider shows more around the prop, and exaggerates its perspective.',
+        keywords: 'fov lens',
+        default: 45,
+        min: 20,
+        max: 90,
+        step: 1,
+        unit: '°',
+    },
+    {
+        key: 'backdrop',
+        page: 'Viewport',
+        kind: 'choice',
+        label: 'Backdrop',
+        help: 'What is behind the prop. Neutral grey is best for judging colour.',
+        keywords: 'background sky',
+        default: 'sky',
+        options: [
+            {value: 'sky', label: 'Sky'},
+            {value: 'grey', label: 'Neutral grey'},
+            {value: 'colour', label: 'A colour'},
+        ],
+    },
+    {
+        key: 'backdropColour',
+        page: 'Viewport',
+        kind: 'colour',
+        label: 'Backdrop colour',
+        help: 'Used when the backdrop is set to a colour.',
+        default: '#3a4048',
+    },
+    {
+        key: 'grid',
+        page: 'Viewport',
+        kind: 'toggle',
+        label: 'Grid',
+        help: 'One square is one metre.',
+        default: true,
+    },
+    {
+        key: 'shadows',
+        page: 'Viewport',
+        kind: 'toggle',
+        label: 'Shadows',
+        help: 'Turn off for a faster view on a slow graphics card.',
+        default: true,
+    },
+    {
+        key: 'antialias',
+        page: 'Viewport',
+        kind: 'toggle',
+        label: 'Smooth edges',
+        help: 'Anti-aliasing. Turn off for a faster view on a slow graphics card.',
+        keywords: 'anti-aliasing msaa',
+        default: true,
+    },
+    {
+        key: 'renderScale',
+        page: 'Viewport',
+        kind: 'number',
+        label: 'Render scale',
+        help: 'Below 100% draws fewer pixels: blurrier, and faster.',
+        keywords: 'resolution',
+        default: 100,
+        min: 50,
+        max: 100,
+        step: 10,
+        unit: '%',
+    },
+    {
+        key: 'barkThreads',
+        page: 'Performance',
+        kind: 'choice',
+        label: 'Background threads',
+        help: 'How many threads build bark while you work. Applies the next time the app starts.',
+        keywords: 'workers cpu',
+        default: 'auto',
+        options: [
+            {value: 'auto', label: 'Automatic'},
+            {value: '2', label: '2'},
+            {value: '4', label: '4'},
+            {value: '8', label: '8'},
+        ],
+    },
+    {
+        key: 'frameLimit',
+        page: 'Performance',
+        kind: 'choice',
+        label: 'Frame limit',
+        help: 'Caps how often the view redraws. Lower is kinder to a laptop battery.',
+        keywords: 'fps',
+        default: '0',
+        options: [
+            {value: '0', label: 'Match the display'},
+            {value: '60', label: '60 per second'},
+            {value: '30', label: '30 per second'},
+        ],
+    },
+    {
+        key: 'presetThumbnails',
+        page: 'Performance',
+        kind: 'toggle',
+        label: 'Preset pictures',
+        help: 'Draws a real picture of each preset. Off shows a simple icon instead.',
+        keywords: 'thumbnails',
+        default: true,
+    },
+] as const satisfies readonly SettingSpec[]
+
+export type SettingKey = (typeof SETTING_SPECS)[number]['key']
+
+export type SettingValue = boolean | number | string
+
+export type SettingValues = Readonly<Record<SettingKey, SettingValue>>
+
+export const DEFAULT_VALUES = Object.fromEntries(
+    SETTING_SPECS.map((spec) => [spec.key, spec.default]),
+) as unknown as SettingValues
+
+/** The current settings file's shape. Bump when a change cannot be read as-is. */
+export const SETTINGS_VERSION = 1
+
+export interface PanelLayout {
+    readonly leftWidth: number
+    readonly rightWidth: number
+    readonly leftOpen: boolean
+    readonly rightOpen: boolean
+}
+
+export const DEFAULT_LAYOUT: PanelLayout = {leftWidth: 264, rightWidth: 320, leftOpen: true, rightOpen: true}
+
+export interface SettingsFile {
+    readonly version: number
+    readonly values: SettingValues
+    /** Command id to the keys the user chose. An empty string means no shortcut. */
+    readonly shortcuts: Readonly<Record<string, string>>
+    /** Commands run recently, newest first. */
+    readonly recent: readonly string[]
+    /** How often each palette entry was chosen, to rank between similar scores. */
+    readonly usage: Readonly<Record<string, number>>
+    /** Open groups in the Details panel, per kind of prop. */
+    readonly openGroups: Readonly<Record<string, readonly string[]>>
+    readonly layout: PanelLayout
+    readonly tourSeen: boolean
+    readonly lastTreeId: string | null
+    readonly libraryFolder: string
+}
+
+export const DEFAULT_SETTINGS: SettingsFile = {
+    version: SETTINGS_VERSION,
+    values: DEFAULT_VALUES,
+    shortcuts: {},
+    recent: [],
+    usage: {},
+    openGroups: {},
+    layout: DEFAULT_LAYOUT,
+    tourSeen: false,
+    lastTreeId: null,
+    libraryFolder: '',
+}
+
+/** A setting's value if it is valid for its spec, otherwise its default. */
+export function validSettingValue(spec: SettingSpec, value: unknown): SettingValue {
+    switch (spec.kind) {
+        case 'toggle':
+            return typeof value === 'boolean' ? value : spec.default
+        case 'choice':
+            return spec.options.some((option) => option.value === value) ? (value as string) : spec.default
+        case 'number':
+            return typeof value === 'number' && Number.isFinite(value)
+                ? Math.min(spec.max, Math.max(spec.min, value))
+                : spec.default
+        case 'colour':
+            return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : spec.default
+    }
+}
+
+const fileSchema = z.object({
+    version: z.number(),
+    values: z.record(z.string(), z.unknown()).catch({}),
+    shortcuts: z.record(z.string(), z.string()).catch({}),
+    recent: z.array(z.string()).catch([]),
+    usage: z.record(z.string(), z.number()).catch({}),
+    openGroups: z.record(z.string(), z.array(z.string())).catch({}),
+    layout: z
+        .object({
+            leftWidth: z.number().min(180).max(480),
+            rightWidth: z.number().min(240).max(520),
+            leftOpen: z.boolean(),
+            rightOpen: z.boolean(),
+        })
+        .catch(DEFAULT_LAYOUT),
+    tourSeen: z.boolean().catch(false),
+    lastTreeId: z.string().nullable().catch(null),
+    libraryFolder: z.string().catch(''),
+})
+
+/** Never throws: a damaged or foreign file gives the defaults. */
+export function parseSettings(text: string | null): SettingsFile {
+    if (!text) {
+        return DEFAULT_SETTINGS
+    }
+
+    try {
+        const file = fileSchema.parse(JSON.parse(text))
+
+        // A newer build's file might mean something else by the same names.
+        if (file.version > SETTINGS_VERSION) {
+            return DEFAULT_SETTINGS
+        }
+
+        return {
+            ...file,
+            version: SETTINGS_VERSION,
+            values: Object.fromEntries(
+                SETTING_SPECS.map((spec) => [spec.key, validSettingValue(spec, file.values[spec.key])]),
+            ) as unknown as SettingValues,
+        }
+    } catch {
+        return DEFAULT_SETTINGS
+    }
+}

@@ -15,7 +15,7 @@ export const VIEWPORT_COLORS = {
     ground: '#4c5647',
     grid: '#5c6656',
     gridMajor: '#6d7864',
-    selection: '#5c8c4a',
+    selection: '#f5a63a',
     /** The colour the wireframe overlay draws in. */
     wireframe: '#c3d6bd',
 } as const

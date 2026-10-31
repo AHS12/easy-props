@@ -1,8 +1,7 @@
 /**
  * The export choices the app remembers between exports.
  *
- * Kept in the browser's storage until the settings store of spec 07 exists. A
- * missing or damaged entry gives the defaults, never an error.
+ * Kept in the browser's storage. A missing or damaged entry gives the defaults, never an error.
  */
 
 import {BUDGET_TARGETS, DEFAULT_BUDGET_TARGET, type BudgetTargetId} from './pipeline/budget'

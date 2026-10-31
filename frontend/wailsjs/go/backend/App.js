@@ -18,6 +18,10 @@ export function DeleteProp(arg1) {
   return window['go']['backend']['App']['DeleteProp'](arg1);
 }
 
+export function GetLibraryInfo() {
+  return window['go']['backend']['App']['GetLibraryInfo']();
+}
+
 export function LibraryFolder() {
   return window['go']['backend']['App']['LibraryFolder']();
 }
@@ -28,6 +32,10 @@ export function ListProps() {
 
 export function OpenFileDialog(arg1, arg2) {
   return window['go']['backend']['App']['OpenFileDialog'](arg1, arg2);
+}
+
+export function OpenLibraryFolder() {
+  return window['go']['backend']['App']['OpenLibraryFolder']();
 }
 
 export function ReadDraft() {
@@ -46,8 +54,16 @@ export function ReadPropThumbnail(arg1) {
   return window['go']['backend']['App']['ReadPropThumbnail'](arg1);
 }
 
+export function ReadSettings() {
+  return window['go']['backend']['App']['ReadSettings']();
+}
+
 export function SaveFileDialog(arg1, arg2, arg3) {
   return window['go']['backend']['App']['SaveFileDialog'](arg1, arg2, arg3);
+}
+
+export function SetLibraryFolder(arg1) {
+  return window['go']['backend']['App']['SetLibraryFolder'](arg1);
 }
 
 export function SetUnsaved(arg1) {
@@ -72,4 +88,8 @@ export function WriteFiles(arg1, arg2) {
 
 export function WriteProp(arg1, arg2, arg3) {
   return window['go']['backend']['App']['WriteProp'](arg1, arg2, arg3);
+}
+
+export function WriteSettings(arg1) {
+  return window['go']['backend']['App']['WriteSettings'](arg1);
 }

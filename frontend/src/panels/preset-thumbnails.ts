@@ -11,7 +11,7 @@ import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 
 /** Bump when trees change, so stale pictures are drawn again. */
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 const SIZE = 180
 
 const pictures = new Map<string, string>()
@@ -100,5 +100,20 @@ export function requestPresetThumbnail(presetId: string, done: (url: string) => 
         if (at >= 0) {
             queue.splice(at, 1)
         }
+    }
+}
+
+/** Forgets every picture, so they are drawn again. */
+export function clearPresetThumbnails(): void {
+    pictures.clear()
+
+    try {
+        for (const key of Object.keys(localStorage)) {
+            if (key.startsWith('easy-props.preset-thumb.')) {
+                localStorage.removeItem(key)
+            }
+        }
+    } catch {
+        // Nothing to clear.
     }
 }

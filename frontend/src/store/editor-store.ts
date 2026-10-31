@@ -68,6 +68,8 @@ import {
     type SavedTree,
 } from '../platform/library'
 import {findAttachment} from '../core/scene/attachment'
+import {parseEdits} from '../assets/trees/painted/edits'
+import {findPreset} from '../assets/trees/presets'
 import type {Scene, SceneMaterials} from '../core/scene/scene-model'
 import type {ShadingMode} from '../assets/style/shading'
 
@@ -206,6 +208,10 @@ export interface EditorStore {
     /** Switches the viewport between lit, flat, and wireframe. */
     setShadingMode(mode: ShadingMode): void
     applyPreset(presetId: string): void
+    /** Starts a fresh prop from a preset, named after it, and leaves the saved one alone. */
+    startNewProp(presetId: string): void
+    /** Brings back a part of a painted tree that was removed. */
+    restoreRemovedPart(kind: 'limb' | 'clump', key: string): void
     /** Rerolls the tree's variation while keeping its shape. */
     randomizeTree(): void
 
@@ -561,6 +567,37 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 }),
             })
         },
+
+        startNewProp: (presetId) => {
+            get().applyPreset(presetId)
+            set({
+                treeName: findPreset(presetId)?.name ?? 'My prop',
+                currentTreeId: null,
+                filePath: null,
+                selection: EMPTY_SELECTION,
+            })
+        },
+
+        restoreRemovedPart: (kind, key) =>
+            commit('restore part', (scene, style) => {
+                const current = scene.assets[0]?.parameters.edits
+                const edits = parseEdits(typeof current === 'string' ? current : '')
+                const limbs = {...edits.limbs}
+                const clumps = {...edits.clumps}
+
+                if (kind === 'limb') {
+                    delete limbs[key]
+                } else {
+                    delete clumps[key]
+                }
+
+                return updateTreeParameters(
+                    scene,
+                    FIRST_ASSET_ID,
+                    {edits: JSON.stringify({limbs, clumps})},
+                    getStyleProfile(style),
+                )
+            }),
 
         randomizeTree: () => {
             const state = get()
