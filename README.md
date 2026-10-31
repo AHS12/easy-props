@@ -52,7 +52,7 @@ report success. On Windows, `choco install make` provides `make`, and it also ne
 for Windows in its default folder.
 
 ```bash
-make install    # Install frontend packages, first time only
+make install    # Install frontend packages and git hooks, first time only
 make dev        # Run the app with hot reload
 make build      # Build the app into build/bin
 make test       # Run the Go and frontend tests

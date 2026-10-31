@@ -19,13 +19,16 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev web build build-frontend installer mac dmg release run test test-go test-frontend test-watch typecheck lint check clean
+.PHONY: help install hooks dev web build build-frontend installer mac dmg release run test test-go test-frontend test-watch typecheck lint check clean
 
 help: ## List the tasks
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-install: ## Install the frontend packages
+install: hooks ## Install the frontend packages and the git hooks
 	pnpm --dir $(FRONTEND) install
+
+hooks: ## Run the checks in .githooks before each commit and push
+	git config core.hooksPath .githooks
 
 dev: ## Run the desktop app with hot reload
 	wails dev
