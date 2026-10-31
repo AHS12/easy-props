@@ -1,13 +1,12 @@
 # 04 — Roadmap
 
 Status: drafted, awaiting review
-Source: [`tree_modeling_tool_TDR_Wails_Go.md`](../tree_modeling_tool_TDR_Wails_Go.md) §15
 
 ---
 
 ## How this plan works
 
-The TDR's five milestones are kept. Each one is expanded into concrete
+There are five milestones. Each one is expanded into concrete
 deliverables and a **definition of done** that can be checked, not argued
 about.
 
@@ -18,8 +17,8 @@ Three rules govern the order of work:
    and nothing on screen.
 2. **The viewport comes first.** A tool whose first milestone is a data model
    is a tool that cannot be judged.
-3. **The shape library is not a later milestone.** It is Milestone 3, and the
-   TDR is explicit that it is an acceptance criterion for the MVP. If
+3. **The shape library is not a later milestone.** It is Milestone 3, and it is
+   an acceptance criterion for the MVP. If
    Milestone 3 slips, the MVP does not ship.
 
 ---
@@ -142,11 +141,9 @@ numeric parameter.
 
 ### A note on 3.12 and 3.13
 
-Push and pull was **not** in the original scope. TDR §3 listed "general
-sculpting or arbitrary vertex/edge/face editing" as a non-goal, with the
-escape clause *"do not implement these unless explicitly requested later"*.
-The user requested it explicitly, so the TDR was amended to record a
-bounded exception: TDR §7.1.
+Push and pull was **not** in the original scope. General sculpting and
+arbitrary vertex, edge or face editing were non-goals unless explicitly
+requested later. The user requested it explicitly, as a bounded exception.
 
 The bound matters. It is a **surface** operation stored as a **parameter**,
 not a mesh edit. The mesh is regenerated from the parameter, so the scene
@@ -317,11 +314,11 @@ Deferred, in priority order. None of these are committed.
 
 | Item | Why it is later |
 |---|---|
-| Rocks, bushes, grass generators | TDR §2 Goal 10 says the architecture must allow them, not that the MVP needs them |
+| Rocks, bushes, grass generators | The architecture must allow them, but the MVP does not need them |
 | Drag-and-drop polish, multi-select | Usable without it |
 | Leaflets as instanced geometry | Optimization, not a correctness issue |
-| Terrain, scattering | Explicit non-goal in TDR §3 |
-| Node graph | Explicit non-goal in TDR §3 |
+| Terrain, scattering | Explicit non-goal |
+| Node graph | Explicit non-goal |
 
 ---
 
@@ -361,8 +358,8 @@ At the end of every milestone, report:
 1. **Changed files** — what was added, changed, deleted.
 2. **What works** — verified, with the commands run.
 3. **What does not work** — stated plainly, no hedging.
-4. **Known limitations** — especially anything that violates the TDR.
+4. **Known limitations** — especially anything that breaks these specs.
 5. **The next milestone** — what it needs from you.
 
 Do not claim a feature is complete unless it has been implemented *and*
-verified, per TDR §15.
+verified.

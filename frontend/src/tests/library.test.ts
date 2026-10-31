@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {LIBRARY_PARTS} from '../assets/library/library'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 import {createInitialScene} from '../core/scene/initial-scene'
 import {findAttachment} from '../core/scene/attachment'
 import {

@@ -1,81 +1,38 @@
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {
-    applyTheme,
-    readStoredTheme,
-    resolveInitialTheme,
-    storeTheme,
-    systemTheme,
-} from '../core/settings/theme'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {applyTheme, resolveTheme, systemTheme} from '../core/settings/theme'
 
-const STORAGE_KEY = 'easy-props.theme'
+afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+})
 
-describe('theme preferences', () => {
-    beforeEach(() => {
-        window.localStorage.clear()
-        document.documentElement.removeAttribute('data-theme')
+const stubSystem = (light: boolean) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({matches: light && query.includes('light')}))
+
+describe('the theme', () => {
+    it('defaults to dark unless the system asks for light', () => {
+        stubSystem(false)
+        expect(systemTheme()).toBe('dark')
+
+        stubSystem(true)
+        expect(systemTheme()).toBe('light')
     })
 
-    afterEach(() => {
-        window.localStorage.clear()
+    it('uses the choice over the system', () => {
+        stubSystem(true)
+        expect(resolveTheme('dark')).toBe('dark')
+        expect(resolveTheme('system')).toBe('light')
     })
 
-    it('reports no stored choice by default', () => {
-        expect(readStoredTheme()).toBeNull()
-    })
-
-    it('round-trips a stored choice', () => {
-        storeTheme('dark')
-        expect(readStoredTheme()).toBe('dark')
-
-        storeTheme('light')
-        expect(readStoredTheme()).toBe('light')
-    })
-
-    it('ignores a stored value that is not a theme', () => {
-        window.localStorage.setItem(STORAGE_KEY, 'neon')
-
-        expect(readStoredTheme()).toBeNull()
-    })
-
-    it('prefers the stored choice over the system theme', () => {
-        storeTheme('dark')
-
-        expect(resolveInitialTheme()).toBe('dark')
-    })
-
-    it('falls back to the system theme when nothing is stored', () => {
-        expect(resolveInitialTheme()).toBe(systemTheme())
-    })
-
-    it('writes the theme onto the document element', () => {
+    it('marks the document, and remembers it for the first paint', () => {
         applyTheme('dark')
+
         expect(document.documentElement.dataset.theme).toBe('dark')
+        expect(document.documentElement.classList.contains('dark')).toBe(true)
+        expect(localStorage.getItem('easy-props.theme')).toBe('dark')
 
         applyTheme('light')
-        expect(document.documentElement.dataset.theme).toBe('light')
-    })
 
-    it('survives storage being unavailable', () => {
-        const original = window.localStorage
-
-        Object.defineProperty(window, 'localStorage', {
-            configurable: true,
-            value: {
-                getItem: () => null,
-                setItem: () => {
-                    throw new Error('storage disabled')
-                },
-            },
-        })
-
-        try {
-            expect(() => storeTheme('dark')).not.toThrow()
-            expect(readStoredTheme()).toBeNull()
-        } finally {
-            Object.defineProperty(window, 'localStorage', {
-                configurable: true,
-                value: original,
-            })
-        }
+        expect(document.documentElement.classList.contains('dark')).toBe(false)
     })
 })

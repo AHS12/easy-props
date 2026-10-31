@@ -1,8 +1,8 @@
 /**
  * Camera controls.
  *
- * Orbit with the left button, pan with the right button or Shift + left, and
- * zoom with the wheel. The camera is clamped so it can never flip under the
+ * By default, orbit with the left button, pan with the right button or Shift +
+ * left, and zoom with the wheel. Settings can match Blender or Unreal instead. The camera is clamped so it can never flip under the
  * ground plane or wander away from the tree.
  */
 
@@ -16,6 +16,50 @@ const MAX_DISTANCE = 40
 const DAMPING_FACTOR = 0.08
 
 export type ViewportControls = OrbitControls
+
+export type CameraScheme = 'easy-props' | 'blender' | 'unreal'
+
+/** Which buttons move the camera, given the modifier keys held at the press. */
+function buttonsFor(scheme: CameraScheme, event?: {shiftKey: boolean; altKey: boolean}) {
+    switch (scheme) {
+        case 'blender':
+            return {
+                LEFT: null,
+                MIDDLE: event?.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+                RIGHT: null,
+            }
+        case 'unreal':
+            return {
+                LEFT: event?.altKey ? THREE.MOUSE.ROTATE : null,
+                MIDDLE: THREE.MOUSE.PAN,
+                RIGHT: event?.altKey ? THREE.MOUSE.DOLLY : THREE.MOUSE.ROTATE,
+            }
+        default:
+            return {
+                LEFT: event?.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.PAN,
+            }
+    }
+}
+
+/** Follows a camera scheme until the returned function is called. */
+export function applyCameraScheme(
+    controls: OrbitControls,
+    element: HTMLElement,
+    scheme: CameraScheme,
+): () => void {
+    const update = (event: PointerEvent) => {
+        // OrbitControls reads the buttons on this same event, so this runs first
+        // by listening in the capture phase.
+        controls.mouseButtons = buttonsFor(scheme, event) as OrbitControls['mouseButtons']
+    }
+
+    controls.mouseButtons = buttonsFor(scheme) as OrbitControls['mouseButtons']
+    element.addEventListener('pointerdown', update, true)
+
+    return () => element.removeEventListener('pointerdown', update, true)
+}
 
 export function attachCameraControls(
     camera: THREE.PerspectiveCamera,
@@ -32,43 +76,9 @@ export function attachCameraControls(
     controls.minDistance = MIN_DISTANCE
     controls.maxDistance = MAX_DISTANCE
 
-    controls.mouseButtons = {
-        LEFT: THREE.MOUSE.ROTATE,
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN,
-    }
-
     controls.touches = {
         ONE: THREE.TOUCH.ROTATE,
         TWO: THREE.TOUCH.DOLLY_PAN,
-    }
-
-    // Shift + left drag pans instead of orbiting.
-    const setPanMode = (pan: boolean) => {
-        controls.mouseButtons.LEFT = pan ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Shift') {
-            setPanMode(true)
-        }
-    }
-
-    const onKeyUp = (event: KeyboardEvent) => {
-        if (event.key === 'Shift') {
-            setPanMode(false)
-        }
-    }
-
-    domElement.addEventListener('keydown', onKeyDown)
-    domElement.addEventListener('keyup', onKeyUp)
-    window.addEventListener('blur', () => setPanMode(false))
-
-    const originalDispose = controls.dispose.bind(controls)
-    controls.dispose = () => {
-        domElement.removeEventListener('keydown', onKeyDown)
-        domElement.removeEventListener('keyup', onKeyUp)
-        originalDispose()
     }
 
     controls.update()

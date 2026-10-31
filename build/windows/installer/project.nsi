@@ -30,6 +30,11 @@ Unicode true
 ####
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ####
+## Installs for the current user: no admin prompt, and updates need none either.
+####
+!define REQUEST_EXECUTION_LEVEL "user"
+!define WAILS_INSTALL_SCOPE "user"
+####
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
@@ -55,6 +60,7 @@ ManifestDPIAware true
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}" # Offer to open the app on the finish page.
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
@@ -85,6 +91,17 @@ ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+
+   # An update cannot replace a running app. Only ask if it really is running.
+   nsExec::Exec 'cmd /c tasklist /FI "IMAGENAME eq ${PRODUCT_EXECUTABLE}" /NH | find /I "${PRODUCT_EXECUTABLE}"'
+   Pop $0
+   ${If} $0 == 0
+       ${IfNot} ${Silent}
+           MessageBox MB_OKCANCEL|MB_ICONINFORMATION "${INFO_PRODUCTNAME} is open. Setup will close it to continue. Save your work first." IDOK +2
+           Abort
+       ${EndIf}
+       nsExec::Exec 'taskkill /IM ${PRODUCT_EXECUTABLE} /F'
+   ${EndIf}
 FunctionEnd
 
 Section
@@ -108,9 +125,13 @@ SectionEnd
 Section "uninstall"
     !insertmacro wails.setShellContext
 
+    nsExec::Exec 'taskkill /IM ${PRODUCT_EXECUTABLE} /F'
+
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 
-    RMDir /r $INSTDIR
+    # Only our own files, in case someone installed into a folder they use. Saved
+    # props and settings live in the user's config folder, and are kept.
+    Delete "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
@@ -119,4 +140,6 @@ Section "uninstall"
     !insertmacro wails.unassociateCustomProtocols
 
     !insertmacro wails.deleteUninstaller
+
+    RMDir $INSTDIR
 SectionEnd

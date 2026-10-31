@@ -20,10 +20,10 @@ import (
 	"time"
 )
 
-// TreeFile is one file in the library, as the gallery lists it. It is a
+// PropFile is one file in the library, as the gallery lists it. It is a
 // description of a file, not of a tree: the size is the size on disk and the
 // timestamp is the file's modification time.
-type TreeFile struct {
+type PropFile struct {
 	ID      string `json:"id"`
 	SavedAt string `json:"savedAt"` // RFC3339 of the file's modification time
 	Size    int64  `json:"size"`
@@ -52,10 +52,10 @@ func (a *App) LibraryFolder() (string, error) {
 	return a.libraryDir()
 }
 
-// ListTrees returns one entry per tree file, newest modification time first.
+// ListProps returns one entry per tree file, newest modification time first.
 // Ties are broken by id so the gallery order is stable. Directories and
 // anything not ending in ".json" are not trees and are left out.
-func (a *App) ListTrees() ([]TreeFile, error) {
+func (a *App) ListProps() ([]PropFile, error) {
 	dir, err := a.libraryDir()
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (a *App) ListTrees() ([]TreeFile, error) {
 	// The modification time decides the order but is too coarse to recover from
 	// SavedAt, so it is carried beside the entry until the sort is done.
 	type found struct {
-		tree    TreeFile
+		tree    PropFile
 		modTime time.Time
 	}
 
@@ -91,7 +91,7 @@ func (a *App) ListTrees() ([]TreeFile, error) {
 		}
 
 		foundTrees = append(foundTrees, found{
-			tree: TreeFile{
+			tree: PropFile{
 				ID:      strings.TrimSuffix(entry.Name(), treeJSONSuffix),
 				SavedAt: info.ModTime().UTC().Format(time.RFC3339),
 				Size:    info.Size(),
@@ -108,7 +108,7 @@ func (a *App) ListTrees() ([]TreeFile, error) {
 		return strings.Compare(left.tree.ID, right.tree.ID)
 	})
 
-	trees := make([]TreeFile, 0, len(foundTrees))
+	trees := make([]PropFile, 0, len(foundTrees))
 	for _, tree := range foundTrees {
 		trees = append(trees, tree.tree)
 	}
@@ -116,9 +116,9 @@ func (a *App) ListTrees() ([]TreeFile, error) {
 	return trees, nil
 }
 
-// ReadTree returns the bytes of the tree file named by id. The contents are not
+// ReadProp returns the bytes of the tree file named by id. The contents are not
 // inspected; parsing is the frontend's job, as with ReadFile.
-func (a *App) ReadTree(id string) ([]byte, error) {
+func (a *App) ReadProp(id string) ([]byte, error) {
 	path, err := a.treePath(id, treeJSONSuffix)
 	if err != nil {
 		return nil, err
@@ -127,14 +127,14 @@ func (a *App) ReadTree(id string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-// WriteTree writes the tree file named by id, replacing any existing one, and
+// WriteProp writes the tree file named by id, replacing any existing one, and
 // writes thumbnail as its PNG preview when thumbnail is non-empty. Both are
 // written to a temporary file and renamed into place, so a crash mid-write
 // cannot leave a half file behind under the tree's name.
 //
 // An empty thumbnail writes no preview at all; an existing one is left as it
 // is. Bytes are written as given: Go does not know or care what they describe.
-func (a *App) WriteTree(id string, contents []byte, thumbnail []byte) error {
+func (a *App) WriteProp(id string, contents []byte, thumbnail []byte) error {
 	path, err := a.treePath(id, treeJSONSuffix)
 	if err != nil {
 		return err
@@ -156,10 +156,10 @@ func (a *App) WriteTree(id string, contents []byte, thumbnail []byte) error {
 	return writeFileAtomic(preview, thumbnail)
 }
 
-// DeleteTree removes the tree file named by id and its preview. A preview that
+// DeleteProp removes the tree file named by id and its preview. A preview that
 // is already gone is not an error, but a tree that is gone is: there is
 // nothing to delete and the gallery is out of date.
-func (a *App) DeleteTree(id string) error {
+func (a *App) DeleteProp(id string) error {
 	path, err := a.treePath(id, treeJSONSuffix)
 	if err != nil {
 		return err
@@ -177,10 +177,10 @@ func (a *App) DeleteTree(id string) error {
 	return nil
 }
 
-// ReadTreeThumbnail returns the PNG preview of the tree named by id. A tree
+// ReadPropThumbnail returns the PNG preview of the tree named by id. A tree
 // with no preview is not an error: it returns nil, nil so the gallery can show
 // a placeholder instead of reporting a failure.
-func (a *App) ReadTreeThumbnail(id string) ([]byte, error) {
+func (a *App) ReadPropThumbnail(id string) ([]byte, error) {
 	path, err := a.treePath(id, treePNGSuffix)
 	if err != nil {
 		return nil, err

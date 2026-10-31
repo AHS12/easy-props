@@ -1,3 +1,4 @@
+import {X} from 'lucide-react'
 import {useEffect} from 'react'
 import {useEditorStore} from '../store/editor-store'
 
@@ -27,13 +28,13 @@ export function Toast() {
     }
 
     return (
-        <div className="toast" role="status">
-            <span className="toast__message">{toast.message}</span>
+        <div className="notice" role="status">
+            <span className="notice__message">{toast.message}</span>
 
             {toast.undoable ? (
                 <button
                     type="button"
-                    className="toast__action"
+                    className="notice__action"
                     onClick={() => {
                         undo()
                         dismissToast()
@@ -45,11 +46,11 @@ export function Toast() {
 
             <button
                 type="button"
-                className="toast__close"
+                className="notice__close"
                 onClick={dismissToast}
                 aria-label="Dismiss"
             >
-                ×
+                <X size={13} aria-hidden="true" />
             </button>
         </div>
     )

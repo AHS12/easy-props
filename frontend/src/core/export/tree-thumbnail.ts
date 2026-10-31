@@ -12,7 +12,7 @@ import type {SceneComponent} from '../../assets/shared/component-types'
 import {ambientColor, DEFAULT_LIGHTING, sunColor, sunDirection} from '../../assets/style/lighting'
 import {createPartMaterial} from '../../assets/style/part-material'
 import type {StyleProfile} from '../../assets/style/style-profiles'
-import {findComponentGenerator} from '../../assets/trees/component-generators'
+import {findComponentGenerator} from '../../assets/component-generators'
 import {materialColor} from '../../viewport/scene/component-renderer'
 import type {Scene, SceneMaterials} from '../scene/scene-model'
 
@@ -49,8 +49,8 @@ const VIEW_DIRECTION: readonly [number, number, number] = [0.62, 0.4, -0.62]
  * light panel or disappears into the dark one, and a green backdrop would
  * compete with the thing the card is about.
  */
-const BACKGROUND_TOP = '#d5cfc2'
-const BACKGROUND_BOTTOM = '#79736a'
+const BACKGROUND_TOP = '#55585c'
+const BACKGROUND_BOTTOM = '#2b2d30'
 const BACKGROUND_STEPS = 64
 
 const SHADE_SIZE = 32

@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import type {LibraryPart} from '../assets/library/library'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile, type StyleProfileId} from '../assets/style/style-profiles'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 import {MATERIAL_COLORS, VIEWPORT_COLORS} from './scene/materials'
 
 const PART_SIZE = 96

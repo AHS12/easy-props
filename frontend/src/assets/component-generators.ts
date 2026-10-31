@@ -1,0 +1,37 @@
+/**
+ * The registry of component generators.
+ *
+ * The viewport looks a generator up by id, so adding a new kind of part
+ * means adding an entry here and nothing else.
+ */
+
+import type {PartGenerator} from './shared/generator-types'
+import {rockBodyGenerator} from './rocks/rock-generator'
+import {branchGenerator} from './trees/components/branch'
+import {coconutClusterGenerator} from './trees/components/coconut-cluster'
+import {foliageGenerator} from './trees/components/foliage-cluster'
+import {paintedBarkGenerator, paintedClumpGenerator, paintedLimbGenerator} from './trees/components/painted-parts'
+import {palmCrownGenerator} from './trees/components/palm-crown'
+import {palmFrondGenerator} from './trees/components/palm-frond'
+import {palmTrunkGenerator} from './trees/components/palm-trunk'
+import {rootGenerator} from './trees/components/root'
+import {trunkGenerator} from './trees/components/trunk'
+
+export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
+    [branchGenerator.id]: branchGenerator,
+    [coconutClusterGenerator.id]: coconutClusterGenerator,
+    [foliageGenerator.id]: foliageGenerator,
+    [paintedBarkGenerator.id]: paintedBarkGenerator,
+    [paintedClumpGenerator.id]: paintedClumpGenerator,
+    [paintedLimbGenerator.id]: paintedLimbGenerator,
+    [palmCrownGenerator.id]: palmCrownGenerator,
+    [palmFrondGenerator.id]: palmFrondGenerator,
+    [palmTrunkGenerator.id]: palmTrunkGenerator,
+    [rockBodyGenerator.id]: rockBodyGenerator,
+    [rootGenerator.id]: rootGenerator,
+    [trunkGenerator.id]: trunkGenerator,
+}
+
+export function findComponentGenerator(id: string): PartGenerator | undefined {
+    return componentGenerators[id]
+}

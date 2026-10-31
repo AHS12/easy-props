@@ -1,76 +1,53 @@
 /**
  * Theme handling.
  *
- * Two themes share one visual language: Forest Workshop in daylight and the
- * same language at dusk. The accent does not change; only the surfaces,
- * borders, and text flip.
- *
- * The theme is applied by setting `data-theme` on the document element, so
- * the whole palette is a single CSS cascade rather than a per-component
- * branch.
+ * The theme is applied by setting `data-theme` and a class on the document
+ * element, so the whole palette is a single cascade and HeroUI follows it too.
+ * The default is dark, unless the system asks for light.
  */
 
 export type ThemeName = 'light' | 'dark'
 
-const STORAGE_KEY = 'easy-props.theme'
+export type ThemeChoice = ThemeName | 'system'
 
-/** The user's explicit choice, or `null` when they have not chosen one. */
-export function readStoredTheme(): ThemeName | null {
-    try {
-        const stored = window.localStorage.getItem(STORAGE_KEY)
-        return stored === 'light' || stored === 'dark' ? stored : null
-    } catch {
-        return null
-    }
-}
+/** Read by index.html before the app loads, so the window never flashes. */
+const FIRST_PAINT_KEY = 'easy-props.theme'
 
-export function storeTheme(theme: ThemeName): void {
-    try {
-        window.localStorage.setItem(STORAGE_KEY, theme)
-    } catch {
-        // Storage can be unavailable in a locked-down profile. The theme still
-        // applies for this session, it just will not be remembered.
-    }
-}
-
-/** The theme the operating system asks for. */
 export function systemTheme(): ThemeName {
     if (typeof window.matchMedia !== 'function') {
-        return 'light'
+        return 'dark'
     }
 
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
-/**
- * The theme to start with: the user's choice if they made one, otherwise
- * whatever the operating system asks for.
- */
-export function resolveInitialTheme(): ThemeName {
-    return readStoredTheme() ?? systemTheme()
+export function resolveTheme(choice: ThemeChoice): ThemeName {
+    return choice === 'system' ? systemTheme() : choice
 }
 
 export function applyTheme(theme: ThemeName): void {
-    document.documentElement.dataset.theme = theme
+    const root = document.documentElement
+
+    root.dataset.theme = theme
+    root.classList.toggle('dark', theme === 'dark')
+    root.classList.toggle('light', theme === 'light')
+
+    try {
+        window.localStorage.setItem(FIRST_PAINT_KEY, theme)
+    } catch {
+        // The theme still applies. The next start may flash, nothing worse.
+    }
 }
 
-/**
- * Watches for the operating system theme changing.
- *
- * The callback only fires while the user has not made an explicit choice.
- */
-export function watchSystemTheme(callback: (theme: ThemeName) => void): () => void {
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-
-    const listener = (event: MediaQueryListEvent) => {
-        if (readStoredTheme() !== null) {
-            return
-        }
-
-        callback(event.matches ? 'dark' : 'light')
+/** Calls back when the operating system's theme changes. */
+export function watchSystemTheme(callback: () => void): () => void {
+    if (typeof window.matchMedia !== 'function') {
+        return () => undefined
     }
 
-    query.addEventListener('change', listener)
+    const query = window.matchMedia('(prefers-color-scheme: light)')
 
-    return () => query.removeEventListener('change', listener)
+    query.addEventListener('change', callback)
+
+    return () => query.removeEventListener('change', callback)
 }

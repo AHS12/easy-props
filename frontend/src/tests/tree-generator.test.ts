@@ -3,14 +3,14 @@ import {getStyleProfile} from '../assets/style/style-profiles'
 import {createSeededRandom, hashSeed} from '../assets/shared/random'
 import {countTriangles} from '../assets/shared/geometry-utils'
 import {branchingTreeGenerator} from '../assets/trees/branching-tree-generator'
-import {generateTreeComponents} from '../assets/trees/tree-generators'
+import {generatePropComponents} from '../assets/prop-generators'
 import {treePresets} from '../assets/trees/presets'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 
 const STYLE = getStyleProfile('low-poly')
 
 function generateAll(seed: number, style = STYLE) {
-    const components = generateTreeComponents(
+    const components = generatePropComponents(
         'branching-tree',
         treePresets[0].parameters,
         seed,
@@ -36,7 +36,7 @@ function generateAll(seed: number, style = STYLE) {
 
 describe('tree generator', () => {
     it('produces a complete tree', () => {
-        const components = generateTreeComponents(
+        const components = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,
@@ -52,7 +52,7 @@ describe('tree generator', () => {
     })
 
     it('gives every component a unique id', () => {
-        const components = generateTreeComponents(
+        const components = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,
@@ -65,7 +65,7 @@ describe('tree generator', () => {
     })
 
     it('attaches every component to something that exists', () => {
-        const components = generateTreeComponents(
+        const components = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,
@@ -163,7 +163,7 @@ describe('geometry invariants', () => {
                 rootCount: i % 12,
             }
 
-            const components = generateTreeComponents('branching-tree', parameters, seed, STYLE)
+            const components = generatePropComponents('branching-tree', parameters, seed, STYLE)
 
             expect(components.length).toBeGreaterThan(0)
 
@@ -204,7 +204,7 @@ describe('geometry invariants', () => {
                 rootCount: i % 12,
             }
 
-            const components = generateTreeComponents(
+            const components = generatePropComponents(
                 'branching-tree',
                 parameters,
                 hashSeed(i, 13),
@@ -229,7 +229,7 @@ describe('geometry invariants', () => {
     }, 60000)
 
     it('stays inside a sane face budget', () => {
-        const components = generateTreeComponents(
+        const components = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,
@@ -257,14 +257,14 @@ describe('geometry invariants', () => {
 
 describe('style profiles', () => {
     it('keeps the same tree structure in both styles', () => {
-        const lowPoly = generateTreeComponents(
+        const lowPoly = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,
             getStyleProfile('low-poly'),
         )
 
-        const detailed = generateTreeComponents(
+        const detailed = generatePropComponents(
             'branching-tree',
             treePresets[0].parameters,
             12345,

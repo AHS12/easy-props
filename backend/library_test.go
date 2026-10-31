@@ -103,26 +103,26 @@ func TestWriteThenReadTreeRoundTripsExactBytes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.id, func(t *testing.T) {
-			if err := app.WriteTree(test.id, test.contents, test.thumbnail); err != nil {
-				t.Fatalf("WriteTree(%q): %v", test.id, err)
+			if err := app.WriteProp(test.id, test.contents, test.thumbnail); err != nil {
+				t.Fatalf("WriteProp(%q): %v", test.id, err)
 			}
 
-			got, err := app.ReadTree(test.id)
+			got, err := app.ReadProp(test.id)
 			if err != nil {
-				t.Fatalf("ReadTree(%q): %v", test.id, err)
+				t.Fatalf("ReadProp(%q): %v", test.id, err)
 			}
 
 			if !bytes.Equal(got, test.contents) {
-				t.Fatalf("ReadTree(%q) = %v, want %v", test.id, got, test.contents)
+				t.Fatalf("ReadProp(%q) = %v, want %v", test.id, got, test.contents)
 			}
 
-			gotThumbnail, err := app.ReadTreeThumbnail(test.id)
+			gotThumbnail, err := app.ReadPropThumbnail(test.id)
 			if err != nil {
-				t.Fatalf("ReadTreeThumbnail(%q): %v", test.id, err)
+				t.Fatalf("ReadPropThumbnail(%q): %v", test.id, err)
 			}
 
 			if !bytes.Equal(gotThumbnail, test.thumbnail) {
-				t.Fatalf("ReadTreeThumbnail(%q) = %v, want %v", test.id, gotThumbnail, test.thumbnail)
+				t.Fatalf("ReadPropThumbnail(%q) = %v, want %v", test.id, gotThumbnail, test.thumbnail)
 			}
 		})
 	}
@@ -131,8 +131,8 @@ func TestWriteThenReadTreeRoundTripsExactBytes(t *testing.T) {
 func TestWriteTreeWithoutThumbnailWritesNoPreview(t *testing.T) {
 	app := newLibraryApp(t)
 
-	if err := app.WriteTree("tree", []byte(`{"tree":1}`), nil); err != nil {
-		t.Fatalf("WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte(`{"tree":1}`), nil); err != nil {
+		t.Fatalf("WriteProp: %v", err)
 	}
 
 	want := []string{"tree.json"}
@@ -144,17 +144,17 @@ func TestWriteTreeWithoutThumbnailWritesNoPreview(t *testing.T) {
 func TestReadTreeThumbnailWithoutPreviewReturnsNothing(t *testing.T) {
 	app := newLibraryApp(t)
 
-	if err := app.WriteTree("tree", []byte(`{"tree":1}`), nil); err != nil {
-		t.Fatalf("WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte(`{"tree":1}`), nil); err != nil {
+		t.Fatalf("WriteProp: %v", err)
 	}
 
-	got, err := app.ReadTreeThumbnail("tree")
+	got, err := app.ReadPropThumbnail("tree")
 	if err != nil {
-		t.Fatalf("ReadTreeThumbnail: %v", err)
+		t.Fatalf("ReadPropThumbnail: %v", err)
 	}
 
 	if got != nil {
-		t.Fatalf("ReadTreeThumbnail returned %v, want nil", got)
+		t.Fatalf("ReadPropThumbnail returned %v, want nil", got)
 	}
 }
 
@@ -183,8 +183,8 @@ func TestListTreesReturnsNewestFirst(t *testing.T) {
 
 	wanted := make(map[string]wantTree, len(trees))
 	for _, tree := range trees {
-		if err := app.WriteTree(tree.id, tree.contents, nil); err != nil {
-			t.Fatalf("WriteTree(%q): %v", tree.id, err)
+		if err := app.WriteProp(tree.id, tree.contents, nil); err != nil {
+			t.Fatalf("WriteProp(%q): %v", tree.id, err)
 		}
 
 		path := filepath.Join(app.libraryRoot, tree.id+".json")
@@ -205,9 +205,9 @@ func TestListTreesReturnsNewestFirst(t *testing.T) {
 		t.Fatalf("setup backup.json: %v", err)
 	}
 
-	got, err := app.ListTrees()
+	got, err := app.ListProps()
 	if err != nil {
-		t.Fatalf("ListTrees: %v", err)
+		t.Fatalf("ListProps: %v", err)
 	}
 
 	// "alpha" and "beta" share a modification time, so the id breaks the tie.
@@ -219,23 +219,23 @@ func TestListTreesReturnsNewestFirst(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
-		t.Fatalf("ListTrees ids = %v, want %v", gotIDs, wantIDs)
+		t.Fatalf("ListProps ids = %v, want %v", gotIDs, wantIDs)
 	}
 
 	for _, tree := range got {
 		want := wanted[tree.ID]
 
 		if tree.Size != want.size {
-			t.Fatalf("ListTrees %q size = %d, want %d", tree.ID, tree.Size, want.size)
+			t.Fatalf("ListProps %q size = %d, want %d", tree.ID, tree.Size, want.size)
 		}
 
 		savedAt, err := time.Parse(time.RFC3339, tree.SavedAt)
 		if err != nil {
-			t.Fatalf("ListTrees %q SavedAt = %q is not RFC3339: %v", tree.ID, tree.SavedAt, err)
+			t.Fatalf("ListProps %q SavedAt = %q is not RFC3339: %v", tree.ID, tree.SavedAt, err)
 		}
 
 		if !savedAt.Equal(want.at) {
-			t.Fatalf("ListTrees %q SavedAt = %v, want %v", tree.ID, savedAt, want.at)
+			t.Fatalf("ListProps %q SavedAt = %v, want %v", tree.ID, savedAt, want.at)
 		}
 	}
 }
@@ -243,48 +243,48 @@ func TestListTreesReturnsNewestFirst(t *testing.T) {
 func TestListTreesOnEmptyLibraryReturnsNoTrees(t *testing.T) {
 	app := newLibraryApp(t)
 
-	got, err := app.ListTrees()
+	got, err := app.ListProps()
 	if err != nil {
-		t.Fatalf("ListTrees: %v", err)
+		t.Fatalf("ListProps: %v", err)
 	}
 
 	if len(got) != 0 {
-		t.Fatalf("ListTrees = %v, want no trees", got)
+		t.Fatalf("ListProps = %v, want no trees", got)
 	}
 
 	// An empty list, not nil: the frontend receives [] rather than null.
 	if got == nil {
-		t.Fatal("ListTrees returned nil, want an empty list")
+		t.Fatal("ListProps returned nil, want an empty list")
 	}
 }
 
 func TestWriteTreeReplacesExistingTree(t *testing.T) {
 	app := newLibraryApp(t)
 
-	if err := app.WriteTree("tree", []byte("first"), []byte("first preview")); err != nil {
-		t.Fatalf("first WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte("first"), []byte("first preview")); err != nil {
+		t.Fatalf("first WriteProp: %v", err)
 	}
 
-	if err := app.WriteTree("tree", []byte("second"), []byte("second preview")); err != nil {
-		t.Fatalf("second WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte("second"), []byte("second preview")); err != nil {
+		t.Fatalf("second WriteProp: %v", err)
 	}
 
-	got, err := app.ReadTree("tree")
+	got, err := app.ReadProp("tree")
 	if err != nil {
-		t.Fatalf("ReadTree: %v", err)
+		t.Fatalf("ReadProp: %v", err)
 	}
 
 	if string(got) != "second" {
-		t.Fatalf("ReadTree = %q, want %q", got, "second")
+		t.Fatalf("ReadProp = %q, want %q", got, "second")
 	}
 
-	gotThumbnail, err := app.ReadTreeThumbnail("tree")
+	gotThumbnail, err := app.ReadPropThumbnail("tree")
 	if err != nil {
-		t.Fatalf("ReadTreeThumbnail: %v", err)
+		t.Fatalf("ReadPropThumbnail: %v", err)
 	}
 
 	if string(gotThumbnail) != "second preview" {
-		t.Fatalf("ReadTreeThumbnail = %q, want %q", gotThumbnail, "second preview")
+		t.Fatalf("ReadPropThumbnail = %q, want %q", gotThumbnail, "second preview")
 	}
 
 	// The rename left exactly the two files behind, no temporary ones.
@@ -297,49 +297,49 @@ func TestWriteTreeReplacesExistingTree(t *testing.T) {
 func TestDeleteTreeRemovesTreeAndPreview(t *testing.T) {
 	app := newLibraryApp(t)
 
-	if err := app.WriteTree("tree", []byte(`{"tree":1}`), []byte("preview")); err != nil {
-		t.Fatalf("WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte(`{"tree":1}`), []byte("preview")); err != nil {
+		t.Fatalf("WriteProp: %v", err)
 	}
 
-	if err := app.DeleteTree("tree"); err != nil {
-		t.Fatalf("DeleteTree: %v", err)
+	if err := app.DeleteProp("tree"); err != nil {
+		t.Fatalf("DeleteProp: %v", err)
 	}
 
 	if got := libraryEntries(t, app.libraryRoot); len(got) != 0 {
 		t.Fatalf("library still holds %v after deleting the tree", got)
 	}
 
-	if _, err := app.ReadTree("tree"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("ReadTree after delete error = %v, want %v", err, fs.ErrNotExist)
+	if _, err := app.ReadProp("tree"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("ReadProp after delete error = %v, want %v", err, fs.ErrNotExist)
 	}
 }
 
 func TestDeleteTreeReportsMissingTree(t *testing.T) {
 	app := newLibraryApp(t)
 
-	err := app.DeleteTree("absent")
+	err := app.DeleteProp("absent")
 	if err == nil {
-		t.Fatal("DeleteTree of a missing tree succeeded, want an error")
+		t.Fatal("DeleteProp of a missing tree succeeded, want an error")
 	}
 
 	if !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("DeleteTree error = %v, want an error matching %v", err, fs.ErrNotExist)
+		t.Fatalf("DeleteProp error = %v, want an error matching %v", err, fs.ErrNotExist)
 	}
 }
 
 func TestDeleteTreeToleratesMissingPreview(t *testing.T) {
 	app := newLibraryApp(t)
 
-	if err := app.WriteTree("tree", []byte(`{"tree":1}`), []byte("preview")); err != nil {
-		t.Fatalf("WriteTree: %v", err)
+	if err := app.WriteProp("tree", []byte(`{"tree":1}`), []byte("preview")); err != nil {
+		t.Fatalf("WriteProp: %v", err)
 	}
 
 	if err := os.Remove(filepath.Join(app.libraryRoot, "tree.png")); err != nil {
 		t.Fatalf("setup: removing the preview: %v", err)
 	}
 
-	if err := app.DeleteTree("tree"); err != nil {
-		t.Fatalf("DeleteTree with the preview already gone: %v", err)
+	if err := app.DeleteProp("tree"); err != nil {
+		t.Fatalf("DeleteProp with the preview already gone: %v", err)
 	}
 
 	if got := libraryEntries(t, app.libraryRoot); len(got) != 0 {
@@ -360,30 +360,30 @@ func TestLibraryAcceptsValidTreeIDs(t *testing.T) {
 		t.Run(id, func(t *testing.T) {
 			app := newLibraryApp(t)
 
-			if err := app.WriteTree(id, []byte(`{"tree":1}`), []byte("preview")); err != nil {
-				t.Fatalf("WriteTree(%q): %v", id, err)
+			if err := app.WriteProp(id, []byte(`{"tree":1}`), []byte("preview")); err != nil {
+				t.Fatalf("WriteProp(%q): %v", id, err)
 			}
 
-			got, err := app.ReadTree(id)
+			got, err := app.ReadProp(id)
 			if err != nil {
-				t.Fatalf("ReadTree(%q): %v", id, err)
+				t.Fatalf("ReadProp(%q): %v", id, err)
 			}
 
 			if string(got) != `{"tree":1}` {
-				t.Fatalf("ReadTree(%q) = %q", id, got)
+				t.Fatalf("ReadProp(%q) = %q", id, got)
 			}
 
-			trees, err := app.ListTrees()
+			trees, err := app.ListProps()
 			if err != nil {
-				t.Fatalf("ListTrees: %v", err)
+				t.Fatalf("ListProps: %v", err)
 			}
 
 			if len(trees) != 1 || trees[0].ID != id {
-				t.Fatalf("ListTrees = %v, want the single tree %q", trees, id)
+				t.Fatalf("ListProps = %v, want the single tree %q", trees, id)
 			}
 
-			if err := app.DeleteTree(id); err != nil {
-				t.Fatalf("DeleteTree(%q): %v", id, err)
+			if err := app.DeleteProp(id); err != nil {
+				t.Fatalf("DeleteProp(%q): %v", id, err)
 			}
 		})
 	}
@@ -419,28 +419,28 @@ func TestLibraryRejectsInvalidTreeIDs(t *testing.T) {
 		call func(id string) error
 	}{
 		{
-			name: "WriteTree",
+			name: "WriteProp",
 			call: func(id string) error {
-				return app.WriteTree(id, []byte(`{"tree":1}`), []byte("preview"))
+				return app.WriteProp(id, []byte(`{"tree":1}`), []byte("preview"))
 			},
 		},
 		{
-			name: "ReadTree",
+			name: "ReadProp",
 			call: func(id string) error {
-				_, err := app.ReadTree(id)
+				_, err := app.ReadProp(id)
 				return err
 			},
 		},
 		{
-			name: "DeleteTree",
+			name: "DeleteProp",
 			call: func(id string) error {
-				return app.DeleteTree(id)
+				return app.DeleteProp(id)
 			},
 		},
 		{
-			name: "ReadTreeThumbnail",
+			name: "ReadPropThumbnail",
 			call: func(id string) error {
-				_, err := app.ReadTreeThumbnail(id)
+				_, err := app.ReadPropThumbnail(id)
 				return err
 			},
 		},
@@ -491,11 +491,11 @@ func TestWriteTreeReportsUnwritableLibrary(t *testing.T) {
 
 	app.libraryRoot = filepath.Join(blocker, "trees")
 
-	if err := app.WriteTree("tree", []byte(`{"tree":1}`), nil); err == nil {
-		t.Fatal("WriteTree into a library below a file succeeded, want an error")
+	if err := app.WriteProp("tree", []byte(`{"tree":1}`), nil); err == nil {
+		t.Fatal("WriteProp into a library below a file succeeded, want an error")
 	}
 
-	if _, err := app.ListTrees(); err == nil {
-		t.Fatal("ListTrees of a library below a file succeeded, want an error")
+	if _, err := app.ListProps(); err == nil {
+		t.Fatal("ListProps of a library below a file succeeded, want an error")
 	}
 }

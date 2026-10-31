@@ -7,7 +7,14 @@
   "frontend:dev:watcher": "pnpm dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "easy-props",
-    "email": ""
+    "name": "Azizul Hakim",
+    "email": "ahslucky12@gmail.com"
+  },
+  "info": {
+    "companyName": "easy-props",
+    "productName": "easy-props",
+    "productVersion": "0.1.0",
+    "copyright": "© 2026 Azizul Hakim",
+    "comments": "Make game-ready trees and props, with no 3D experience needed."
   }
 }

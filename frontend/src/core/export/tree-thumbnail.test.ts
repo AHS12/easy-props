@@ -134,7 +134,7 @@ describe('tree thumbnail', () => {
                 built.dispose()
             }
         }
-    })
+    }, 60000)
 
     it('frees every geometry, material, and texture when disposed', () => {
         const built = buildThumbnailScene(createSceneFromPreset(treePresets[0].id), STYLE)

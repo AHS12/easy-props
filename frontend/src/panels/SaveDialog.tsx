@@ -5,9 +5,9 @@
  * the app would use anyway, so a beginner can press Enter and carry on.
  */
 
-import {useEffect, useRef, useState} from 'react'
+import {useEffect, useState} from 'react'
+import {Dialog} from '../components/controls'
 import {useEditorStore} from '../store/editor-store'
-import '../styles/save-dialog.css'
 
 export function SaveDialog() {
     const prompt = useEditorStore((state) => state.savePrompt)
@@ -15,7 +15,6 @@ export function SaveDialog() {
     const cancelSave = useEditorStore((state) => state.cancelSave)
 
     const [name, setName] = useState('')
-    const input = useRef<HTMLInputElement>(null)
 
     // The field starts empty and the suggestion sits in the placeholder: what
     // is typed is always the whole name, and a blank field takes the default.
@@ -25,63 +24,43 @@ export function SaveDialog() {
         }
     }, [prompt])
 
-    if (!prompt) {
-        return null
-    }
-
     return (
-        <div
-            className="save-dialog"
-            onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                    event.preventDefault()
-                    cancelSave()
-                }
-            }}
-        >
+        <Dialog open={prompt !== null} onClose={cancelSave} title={prompt?.title ?? 'Save'}>
             <form
-                className="save-dialog__panel"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="save-dialog-title"
+                className="dialog__form"
                 onSubmit={(event) => {
                     event.preventDefault()
                     void finishSave(name)
                 }}
             >
-                <h2 className="save-dialog__title" id="save-dialog-title">
-                    {prompt.title}
-                </h2>
-
-                <label className="save-dialog__label" htmlFor="save-dialog-name">
+                <label className="dialog__label" htmlFor="save-dialog-name">
                     Name
                 </label>
                 <input
-                    className="save-dialog__input"
+                    className="field"
                     id="save-dialog-name"
-                    ref={input}
                     value={name}
                     maxLength={60}
                     autoComplete="off"
                     spellCheck={false}
                     autoFocus
-                    placeholder={prompt.name}
+                    placeholder={prompt?.name}
                     onChange={(event) => setName(event.target.value)}
                 />
 
-                <p className="save-dialog__hint">
-                    Leave it blank to keep “{prompt.name}”. You can rename it later in My props.
+                <p className="dialog__hint">
+                    Leave it blank to keep “{prompt?.name}”. You can rename it any time.
                 </p>
 
-                <div className="save-dialog__actions">
-                    <button type="button" className="btn btn--ghost" onClick={cancelSave}>
+                <div className="dialog__actions">
+                    <button type="button" className="button" onClick={cancelSave}>
                         Cancel
                     </button>
-                    <button type="submit" className="btn btn--primary">
+                    <button type="submit" className="button button--primary">
                         Save
                     </button>
                 </div>
             </form>
-        </div>
+        </Dialog>
     )
 }

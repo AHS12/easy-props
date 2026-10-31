@@ -1,17 +1,20 @@
 /**
- * The start page: the trees you have made, and ways to make another.
+ * Home, in the manner of a project browser: recent props first, then a new one by
+ * kind, then the presets for that kind.
  *
  * This is the first thing the app shows, so it answers two questions in one
- * breath — what have I got, and where do I start — without a menu.
+ * breath: what have I got, and where do I start.
  */
 
+import {Box, Brush, Pencil, RotateCcw, Search, Trash2, TreePine, X, type LucideIcon} from 'lucide-react'
 import {useEffect, useMemo, useState} from 'react'
-import {findPreset, shownPresets} from '../assets/trees/presets'
-import {STARTER_PRESET_ID} from '../core/scene/initial-scene'
-import {PresetIcon} from '../panels/PresetIcon'
+import {presetGroups, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
+import {canUndo} from '../core/history/history'
+import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
 import {useEditorStore} from '../store/editor-store'
-import '../styles/gallery-page.css'
+
+const FAMILY_ICONS: Readonly<Record<PropFamily, LucideIcon>> = {tree: TreePine, rock: Box, bush: Brush}
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -59,26 +62,6 @@ function displayName(tree: SavedTree): string {
     return name === '' ? 'Untitled tree' : name
 }
 
-function TreeGlyph({size = 34}: {size?: number}) {
-    return (
-        <svg
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-        >
-            <path d="M12 3.5 17 11H7z" />
-            <path d="M12 8.5 18.5 16H5.5z" />
-            <path d="M12 16v4.5" />
-        </svg>
-    )
-}
-
 interface CardProps {
     tree: SavedTree
     current: boolean
@@ -115,19 +98,18 @@ function TreeCard({
 
     if (renaming) {
         return (
-            <li className="gallery-card home-card" data-current={current ? 'true' : 'false'}>
-                <div className="home-card__rename">
-                    <label className="visually-hidden" htmlFor={`rename-${tree.id}`}>
+            <li className="prop-tile" data-current={current}>
+                <div className="prop-tile__panel">
+                    <label className="dialog__label" htmlFor={`rename-${tree.id}`}>
                         New name for {name}
                     </label>
                     <input
-                        className="home-card__input"
+                        className="field"
                         id={`rename-${tree.id}`}
                         value={draft}
                         maxLength={60}
                         autoFocus
                         onFocus={(event) => event.currentTarget.select()}
-                        placeholder={name}
                         onChange={(event) => setDraft(event.target.value)}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
@@ -139,20 +121,12 @@ function TreeCard({
                             }
                         }}
                     />
-                    <div className="home-card__rename-actions">
-                        <button
-                            type="button"
-                            className="btn btn--primary btn--sm"
-                            onClick={commitRename}
-                        >
-                            Rename
-                        </button>
-                        <button
-                            type="button"
-                            className="btn btn--ghost btn--sm"
-                            onClick={() => setRenaming(false)}
-                        >
+                    <div className="prop-tile__choices">
+                        <button type="button" className="button" onClick={() => setRenaming(false)}>
                             Cancel
+                        </button>
+                        <button type="button" className="button button--primary" onClick={commitRename}>
+                            Rename
                         </button>
                     </div>
                 </div>
@@ -162,9 +136,9 @@ function TreeCard({
 
     if (confirming) {
         return (
-            <li className="gallery-card home-card home-card--confirming" data-current="false">
+            <li className="prop-tile prop-tile--confirm">
                 <div
-                    className="gallery-card__confirm"
+                    className="prop-tile__panel"
                     role="group"
                     aria-label={`Delete ${name}?`}
                     onKeyDown={(event) => {
@@ -174,19 +148,14 @@ function TreeCard({
                         }
                     }}
                 >
-                    <p className="gallery-card__question">Delete “{name}”?</p>
-                    <p className="home-card__note">This cannot be undone.</p>
-                    <div className="gallery-card__choices">
-                        <button type="button" className="btn btn--danger btn--sm" onClick={onDelete}>
-                            Delete
-                        </button>
-                        <button
-                            type="button"
-                            className="btn btn--ghost btn--sm"
-                            autoFocus
-                            onClick={onCancel}
-                        >
+                    <p className="prop-tile__question">Delete “{name}”?</p>
+                    <p className="dialog__hint">This cannot be undone.</p>
+                    <div className="prop-tile__choices">
+                        <button type="button" className="button" autoFocus onClick={onCancel}>
                             Keep it
+                        </button>
+                        <button type="button" className="button button--danger" onClick={onDelete}>
+                            Delete
                         </button>
                     </div>
                 </div>
@@ -195,58 +164,42 @@ function TreeCard({
     }
 
     return (
-        <li className="gallery-card home-card" data-current={current ? 'true' : 'false'}>
-            <button type="button" className="gallery-card__open" title={name} onClick={onOpen}>
-                <span className="gallery-card__thumb">
+        <li className="prop-tile" data-current={current}>
+            <button type="button" className="prop-tile__open" title={name} onClick={onOpen}>
+                <span className="prop-tile__thumb">
                     {tree.thumbnail ? (
-                        <img className="gallery-card__image" src={tree.thumbnail} alt="" />
+                        <img src={tree.thumbnail} alt="" draggable={false} />
                     ) : (
-                        <span className="home-card__placeholder">
-                            <TreeGlyph />
-                        </span>
+                        <TreePine size={30} aria-hidden="true" />
                     )}
                 </span>
-                <span className="gallery-card__meta">
-                    <span className="gallery-card__name">{name}</span>
-                    <span className="gallery-card__foot">
-                        <span className="gallery-card__time">{savedLabel(tree.savedAt)}</span>
-                        {current ? <span className="gallery-card__badge">Editing</span> : null}
-                    </span>
+                <span className="prop-tile__name">{name}</span>
+                <span className="prop-tile__meta">
+                    {savedLabel(tree.savedAt)}
+                    {current ? <span className="prop-tile__badge">Editing</span> : null}
                 </span>
             </button>
-            <div className="home-card__actions">
+            <div className="prop-tile__actions">
                 <button
                     type="button"
-                    className="gallery-card__delete home-card__rename-button"
+                    className="icon-button icon-button--overlay"
                     aria-label={`Rename ${name}`}
-                    title={`Rename ${name}`}
+                    title="Rename"
                     onClick={() => {
                         setDraft(name)
                         setRenaming(true)
                     }}
                 >
-                    <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                    >
-                        <path d="M4 20h4L20 8l-4-4L4 16z" />
-                    </svg>
+                    <Pencil size={12} aria-hidden="true" />
                 </button>
                 <button
                     type="button"
-                    className="gallery-card__delete"
+                    className="icon-button icon-button--overlay"
                     aria-label={`Delete ${name}`}
-                    title={`Delete ${name}`}
+                    title="Delete"
                     onClick={onAskDelete}
                 >
-                    <span aria-hidden="true">×</span>
+                    <Trash2 size={12} aria-hidden="true" />
                 </button>
             </div>
         </li>
@@ -262,14 +215,15 @@ export function GalleryPage() {
     const restoreDraft = useEditorStore((state) => state.restoreDraft)
     const discardDraft = useEditorStore((state) => state.discardDraft)
     const currentTreeId = useEditorStore((state) => state.currentTreeId)
-    const treeName = useEditorStore((state) => state.treeName)
-    const setTreeName = useEditorStore((state) => state.setTreeName)
-    const applyPreset = useEditorStore((state) => state.applyPreset)
+    const startNewProp = useEditorStore((state) => state.startNewProp)
     const openTree = useEditorStore((state) => state.openTree)
     const renameTree = useEditorStore((state) => state.renameTree)
     const removeTree = useEditorStore((state) => state.removeTree)
     const showEditor = useEditorStore((state) => state.showEditor)
+    const treeName = useEditorStore((state) => state.treeName)
+    const history = useEditorStore((state) => state.history)
 
+    const [family, setFamily] = useState<PropFamily>('tree')
     const [search, setSearch] = useState('')
     const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
@@ -278,196 +232,148 @@ export function GalleryPage() {
         void refreshDraft()
     }, [refreshGallery, refreshDraft])
 
-    const start = (presetId: string, name: string) => {
-        setTreeName(name)
-        applyPreset(presetId)
-    }
-
     const needle = search.trim().toLowerCase()
 
     const visible = useMemo(
-        () =>
-            needle === ''
-                ? gallery
-                : gallery.filter((tree) => displayName(tree).toLowerCase().includes(needle)),
+        () => (needle === '' ? gallery : gallery.filter((tree) => displayName(tree).toLowerCase().includes(needle))),
         [gallery, needle],
     )
 
+    // Only something opened or changed in this session is worth going back to.
+    const inHand = currentTreeId !== null || canUndo(history)
+
     return (
         <main className="home">
-            <header className="home__bar">
-                <div className="home__brand">
-                    <span className="home__mark" aria-hidden="true">
-                        <TreeGlyph size={22} />
-                    </span>
-                    <span className="home__wordmark">easy-props</span>
-                </div>
+            <div className="home__inner">
+                <header className="home__head">
+                    <div>
+                        <h1 className="home__title">Make a prop for your game</h1>
+                        <p className="home__sub">Start from a preset, shape it, and export it. No 3D experience needed.</p>
+                    </div>
+                    {inHand ? (
+                        <button type="button" className="button" onClick={showEditor}>
+                            <RotateCcw size={13} aria-hidden="true" />
+                            Back to “{treeName}”
+                        </button>
+                    ) : null}
+                </header>
 
-                <div className="home__actions">
-                    <button
-                        type="button"
-                        className="btn btn--secondary"
-                        onClick={showEditor}
-                        title="Back to the tree you were editing"
-                    >
-                        Keep editing
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn--primary"
-                        onClick={() => start(STARTER_PRESET_ID, findPreset(STARTER_PRESET_ID)?.name ?? 'My tree')}
-                    >
-                        New tree
-                    </button>
-                </div>
-            </header>
-
-            <div className="home__body">
                 {draftAvailable ? (
-                    <section className="home__section">
-                        <div className="home__draft">
-                            <div>
-                                <h2 className="home__draft-title">You left some work unsaved</h2>
-                                <p className="home__draft-text">
-                                    The app was closed before you saved. Pick it up, or start
-                                    again from a saved prop.
-                                </p>
-                            </div>
-                            <div className="home__draft-actions">
-                                <button
-                                    type="button"
-                                    className="btn btn--primary btn--sm"
-                                    onClick={() => void restoreDraft()}
-                                >
-                                    Pick up where I left off
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn--ghost btn--sm"
-                                    onClick={() => void discardDraft()}
-                                >
-                                    Discard it
-                                </button>
-                            </div>
+                    <section className="home__draft">
+                        <div>
+                            <h2 className="home__draft-title">You left some work unsaved</h2>
+                            <p className="dialog__hint">The app closed before you saved. Pick it up, or let it go.</p>
+                        </div>
+                        <div className="home__draft-actions">
+                            <button type="button" className="button" onClick={() => void discardDraft()}>
+                                Discard it
+                            </button>
+                            <button type="button" className="button button--primary" onClick={() => void restoreDraft()}>
+                                Pick up where I left off
+                            </button>
                         </div>
                     </section>
                 ) : null}
 
-                <section className="home__section">
-                    <div className="home__heading">
-                        <div>
-                            <h1 className="home__title">Your props</h1>
-                            <p className="home__sub">
-                                {currentTreeId === null
-                                    ? 'Save a prop and it lives here, ready to open again.'
-                                    : `You are editing “${treeName}”.`}
-                            </p>
+                {gallery.length > 0 || galleryLoading ? (
+                    <section className="home__section" aria-label="Recent props">
+                        <div className="home__section-head">
+                            <h2 className="home__section-title">Recent props</h2>
+                            {gallery.length > 6 ? (
+                                <div className="filter home__filter">
+                                    <Search size={13} aria-hidden="true" className="filter__icon" />
+                                    <input
+                                        className="filter__input"
+                                        placeholder="Search your props"
+                                        aria-label="Search your props"
+                                        value={search}
+                                        onChange={(event) => setSearch(event.target.value)}
+                                    />
+                                    {search ? (
+                                        <button type="button" className="filter__clear" aria-label="Clear search" onClick={() => setSearch('')}>
+                                            <X size={12} aria-hidden="true" />
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
                         </div>
 
-                        {gallery.length > 3 ? (
-                            <div className="gallery-search home__search">
-                                <input
-                                    className="search"
-                                    type="search"
-                                    placeholder="Search your props"
-                                    aria-label="Search your props"
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                />
-                                {search !== '' ? (
+                        {galleryLoading && gallery.length === 0 ? (
+                            <p className="dialog__hint" role="status">
+                                Looking for your props…
+                            </p>
+                        ) : visible.length === 0 ? (
+                            <p className="dialog__hint">No prop by that name. Try a shorter word.</p>
+                        ) : (
+                            <ul className="tile-grid">
+                                {visible.map((tree) => (
+                                    <TreeCard
+                                        key={tree.id}
+                                        tree={tree}
+                                        current={tree.id === currentTreeId}
+                                        confirming={tree.id === confirmingId}
+                                        onOpen={() => void openTree(tree.id)}
+                                        onAskDelete={() => setConfirmingId(tree.id)}
+                                        onDelete={() => {
+                                            setConfirmingId(null)
+                                            void removeTree(tree.id)
+                                        }}
+                                        onCancel={() => setConfirmingId(null)}
+                                        onRename={(name) => void renameTree(tree.id, name)}
+                                    />
+                                ))}
+                            </ul>
+                        )}
+                    </section>
+                ) : null}
+
+                <section className="home__section" aria-label="Start a new prop">
+                    <div className="home__section-head">
+                        <h2 className="home__section-title">Start a new prop</h2>
+                        <div className="kind-tabs" role="tablist" aria-label="Kind of prop">
+                            {PROP_FAMILIES.map(({id, label}) => {
+                                const Icon = FAMILY_ICONS[id]
+
+                                return (
                                     <button
+                                        key={id}
                                         type="button"
-                                        className="gallery-search__clear"
-                                        aria-label="Clear search"
-                                        title="Clear search"
-                                        onClick={() => setSearch('')}
+                                        role="tab"
+                                        className="kind-tab"
+                                        aria-selected={family === id}
+                                        onClick={() => setFamily(id)}
                                     >
-                                        <span aria-hidden="true">×</span>
+                                        <Icon size={14} aria-hidden="true" />
+                                        {label}
                                     </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {presetGroups
+                        .filter((group) => group.family === family)
+                        .map((group) => (
+                            <div key={group.title}>
+                                {presetGroups.filter((other) => other.family === family).length > 1 ? (
+                                    <h3 className="settings__group">{group.title}</h3>
                                 ) : null}
+                                <div className="preset-grid preset-grid--wide">
+                                    {group.presets.map((preset) => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            className="preset-card"
+                                            title={preset.sub}
+                                            onClick={() => startNewProp(preset.id)}
+                                        >
+                                            <PresetThumb presetId={preset.id} />
+                                            <span className="preset-card__name">{preset.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        ) : null}
-                    </div>
-
-                    {galleryLoading && gallery.length === 0 ? (
-                        <p className="gallery-note" role="status">
-                            Looking for your trees…
-                        </p>
-                    ) : gallery.length === 0 ? (
-                        <div className="home__blank">
-                            <span className="home__blank-icon">
-                                <TreeGlyph size={40} />
-                            </span>
-                            <h2>Nothing saved yet</h2>
-                            <p>
-                                Pick a starting point below, make it yours, then press{' '}
-                                <kbd>Ctrl</kbd> <span aria-hidden="true">+</span> <kbd>S</kbd> to
-                                keep it here.
-                            </p>
-                        </div>
-                    ) : visible.length === 0 ? (
-                        <div className="home__blank">
-                            <h2>No tree by that name</h2>
-                            <p>Try a shorter word.</p>
-                            <button
-                                type="button"
-                                className="btn btn--secondary btn--sm"
-                                onClick={() => setSearch('')}
-                            >
-                                Clear search
-                            </button>
-                        </div>
-                    ) : (
-                        <ul className="gallery-grid home__grid">
-                            {visible.map((tree) => (
-                                <TreeCard
-                                    key={tree.id}
-                                    tree={tree}
-                                    current={tree.id === currentTreeId}
-                                    confirming={tree.id === confirmingId}
-                                    onOpen={() => void openTree(tree.id)}
-                                    onAskDelete={() => setConfirmingId(tree.id)}
-                                    onDelete={() => {
-                                        setConfirmingId(null)
-                                        void removeTree(tree.id)
-                                    }}
-                                    onCancel={() => setConfirmingId(null)}
-                                    onRename={(name) => void renameTree(tree.id, name)}
-                                />
-                            ))}
-                        </ul>
-                    )}
-                </section>
-
-                <section className="home__section home__section--start">
-                    <div className="home__heading">
-                        <div>
-                            <h2 className="home__title home__title--small">Start a new tree</h2>
-                            <p className="home__sub">
-                                Every tree begins somewhere. You can change everything after.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="preset-grid home__presets">
-                        {shownPresets.map((preset) => (
-                            <button
-                                key={preset.id}
-                                type="button"
-                                className="preset-card"
-                                title={preset.sub}
-                                onClick={() => start(preset.id, preset.name)}
-                            >
-                                <div className="preset-card__thumb">
-                                    <PresetIcon presetId={preset.id} />
-                                </div>
-                                <div className="preset-card__meta">
-                                    <div className="preset-card__name">{preset.name}</div>
-                                    <div className="preset-card__sub">{preset.sub}</div>
-                                </div>
-                            </button>
                         ))}
-                    </div>
                 </section>
             </div>
         </main>

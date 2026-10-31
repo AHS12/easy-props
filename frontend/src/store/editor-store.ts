@@ -47,10 +47,13 @@ import {
     updateTreeParameters,
 } from '../core/scene/scene-ops'
 import {STYLE_ORDER} from '../assets/style/style-profiles'
-import {exportGLB} from '../core/export/glb-exporter'
+import {batchItems, type BatchChoice} from '../core/export/batch-items'
+import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences} from '../core/export/export-preferences'
+import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
+import type {BudgetTargetId, FaceCounts} from '../core/export/pipeline/budget'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
-import {exportGLBFile, openProjectFile, saveProjectFile} from '../platform/desktop'
+import {openProjectFile, saveProjectFile, writeFilesTo} from '../platform/desktop'
 import {
     clearDraftText,
     readDraftText,
@@ -65,6 +68,8 @@ import {
     type SavedTree,
 } from '../platform/library'
 import {findAttachment} from '../core/scene/attachment'
+import {parseEdits} from '../assets/trees/painted/edits'
+import {findPreset} from '../assets/trees/presets'
 import type {Scene, SceneMaterials} from '../core/scene/scene-model'
 import type {ShadingMode} from '../assets/style/shading'
 
@@ -110,7 +115,7 @@ function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
     return `${base} ${count}`
 }
 import type {LibraryPart} from '../assets/library/library'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 import {describeComponent, type SceneComponent, type SurfacePush} from '../assets/shared/component-types'
 
 export type EditorStatus = {
@@ -124,6 +129,17 @@ export interface Toast {
     /** Set when the toast offers an undo. */
     readonly undoable: boolean
 }
+
+/** How far a batch has got. It has a summary once it has finished. */
+export interface BatchState {
+    readonly done: number
+    readonly total: number
+    readonly current: string | null
+    readonly summary: BatchSummary | null
+}
+
+/** Stops the batch that is running. Not state: nothing draws it. */
+let batchController: AbortController | null = null
 
 export interface EditorStore {
     scene: Scene
@@ -192,6 +208,10 @@ export interface EditorStore {
     /** Switches the viewport between lit, flat, and wireframe. */
     setShadingMode(mode: ShadingMode): void
     applyPreset(presetId: string): void
+    /** Starts a fresh prop from a preset, named after it, and leaves the saved one alone. */
+    startNewProp(presetId: string): void
+    /** Brings back a part of a painted tree that was removed. */
+    restoreRemovedPart(kind: 'limb' | 'clump', key: string): void
     /** Rerolls the tree's variation while keeping its shape. */
     randomizeTree(): void
 
@@ -218,8 +238,29 @@ export interface EditorStore {
     saveProjectToFile(): Promise<void>
     /** Opens a project file the user picks. */
     openProject(): Promise<void>
-    /** Writes a GLB wherever the user chooses. */
-    exportModel(): Promise<void>
+    /** Opens the export panel. */
+    exportModel(): void
+    exportOpen: boolean
+    closeExport(): void
+    /** Closes the export panel and says what it wrote. */
+    finishExport(message: string): void
+    /** The panel for exporting many props. A batch outlives it. */
+    batchOpen: boolean
+    openBatch(): void
+    closeBatch(): void
+    /** The batch running or just finished, or null. */
+    batch: BatchState | null
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences): void
+    cancelBatch(): void
+    clearBatch(): void
+    /** Which detail level the viewport is showing. */
+    previewLevel: number
+    setPreviewLevel(level: number): void
+    /** The faces the current prop will export with at full detail. */
+    faceCounts: FaceCounts
+    setFaceCounts(counts: FaceCounts): void
+    budgetTarget: BudgetTargetId
+    setBudgetTarget(target: BudgetTargetId): void
 
     /** Every tree in the gallery, newest first. */
     gallery: readonly SavedTree[]
@@ -526,6 +567,37 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 }),
             })
         },
+
+        startNewProp: (presetId) => {
+            get().applyPreset(presetId)
+            set({
+                treeName: findPreset(presetId)?.name ?? 'My prop',
+                currentTreeId: null,
+                filePath: null,
+                selection: EMPTY_SELECTION,
+            })
+        },
+
+        restoreRemovedPart: (kind, key) =>
+            commit('restore part', (scene, style) => {
+                const current = scene.assets[0]?.parameters.edits
+                const edits = parseEdits(typeof current === 'string' ? current : '')
+                const limbs = {...edits.limbs}
+                const clumps = {...edits.clumps}
+
+                if (kind === 'limb') {
+                    delete limbs[key]
+                } else {
+                    delete clumps[key]
+                }
+
+                return updateTreeParameters(
+                    scene,
+                    FIRST_ASSET_ID,
+                    {edits: JSON.stringify({limbs, clumps})},
+                    getStyleProfile(style),
+                )
+            }),
 
         randomizeTree: () => {
             const state = get()
@@ -915,19 +987,56 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
         },
 
-        exportModel: async () => {
+        exportModel: () => set({exportOpen: true}),
+        exportOpen: false,
+        closeExport: () => set({exportOpen: false}),
+        finishExport: (message) => set({exportOpen: false, toast: {message, undoable: false}}),
+        batchOpen: false,
+        openBatch: () => set({batchOpen: true, exportOpen: false}),
+        closeBatch: () => set({batchOpen: false}),
+        batch: null,
+        startBatch: (choices, variations, {engine, levels, collision, wind, folder}) => {
             const state = get()
 
-            try {
-                const bytes = await exportGLB(state.scene, {style: getStyleProfile(state.style)})
-                const path = await exportGLBFile(bytes, 'my-tree.glb')
-
-                if (path) {
-                    set({toast: {message: `Exported ${fileNameOf(path)}`, undoable: false}})
-                }
-            } catch (error) {
-                set({toast: {message: describeFailure(error, 'export'), undoable: false}})
+            if (state.batch && !state.batch.summary) {
+                return
             }
+
+            const controller = new AbortController()
+            const items = batchItems(choices, variations, {
+                style: state.style,
+                appVersion: APP_VERSION,
+                readInSavedProp: readTree,
+            })
+
+            batchController = controller
+            set({batch: {done: 0, total: items.length, current: null, summary: null}})
+
+            void runBatch(items, {
+                settings: {engine, levels, collision, wind},
+                budget: state.budgetTarget,
+                signal: controller.signal,
+                write: (files) => writeFilesTo(folder, files),
+                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null}}),
+            }).then((summary) => {
+                batchController = null
+                set({
+                    batch: {done: summary.exported, total: summary.total, current: null, summary},
+                    // The panel may be long closed, so the news comes back with it.
+                    batchOpen: true,
+                })
+            })
+        },
+        cancelBatch: () => batchController?.abort(),
+        clearBatch: () => set({batch: null}),
+        previewLevel: 0,
+        setPreviewLevel: (previewLevel) => set({previewLevel}),
+        faceCounts: {wood: 0, leaves: 0},
+        setFaceCounts: (faceCounts) => set({faceCounts}),
+        budgetTarget: loadBudgetTarget(),
+        setBudgetTarget: (budgetTarget) => {
+            saveBudgetTarget(budgetTarget)
+            set({budgetTarget})
         },
 
         undo: () => {

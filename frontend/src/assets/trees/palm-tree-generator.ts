@@ -9,7 +9,7 @@
 
 import * as THREE from 'three'
 import {z} from 'zod'
-import type {GeneratedComponent, TreeGenerator} from '../shared/generator-types'
+import type {GeneratedComponent, PropGenerator} from '../shared/generator-types'
 import {IDENTITY_TRANSFORM, type Transform} from '../shared/component-types'
 import {buildSpinePoints} from '../shared/geometry-utils'
 import {createSeededRandom, hashSeed, randomRange} from '../shared/random'
@@ -215,7 +215,7 @@ function transformOf(position: THREE.Vector3, rotation: Transform['rotation']): 
     }
 }
 
-export const palmTreeGenerator: TreeGenerator<PalmTreeParameters> = {
+export const palmTreeGenerator: PropGenerator<PalmTreeParameters> = {
     id: 'palm-tree',
     version: 1,
     label: 'Palm',

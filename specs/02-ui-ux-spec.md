@@ -1,8 +1,7 @@
 # 02 — UI/UX Specification
 
 Status: drafted, awaiting review
-Source: [`tree_modeling_tool_TDR_Wails_Go.md`](../tree_modeling_tool_TDR_Wails_Go.md),
-[`01-product-spec.md`](./01-product-spec.md)
+Source: [`01-product-spec.md`](./01-product-spec.md)
 Visual direction: **Forest Workshop** — warm, light, craft-oriented chrome;
 deep woodland viewport; earthy accents.
 
@@ -318,7 +317,7 @@ Product motion: short, functional, never ceremonial.
 - Left: app mark (a small stylized tree glyph) + `easy-props` 15px/700.
   Asset family tabs follow: **Tree** (active), **Rock**, **Bush**. Rock and
   Bush are disabled with a "Coming soon" tooltip; they signal the roadmap
-  without breaking the promise of the TDR. A hairline divider and the
+  without breaking any promise. A hairline divider and the
   **theme toggle** come next.
 - Center: the **Style** segmented control, `Low-poly │ Detailed`. It is
   centered because it changes everything on screen and must be findable
@@ -343,8 +342,8 @@ stacking two browsing surfaces in 288px.
   current distance from what the camera is looking at. The hit area is
   larger than the ball, because the ball has to stay small enough to fit.
 - Bottom-right: a face-count chip, `--text-caption` on a translucent scrim.
-  This is the visible proof that real geometry exists (TDR §17 forbids a
-  decorative fake viewport).
+  This is the visible proof that real geometry exists (a decorative fake
+  viewport is forbidden).
 - Top-left: a transient hint strip that appears on first selection
   (*"Drag the green handles to shape it"*) and fades after the first drag.
 
@@ -482,7 +481,7 @@ The hero interaction. A beginner's first click lands here.
 
 ### 4.4 Segmented control
 
-The primary control type for categorical properties (TDR §5, plain-language
+The primary control type for categorical properties (the plain-language
 rule).
 
 - Height 32px, `--radius-pill`, background `--surface-sunken`, 3px inner
@@ -532,7 +531,7 @@ A titled, collapsible section in the inspector.
 
 ### 4.7 Viewport handles
 
-Direct manipulation is a core TDR requirement (§7). Handles must read as
+Direct manipulation is a core requirement. Handles must read as
 inviting.
 
 - Sphere, 6.5px radius in screen space (constant regardless of zoom), so
@@ -930,40 +929,3 @@ beginners abandon.
 13. Exposing vertex counts, normals, UVs, or material graphs.
 14. Modals for long forms.
 15. Animation that delays the task or blocks the next action.
-
----
-
-## 10. Traceability to the TDR
-
-| TDR requirement | Spec section |
-|---|---|
-| §4 Show the 3D viewport immediately | §3.1, §5.1 |
-| §4 Clear visual preset cards | §4.2, §5.1 |
-| §4 Discoverable common actions | §3.1 top bar, §6.6 |
-| §4 Direct manipulation, plain-language controls | §4.4-4.5, §6.3 |
-| §4 No vertices/edges/faces/topology/shaders in the default workflow | §9.1, §9.13 |
-| §4 Useful defaults, intentional-looking output | §5.1, §5.4 |
-| §4 Contextual controls | §3.1 inspector, §5.3 |
-| §4 Undo and redo | §6.4 |
-| §4 Visible selection and hover feedback | §6.2, §4.7 |
-| §4 No AI or internet required | §5.1 (no network, no login) |
-| §4 Primary workflow | §5.1, §5.2, §5.3, §5.6 |
-| §5.3 Add parts with one click | §5.2 |
-| §5.3 Drag-and-drop where practical | §5.2 |
-| §5.3 Sensible default attachment | §5.2 |
-| §5.3 Duplicate preserving parameters | §6.5 |
-| §5.3 Seed-based randomization | §5.5 |
-| §5.4 Avoid the blank canvas trap | §9.5, §4.9 |
-| §7 Orbit, pan, zoom | §6.1 |
-| §7 Select tree or component | §6.2 |
-| §7 Move, rotate, scale | §4.5, §6.3 |
-| §7 Drag editable handles | §4.7, §6.3 |
-| §7 Duplicate and delete | §6.5 |
-| §7 Undo and redo | §6.4 |
-| §7 Reset to preset defaults | §3.1 inspector footer |
-| §7 Randomize preserving structure | §5.5 |
-| §7 Switch low-poly and detailed | §5.4 |
-| §13 Responsive while editing | §3.2 |
-| §13 Dispose obsolete geometry | [03-architecture-spec §9](./03-architecture-spec.md) |
-| §14 Manual acceptance checks | [01-product-spec §6.1](./01-product-spec.md) |
-| Beginner-friendly and attractive (§4, §16) | §2.2 Themes, §4.1 Theme toggle, §9 Forbidden patterns |

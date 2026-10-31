@@ -14,6 +14,7 @@ export type ComponentType =
     | 'palm-crown'
     | 'coconut-cluster'
     | 'bark'
+    | 'rock'
 
 export interface Transform {
     readonly position: readonly [number, number, number]
@@ -104,8 +105,7 @@ export interface SceneComponent {
 /**
  * The plain-language name of a component type.
  *
- * This is the binding terminology mapping from the product spec: the user
- * sees "Leaf clump", never "foliage cluster".
+ * The user sees "Leaf clump", never "foliage cluster".
  */
 const TYPE_LABELS: Readonly<Record<ComponentType, string>> = {
     trunk: 'Trunk',
@@ -116,6 +116,7 @@ const TYPE_LABELS: Readonly<Record<ComponentType, string>> = {
     'palm-crown': 'Palm crown',
     'coconut-cluster': 'Coconut cluster',
     bark: 'Bark',
+    rock: 'Rock',
 }
 
 export function describeComponent(type: ComponentType): string {

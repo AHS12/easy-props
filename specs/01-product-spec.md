@@ -1,7 +1,6 @@
 # 01 — Product Specification
 
 Status: drafted, awaiting review
-Source: [`tree_modeling_tool_TDR_Wails_Go.md`](../tree_modeling_tool_TDR_Wails_Go.md)
 
 ---
 
@@ -12,9 +11,8 @@ Source: [`tree_modeling_tool_TDR_Wails_Go.md`](../tree_modeling_tool_TDR_Wails_G
 
 That sentence is the product. Every decision below is judged against it.
 
-The TDR calls this tool "a focused modeling companion that hides technical
-complexity and provides useful starting shapes immediately." The promise above
-is the user-facing version of that, and it is what the interface has to
+This tool is a focused modeling companion that hides technical complexity and
+provides useful starting shapes immediately. That is what the interface has to
 deliver.
 
 ### What the promise rules out
@@ -50,7 +48,7 @@ deliver.
 
 ### The asymmetry that drives the design
 
-Maya is the one we optimize for, because the TDR's goal is a *beginner* tool
+Maya is the one we optimize for, because the goal is a *beginner* tool
 and because a tool that is friendly is also a tool Dev can tolerate. Dev gets
 power features (shortcuts, seed control, numeric entry) as an **additive
 layer** that never complicates Maya's default path.
@@ -122,7 +120,7 @@ explicitly not in the MVP.
 | Select tree or component | M | Click; visible selection feedback |
 | Move, rotate, scale a component | M | Via panel controls first, viewport drag in M3 |
 | Drag handles: trunk curve, branch tip, root tip, frond tip | M | M3 for branch/frond, M2 for trunk |
-| Contextual inspector (tree params vs. component params) | M | Required by TDR §4 |
+| Contextual inspector (tree params vs. component params) | M | Required |
 | Undo / redo | M | Command-based, records meaningful edits |
 | Switch Low-poly ↔ Detailed | M | One control, immediate visible difference |
 | Numeric entry for values | S | Dev-facing, inside the same control |
@@ -139,14 +137,14 @@ explicitly not in the MVP.
 
 ### 4.4 Explicitly out of scope
 
-Carried over from TDR §3 without change: Blender replacement, general
+Blender replacement, general
 sculpting, rigging and animation, UV editing, node material editor, terrain,
 physics, a game engine, required AI, a marketplace, a plugin ecosystem, and a
 generic procedural node graph.
 
 ### 4.5 The blank-canvas trap
 
-TDR §5.4 is an acceptance criterion, not a nice-to-have. Concretely:
+Avoiding it is an acceptance criterion, not a nice-to-have. Concretely:
 
 - The app **never** opens to an empty viewport.
 - The shape library is visible in the first screen, not buried behind a menu.
@@ -190,7 +188,7 @@ new user-facing term must be agreed here first.
 | Normal, tangent | *(never shown)* | |
 | Shader, material graph | **Material** | Fixed presets only in MVP |
 | Seed | **Seed** | Plus a shuffle button |
-| LOD | *(never shown in MVP)* | |
+| LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. See [07](./07-ui-overhaul.md) |
 | Pivot | *(never shown)* | |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
@@ -233,7 +231,7 @@ Not: "No data available."
 
 ## 6. Success metrics
 
-Measured locally, no telemetry, no network. The TDR requires the tool to work
+Measured locally, no telemetry, no network. The tool must work
 offline; metrics stay local for the same reason.
 
 | Metric | Target | How it is measured |
@@ -248,7 +246,7 @@ offline; metrics stay local for the same reason.
 
 ### 6.1 The "5-minute test"
 
-The TDR's manual acceptance list becomes a repeatable check before each
+A manual acceptance list is the repeatable check before each
 milestone is called done:
 
 1. Generate the default branching tree.
@@ -272,28 +270,3 @@ and exports a tree in under five minutes.
 | Do library parts carry a color/style of their own, or inherit the tree's palette? | Design + Product | Before M3 |
 | Is the viewport background fixed, or can the user pick a backdrop for judging the asset? | Design | Before M2 |
 | Does the app ship a real "Undo" toast after delete, or rely on the toolbar button alone? | Design | Before M2 |
-
----
-
-## 8. Traceability to the TDR
-
-| TDR section | Covered in |
-|---|---|
-| §2 Goals 1-2 | §1 Promise, §4.1 Presets |
-| §2 Goals 3, §5 Shape library | §4.1 Shape library, §4.5 Blank-canvas trap |
-| §2 Goals 4-5, §7 Editing | §4.2 Editing |
-| §2 Goal 6, §6.4 Determinism | §3, [03-architecture-spec](./03-architecture-spec.md) §4 |
-| §2 Goals 7-8 | §4.3 Saving and exporting |
-| §2 Goal 10 | [03-architecture-spec](./03-architecture-spec.md) §2 |
-| §4 UX requirements | §2, §5, [02-ui-ux-spec](./02-ui-ux-spec.md) |
-| §5 Shape library | §4.1, §4.5 |
-| §6 Generators | [03-architecture-spec](./03-architecture-spec.md) §3, §5 |
-| §7 Editing model, undo/redo | [03-architecture-spec](./03-architecture-spec.md) §3, §6 |
-| §8 Stack | [03-architecture-spec](./03-architecture-spec.md) §2 |
-| §10 Generator contract | [03-architecture-spec](./03-architecture-spec.md) §3 |
-| §11 Project file | [03-architecture-spec](./03-architecture-spec.md) §7 |
-| §12 GLB export | [03-architecture-spec](./03-architecture-spec.md) §8 |
-| §13 Performance and quality | §6, [03-architecture-spec](./03-architecture-spec.md) §9 |
-| §14 Testing | [03-architecture-spec](./03-architecture-spec.md) §10, [04-roadmap](./04-roadmap.md) |
-| §15 Implementation plan | [04-roadmap](./04-roadmap.md) |
-| §16 Acceptance criteria | §3.1, §4, [04-roadmap](./04-roadmap.md) |

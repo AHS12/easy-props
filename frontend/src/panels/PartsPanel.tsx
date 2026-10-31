@@ -16,7 +16,7 @@ function PartGlyph() {
             height="28"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="var(--border-strong)"
+            stroke="currentColor"
             strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -84,7 +84,7 @@ export function PartsPanel() {
     return (
         <>
             <input
-                className="search"
+                className="field"
                 type="search"
                 placeholder="Search parts"
                 aria-label="Search parts"

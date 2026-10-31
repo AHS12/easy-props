@@ -1,7 +1,6 @@
 # 03 — Architecture Specification
 
 Status: drafted, awaiting review
-Source: [`tree_modeling_tool_TDR_Wails_Go.md`](../tree_modeling_tool_TDR_Wails_Go.md)
 
 ---
 
@@ -303,8 +302,7 @@ The renderer keeps a `Map<componentId, THREE.Object3D>`. On any scene change:
 3. For removed components, remove the object and **dispose its geometry**.
 4. For unchanged components, leave the object alone.
 
-This satisfies TDR §13's "avoid regenerating unrelated assets" and "dispose
-obsolete geometries".
+This avoids regenerating unrelated assets and disposes obsolete geometries.
 
 ---
 
@@ -485,9 +483,9 @@ export interface StyleProfile {
 | `detailed` | 8 | 6 | no | layered | ridged | 8,000 |
 
 Switching profiles regenerates geometry with the same parameters and the same
-seed. The silhouette must stay recognizably identical — this is a
-TDR §6.3 requirement ("art style should configure geometry and appearance
-defaults, not replace the underlying tree structure").
+seed. The silhouette must stay recognizably identical — art style
+configures geometry and appearance defaults, and does not replace the underlying
+tree structure.
 
 ---
 
@@ -610,7 +608,7 @@ export async function exportGLB(scene: Scene, options: ExportOptions): Promise<A
 
 ## 10. The Go/Wails boundary
 
-Deliberately small. The TDR says "keep the Go API small and explicit".
+Deliberately small and explicit.
 
 ```go
 // backend/app.go
@@ -733,16 +731,16 @@ interface Command {
 - Undo restores the scene and regenerates only the affected components.
 - The history is not persisted across sessions.
 
-This satisfies TDR §7's requirement to "record meaningful edits rather than
-cloning all mesh buffers for every operation".
+This records meaningful edits rather than cloning all mesh buffers for every
+operation.
 
 ---
 
 ## 13. Testing strategy
 
-TDR §14 lists nine required tests. Here is where each one lives.
+There are nine required tests. Here is where each one lives.
 
-| TDR §14 requirement | Test file |
+| Requirement | Test file |
 |---|---|
 | 1. Default parameters are valid | `assets/trees/branching-tree-generator.test.ts` |
 | 2. Invalid parameters are rejected or clamped | `assets/shared/validation.test.ts` |
@@ -787,25 +785,5 @@ Plus, from this spec:
 | Export GLB | Under 1s |
 | Cold start to a visible tree | Under 2s |
 
-If a target is missed, profile before optimizing. TDR §13 is explicit that
-worker threads and GPU compute are out of scope until profiling proves the
+If a target is missed, profile before optimizing. Worker threads and GPU compute are out of scope until profiling proves the
 need.
-
----
-
-## 15. Traceability to the TDR
-
-| TDR section | Spec section |
-|---|---|
-| §6.3 Art styles as profiles | §6 |
-| §6.4 Geometry quality | §9, §13, §14 |
-| §7 Editing model | §4, §11 |
-| §7 Undo/redo | §12 |
-| §8 Stack and the important boundary | §1.4, §2.1 |
-| §8 Go/Wails responsibility boundary | §10 |
-| §9 Proposed project structure | §2 |
-| §10 Generator contract | §3 |
-| §11 Project file and persistence | §8 |
-| §12 GLB export | §9 |
-| §13 Performance and quality | §13, §14 |
-| §14 Testing requirements | §13 |

@@ -5,7 +5,7 @@
  */
 
 import {findPreset, treePresets} from '../../assets/trees/presets'
-import {generateTreeComponents} from '../../assets/trees/tree-generators'
+import {generatePropComponents} from '../../assets/prop-generators'
 import {getStyleProfile} from '../../assets/style/style-profiles'
 import {DEFAULT_MATERIALS} from '../../assets/style/materials'
 import type {Scene} from './scene-model'
@@ -19,7 +19,7 @@ export const STARTER_PRESET_ID = 'blossom-tree'
 export function createSceneFromPreset(presetId: string): Scene {
     const preset = findPreset(presetId) ?? treePresets[0]
 
-    const components = generateTreeComponents(
+    const components = generatePropComponents(
         preset.generatorId,
         preset.parameters,
         preset.seed,

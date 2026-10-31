@@ -10,13 +10,22 @@ import {
     choiceSchema,
     numberSchema,
     validateParameters,
+    type ChoiceParameter,
     type NumberParameter,
     type ParameterSpec,
     type ValidationResult,
 } from '../../shared/parameters'
+import {BARK_TONES, PALETTES, type BarkToneId, type Palette, type PaletteId} from '../../style/palettes'
 
-export type PaletteId = 'blossom' | 'pale-blossom' | 'spring' | 'autumn' | 'custom'
+export {BARK_TONES, PALETTES}
+export type {BarkToneId, Palette, PaletteId}
 
+
+/** Which rules lay the tree out: a branching crown, a palm's fronds, or a conifer's tiers. */
+export type FruitKind = 'coconut' | 'apple' | 'orange' | 'lemon' | 'plum'
+export type TreeForm = 'crown' | 'palm' | 'conifer'
+export type FrondStyle = 'feather' | 'fan' | 'blade'
+export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
 const number = (
     group: string,
     key: string,
@@ -33,10 +42,12 @@ const TRUNK = 'Trunk'
 const BRANCHES = 'Branches'
 const LEAVES = 'Leaves'
 const BARK = 'Bark detail'
+const FRUIT = 'Fruit'
 
 const NUMBERS = {
-    height: number(TRUNK, 'height', 'Height', 'How tall the whole tree is, up to the top of the leaves.', 3, 16, 0.1, 8, 'm'),
-    trunkRadius: number(TRUNK, 'trunkRadius', 'Thickness', 'How heavy the trunk is. A thick trunk makes a tree look old.', 0.15, 1.2, 0.01, 0.72, 'm'),
+    height: number(TRUNK, 'height', 'Height', 'How tall the whole tree is, up to the top of the leaves.', 0.3, 20, 0.1, 8, 'm'),
+    trunkRadius: number(TRUNK, 'trunkRadius', 'Thickness', 'How heavy the trunk is. A thick trunk makes a tree look old.', 0.02, 1.2, 0.01, 0.72, 'm'),
+    stem: number(TRUNK, 'stem', 'Stem height', 'How much of the height is bare stem. Low, the fronds spring from near the ground, as on grass and ferns.', 0.03, 1, 0.01, 1),
     lean: number(TRUNK, 'lean', 'Lean', 'How far the trunk tips over.', 0, 0.6, 0.01, 0.12),
     trunkBend: number(TRUNK, 'trunkBend', 'Bend', 'How much the trunk curves as it rises.', 0, 0.4, 0.01, 0.11),
     corkscrew: number(TRUNK, 'corkscrew', 'Corkscrew', 'Winds the whole trunk around itself.', 0, 1, 0.05, 0),
@@ -49,20 +60,25 @@ const NUMBERS = {
 
     limbCount: number(BRANCHES, 'limbCount', 'Big branches', 'How many heavy branches leave the trunk.', 2, 8, 1, 5, 'count'),
     forkHeight: number(BRANCHES, 'forkHeight', 'Fork height', 'How far up the tree the big branches begin.', 0.2, 0.7, 0.01, 0.4),
-    spread: number(BRANCHES, 'spread', 'Spread', 'How wide the branches reach.', 2, 16, 0.1, 9, 'm'),
+    spread: number(BRANCHES, 'spread', 'Spread', 'How wide the branches reach.', 0.5, 16, 0.1, 9, 'm'),
     limbAngle: number(BRANCHES, 'limbAngle', 'Angle', 'How steeply the big branches climb, in degrees.', 5, 70, 1, 36),
     droop: number(BRANCHES, 'droop', 'Droop', 'How much the branches sag under their weight.', 0, 1, 0.05, 0),
     gnarl: number(BRANCHES, 'gnarl', 'Gnarl', 'How much the branches wander.', 0, 1, 0.05, 0.55),
     branchCount: number(BRANCHES, 'branchCount', 'Side branches', 'How many smaller branches each big one carries.', 1, 6, 1, 4, 'count'),
     twigCount: number(BRANCHES, 'twigCount', 'Twigs', 'How many thin twigs each side branch carries.', 0, 4, 1, 2, 'count'),
 
-    clumpCount: number(LEAVES, 'clumpCount', 'Clumps', 'How many big masses of leaves make up the crown.', 3, 18, 1, 11, 'count'),
+    clumpCount: number(LEAVES, 'clumpCount', 'Clumps', 'How many big masses of leaves make up the crown. None leaves a bare tree.', 0, 24, 1, 11, 'count'),
     clumpSize: number(LEAVES, 'clumpSize', 'Clump size', 'How big each mass of leaves is.', 0.5, 1.6, 0.05, 1),
     clumpMerge: number(LEAVES, 'clumpMerge', 'Merge', 'Pulls the clumps together into one big crown.', 0, 1, 0.05, 0.25),
     clumpFlatten: number(LEAVES, 'clumpFlatten', 'Flatness', 'How squashed the clumps are.', 0, 1, 0.05, 0.4),
     lumpiness: number(LEAVES, 'lumpiness', 'Lumpiness', 'How broken up each clump is, from one round shape to several.', 0, 1, 0.05, 0.6),
     fullness: number(LEAVES, 'fullness', 'Leaf density', 'How many leaves cover each clump. Higher hides the inside and costs more to draw.', 0.2, 1.5, 0.05, 0.75),
     leafSize: number(LEAVES, 'leafSize', 'Leaf size', 'How big each patch of leaves is.', 0.5, 1.6, 0.05, 1),
+    strands: number(LEAVES, 'strands', 'Hanging strands', 'Curtains of leaves falling from each clump, as on a willow.', 0, 1, 0.05, 0),
+    strandLength: number(LEAVES, 'strandLength', 'Strand length', 'How far the strands fall, as a share of the way to the ground.', 0.2, 1, 0.05, 0.7),
+
+    fruitCount: number(FRUIT, 'fruitCount', 'Fruit', 'How much fruit each clump carries. On a palm, how many in the whole crown.', 0, 12, 1, 0, 'count'),
+    fruitSize: number(FRUIT, 'fruitSize', 'Fruit size', 'How big each fruit is.', 0.5, 2, 0.05, 1),
 
     colourVariation: number('Colours', 'colourVariation', 'Variation', 'How much the colour changes from clump to clump.', 0, 1, 0.05, 0.35),
 
@@ -71,7 +87,90 @@ const NUMBERS = {
     burls: number(BARK, 'burls', 'Burls', 'Round knots growing out of the trunk.', 0, 8, 1, 0, 'count'),
     hollow: number(BARK, 'hollow', 'Hollow', 'Carves an opening into the trunk.', 0, 1, 0.05, 0),
     moss: number(BARK, 'moss', 'Moss', 'Green growth on the upper sides of the wood.', 0, 1, 0.05, 0),
+    patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
+    patternScale: number(BARK, 'patternScale', 'Pattern size', 'How big the bark pattern is. Patterns finer than the mesh detail blur away.', 0.6, 2, 0.05, 1),
 } as const
+
+const FORM = {
+    kind: 'choice',
+    group: TRUNK,
+    key: 'form',
+    label: 'Kind of tree',
+    help: 'Which rules lay the tree out.',
+    options: [
+        {value: 'crown', label: 'Branching'},
+        {value: 'palm', label: 'Palm'},
+        {value: 'conifer', label: 'Conifer'},
+    ],
+    default: 'crown',
+} as const satisfies ChoiceParameter<TreeForm>
+
+const FROND_STYLE = {
+    kind: 'choice',
+    group: LEAVES,
+    key: 'frondStyle',
+    label: 'Frond',
+    help: 'A feather of leaflets, a fan at the end of a stalk, or one broad blade.',
+    options: [
+        {value: 'feather', label: 'Feather'},
+        {value: 'fan', label: 'Fan'},
+        {value: 'blade', label: 'Blade'},
+    ],
+    default: 'feather',
+} as const satisfies ChoiceParameter<FrondStyle>
+
+const FRUIT_KIND = {
+    kind: 'choice',
+    group: FRUIT,
+    key: 'fruitKind',
+    label: 'Kind of fruit',
+    help: 'What the tree carries.',
+    options: [
+        {value: 'coconut', label: 'Coconut'},
+        {value: 'apple', label: 'Apple'},
+        {value: 'orange', label: 'Orange'},
+        {value: 'lemon', label: 'Lemon'},
+        {value: 'plum', label: 'Plum'},
+    ],
+    default: 'apple',
+} as const satisfies ChoiceParameter<FruitKind>
+
+const BARK_PATTERN = {
+    kind: 'choice',
+    group: BARK,
+    key: 'barkPattern',
+    label: 'Bark pattern',
+    help: 'The pattern on all the heavy wood, carved and painted.',
+    options: [
+        {value: 'none', label: 'Plain'},
+        {value: 'ringed', label: 'Rings'},
+        {value: 'plated', label: 'Plates'},
+        {value: 'banded', label: 'Birch marks'},
+        {value: 'peeling', label: 'Peeling'},
+        {value: 'fibrous', label: 'Fibres'},
+    ],
+    default: 'none',
+} as const satisfies ChoiceParameter<BarkPattern>
+
+const BARK_TONE = {
+    kind: 'choice',
+    group: 'Colours',
+    key: 'barkTone',
+    label: 'Bark colour',
+    help: 'The colour of the wood, separate from the leaves.',
+    options: [
+        {value: 'palette', label: 'Match the palette'},
+        {value: 'oak', label: 'Oak brown'},
+        {value: 'birch', label: 'Birch white'},
+        {value: 'pine', label: 'Pine red-brown'},
+        {value: 'palm', label: 'Palm tan'},
+        {value: 'redwood', label: 'Redwood'},
+        {value: 'ash', label: 'Ash grey'},
+        {value: 'charcoal', label: 'Charcoal'},
+        {value: 'bone', label: 'Bleached'},
+    ],
+    default: 'palette',
+} as const satisfies ChoiceParameter<BarkToneId>
 
 const PALETTE = {
     kind: 'choice',
@@ -84,14 +183,26 @@ const PALETTE = {
         {value: 'pale-blossom', label: 'Pale blossom'},
         {value: 'spring', label: 'Spring green'},
         {value: 'autumn', label: 'Autumn'},
+        {value: 'forest', label: 'Forest green'},
+        {value: 'tropical', label: 'Tropical'},
+        {value: 'pine', label: 'Deep pine'},
+        {value: 'olive', label: 'Dry olive'},
+        {value: 'maple', label: 'Red maple'},
+        {value: 'golden', label: 'Golden'},
+        {value: 'frost', label: 'Snow'},
+        {value: 'teal', label: 'Teal fantasy'},
+        {value: 'violet', label: 'Violet fantasy'},
+        {value: 'ember', label: 'Ember'},
         {value: 'custom', label: 'My own colours'},
     ],
     default: 'blossom',
-} as const satisfies ParameterSpec
+} as const satisfies ChoiceParameter<PaletteId>
 
 export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
+    FORM,
     NUMBERS.height,
     NUMBERS.trunkRadius,
+    NUMBERS.stem,
     NUMBERS.lean,
     NUMBERS.trunkBend,
     NUMBERS.corkscrew,
@@ -116,14 +227,88 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.lumpiness,
     NUMBERS.fullness,
     NUMBERS.leafSize,
+    FROND_STYLE,
+    NUMBERS.strands,
+    NUMBERS.strandLength,
+    NUMBERS.fruitCount,
+    FRUIT_KIND,
+    NUMBERS.fruitSize,
     PALETTE,
+    BARK_TONE,
     NUMBERS.colourVariation,
+    BARK_PATTERN,
+    NUMBERS.patternDepth,
+    NUMBERS.patternScale,
     NUMBERS.barkDetail,
     NUMBERS.roughness,
     NUMBERS.burls,
     NUMBERS.hollow,
     NUMBERS.moss,
 ]
+
+/** Controls a form has no use for. */
+const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
+    crown: ['stem', 'frondStyle'],
+    palm: [
+        'limbCount',
+        'forkHeight',
+        'spread',
+        'limbAngle',
+        'branchCount',
+        'twigCount',
+        'clumpMerge',
+        'clumpFlatten',
+        'lumpiness',
+        'strands',
+        'strandLength',
+    ],
+    conifer: ['stem', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
+}
+
+/** What a shared control means on a form that reuses it for something else. */
+const LABELS_BY_FORM: Readonly<Record<TreeForm, Readonly<Record<string, string>>>> = {
+    crown: {},
+    palm: {
+        clumpCount: 'Fronds',
+        clumpSize: 'Frond length',
+        droop: 'Frond arch',
+        gnarl: 'Frond scatter',
+        fullness: 'Leaflet density',
+        leafSize: 'Leaflet width',
+    },
+    conifer: {
+        clumpCount: 'Tiers',
+        clumpSize: 'Tier size',
+        clumpFlatten: 'Tier flatness',
+        droop: 'Tier droop',
+        spread: 'Width',
+        forkHeight: 'Lowest tier',
+    },
+}
+
+/** The controls that do something on this tree, under the names they go by on it. */
+export function controlsForTree(
+    specs: readonly ParameterSpec[],
+    values: Readonly<Record<string, unknown>>,
+): readonly ParameterSpec[] {
+    const form = (values.form ?? FORM.default) as TreeForm
+    const hidden = HIDDEN_BY_FORM[form] ?? []
+    const labels = LABELS_BY_FORM[form] ?? {}
+    const hasPattern = (values.barkPattern ?? BARK_PATTERN.default) !== 'none'
+    const hasFruit = Number(values.fruitCount ?? 0) > 0
+
+    return specs
+        .filter(
+            (spec) =>
+                !hidden.includes(spec.key) &&
+                (hasPattern || (spec.key !== 'patternDepth' && spec.key !== 'patternScale')) &&
+                (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize')) &&
+                (values.palette !== 'custom' || spec.key !== 'barkTone'),
+        )
+        .map((spec) => (labels[spec.key] ? {...spec, label: labels[spec.key]} : spec))
+        // A palm has no branches: what is left of them shapes its fronds.
+        .map((spec) => (form === 'palm' && spec.group === BRANCHES ? {...spec, group: LEAVES} : spec))
+}
 
 /** A heading in a part's panel: tree controls that belong with that part. */
 export interface ControlSection {
@@ -165,49 +350,14 @@ export function sectionsForPart(generatorId: string, type: string): readonly Con
         : []
 }
 
-/**
- * The colours of a palette, shadow to highlight.
- *
- * The shadow is a different hue from the highlight, not a darker copy of it.
- * That shift is most of what makes colour read as painted.
- */
-export interface Palette {
-    readonly barkDeep: string
-    readonly barkLight: string
-    readonly leafDeep: string
-    readonly leafMid: string
-    readonly leafLight: string
-}
 
-export const PALETTES: Readonly<Record<Exclude<PaletteId, 'custom'>, Palette>> = {
-    blossom: {
-        barkDeep: '#2b2739',
-        barkLight: '#857c9c',
-        leafDeep: '#a53cc4',
-        leafMid: '#ea7fdc',
-        leafLight: '#ffe6f4',
-    },
-    'pale-blossom': {
-        barkDeep: '#332f3d',
-        barkLight: '#8d8798',
-        leafDeep: '#b795b2',
-        leafMid: '#e6c9cf',
-        leafLight: '#fff5ea',
-    },
-    spring: {
-        barkDeep: '#332a2b',
-        barkLight: '#96826f',
-        leafDeep: '#1f6e4c',
-        leafMid: '#5bb340',
-        leafLight: '#d6ee78',
-    },
-    autumn: {
-        barkDeep: '#33272a',
-        barkLight: '#8c7265',
-        leafDeep: '#a33423',
-        leafMid: '#dd6a27',
-        leafLight: '#fbcb57',
-    },
+
+export const FRUIT_COLOURS: Readonly<Record<FruitKind, {deep: string; light: string}>> = {
+    coconut: {deep: '#3c2a1a', light: '#8a6a3c'},
+    apple: {deep: '#8f1420', light: '#ee4a3a'},
+    orange: {deep: '#c05a10', light: '#ffb238'},
+    lemon: {deep: '#b89a10', light: '#fff06a'},
+    plum: {deep: '#2c1248', light: '#8a4ab8'},
 }
 
 /** The keys that hold the user's own colours, in the palette's order. */
@@ -225,6 +375,11 @@ export type PaintedTreeParameters = {
     readonly [K in keyof typeof NUMBERS]: number
 } & Palette & {
         readonly palette: PaletteId
+        readonly form: TreeForm
+        readonly frondStyle: FrondStyle
+        readonly fruitKind: FruitKind
+        readonly barkPattern: BarkPattern
+        readonly barkTone: BarkToneId
         /**
          * Hand edits to single parts, as JSON.
          *
@@ -256,6 +411,11 @@ const paintedTreeSchema = z.object({
         ]),
     ),
     palette: choiceSchema(PALETTE),
+    form: choiceSchema(FORM),
+    frondStyle: choiceSchema(FROND_STYLE),
+    fruitKind: choiceSchema(FRUIT_KIND),
+    barkPattern: choiceSchema(BARK_PATTERN),
+    barkTone: choiceSchema(BARK_TONE),
     barkDeep: colour(PALETTES.blossom.barkDeep),
     barkLight: colour(PALETTES.blossom.barkLight),
     leafDeep: colour(PALETTES.blossom.leafDeep),
@@ -269,6 +429,11 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
         readonly [K in keyof typeof NUMBERS]: number
     }),
     palette: PALETTE.default,
+    form: FORM.default,
+    frondStyle: FROND_STYLE.default,
+    fruitKind: FRUIT_KIND.default,
+    barkPattern: BARK_PATTERN.default,
+    barkTone: BARK_TONE.default,
     ...PALETTES.blossom,
     edits: '',
 }
@@ -281,5 +446,11 @@ export function validatePaintedTreeParameters(
 
 /** The colours a tree is painted in right now. */
 export function resolvePalette(tree: PaintedTreeParameters): Palette {
-    return tree.palette === 'custom' ? tree : PALETTES[tree.palette]
+    if (tree.palette === 'custom') {
+        return tree
+    }
+
+    return tree.barkTone === 'palette'
+        ? PALETTES[tree.palette]
+        : {...PALETTES[tree.palette], ...BARK_TONES[tree.barkTone]}
 }

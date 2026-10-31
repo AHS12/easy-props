@@ -16,18 +16,18 @@ const BINDINGS = (): LibraryBindings | undefined =>
         ? undefined
         : (window.go?.backend?.App as unknown as LibraryBindings | undefined)
 
-interface TreeFile {
+interface PropFile {
     id: string
     savedAt: string
     size: number
 }
 
 interface LibraryBindings {
-    ListTrees(): Promise<TreeFile[] | null>
-    ReadTree(id: string): Promise<unknown>
-    ReadTreeThumbnail(id: string): Promise<unknown>
-    WriteTree(id: string, contents: number[], thumbnail: number[]): Promise<void>
-    DeleteTree(id: string): Promise<void>
+    ListProps(): Promise<PropFile[] | null>
+    ReadProp(id: string): Promise<unknown>
+    ReadPropThumbnail(id: string): Promise<unknown>
+    WriteProp(id: string, contents: number[], thumbnail: number[]): Promise<void>
+    DeleteProp(id: string): Promise<void>
 }
 
 /** One tree as the gallery shows it. */
@@ -86,13 +86,13 @@ export async function listTrees(): Promise<SavedTree[]> {
         return []
     }
 
-    const files = (await bindings.ListTrees()) ?? []
+    const files = (await bindings.ListProps()) ?? []
 
     return Promise.all(
         files.map(async (file) => {
             const [text, thumbnail] = await Promise.all([
-                bindings.ReadTree(file.id).then(textFromBinding),
-                bindings.ReadTreeThumbnail(file.id).catch(() => null),
+                bindings.ReadProp(file.id).then(textFromBinding),
+                bindings.ReadPropThumbnail(file.id).catch(() => null),
             ])
 
             return {
@@ -113,7 +113,7 @@ export async function readTree(id: string): Promise<string> {
         throw new LibraryUnavailableError()
     }
 
-    return textFromBinding(await bindings.ReadTree(id))
+    return textFromBinding(await bindings.ReadProp(id))
 }
 
 /** Writes a tree, and its preview when one could be drawn. */
@@ -128,7 +128,7 @@ export async function writeTree(
         throw new LibraryUnavailableError()
     }
 
-    await bindings.WriteTree(
+    await bindings.WriteProp(
         id,
         [...new TextEncoder().encode(text)],
         thumbnail ? dataUrlToBytes(thumbnail) : [],
@@ -142,7 +142,7 @@ export async function deleteTree(id: string): Promise<void> {
         throw new LibraryUnavailableError()
     }
 
-    await bindings.DeleteTree(id)
+    await bindings.DeleteProp(id)
 }
 
 /** An id the library accepts: a file stem, safe on every platform. */

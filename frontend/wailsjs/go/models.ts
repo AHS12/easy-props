@@ -1,12 +1,42 @@
 export namespace backend {
 	
-	export class TreeFile {
+	export class ExportFile {
+	    name: string;
+	    contents: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.contents = source["contents"];
+	    }
+	}
+	export class LibraryInfo {
+	    folder: string;
+	    props: number;
+	    bytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LibraryInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.folder = source["folder"];
+	        this.props = source["props"];
+	        this.bytes = source["bytes"];
+	    }
+	}
+	export class PropFile {
 	    id: string;
 	    savedAt: string;
 	    size: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new TreeFile(source);
+	        return new PropFile(source);
 	    }
 	
 	    constructor(source: any = {}) {

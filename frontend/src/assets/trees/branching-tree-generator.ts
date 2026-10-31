@@ -11,7 +11,7 @@
 
 import * as THREE from 'three'
 import {z} from 'zod'
-import type {GeneratedComponent, TreeGenerator} from '../shared/generator-types'
+import type {GeneratedComponent, PropGenerator} from '../shared/generator-types'
 import {IDENTITY_TRANSFORM, type Transform} from '../shared/component-types'
 import {hashSeed, randomRange} from '../shared/random'
 import {
@@ -205,7 +205,7 @@ interface BranchNode {
     readonly depth: number
 }
 
-export const branchingTreeGenerator: TreeGenerator<TreeParameters> = {
+export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
     id: 'branching-tree',
     version: 1,
     label: 'Broadleaf tree',
