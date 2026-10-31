@@ -16,6 +16,8 @@ export function StatusBar() {
     const selection = useEditorStore((state) => state.selection)
     const scene = useEditorStore((state) => state.scene)
     const faceCounts = useEditorStore((state) => state.faceCounts)
+    const shownFaceCounts = useEditorStore((state) => state.shownFaceCounts)
+    const previewLevel = useEditorStore((state) => state.previewLevel)
     const budgetTarget = useEditorStore((state) => state.budgetTarget)
     const setBudgetTarget = useEditorStore((state) => state.setBudgetTarget)
     const batch = useEditorStore((state) => state.batch)
@@ -45,7 +47,13 @@ export function StatusBar() {
                     </span>
                 ) : null}
                 {asset ? <span className="tabular">Seed {asset.seed}</span> : null}
+                {previewLevel > 0 ? (
+                    <span className="tabular" title="Faces in the detail level on screen">
+                        LOD{previewLevel}: {(shownFaceCounts.wood + shownFaceCounts.leaves).toLocaleString()} faces
+                    </span>
+                ) : null}
                 <span className="tabular" data-over={budget.over} title="Faces at full detail, against this budget">
+                    {previewLevel > 0 ? 'Full detail: ' : null}
                     {budget.faces.toLocaleString()} / {target.faces.toLocaleString()} faces
                 </span>
                 <select

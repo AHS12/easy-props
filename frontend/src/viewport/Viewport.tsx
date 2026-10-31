@@ -64,9 +64,13 @@ export function Viewport() {
     const compassRef = useRef<CompassHandle>(null)
     const brushRef = useRef<HTMLDivElement>(null)
     const reportFaces = (viewport: ViewportScene) => {
+        const counts = viewport.countFacesByMesh()
+
+        useEditorStore.getState().setShownFaceCounts(counts)
+
         // A budget is about the full prop, whichever level is being looked at.
         if (useEditorStore.getState().previewLevel === 0) {
-            useEditorStore.getState().setFaceCounts(viewport.countFacesByMesh())
+            useEditorStore.getState().setFaceCounts(counts)
         }
     }
     const shapeTool = useEditorStore((state) => state.shapeTool)

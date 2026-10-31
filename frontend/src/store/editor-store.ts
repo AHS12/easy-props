@@ -259,6 +259,9 @@ export interface EditorStore {
     /** The faces the current prop will export with at full detail. */
     faceCounts: FaceCounts
     setFaceCounts(counts: FaceCounts): void
+    /** The faces of the detail level on screen. */
+    shownFaceCounts: FaceCounts
+    setShownFaceCounts(counts: FaceCounts): void
     budgetTarget: BudgetTargetId
     setBudgetTarget(target: BudgetTargetId): void
 
@@ -1033,6 +1036,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         setPreviewLevel: (previewLevel) => set({previewLevel}),
         faceCounts: {wood: 0, leaves: 0},
         setFaceCounts: (faceCounts) => set({faceCounts}),
+        shownFaceCounts: {wood: 0, leaves: 0},
+        setShownFaceCounts: (shownFaceCounts) => set({shownFaceCounts}),
         budgetTarget: loadBudgetTarget(),
         setBudgetTarget: (budgetTarget) => {
             saveBudgetTarget(budgetTarget)

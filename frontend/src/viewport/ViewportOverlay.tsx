@@ -158,7 +158,7 @@ function LightingButton() {
 
 /** Off by default: faces per mesh, draw calls, and size in metres. */
 function StatsOverlay() {
-    const faceCounts = useEditorStore((state) => state.faceCounts)
+    const faceCounts = useEditorStore((state) => state.shownFaceCounts)
     const [stats, setStats] = useState(() => viewportHandle()?.stats() ?? null)
 
     useEffect(() => {
