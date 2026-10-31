@@ -160,7 +160,7 @@ jobs:
   macos:
     needs: resolve
     if: ${{ github.event_name == 'release' || inputs.platform == 'both' || inputs.platform == 'macos' }}
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
