@@ -17,6 +17,7 @@ export type CommandId =
     | 'save-to-file'
     | 'open-project'
     | 'export-model'
+    | 'batch-export'
     | 'undo'
     | 'redo'
     | 'cancel'
@@ -94,6 +95,13 @@ export const COMMANDS: readonly Command[] = [
         shortcut: 'Ctrl+E',
         keywords: 'glb gltf blender unreal godot export download lod collision',
         run: (state) => state.exportModel(),
+    },
+    {
+        id: 'batch-export',
+        label: 'Export many',
+        group: 'File',
+        keywords: 'batch variations seeds presets export glb',
+        run: (state) => state.openBatch(),
     },
     {
         id: 'undo',

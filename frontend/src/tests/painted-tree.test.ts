@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 import {
     applyPartAction,
     assembleBark,
@@ -21,7 +21,7 @@ import {
     type PaintedTreeParameters,
 } from '../assets/trees/painted'
 import {presetGroups, treePresets} from '../assets/trees/presets'
-import {generateTreeComponents} from '../assets/trees/tree-generators'
+import {generatePropComponents} from '../assets/prop-generators'
 
 /** A preset may spend more than the default tree, within reason for a game. */
 const PRESET_TRIANGLE_BUDGET = 25000
@@ -29,7 +29,7 @@ const DETAILED = getStyleProfile('detailed')
 const LOW = getStyleProfile('low-poly')
 
 function buildParts(parameters: PaintedTreeParameters, seed: number, style = DETAILED) {
-    return generateTreeComponents('painted-tree', parameters as unknown as Record<string, unknown>, seed, style).map((component) => {
+    return generatePropComponents('painted-tree', parameters as unknown as Record<string, unknown>, seed, style).map((component) => {
         const generator = findComponentGenerator(component.generatorId)!
 
         return generator.generate(generator.validate(component.parameters).parameters, {

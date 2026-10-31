@@ -3,9 +3,10 @@ import {ColourPicker} from '../components/ColourPicker'
 import {Segmented} from '../components/Segmented'
 import {Select} from '../components/Select'
 import {Slider} from '../components/Slider'
-import {findComponentGenerator} from '../assets/trees/component-generators'
-import {findTreeGenerator} from '../assets/trees/tree-generators'
+import {findComponentGenerator} from '../assets/component-generators'
+import {findPropGenerator} from '../assets/prop-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
+import {familyOfPreset, PROP_FAMILIES} from '../assets/trees/presets'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
 import {
     COLOUR_KEYS,
@@ -22,6 +23,9 @@ import type {NumberParameter, ParameterSpec} from '../assets/shared/parameters'
 import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {TRUNK_TREE_KEYS} from './trunk-controls'
+
+/** Parts that stand for the whole prop, or hang off its plan, so they stay where they are. */
+const WHOLE_PARTS = ['painted-limb', 'painted-bark', 'rock-body']
 
 function formatValue(value: number, spec: NumberParameter): string {
     const decimals = spec.step < 1 ? 2 : 0
@@ -248,6 +252,8 @@ function GroupedControls({
  * its branches. Only the point count is the part's own.
  */
 export function Inspector() {
+    const family = familyOfPreset(useEditorStore((state) => state.presetId))
+    const familyLabel = PROP_FAMILIES.find(({id}) => id === family)!.label
     const scene = useEditorStore((state) => state.scene)
     const selectedId = useEditorStore((state) => state.selection.selectedId)
     const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
@@ -273,7 +279,7 @@ export function Inspector() {
         // The whole-tree controls come from whichever generator this asset
         // was made with: a palm has controls a branching tree does not.
         const specs =
-            (asset ? findTreeGenerator(asset.generatorId)?.parameters : undefined) ??
+            (asset ? findPropGenerator(asset.generatorId)?.parameters : undefined) ??
             treeParameterSpecs
 
         return (
@@ -281,10 +287,10 @@ export function Inspector() {
                 <div className="insp-head">
                     <div className="insp-title-row">
                         <div>
-                            <div className="insp-title">Whole tree</div>
+                            <div className="insp-title">Whole {familyLabel.toLowerCase()}</div>
                             <div className="insp-sub">Nothing selected</div>
                         </div>
-                        <span className="chip chip--moss">Tree</span>
+                        <span className="chip chip--moss">{familyLabel}</span>
                     </div>
                 </div>
 
@@ -310,7 +316,7 @@ export function Inspector() {
                         </Group>
                     )}
 
-                    {asset && findTreeGenerator(asset.generatorId)?.paintsOwnColours ? null : (
+                    {asset && findPropGenerator(asset.generatorId)?.paintsOwnColours ? null : (
                         <Group title="Colours" help="The colours the tree is painted with.">
                             <ColourPicker
                                 label="Trunk"
@@ -358,8 +364,8 @@ export function Inspector() {
     const painted = isPaintedPart(component.generatorId)
     const isTrunk = component.type === 'trunk' && !painted
     // A painted limb hangs off the tree's plan, and its trunk is the tree.
-    const canMove = !isTrunk && component.generatorId !== 'painted-limb' && component.generatorId !== 'painted-bark'
-    const canRemove = !isTrunk && component.type !== 'trunk' && component.generatorId !== 'painted-bark'
+    const canMove = !isTrunk && !WHOLE_PARTS.includes(component.generatorId)
+    const canRemove = !isTrunk && component.type !== 'trunk' && component.generatorId !== 'painted-bark' && component.generatorId !== 'rock-body'
     const pushes = Array.isArray(component.parameters.pushes)
         ? (component.parameters.pushes as SurfacePush[])
         : []

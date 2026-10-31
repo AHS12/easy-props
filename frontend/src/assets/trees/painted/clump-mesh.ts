@@ -14,7 +14,7 @@
 
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
-import {DAB_VARIANTS, dabCell} from './dab-texture'
+import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
 import {addClumpFruit, addStrands, leafGeometry} from './frond-mesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'

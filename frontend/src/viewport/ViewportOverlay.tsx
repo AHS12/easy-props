@@ -21,6 +21,14 @@ function SunIcon() {
 }
 
 function ModeIcon({mode}: {mode: ShadingMode}) {
+    if (mode === 'wind') {
+        return (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h6" />
+            </svg>
+        )
+    }
+
     if (mode === 'wireframe') {
         return (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">

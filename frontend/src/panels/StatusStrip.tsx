@@ -22,6 +22,8 @@ export function StatusStrip() {
     const faceCounts = useEditorStore((state) => state.faceCounts)
     const budgetTarget = useEditorStore((state) => state.budgetTarget)
     const setBudgetTarget = useEditorStore((state) => state.setBudgetTarget)
+    const batch = useEditorStore((state) => state.batch)
+    const openBatch = useEditorStore((state) => state.openBatch)
 
     const target = findBudgetTarget(budgetTarget)
     const budget = checkBudget(faceCounts, target)
@@ -33,6 +35,11 @@ export function StatusStrip() {
                 {statusLabel(status.state, status.message)}
             </span>
             <span className="statusbar__right">
+                {batch && !batch.summary ? (
+                    <button type="button" className="statusbar__link" onClick={openBatch}>
+                        Exporting {batch.done} of {batch.total}
+                    </button>
+                ) : null}
                 {budget.warning ? <span role="status">{budget.warning}</span> : null}
                 <span data-over={budget.over}>
                     {budget.faces.toLocaleString()} / {target.faces.toLocaleString()} faces

@@ -1,7 +1,7 @@
 import {useState} from 'react'
 import {Segmented} from '../components/Segmented'
-import {presetGroups} from '../assets/trees/presets'
-import {findTreeGenerator} from '../assets/trees/tree-generators'
+import {familyOfPreset, presetGroups, PROP_FAMILIES} from '../assets/trees/presets'
+import {findPropGenerator} from '../assets/prop-generators'
 import {useEditorStore} from '../store/editor-store'
 import {PartsPanel} from './PartsPanel'
 import {PresetThumb} from './PresetThumb'
@@ -13,7 +13,10 @@ function PresetsPanel() {
     const applyPreset = useEditorStore((state) => state.applyPreset)
     const [query, setQuery] = useState('')
     const wanted = query.trim().toLowerCase()
+    const family = familyOfPreset(presetId)
+    const noun = PROP_FAMILIES.find(({id}) => id === family)!.label.toLowerCase()
     const groups = presetGroups
+        .filter((group) => group.family === family)
         .map((group) => ({
             ...group,
             presets: group.presets.filter((preset) =>
@@ -24,12 +27,12 @@ function PresetsPanel() {
 
     return (
         <>
-            <div className="rail__title">Start from a tree</div>
+            <div className="rail__title">Start from a {noun}</div>
             <input
                 className="search preset-search"
                 type="search"
-                placeholder="Search trees"
-                aria-label="Search trees"
+                placeholder={`Search ${noun === 'bush' ? 'bushes' : `${noun}s`}`}
+                aria-label={`Search ${noun === 'bush' ? 'bushes' : `${noun}s`}`}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
             />
@@ -56,7 +59,7 @@ function PresetsPanel() {
                         </div>
                     </section>
                 ))}
-                {groups.length === 0 ? <p className="group__help">No tree matches that.</p> : null}
+                {groups.length === 0 ? <p className="group__help">Nothing matches that.</p> : null}
             </div>
         </>
     )
@@ -68,7 +71,7 @@ export function LeftRail() {
 
     // The parts library builds old-style limbs and blobs, which do not blend
     // into a painted tree. Its parts are edited on the tree itself.
-    if (generatorId && findTreeGenerator(generatorId)?.paintsOwnColours) {
+    if (generatorId && findPropGenerator(generatorId)?.paintsOwnColours) {
         return (
             <aside className="rail">
                 <div className="rail__body">

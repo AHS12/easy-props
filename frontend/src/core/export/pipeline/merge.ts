@@ -10,9 +10,31 @@ import * as THREE from 'three'
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {roleOfPart} from '../../../assets/shared/generator-types'
 import type {PlacedPart, Vec3} from './types'
+import {windAttribute, type WindExtent} from './wind'
 
 const ROUGHNESS = 0.85
 const METALNESS = 0
+const WHITE_SIZE = 4
+
+let white: THREE.DataTexture | null = null
+
+/**
+ * A plain white texture, for a mesh with no texture of its own.
+ *
+ * It changes nothing about how the mesh looks. Unreal builds a simpler material
+ * for a glTF mesh with no texture, and that material ignores vertex colours,
+ * which is where all of our paint is.
+ */
+function whiteTexture(): THREE.DataTexture {
+    if (!white) {
+        white = new THREE.DataTexture(new Uint8Array(WHITE_SIZE * WHITE_SIZE * 4).fill(255), WHITE_SIZE, WHITE_SIZE)
+        white.name = 'white'
+        white.colorSpace = THREE.SRGBColorSpace
+        white.needsUpdate = true
+    }
+
+    return white
+}
 
 export interface MergedMesh {
     readonly name: string
@@ -40,7 +62,8 @@ function hasFinitePositions(geometry: THREE.BufferGeometry): boolean {
 }
 
 /** The same shape with the attributes every part in a mesh must share. */
-function normalised({part, matrix, tint, flatShading}: PlacedPart, withUv: boolean): THREE.BufferGeometry {
+function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent): THREE.BufferGeometry {
+    const {part, matrix, tint, flatShading} = placed
     // A faceted part has one normal per face, which takes its own vertices.
     const faceted = flatShading && !part.surface
     const source = faceted && part.geometry.index ? part.geometry.toNonIndexed() : part.geometry
@@ -65,9 +88,13 @@ function normalised({part, matrix, tint, flatShading}: PlacedPart, withUv: boole
         geometry.setAttribute('normal', new THREE.BufferAttribute(Float32Array.from(source.getAttribute('normal').array), 3))
     }
 
-    if (withUv) {
-        geometry.setAttribute('uv', new THREE.BufferAttribute(Float32Array.from(source.getAttribute('uv').array), 2))
-    }
+    // Without a texture of its own, every vertex reads the one white colour.
+    geometry.setAttribute(
+        'uv',
+        part.surface?.map
+            ? new THREE.BufferAttribute(Float32Array.from(source.getAttribute('uv').array), 2)
+            : new THREE.BufferAttribute(new Float32Array(position.count * 2), 2),
+    )
 
     // Every part is indexed, so parts can merge whichever way they were built.
     if (source.index) {
@@ -77,6 +104,10 @@ function normalised({part, matrix, tint, flatShading}: PlacedPart, withUv: boole
     }
 
     geometry.applyMatrix4(new THREE.Matrix4().fromArray([...matrix]))
+
+    if (wind) {
+        geometry.setAttribute('uv1', windAttribute(geometry, placed, pivot, wind))
+    }
 
     if (source !== part.geometry) {
         source.dispose()
@@ -96,7 +127,7 @@ function bucketName(part: PlacedPart): string {
  * show, and one with a broken coordinate is dropped rather than written out:
  * one NaN vertex makes the whole file unreadable in most viewers.
  */
-export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Vec3): MergedMesh[] {
+export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Vec3, wind?: WindExtent): MergedMesh[] {
     const buckets = new Map<string, PlacedPart[]>()
 
     for (const placed of parts) {
@@ -117,8 +148,7 @@ export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Ve
 
     for (const bucket of buckets.values()) {
         const surface = bucket[0].part.surface
-        const withUv = Boolean(surface?.map)
-        const pieces = bucket.map((placed) => normalised(placed, withUv))
+        const pieces = bucket.map((placed) => normalised(placed, pivot, wind))
         const geometry = mergeGeometries(pieces, false)
 
         for (const piece of pieces) {
@@ -145,7 +175,7 @@ export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Ve
                 roughness: surface ? 1 : ROUGHNESS,
                 metalness: METALNESS,
                 vertexColors: true,
-                map: surface?.map ?? null,
+                map: surface?.map ?? whiteTexture(),
                 alphaTest: surface?.alphaTest ?? 0,
             }),
             faces: geometry.index!.count / 3,

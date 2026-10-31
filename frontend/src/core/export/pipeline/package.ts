@@ -8,10 +8,20 @@
 import * as THREE from 'three'
 import {collisionNodeName, collisionShapes, prismGeometry} from './collision'
 import {mergeParts} from './merge'
+import {measureWindExtent, type WindExtent} from './wind'
+import {yieldIfBusy} from './yield'
 import {writeGLB, type NamedMesh} from '../glb-exporter'
 import {LEVEL_SHARES, type ExportFile, type ExportSettings, type ExportSource} from './types'
 
 export const ASSET_FORMAT_VERSION = 1
+
+/** Thrown when a build is told to stop. Nothing it built is written. */
+export class ExportCancelled extends Error {
+    constructor() {
+        super('The export was cancelled.')
+        this.name = 'ExportCancelled'
+    }
+}
 
 function disposeParts(parts: readonly {part: {geometry: THREE.BufferGeometry}}[]): void {
     for (const {part} of parts) {
@@ -24,19 +34,35 @@ export async function buildExport(
     source: ExportSource,
     settings: ExportSettings,
     onProgress?: (done: number, total: number) => void,
+    signal?: AbortSignal,
 ): Promise<ExportFile[]> {
     const {name, levels, engine} = settings
     const pivot = source.pivot()
     const files: ExportFile[] = []
     const faceCounts: Record<string, number> = {}
     const total = levels + (settings.collision ? 1 : 0)
+    const hasWind = settings.wind && source.sways()
+    let extent: WindExtent | undefined
     let done = 0
 
     for (let level = 0; level < levels; level++) {
         onProgress?.(done, total)
 
         const parts = await source.buildAtDetail(LEVEL_SHARES[level])
-        const meshes = mergeParts(parts, name, pivot)
+
+        if (signal?.aborted) {
+            disposeParts(parts)
+            throw new ExportCancelled()
+        }
+
+        await yieldIfBusy()
+
+        // Measured once at full detail, so every level moves alike.
+        if (hasWind && level === 0) {
+            extent = measureWindExtent(parts, pivot)
+        }
+
+        const meshes = mergeParts(parts, name, pivot, extent)
 
         // One set of shapes, made once: they stand for every level.
         if (level === 0 && settings.collision) {
@@ -62,6 +88,7 @@ export async function buildExport(
         files.push({name: fileName, bytes: new Uint8Array(await writeGLB(meshes, name)), faces})
         disposeParts(parts)
         done++
+        await yieldIfBusy()
     }
 
     onProgress?.(total, total)
@@ -71,6 +98,7 @@ export async function buildExport(
         name,
         engine,
         faces: faceCounts,
+        wind: extent ?? null,
         ...source.describe(),
     }
 

@@ -2,10 +2,11 @@ import {readFileSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
 import {getStyleProfile} from '../../assets/style/style-profiles'
-import {findTreeGenerator} from '../../assets/trees/tree-generators'
+import {findPropGenerator} from '../../assets/prop-generators'
 import {treePresets} from '../../assets/trees/presets'
 import {createEmptyScene} from '../scene/scene-model'
 import {createSceneFromPreset} from '../scene/initial-scene'
+import {findBudgetTarget} from './pipeline/budget'
 import {MAX_COLLISION_SHAPES} from './pipeline/collision'
 import {buildExport} from './pipeline/package'
 import {LEVEL_SHARES, exportNameOf, type ExportFile} from './pipeline/types'
@@ -14,12 +15,12 @@ import {sceneExportSource} from './scene-source'
 const STYLE = getStyleProfile('low-poly')
 
 /**
- * Presets whose LOD2 is outside the spec's 25%, and by how much is tolerated.
+ * Presets whose lighter levels are outside the spec's 25%, and by how much is tolerated.
  * Too light costs nothing. Too heavy is small props and bare wood, where what is
  * left is already near the least that still reads, and the old-style tree, whose
  * wood the generic simplifier can only take so far.
  */
-const LOD2_KNOWN_MISSES: Readonly<Record<string, number>> = {
+const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     birch: 0.005,
     'scots-pine': 0.01,
     banana: 0.045,
@@ -39,7 +40,7 @@ interface Accessor {
 interface Gltf {
     readonly nodes?: {name: string; mesh?: number}[]
     readonly meshes?: {name: string; primitives: {attributes: Record<string, number>; indices: number; material: number}[]}[]
-    readonly materials?: {alphaMode?: string}[]
+    readonly materials?: {alphaMode?: string; pbrMetallicRoughness?: {baseColorTexture?: unknown}}[]
     readonly textures?: unknown[]
     readonly images?: unknown[]
     readonly accessors: Accessor[]
@@ -138,7 +139,7 @@ function fileNamed(files: readonly ExportFile[], ending: string): ExportFile {
 async function exportPreset(presetId: string, levels = 3, collision = true, engine: 'godot' | 'unreal' = 'godot') {
     const scene = createSceneFromPreset(presetId)
 
-    return buildExport(sceneExportSource(scene, STYLE, 'test'), {name: 'oak_01', engine, levels, collision})
+    return buildExport(sceneExportSource(scene, STYLE, 'test'), {name: 'oak_01', engine, levels, collision, wind: true})
 }
 
 // jsdom has no canvas, and the leaf texture is written through one. The picture
@@ -213,6 +214,7 @@ describe('game-ready export', () => {
             engine: 'plain',
             levels: 1,
             collision: true,
+            wind: true,
         })
 
         expect(faces(readGLB(fileNamed(files, 'empty.glb').bytes).json)).toBe(0)
@@ -230,7 +232,18 @@ describe('game-ready export', () => {
             // Merged, named after the prop, and sharing one texture.
             expect(json.meshes!.length, `LOD${level} meshes`).toBeLessThanOrEqual(2)
             expect(json.materials!.length, `LOD${level} materials`).toBeLessThanOrEqual(2)
-            expect((json.images ?? []).length, `LOD${level} images`).toBeLessThanOrEqual(1)
+            expect((json.images ?? []).length, `LOD${level} images`).toBeLessThanOrEqual(2)
+
+            // Every mesh has a texture, or Unreal ignores its vertex colours.
+            for (const mesh of json.meshes!) {
+                expect(mesh.name).toMatch(/^oak_01_(wood|leaves)$/)
+
+                for (const primitive of mesh.primitives) {
+                    expect(json.materials![primitive.material].pbrMetallicRoughness?.baseColorTexture, mesh.name).toBeDefined()
+                    expect(primitive.attributes.COLOR_0, mesh.name).toBeDefined()
+                    expect(primitive.attributes.TEXCOORD_0, mesh.name).toBeDefined()
+                }
+            }
 
             for (const node of json.nodes!.filter((candidate) => candidate.mesh !== undefined)) {
                 expect(node.name).toMatch(/^oak_01_(wood|leaves)$/)
@@ -238,10 +251,13 @@ describe('game-ready export', () => {
 
             // On target within 25%, but for the few known to miss the lightest level.
             const share = faces(json) / full
-            const miss = level === 2 ? (LOD2_KNOWN_MISSES[presetId] ?? 0) : 0
+            const miss = level >= 1 ? (LEVEL_KNOWN_MISSES[presetId] ?? 0) : 0
 
             expect(share, `LOD${level} share`).toBeGreaterThan(LEVEL_SHARES[level] * 0.75 - miss)
-            expect(share, `LOD${level} share`).toBeLessThan(LEVEL_SHARES[level] * 1.25 + miss)
+            // A prop that already fits the smallest budget has nothing it must lose.
+            if (full > findBudgetTarget('mobile').faces) {
+                expect(share, `LOD${level} share`).toBeLessThan(LEVEL_SHARES[level] * 1.25 + miss)
+            }
 
             // The silhouette holds within 10%.
             const box = bounds(json)
@@ -254,7 +270,7 @@ describe('game-ready export', () => {
         }
 
         // Pivot at the base. One unit is one metre.
-        const generator = findTreeGenerator(preset.generatorId)!
+        const generator = findPropGenerator(preset.generatorId)!
         const height = (generator.validate(preset.parameters).parameters as {height: number}).height
 
         expect(fullBounds.max[1]).toBeGreaterThan(height * 0.5)

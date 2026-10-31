@@ -7,6 +7,7 @@ import {Inspector} from '../panels/Inspector'
 import {LeftRail} from '../panels/LeftRail'
 import {GalleryPage} from '../pages/GalleryPage'
 import {ShortcutsPanel} from '../panels/ShortcutsPanel'
+import {BatchExportDialog} from '../panels/BatchExportDialog'
 import {ExportDialog} from '../panels/ExportDialog'
 import {SaveDialog} from '../panels/SaveDialog'
 import {CloseDialog} from '../panels/CloseDialog'
@@ -168,6 +169,7 @@ export function App() {
             <Toast />
             <SaveDialog />
             <ExportDialog />
+            <BatchExportDialog />
             {closeRequested ? (
                 <CloseDialog onStay={() => setCloseRequested(false)} />
             ) : null}

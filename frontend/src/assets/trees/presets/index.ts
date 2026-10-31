@@ -6,6 +6,7 @@
  * remains the user's to change afterwards.
  */
 
+import {rockDefaults} from '../../rocks/rock-generator'
 import {paintedTreeDefaults} from '../painted'
 
 export interface TreePreset {
@@ -28,9 +29,39 @@ export const PRESET_CATEGORIES = [
     'Old & bare',
     'Shrubs & saplings',
     'Fantasy',
+    'Bushes',
+    'Ferns',
+    'Grass & flowers',
+    'Boulders',
+    'Stones',
+    'Cliffs',
 ] as const
 
 export type PresetCategory = (typeof PRESET_CATEGORIES)[number]
+
+/** The tab a preset is listed under. */
+export type PropFamily = 'tree' | 'rock' | 'bush'
+
+export const PROP_FAMILIES: readonly {readonly id: PropFamily; readonly label: string}[] = [
+    {id: 'tree', label: 'Tree'},
+    {id: 'rock', label: 'Rock'},
+    {id: 'bush', label: 'Bush'},
+]
+
+const familyOfCategory = (category: PresetCategory | undefined): PropFamily => {
+    switch (category) {
+        case 'Bushes':
+        case 'Ferns':
+        case 'Grass & flowers':
+            return 'bush'
+        case 'Boulders':
+        case 'Stones':
+        case 'Cliffs':
+            return 'rock'
+        default:
+            return 'tree'
+    }
+}
 
 /** One painted tree: only what differs from the defaults. */
 const painted = (
@@ -49,6 +80,16 @@ const painted = (
     generatorId: 'painted-tree',
     parameters: {...paintedTreeDefaults, ...parameters},
 })
+
+/** One rock: only what differs from the defaults. */
+const rock = (
+    category: PresetCategory,
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category, seed, generatorId: 'rock', parameters: {...rockDefaults, ...parameters}})
 
 const PALM_BASE = {
     form: 'palm',
@@ -138,9 +179,9 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
 
     // Shrubs & saplings
-    painted('Shrubs & saplings', 'round-bush', 'Round bush', 'Fills in any gap', 361, {palette: 'spring', height: 1.8, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 6, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
-    painted('Shrubs & saplings', 'flower-bush', 'Flowering bush', 'A patch of colour', 362, {palette: 'blossom', height: 1.6, spread: 2.4, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 45, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 7, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
-    painted('Shrubs & saplings', 'autumn-bush', 'Autumn bush', 'Low and red', 363, {palette: 'maple', height: 1.6, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 2, twigCount: 0, clumpCount: 5, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    painted('Bushes', 'round-bush', 'Round bush', 'Fills in any gap', 361, {palette: 'spring', height: 1.8, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 6, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    painted('Bushes', 'flower-bush', 'Flowering bush', 'A patch of colour', 362, {palette: 'blossom', height: 1.6, spread: 2.4, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 45, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 7, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    painted('Bushes', 'autumn-bush', 'Autumn bush', 'Low and red', 363, {palette: 'maple', height: 1.6, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 2, twigCount: 0, clumpCount: 5, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
     painted('Shrubs & saplings', 'sapling', 'Young sapling', 'Thin and just started', 364, {palette: 'spring', height: 3.2, spread: 2.6, trunkRadius: 0.1, forkHeight: 0.5, limbAngle: 55, limbCount: 3, branchCount: 2, twigCount: 1, clumpCount: 5, clumpSize: 0.9, rootCount: 0, flare: 0.1, ridgeDepth: 0}),
     painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
 
@@ -151,6 +192,30 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Fantasy', 'glow-willow', 'Glow willow', 'Teal curtains', 374, {palette: 'teal', barkTone: 'ash', height: 8, spread: 10, trunkRadius: 0.5, droop: 0.7, clumpCount: 12, clumpMerge: 0.5, clumpSize: 0.8, strands: 0.85, strandLength: 0.85, leafSize: 0.7, fullness: 0.45}),
     painted('Fantasy', 'frost-tree', 'Frost tree', 'White, without a season', 375, {palette: 'frost', barkTone: 'bone', height: 8, spread: 9, trunkRadius: 0.5, gnarl: 0.7, clumpCount: 12, colourVariation: 0.1}),
     painted('Fantasy', 'alien-palm', 'Alien palm', 'From another shore', 376, {...PALM_BASE, palette: 'violet', barkTone: 'charcoal', height: 9, trunkRadius: 0.24, lean: 0.4, corkscrew: 0.7, clumpCount: 12, frondStyle: 'fan', droop: 0.5}),
+]
+
+/** Low plants on a slim stem, where the fronds and clumps are the whole prop. */
+const LOW_PLANT = {...PALM_BASE, stem: 0.05, height: 0.8, trunkRadius: 0.02, lean: 0.02, trunkBend: 0, flare: 0, barkPattern: 'none', fruitCount: 0} as const
+
+const foliagePresets: readonly TreePreset[] = [
+    painted('Ferns', 'forest-fern', 'Forest fern', 'Arching and lacy', 381, {...LOW_PLANT, palette: 'forest', stem: 0.2, height: 0.7, clumpCount: 9, droop: 0.2, clumpSize: 0.8, leafSize: 0.7}),
+    painted('Ferns', 'bracken', 'Bracken', 'Tall and open', 382, {...LOW_PLANT, palette: 'spring', stem: 0.25, height: 1.1, clumpCount: 7, droop: 0.15, clumpSize: 0.8, leafSize: 0.8}),
+    painted('Grass & flowers', 'grass-tuft', 'Grass tuft', 'A low clump of blades', 383, {...LOW_PLANT, frondStyle: 'blade', palette: 'spring', height: 0.6, clumpCount: 14, droop: 0.3, clumpSize: 1, leafSize: 0.5}),
+    painted('Grass & flowers', 'reeds', 'Reeds', 'Tall thin blades', 384, {...LOW_PLANT, frondStyle: 'blade', palette: 'olive', height: 1.2, clumpCount: 10, droop: 0.15, clumpSize: 1, leafSize: 0.5}),
+    painted('Grass & flowers', 'flower-clump', 'Flower clump', 'A small bright mound', 385, {palette: 'blossom', height: 0.6, spread: 0.8, trunkRadius: 0.02, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.6, fullness: 0.6, rootCount: 0, ridgeDepth: 0, flare: 0}),
+    painted('Bushes', 'low-hedge', 'Low hedge', 'Dense and neat', 386, {palette: 'forest', height: 1, spread: 1.6, trunkRadius: 0.05, forkHeight: 0.2, limbAngle: 55, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 4, clumpMerge: 0.9, clumpSize: 1.1, fullness: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0}),
+]
+
+const rockPresets: readonly TreePreset[] = [
+    rock('Boulders', 'boulder', 'Boulder', 'Big, round and weathered', 401, {width: 3, height: 2, depth: 2.6}),
+    rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old and half green', 402, {width: 3.4, height: 2, depth: 3, roundness: 0.75, facets: 0.25, moss: 0.7}),
+    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, roundness: 0.2, facets: 1, lumpiness: 0.2, palette: 'pine'}),
+    rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, roundness: 0.7, facets: 0.3}),
+    rock('Stones', 'river-stone', 'River stone', 'Smooth and flat', 405, {width: 0.7, height: 0.25, depth: 0.5, roundness: 1, facets: 0, lumpiness: 0.1, palette: 'pine'}),
+    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {width: 1, height: 3, depth: 0.7, roundness: 0.3, facets: 0.6, moss: 0.25}),
+    rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall in layers', 407, {width: 12, height: 9, depth: 5, roundness: 0, facets: 0.6, lumpiness: 0.55, layers: 0.8, palette: 'autumn'}),
+    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {width: 5, height: 11, depth: 4.5, roundness: 0.15, facets: 0.7, lumpiness: 0.45, layers: 0.6, palette: 'pine'}),
+    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and banded', 409, {width: 14, height: 6, depth: 11, roundness: 0, facets: 0.35, lumpiness: 0.35, layers: 1, palette: 'maple'}),
 ]
 
 export const treePresets: readonly TreePreset[] = [
@@ -205,6 +270,8 @@ export const treePresets: readonly TreePreset[] = [
         },
     },
     ...paintedPresets,
+    ...foliagePresets,
+    ...rockPresets,
 ]
 
 /**
@@ -340,12 +407,17 @@ export function findPreset(id: string): TreePreset | undefined {
     return [...treePresets, ...retiredPresets].find((preset) => preset.id === id)
 }
 
+/** The tab a preset belongs under. A preset nobody can find any more is a tree. */
+export const familyOfPreset = (id: string | null | undefined): PropFamily =>
+    familyOfCategory(id ? findPreset(id)?.category : undefined)
+
 /** The presets under their headings, the three first trees leading the list. */
-export const presetGroups: readonly {title: string; presets: readonly TreePreset[]}[] = [
-    {title: 'Favourites', presets: treePresets.slice(1, 4)},
+export const presetGroups: readonly {title: string; family: PropFamily; presets: readonly TreePreset[]}[] = [
+    {title: 'Favourites', family: 'tree', presets: treePresets.slice(1, 4)},
     ...PRESET_CATEGORIES.map((title) => ({
         title,
-        presets: paintedPresets.filter((preset) => preset.category === title),
+        family: familyOfCategory(title),
+        presets: treePresets.filter((preset) => preset.category === title),
     })),
-    {title: 'Older style', presets: [treePresets[0]]},
+    {title: 'Older style', family: 'tree', presets: [treePresets[0]]},
 ]

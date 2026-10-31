@@ -6,4 +6,4 @@ export {assembleBark, barkGeometry, buildBark, listBarkCells, prepareBark, sculp
 export {buildBarkOffThread, canBuildBarkOffThread} from './bark-pool'
 export {buildClump} from './clump-mesh'
 export {buildFrond} from './frond-mesh'
-export {getDabTexture} from './dab-texture'
+export {getDabTexture} from '../../shared/dab-texture'

@@ -1,10 +1,9 @@
 import {Segmented} from '../components/Segmented'
+import {familyOfPreset, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
 import {STYLE_ORDER, STYLE_PROFILES, type StyleProfileId} from '../assets/style/style-profiles'
 import {canRedo, canUndo, redoLabel, undoLabel} from '../core/history/history'
 import {useEditorStore} from '../store/editor-store'
 import {useThemeStore} from '../store/theme-store'
-
-const COMING_SOON = 'Coming soon'
 
 function SunIcon() {
     return (
@@ -23,7 +22,12 @@ function MoonIcon() {
     )
 }
 
+/** What a tab opens on. */
+const FAMILY_STARTERS: Readonly<Record<PropFamily, string>> = {tree: 'blossom-tree', rock: 'boulder', bush: 'round-bush'}
+
 export function TopBar() {
+    const family = familyOfPreset(useEditorStore((state) => state.presetId))
+    const applyPreset = useEditorStore((state) => state.applyPreset)
     const style = useEditorStore((state) => state.style)
     const setStyle = useEditorStore((state) => state.setStyle)
     const history = useEditorStore((state) => state.history)
@@ -54,15 +58,21 @@ export function TopBar() {
             </div>
 
             <nav className="family-tabs" aria-label="Asset type">
-                <button type="button" className="family-tab" aria-current="true">
-                    Tree
-                </button>
-                <button type="button" className="family-tab" disabled title={COMING_SOON}>
-                    Rock
-                </button>
-                <button type="button" className="family-tab" disabled title={COMING_SOON}>
-                    Bush
-                </button>
+                {PROP_FAMILIES.map(({id, label}) => (
+                    <button
+                        key={id}
+                        type="button"
+                        className="family-tab"
+                        aria-current={id === family ? 'true' : undefined}
+                        onClick={() => {
+                            if (id !== family) {
+                                applyPreset(FAMILY_STARTERS[id])
+                            }
+                        }}
+                    >
+                        {label}
+                    </button>
+                ))}
             </nav>
 
             <span className="topbar__divider" aria-hidden="true" />

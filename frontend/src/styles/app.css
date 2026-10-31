@@ -1907,6 +1907,16 @@ h4 {
     color: var(--warning, #c98a2b);
 }
 
+.statusbar__link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .statusbar__select {
     border: none;
     background: transparent;

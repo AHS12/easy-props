@@ -10,6 +10,10 @@ import {ENGINE_LABELS, type EngineId} from './pipeline/types'
 
 export const APP_VERSION = '0.1.0'
 
+/** What Godot needs told. Its own simplifying deletes leaf cards, and a file cannot turn it off. */
+export const GODOT_IMPORT_NOTE =
+    'In Godot, turn off automatic LODs or the leaves disappear: select each LOD file, open the Import tab, untick Meshes > Generate LODs, then press Reimport.'
+
 const STORAGE_KEY = 'easy-props.export'
 const BUDGET_KEY = 'easy-props.budget-target'
 
@@ -17,10 +21,11 @@ export interface ExportPreferences {
     readonly engine: EngineId
     readonly levels: number
     readonly collision: boolean
+    readonly wind: boolean
     readonly folder: string
 }
 
-const DEFAULTS: ExportPreferences = {engine: 'plain', levels: 3, collision: true, folder: ''}
+const DEFAULTS: ExportPreferences = {engine: 'plain', levels: 3, collision: true, wind: true, folder: ''}
 
 export function loadExportPreferences(): ExportPreferences {
     try {
@@ -30,6 +35,7 @@ export function loadExportPreferences(): ExportPreferences {
             engine: raw.engine && raw.engine in ENGINE_LABELS ? raw.engine : DEFAULTS.engine,
             levels: raw.levels === 1 || raw.levels === 2 || raw.levels === 3 ? raw.levels : DEFAULTS.levels,
             collision: typeof raw.collision === 'boolean' ? raw.collision : DEFAULTS.collision,
+            wind: typeof raw.wind === 'boolean' ? raw.wind : DEFAULTS.wind,
             folder: typeof raw.folder === 'string' ? raw.folder : DEFAULTS.folder,
         }
     } catch {

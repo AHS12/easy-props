@@ -15,7 +15,7 @@ import {buildBranchSpine} from '../../assets/trees/components/branch'
 import {buildFrondSpine, type FrondArch} from '../../assets/trees/components/palm-frond'
 import {buildRootSpine} from '../../assets/trees/components/root'
 import {respineForBend, SPINE_POINT_COUNT, type BendAmount} from '../../assets/trees/components/trunk'
-import {generateTreeComponents} from '../../assets/trees/tree-generators'
+import {generatePropComponents} from '../../assets/prop-generators'
 import type {Scene, SceneAsset} from './scene-model'
 
 function mapComponent(
@@ -398,7 +398,7 @@ export function updateTreeParameters(
             }
 
             const parameters = {...asset.parameters, ...patch}
-            const generated = generateTreeComponents(
+            const generated = generatePropComponents(
                 asset.generatorId,
                 parameters,
                 asset.seed,
@@ -430,7 +430,7 @@ export function setAssetSeed(
                 return asset
             }
 
-            const generated = generateTreeComponents(
+            const generated = generatePropComponents(
                 asset.generatorId,
                 asset.parameters,
                 seed,

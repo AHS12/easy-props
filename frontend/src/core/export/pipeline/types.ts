@@ -27,6 +27,8 @@ export interface ExportSource {
     collision(): readonly CollisionShape[]
     /** Where the base of the prop meets the ground. */
     pivot(): Vec3
+    /** Whether this prop moves in the wind. A rock does not. */
+    sways(): boolean
     /** Everything needed to make this prop again, for its `asset.json`. */
     describe(): Readonly<Record<string, unknown>>
 }
@@ -46,6 +48,8 @@ export interface ExportSettings {
     /** How many detail levels to write, 1 to 3. */
     readonly levels: number
     readonly collision: boolean
+    /** Asks for wind data. A prop that does not move gets none regardless. */
+    readonly wind: boolean
 }
 
 export interface ExportFile {

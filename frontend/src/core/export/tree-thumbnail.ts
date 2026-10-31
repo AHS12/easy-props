@@ -12,7 +12,7 @@ import type {SceneComponent} from '../../assets/shared/component-types'
 import {ambientColor, DEFAULT_LIGHTING, sunColor, sunDirection} from '../../assets/style/lighting'
 import {createPartMaterial} from '../../assets/style/part-material'
 import type {StyleProfile} from '../../assets/style/style-profiles'
-import {findComponentGenerator} from '../../assets/trees/component-generators'
+import {findComponentGenerator} from '../../assets/component-generators'
 import {materialColor} from '../../viewport/scene/component-renderer'
 import type {Scene, SceneMaterials} from '../scene/scene-model'
 

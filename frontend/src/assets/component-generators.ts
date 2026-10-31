@@ -5,16 +5,17 @@
  * means adding an entry here and nothing else.
  */
 
-import type {PartGenerator} from '../shared/generator-types'
-import {branchGenerator} from './components/branch'
-import {coconutClusterGenerator} from './components/coconut-cluster'
-import {foliageGenerator} from './components/foliage-cluster'
-import {paintedBarkGenerator, paintedClumpGenerator, paintedLimbGenerator} from './components/painted-parts'
-import {palmCrownGenerator} from './components/palm-crown'
-import {palmFrondGenerator} from './components/palm-frond'
-import {palmTrunkGenerator} from './components/palm-trunk'
-import {rootGenerator} from './components/root'
-import {trunkGenerator} from './components/trunk'
+import type {PartGenerator} from './shared/generator-types'
+import {rockBodyGenerator} from './rocks/rock-generator'
+import {branchGenerator} from './trees/components/branch'
+import {coconutClusterGenerator} from './trees/components/coconut-cluster'
+import {foliageGenerator} from './trees/components/foliage-cluster'
+import {paintedBarkGenerator, paintedClumpGenerator, paintedLimbGenerator} from './trees/components/painted-parts'
+import {palmCrownGenerator} from './trees/components/palm-crown'
+import {palmFrondGenerator} from './trees/components/palm-frond'
+import {palmTrunkGenerator} from './trees/components/palm-trunk'
+import {rootGenerator} from './trees/components/root'
+import {trunkGenerator} from './trees/components/trunk'
 
 export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [branchGenerator.id]: branchGenerator,
@@ -26,6 +27,7 @@ export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [palmCrownGenerator.id]: palmCrownGenerator,
     [palmFrondGenerator.id]: palmFrondGenerator,
     [palmTrunkGenerator.id]: palmTrunkGenerator,
+    [rockBodyGenerator.id]: rockBodyGenerator,
     [rootGenerator.id]: rootGenerator,
     [trunkGenerator.id]: trunkGenerator,
 }

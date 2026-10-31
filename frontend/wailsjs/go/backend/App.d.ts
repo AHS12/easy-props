@@ -3,15 +3,17 @@
 import {backend} from '../models';
 import {context} from '../models';
 
+export function ChooseFolder(arg1:string,arg2:string):Promise<string>;
+
 export function ClearDraft():Promise<void>;
 
 export function ConfirmClose():Promise<void>;
 
-export function DeleteTree(arg1:string):Promise<void>;
+export function DeleteProp(arg1:string):Promise<void>;
 
 export function LibraryFolder():Promise<string>;
 
-export function ListTrees():Promise<Array<backend.TreeFile>>;
+export function ListProps():Promise<Array<backend.PropFile>>;
 
 export function OpenFileDialog(arg1:string,arg2:Array<string>):Promise<string>;
 
@@ -19,9 +21,9 @@ export function ReadDraft():Promise<Array<number>>;
 
 export function ReadFile(arg1:string):Promise<Array<number>>;
 
-export function ReadTree(arg1:string):Promise<Array<number>>;
+export function ReadProp(arg1:string):Promise<Array<number>>;
 
-export function ReadTreeThumbnail(arg1:string):Promise<Array<number>>;
+export function ReadPropThumbnail(arg1:string):Promise<Array<number>>;
 
 export function SaveFileDialog(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
 
@@ -33,4 +35,6 @@ export function WriteDraft(arg1:Array<number>):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;
 
-export function WriteTree(arg1:string,arg2:Array<number>,arg3:Array<number>):Promise<void>;
+export function WriteFiles(arg1:string,arg2:Array<backend.ExportFile>):Promise<void>;
+
+export function WriteProp(arg1:string,arg2:Array<number>,arg3:Array<number>):Promise<void>;

@@ -55,7 +55,7 @@ TDR  ──sets constraints──▶  01-product-spec  ──scopes──▶  04
 | UI/UX spec | Drafted, awaiting review |
 | Architecture spec | Drafted, awaiting review |
 | Roadmap | Drafted, awaiting review |
-| Game-ready export | Phase 1 built, engine checks pending |
+| Game-ready export | Done, a few engine checks never run |
 | UI overhaul | Planned, awaiting review |
 | Design tokens | Drafted, awaiting review |
 | Prototype | Drafted, awaiting review |

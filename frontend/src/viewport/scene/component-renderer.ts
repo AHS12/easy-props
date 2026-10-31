@@ -8,12 +8,14 @@
 
 import * as THREE from 'three'
 import {roleOfPart} from '../../assets/shared/generator-types'
-import {findComponentGenerator} from '../../assets/trees/component-generators'
+import {findComponentGenerator} from '../../assets/component-generators'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {MaterialKind} from '../../assets/shared/generator-types'
 import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
 import {createPartMaterial} from '../../assets/style/part-material'
+import {createWindUniforms, createWindMaterial, measureWind, type WindUniforms} from './wind-material'
+import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets/style/shading'
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import type {Scene, SceneMaterials} from '../../core/scene/scene-model'
@@ -25,6 +27,7 @@ export interface ComponentMaterials {
     readonly lit: THREE.MeshStandardMaterial
     readonly flat: THREE.MeshBasicMaterial
     readonly wire: THREE.MeshBasicMaterial
+    readonly wind: THREE.ShaderMaterial
 }
 
 export interface RenderedComponent {
@@ -100,6 +103,7 @@ function buildComponent(
     signature: string,
     materials: SceneMaterials,
     detail: number,
+    windUniforms: WindUniforms,
 ): RenderedComponent | undefined {
     const generator = findComponentGenerator(component.generatorId)
 
@@ -121,6 +125,8 @@ function buildComponent(
     const lit = createPartMaterial(part, color, style.flatShading)
 
     const isProxy = part.surface?.proxy === true
+
+    const wind = createWindMaterial(windUniforms, roleOfPart(part) === 'foliage', part.surface)
 
     const flat = new THREE.MeshBasicMaterial({
         color,
@@ -179,7 +185,7 @@ function buildComponent(
         group,
         mesh,
         outline,
-        materials: {lit, flat, wire},
+        materials: {lit, flat, wire, wind},
         materialKind: part.material,
         signature,
         styleId: style.id,
@@ -214,6 +220,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
     let warmedUp = false
 
     let shading: ShadingMode = 'lit'
+    const windUniforms = createWindUniforms()
 
     const applyShading = (component: RenderedComponent) => {
         component.mesh.material =
@@ -221,7 +228,9 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 ? component.materials.lit
                 : shading === 'flat'
                   ? component.materials.flat
-                  : component.materials.wire
+                  : shading === 'wind'
+                    ? component.materials.wind
+                    : component.materials.wire
 
         // Shadows only belong to the finished look.
         component.mesh.castShadow = shading === 'lit' && component.mesh.visible
@@ -233,6 +242,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
         component.materials.lit.dispose()
         component.materials.flat.dispose()
         component.materials.wire.dispose()
+        component.materials.wind.dispose()
         ;(component.outline.material as THREE.Material).dispose()
         component.group.removeFromParent()
     }
@@ -307,7 +317,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 rendered.delete(component.id)
             }
 
-            const created = buildComponent(component, style, signature, asset.materials, detail)
+            const created = buildComponent(component, style, signature, asset.materials, detail, windUniforms)
 
             if (created) {
                 applyShading(created)
@@ -322,6 +332,10 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 disposeComponent(component)
                 rendered.delete(id)
             }
+        }
+
+        if (shading === 'wind') {
+            measureWind(windUniforms, rendered.values(), findPropGenerator(asset.generatorId), asset)
         }
     }
 

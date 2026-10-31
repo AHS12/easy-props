@@ -7,7 +7,7 @@
  */
 
 import * as THREE from 'three'
-import {createSeededRandom, randomRange} from '../../shared/random'
+import {createSeededRandom, randomRange} from './random'
 
 const SIZE = 512
 const CELLS = 2

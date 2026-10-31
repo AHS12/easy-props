@@ -1,6 +1,41 @@
 # 06 — Game-ready export
 
-Status: Phase 1 built and tested in code, not yet checked in Unreal or Godot. Phases 2 to 4 not started.
+Status: Done. All four phases are built and tested in code, and wind works on one tree in both engines. Never checked by hand: Godot collision, and LOD1, LOD2 and long distance in both engines.
+
+### Phase 2 notes
+
+- **Wind data depends only on position**, measured against the full-detail prop, so wood
+  and leaves agree at a twig and every level moves alike. The extent is in `asset.json`.
+- **Heatmap** is a Wind shading mode. Red is sway, green is flutter.
+- **The kits live in `frontend/engine-kits/`**, not the repository root, so the app can
+  ship them. "Save kit…" in the Export panel writes one to a folder.
+- **The Unreal kit is written steps without a screenshot**, and no node snippet or Python
+  script. A script that builds the materials is the likely next step.
+- **The Godot kit works** on one tree, tested 2026-10-31: it sways with its leaves
+  attached once the leaf texture is set. [`docs/godot-trees.md`](../docs/godot-trees.md)
+  has the steps.
+- **The Unreal wind works** on one tree in UE 5.8, tested 2026-10-31.
+  [`docs/unreal-trees.md`](../docs/unreal-trees.md) has the steps. It needed a second sway
+  wave, a smaller and shorter flutter than Godot's, and Two Sided Foliage on the leaves. The
+  guide's steps were checked against that graph, not followed from scratch on a new tree.
+
+### Phase 4 notes
+
+- **The rename reached the code and the Go bindings** (`PropGenerator`, `ListProps`). The
+  frontend's own `listTrees`-style helpers, saved files, the library folder and the
+  scene's `kind: 'tree'` keep their names, so saved files stay readable.
+- **Moved out of `assets/trees`:** the surface-nets mesher, the dab texture and both
+  registries. The leaf-card builder stayed, because cards are planned from a tree's clumps;
+  it moves when something other than the tree planner needs it.
+- **A palette's stone colours** sit beside it in `assets/style/palettes.ts`, keyed by the
+  same palette id, because a tree's custom colours are stored as the palette's own fields.
+- **Rocks needed one export change, made generic:** `sways()` on a source, so any still
+  prop skips wind. A rock has no other export code.
+- **Foliage props are painted trees** with a new Stem height control and wider ranges.
+  They are built from fronds and clumps as planned, so grass is broad blades, not fine
+  blades. Each is tested to fit Background at LOD0 and Mobile at LOD2.
+- **A prop already under the Mobile budget** need not hit a level's share, since it has
+  little left to lose. The test allows this.
 
 ### Phase 1 notes
 
@@ -14,10 +49,25 @@ Status: Phase 1 built and tested in code, not yet checked in Unreal or Godot. Ph
 - **The roots sit below the origin.** The pivot is where the trunk meets the ground.
 - **Viewport level preview** is three buttons on the viewport toolbar. A budget always
   counts full detail, whichever level is showing.
-- **Leaves vanishing with distance in Godot** is still open, with its test still to run.
-  A GLB cannot carry hand-made mipmaps, so a cut-out fix has to change the texture or
-  its cut-off value. A far-distance check belongs in Phase 1's done list once the cause
-  is known.
+- **Leaves vanishing in Godot** came from its automatic LODs. Whether the cut-out also
+  fades at long distance is still to be seen, in both engines. A GLB cannot carry
+  hand-made mipmaps, so a cut-out fix would have to change the texture or its cut-off value.
+- **A mesh with no texture of its own gets a plain white one**, so a file can hold two
+  images. See the Unreal row of the table below.
+- **Unreal makes its own collision on import.** It wrapped each mesh in a large convex
+  cage, which a player meets as an invisible wall well before the trunk. Removing the
+  collision from the meshes in Unreal cleared it (tested 2026-10-31). Unreal does not
+  use `{name}_collision.glb` unless it is applied by hand.
+
+### Phase 3 notes
+
+- **Variations.** The first of each is the prop exactly as it is. The rest are its
+  settings on a seed derived from the variation's number, which is why a batch repeats.
+  A saved prop's hand edits follow it to a new seed only where those parts still exist.
+- **Numbering** runs per name across the whole batch, so two props with the same name
+  never overwrite each other. A later batch does replace files with the same names,
+  and the panel says so.
+- **The detail levels and collision** come from the choices in the Export panel.
 
 ## The goal
 
@@ -60,9 +110,9 @@ Checked against vendor documentation on 2026-10-31.
 | Does Unreal import GLB? | Yes, through Interchange | Documented |
 | Does Unreal read LODs from a GLB? | Unknown. FBX LOD groups are documented, glTF is not | **Test needed** |
 | Does Unreal read `UCX_` collision from a GLB? | Unknown. Documented only for FBX | **Test needed** |
-| Does Unreal keep our normals and vertex colours? | Expected, but the normals are the look, so it has to be seen | **Test needed** |
+| Does Unreal keep our normals and vertex colours? | Yes for both, on one tree seen by eye. But its generated material ignored vertex colours on a mesh with no texture, so every mesh now has one | Tested 2026-10-31, the white texture brought the bark marks back |
 | Does a two-sided material keep the soft leaf shading? | Unknown. glTF flips the back-face normal, which is why leaves carry both windings today | **Test needed** |
-| Does automatic reduction suit leaf cards? | Unlikely. It preserves surfaces, and cards are hundreds of separate quads | **Test needed** |
+| Does automatic reduction suit leaf cards? | No. Godot's deleted most of a crown, and turning off Generate LODs on import brought it back. A GLB cannot carry that setting, so the export panels say so | Tested 2026-10-31 |
 
 Blender opening a file proves nothing about the unknowns above, because Blender
 does not use these engine conventions. The design below therefore does not depend

@@ -7,7 +7,7 @@ import {buildSpinePoints, countTriangles} from '../assets/shared/geometry-utils'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {palmTreeGenerator} from '../assets/trees/palm-tree-generator'
-import {findTreeGenerator, generateTreeComponents} from '../assets/trees/tree-generators'
+import {findPropGenerator, generatePropComponents} from '../assets/prop-generators'
 import {findPreset, treePresets} from '../assets/trees/presets'
 import {palmTrunkGenerator} from '../assets/trees/components/palm-trunk'
 import {palmCrownGenerator} from '../assets/trees/components/palm-crown'
@@ -23,7 +23,7 @@ function generatePalm(
     seed = COCONUT_PALM.seed,
     style = STYLE,
 ): readonly SceneComponent[] {
-    return generateTreeComponents('palm-tree', parameters, seed, style)
+    return generatePropComponents('palm-tree', parameters, seed, style)
 }
 
 function ofType(
@@ -349,7 +349,7 @@ describe('palm parameter validation', () => {
     })
 
     it('is in the registry under its own name', () => {
-        expect(findTreeGenerator('palm-tree')).toBe(palmTreeGenerator)
+        expect(findPropGenerator('palm-tree')).toBe(palmTreeGenerator)
     })
 })
 

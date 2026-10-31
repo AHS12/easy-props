@@ -359,7 +359,7 @@ function growWood(
 
     // The first pass finds how much height the trunk's lean costs, without hand
     // edits, so dragging the trunk does not change how long it is.
-    const target = height * (tree.form === 'palm' ? TOP_OF_PALM_TRUNK : TOP_OF_CONIFER_TRUNK)
+    const target = height * (tree.form === 'palm' ? TOP_OF_PALM_TRUNK * tree.stem : TOP_OF_CONIFER_TRUNK)
     const trunk =
         tree.form === 'crown'
             ? growTrunk(forkY * 1.22, edits)
@@ -702,12 +702,16 @@ function placeClumps(
     return clumps
 }
 
+/** How long a frond is against the height of a plant that is nearly all frond. */
+const FROND_REACH = 1.4
+
 /** A palm's crown: young fronds climb out of the top, old ones hang below them. */
 function placeFronds(limbs: readonly Limb[], tree: PaintedTreeParameters, seed: number, edits: PaintedEdits): Clump[] {
     const trunk = limbs[0]
     const base = tipOf(trunk)
     const count = tree.clumpCount
-    const length = (tree.height * 0.3 + 0.7) * tree.clumpSize
+    // The shorter the stem, the more of the height the fronds have to make up.
+    const length = (tree.height * FROND_REACH + (tree.height * 0.3 + 0.7 - tree.height * FROND_REACH) * tree.stem) * tree.clumpSize
     const clumps: Clump[] = []
 
     for (let index = 0; index < count; index++) {

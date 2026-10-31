@@ -28,7 +28,14 @@ export async function writeGLB(meshes: readonly NamedMesh[], name: string): Prom
     }
 
     try {
-        const exported = await new GLTFExporter().parseAsync(root, {binary: true})
+        const exported = await new GLTFExporter()
+            // The exporter names nodes but not meshes, and an engine lists both.
+            .register(() => ({
+                writeMesh(mesh: THREE.Mesh, meshDef: {name?: string}) {
+                    meshDef.name = mesh.name
+                },
+            }))
+            .parseAsync(root, {binary: true})
 
         if (!(exported instanceof ArrayBuffer)) {
             throw new Error('The export did not produce a binary glTF file.')

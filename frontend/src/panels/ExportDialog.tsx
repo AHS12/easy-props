@@ -7,11 +7,18 @@
 
 import {useEffect, useState} from 'react'
 import {getStyleProfile} from '../assets/style/style-profiles'
-import {loadExportPreferences, saveExportPreferences, APP_VERSION} from '../core/export/export-preferences'
+import {findPropGenerator} from '../assets/prop-generators'
+import {
+    APP_VERSION,
+    GODOT_IMPORT_NOTE,
+    loadExportPreferences,
+    saveExportPreferences,
+} from '../core/export/export-preferences'
 import {buildExport} from '../core/export/pipeline/package'
 import {ENGINE_LABELS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
 import {sceneExportSource} from '../core/export/scene-source'
-import {chooseFolder, exportFolderLabel, writeExportFiles} from '../platform/desktop'
+import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
+import {chooseFolder, desktopJoin, exportFolderLabel, writeExportFiles, writeFilesTo} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
 import '../styles/save-dialog.css'
 
@@ -29,6 +36,7 @@ export function ExportDialog() {
     const scene = useEditorStore((state) => state.scene)
     const style = useEditorStore((state) => state.style)
     const treeName = useEditorStore((state) => state.treeName)
+    const openBatch = useEditorStore((state) => state.openBatch)
 
     const [preferences, setPreferences] = useState(loadExportPreferences)
     const [name, setName] = useState('')
@@ -38,7 +46,7 @@ export function ExportDialog() {
     const [writing, setWriting] = useState(false)
 
     const safeName = exportNameOf(name)
-    const {engine, levels, collision, folder} = preferences
+    const {engine, levels, collision, wind, folder} = preferences
 
     useEffect(() => {
         if (open) {
@@ -61,7 +69,7 @@ export function ExportDialog() {
 
         buildExport(
             sceneExportSource(scene, getStyleProfile(style), APP_VERSION),
-            {name: safeName, engine, levels, collision},
+            {name: safeName, engine, levels, collision, wind},
             (done, total) => current && setProgress(done / total),
         ).then(
             (built) => current && setFiles(built),
@@ -71,7 +79,7 @@ export function ExportDialog() {
         return () => {
             current = false
         }
-    }, [open, name, safeName, scene, style, engine, levels, collision])
+    }, [open, name, safeName, scene, style, engine, levels, collision, wind])
 
     if (!open) {
         return null
@@ -89,6 +97,23 @@ export function ExportDialog() {
 
         if (chosen) {
             change({folder: chosen})
+        }
+    }
+
+    const saveKit = async () => {
+        if (engine === 'plain') {
+            return
+        }
+
+        const chosen = await chooseFolder(folder)
+
+        if (chosen) {
+            try {
+                await writeFilesTo(desktopJoin(chosen, kitFolder(engine)), engineKitFiles(engine))
+                setError(null)
+            } catch (failure) {
+                setError(describeFailure(failure))
+            }
         }
     }
 
@@ -159,6 +184,8 @@ export function ExportDialog() {
                     ))}
                 </select>
 
+                {engine === 'godot' ? <p className="export-dialog__note">{GODOT_IMPORT_NOTE}</p> : null}
+
                 <label className="save-dialog__label" htmlFor="export-name">
                     Name
                 </label>
@@ -197,6 +224,17 @@ export function ExportDialog() {
                     Collision
                 </label>
 
+                {findPropGenerator(scene.assets[0]?.generatorId ?? '')?.still ? null : (
+                    <label className="export-dialog__check">
+                        <input
+                            type="checkbox"
+                            checked={wind}
+                            onChange={(event) => change({wind: event.target.checked})}
+                        />
+                        Wind data
+                    </label>
+                )}
+
                 <label className="save-dialog__label" htmlFor="export-folder">
                     Folder
                 </label>
@@ -212,6 +250,15 @@ export function ExportDialog() {
                         Choose
                     </button>
                 </div>
+
+                {engine !== 'plain' ? (
+                    <div className="export-dialog__kit">
+                        <span className="save-dialog__hint">{KIT_LABELS[engine]}</span>
+                        <button type="button" className="btn btn--secondary" onClick={() => void saveKit()}>
+                            Save kit…
+                        </button>
+                    </div>
+                ) : null}
 
                 {error ? (
                     <p className="save-dialog__hint" role="alert">
@@ -233,6 +280,9 @@ export function ExportDialog() {
                 )}
 
                 <div className="save-dialog__actions">
+                    <button type="button" className="btn btn--ghost export-dialog__more" onClick={openBatch}>
+                        Export many…
+                    </button>
                     <button type="button" className="btn btn--ghost" onClick={closeExport}>
                         Cancel
                     </button>

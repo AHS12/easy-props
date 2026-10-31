@@ -47,11 +47,13 @@ import {
     updateTreeParameters,
 } from '../core/scene/scene-ops'
 import {STYLE_ORDER} from '../assets/style/style-profiles'
-import {loadBudgetTarget, saveBudgetTarget} from '../core/export/export-preferences'
+import {batchItems, type BatchChoice} from '../core/export/batch-items'
+import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences} from '../core/export/export-preferences'
+import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
 import type {BudgetTargetId, FaceCounts} from '../core/export/pipeline/budget'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
-import {openProjectFile, saveProjectFile} from '../platform/desktop'
+import {openProjectFile, saveProjectFile, writeFilesTo} from '../platform/desktop'
 import {
     clearDraftText,
     readDraftText,
@@ -111,7 +113,7 @@ function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
     return `${base} ${count}`
 }
 import type {LibraryPart} from '../assets/library/library'
-import {findComponentGenerator} from '../assets/trees/component-generators'
+import {findComponentGenerator} from '../assets/component-generators'
 import {describeComponent, type SceneComponent, type SurfacePush} from '../assets/shared/component-types'
 
 export type EditorStatus = {
@@ -125,6 +127,17 @@ export interface Toast {
     /** Set when the toast offers an undo. */
     readonly undoable: boolean
 }
+
+/** How far a batch has got. It has a summary once it has finished. */
+export interface BatchState {
+    readonly done: number
+    readonly total: number
+    readonly current: string | null
+    readonly summary: BatchSummary | null
+}
+
+/** Stops the batch that is running. Not state: nothing draws it. */
+let batchController: AbortController | null = null
 
 export interface EditorStore {
     scene: Scene
@@ -225,6 +238,15 @@ export interface EditorStore {
     closeExport(): void
     /** Closes the export panel and says what it wrote. */
     finishExport(message: string): void
+    /** The panel for exporting many props. A batch outlives it. */
+    batchOpen: boolean
+    openBatch(): void
+    closeBatch(): void
+    /** The batch running or just finished, or null. */
+    batch: BatchState | null
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences): void
+    cancelBatch(): void
+    clearBatch(): void
     /** Which detail level the viewport is showing. */
     previewLevel: number
     setPreviewLevel(level: number): void
@@ -932,6 +954,44 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         exportOpen: false,
         closeExport: () => set({exportOpen: false}),
         finishExport: (message) => set({exportOpen: false, toast: {message, undoable: false}}),
+        batchOpen: false,
+        openBatch: () => set({batchOpen: true, exportOpen: false}),
+        closeBatch: () => set({batchOpen: false}),
+        batch: null,
+        startBatch: (choices, variations, {engine, levels, collision, wind, folder}) => {
+            const state = get()
+
+            if (state.batch && !state.batch.summary) {
+                return
+            }
+
+            const controller = new AbortController()
+            const items = batchItems(choices, variations, {
+                style: state.style,
+                appVersion: APP_VERSION,
+                readInSavedProp: readTree,
+            })
+
+            batchController = controller
+            set({batch: {done: 0, total: items.length, current: null, summary: null}})
+
+            void runBatch(items, {
+                settings: {engine, levels, collision, wind},
+                budget: state.budgetTarget,
+                signal: controller.signal,
+                write: (files) => writeFilesTo(folder, files),
+                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null}}),
+            }).then((summary) => {
+                batchController = null
+                set({
+                    batch: {done: summary.exported, total: summary.total, current: null, summary},
+                    // The panel may be long closed, so the news comes back with it.
+                    batchOpen: true,
+                })
+            })
+        },
+        cancelBatch: () => batchController?.abort(),
+        clearBatch: () => set({batch: null}),
         previewLevel: 0,
         setPreviewLevel: (previewLevel) => set({previewLevel}),
         faceCounts: {wood: 0, leaves: 0},

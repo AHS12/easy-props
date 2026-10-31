@@ -12,11 +12,12 @@ import {createSeededRandom, hashSeed} from '../../assets/shared/random'
 import {roleOfPart, type GeneratedPart, type PartGenerator} from '../../assets/shared/generator-types'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {StyleProfile} from '../../assets/style/style-profiles'
-import {findComponentGenerator} from '../../assets/trees/component-generators'
-import {findTreeGenerator} from '../../assets/trees/tree-generators'
+import {findComponentGenerator} from '../../assets/component-generators'
+import {findPropGenerator} from '../../assets/prop-generators'
 import {materialColor} from '../../viewport/scene/component-renderer'
 import type {Scene, SceneMaterials} from '../scene/scene-model'
 import type {ExportSource, PlacedPart, Vec3} from './pipeline/types'
+import {yieldIfBusy} from './pipeline/yield'
 
 /** How much a part may grow to cover for the parts a lighter level leaves out. */
 const MAX_THINNED_GROWTH = 1.25
@@ -88,7 +89,7 @@ function placeComponent(
 
 export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion: string): ExportSource {
     const asset = scene.assets[0]
-    const treeGenerator = asset ? findTreeGenerator(asset.generatorId) : undefined
+    const treeGenerator = asset ? findPropGenerator(asset.generatorId) : undefined
     const treeParameters = () => treeGenerator!.validate(asset.parameters).parameters
 
     return {
@@ -104,6 +105,8 @@ export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion:
 
                 const parameters = generator.validate(component.parameters).parameters as object
                 const part = await buildPart(generator, parameters, component, style, detail)
+
+                await yieldIfBusy()
 
                 // A generator that cannot lighten itself is lightened from outside:
                 // its wood simplified, and fewer leaf masses, each larger, so the
@@ -141,6 +144,10 @@ export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion:
 
         pivot(): Vec3 {
             return (treeGenerator?.pivot?.(treeParameters(), asset.seed) as Vec3 | undefined) ?? [0, 0, 0]
+        },
+
+        sways() {
+            return treeGenerator?.still !== true
         },
 
         describe() {

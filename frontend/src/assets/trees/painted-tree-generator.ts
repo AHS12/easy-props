@@ -8,7 +8,7 @@
  */
 
 import {IDENTITY_TRANSFORM} from '../shared/component-types'
-import type {CollisionShape, GeneratedComponent, TreeGenerator} from '../shared/generator-types'
+import type {CollisionShape, GeneratedComponent, PropGenerator} from '../shared/generator-types'
 import {
     paintedTreeDefaults,
     paintedTreeParameterSpecs,
@@ -66,7 +66,7 @@ function typeOf(limb: Limb): GeneratedComponent['type'] {
     return limb.key.startsWith('r') ? 'root' : 'branch'
 }
 
-export const paintedTreeGenerator: TreeGenerator<PaintedTreeParameters> = {
+export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     id: 'painted-tree',
     version: 2,
     label: 'Painted tree',

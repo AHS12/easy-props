@@ -160,7 +160,7 @@ export function Viewport() {
             }
 
             const component = findComponent(state.scene, selected)
-            const fixed = component?.generatorId === 'painted-limb' || component?.generatorId === 'painted-bark'
+            const fixed = component?.generatorId === 'painted-limb' || component?.generatorId === 'painted-bark' || component?.generatorId === 'rock-body'
 
             gizmo.setOrigin(
                 component && !fixed ? new THREE.Vector3(...component.transform.position) : null,

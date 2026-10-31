@@ -105,14 +105,25 @@ export async function chooseFolder(start: string): Promise<string | null> {
     return (await app.ChooseFolder('Export to folder', start)) || null
 }
 
+/** A folder inside another, where the platform has folders. */
+export const desktopJoin = (folder: string, name: string) => (desktop() ? `${folder}/${name}` : folder)
+
 /** Where an export ends up, in words. */
 export const exportFolderLabel = (folder: string, name: string) =>
     desktop() ? `${folder}/${name}` : folder
 
 /** Writes an export's files into a folder of its own, named after the prop. */
-export async function writeExportFiles(
+export function writeExportFiles(
     folder: string,
     name: string,
+    files: readonly {name: string; bytes: Uint8Array}[],
+): Promise<void> {
+    return writeFilesTo(desktop() ? `${folder}/${name}` : folder, files)
+}
+
+/** Writes files straight into a folder, as a batch does. */
+export async function writeFilesTo(
+    folder: string,
     files: readonly {name: string; bytes: Uint8Array}[],
 ): Promise<void> {
     const app = desktop()
@@ -126,7 +137,7 @@ export async function writeExportFiles(
     }
 
     await app.WriteFiles(
-        `${folder}/${name}`,
+        folder,
         files.map((file) => ({name: file.name, contents: [...file.bytes]})),
     )
 }
