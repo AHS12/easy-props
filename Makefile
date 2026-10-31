@@ -19,7 +19,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install hooks dev web build build-frontend installer mac dmg release run test test-go test-frontend test-watch typecheck lint check clean
+.PHONY: help install hooks dev web build build-frontend build-check installer mac dmg release run test test-go test-frontend test-watch typecheck lint lint-go lint-frontend check clean
 
 help: ## List the tasks
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -84,10 +84,23 @@ test-watch: ## Run the frontend tests on every change
 typecheck: ## Check the TypeScript types
 	pnpm --dir $(FRONTEND) typecheck
 
-lint: ## Lint the frontend
+lint: typecheck lint-frontend lint-go ## Run every lint
+
+lint-frontend: ## Lint the frontend
 	pnpm --dir $(FRONTEND) lint
 
-check: typecheck lint test ## Everything to run before a commit
+# The Go code embeds the frontend, so it won't compile until that has been built once.
+lint-go: $(FRONTEND)/dist/index.html ## Lint the Go code (needs golangci-lint)
+	@command -v golangci-lint >/dev/null || { echo "Install golangci-lint: https://golangci-lint.run/"; exit 1; }
+	golangci-lint run ./...
+
+$(FRONTEND)/dist/index.html:
+	pnpm --dir $(FRONTEND) build
+
+build-check: build-frontend ## Check that the frontend and the Go code build
+	go build -tags desktop,production ./...
+
+check: lint test build-check ## Run every lint, test and build check
 
 clean: ## Delete build output
 	rm -rf build/bin $(DIST) $(FRONTEND)/dist

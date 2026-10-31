@@ -47,8 +47,8 @@ The builds aren't signed yet, so the first launch shows a warning:
 
 ## Build from source
 
-You need Go, Node.js, pnpm and the [Wails CLI](https://wails.io). `wails doctor` should
-report success. On Windows, `choco install make` provides `make`, and it also needs Git
+You need Go, Node.js, pnpm, [golangci-lint](https://golangci-lint.run/) and the
+[Wails CLI](https://wails.io). `wails doctor` should report success. On Windows, `choco install make` provides `make`, and it also needs Git
 for Windows in its default folder.
 
 ```bash
@@ -56,7 +56,8 @@ make install    # Install frontend packages and git hooks, first time only
 make dev        # Run the app with hot reload
 make build      # Build the app into build/bin
 make test       # Run the Go and frontend tests
-make check      # Run types, lint and tests, before a commit
+make lint       # Run every lint, needs golangci-lint
+make check      # Run every lint, test and build check
 make release    # Build whichever installer this computer can make
 ```
 
