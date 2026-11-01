@@ -1,6 +1,7 @@
 # easy-props
 
 [![Latest version](https://img.shields.io/github/v/release/AHS12/easy-props?label=version)](https://github.com/AHS12/easy-props/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/AHS12/easy-props/total)](https://github.com/AHS12/easy-props/releases)
 
 Make game-ready 3D props in minutes, with no 3D experience needed.
 
