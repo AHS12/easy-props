@@ -202,6 +202,26 @@ describe('painted tree', () => {
         expect(edited.clumps[1].key).toBe(second.key)
     })
 
+    it('ends a thick root rounded, with no spike out to its thin tip', () => {
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, trunkRadius: 0.85, rootCount: 6}
+        const plan = planPaintedTree(tree, 301)
+        const position = buildBark(plan, tree, 301, 1).getAttribute('position')
+        const roots = plan.limbs.filter((limb) => limb.key.startsWith('r'))
+
+        expect(roots).toHaveLength(6)
+
+        for (const root of roots) {
+            const tip = root.points[root.points.length - 1]
+            let nearest = Infinity
+
+            for (let index = 0; index < position.count; index++) {
+                nearest = Math.min(nearest, Math.hypot(position.getX(index) - tip[0], position.getY(index) - tip[1], position.getZ(index) - tip[2]))
+            }
+
+            expect(nearest).toBeGreaterThan(0.01)
+        }
+    })
+
     it('builds the same bark however the work is sliced', () => {
         const tree: PaintedTreeParameters = {...paintedTreeDefaults, burls: 3, moss: 0.5, barkPattern: 'plated', form: 'conifer'}
         const plan = planPaintedTree(tree, 11)

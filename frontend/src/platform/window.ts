@@ -9,6 +9,7 @@ interface WindowRuntime {
     WindowToggleMaximise(): void
     WindowIsMaximised(): Promise<boolean>
     Quit(): void
+    BrowserOpenURL(url: string): void
 }
 
 const runtime = () =>
@@ -27,6 +28,17 @@ export const minimiseWindow = () => runtime()?.WindowMinimise()
 export const toggleMaximiseWindow = () => runtime()?.WindowToggleMaximise()
 
 export const windowIsMaximised = async () => (await runtime()?.WindowIsMaximised()) ?? false
+
+/** Opens a link in the system's browser, not inside the app's own window. */
+export const openLink = (url: string) => {
+    const desktop = runtime()
+
+    if (desktop) {
+        desktop.BrowserOpenURL(url)
+    } else {
+        window.open(url, '_blank', 'noopener')
+    }
+}
 
 /** Goes through the close guard, like the system's own close button. */
 export const closeWindow = () => runtime()?.Quit()

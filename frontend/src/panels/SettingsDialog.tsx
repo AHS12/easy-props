@@ -17,6 +17,7 @@ import {EXPORT_SETTINGS} from '../core/settings/export-settings'
 import {SETTING_SPECS, type SettingPage, type SettingSpec} from '../core/settings/settings-spec'
 import {chooseFolder} from '../platform/desktop'
 import {hasDesktopStorage, libraryInfo, openLibraryFolder, type LibraryInfo} from '../platform/settings'
+import {openLink} from '../platform/window'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
@@ -337,11 +338,18 @@ function StoragePage() {
     )
 }
 
+const GITHUB_URL = 'https://github.com/AHS12/easy-props'
+
 function AboutPage() {
     return (
         <>
             <SettingRow label="easy-props" help="Make game-ready trees and props, with no 3D experience needed.">
                 <span className="tabular setting__value">Version {APP_VERSION}</span>
+            </SettingRow>
+            <SettingRow label="Developer" help="AHS12. The code, releases and issues are on GitHub.">
+                <button type="button" className="button" onClick={() => openLink(GITHUB_URL)}>
+                    github.com/AHS12/easy-props
+                </button>
             </SettingRow>
             <SettingRow
                 label="Open-source software"

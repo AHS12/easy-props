@@ -1,5 +1,7 @@
 # easy-props
 
+[![Latest version](https://img.shields.io/github/v/release/AHS12/easy-props?label=version)](https://github.com/AHS12/easy-props/releases/latest)
+
 Make game-ready 3D props in minutes, with no 3D experience needed.
 
 Pick a tree, rock, bush, fern or patch of grass, shape it with plain sliders, and
