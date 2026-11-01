@@ -101,6 +101,7 @@ Function .onInit
            Abort
        ${EndIf}
        nsExec::Exec 'taskkill /IM ${PRODUCT_EXECUTABLE} /F'
+       Sleep 1000 # The file stays locked for a moment after the app is gone.
    ${EndIf}
 FunctionEnd
 
@@ -111,15 +112,26 @@ Section
 
     SetOutPath $INSTDIR
 
+    # Only a first install adds this, so an update does not bring back a shortcut
+    # the user removed. The uninstaller shows an earlier install is here.
+    ${IfNot} ${FileExists} "$INSTDIR\uninstall.exe"
+        CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    ${EndIf}
+
     !insertmacro wails.files
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
 
     !insertmacro wails.writeUninstaller
+
+    # The app starts a silent install to update itself, and has closed by now. The
+    # finish page, which offers to open it otherwise, does not appear.
+    ${If} ${Silent}
+        Exec '"$INSTDIR\${PRODUCT_EXECUTABLE}"'
+    ${EndIf}
 SectionEnd
 
 Section "uninstall"

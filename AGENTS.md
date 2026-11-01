@@ -31,8 +31,8 @@ Commit or push only when asked. Work on `dev`, and don't touch `main`.
 
 ## How the code is arranged
 
-- `backend/` only handles files and native dialogs. Geometry, editing and export are all
-  TypeScript. The frontend reaches Go through `frontend/src/platform`, and
+- `backend/` only handles files, native dialogs and app updates. Geometry, editing and
+  export are all TypeScript. The frontend reaches Go through `frontend/src/platform`, and
   `frontend/wailsjs` is generated, so don't edit it by hand.
 - `frontend/src/assets/` is pure geometry. ESLint rejects React, Zustand and Wails imports
   there.

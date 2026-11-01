@@ -17,10 +17,12 @@ import {EXPORT_SETTINGS} from '../core/settings/export-settings'
 import {SETTING_SPECS, type SettingPage, type SettingSpec} from '../core/settings/settings-spec'
 import {chooseFolder} from '../platform/desktop'
 import {hasDesktopStorage, libraryInfo, openLibraryFolder, type LibraryInfo} from '../platform/settings'
+import {canCheckForUpdates} from '../platform/update'
 import {openLink} from '../platform/window'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
+import {useUpdateStore} from '../store/update-store'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
     {id: 'General', icon: Settings2},
@@ -325,12 +327,85 @@ function StoragePage() {
 
 const GITHUB_URL = 'https://github.com/AHS12/easy-props'
 
+function UpdateRow() {
+    const update = useUpdateStore((state) => state.update)
+    const {check, download, restart} = useUpdateStore.getState()
+
+    switch (update.phase) {
+        case 'idle':
+            return (
+                <SettingRow label="Updates" help="See whether a newer version is out.">
+                    <button type="button" className="button" onClick={() => void check()}>
+                        Check for updates
+                    </button>
+                </SettingRow>
+            )
+        case 'checking':
+            return (
+                <SettingRow label="Updates" help="Looking for a newer version…">
+                    <button type="button" className="button" disabled>
+                        Check for updates
+                    </button>
+                </SettingRow>
+            )
+        case 'current':
+            return (
+                <SettingRow label="Updates" help="You have the latest version.">
+                    <button type="button" className="button" onClick={() => void check()}>
+                        Check again
+                    </button>
+                </SettingRow>
+            )
+        case 'manual':
+            return (
+                <SettingRow label="Updates" help={`Version ${update.version} is out. Get it from the download page, then install it over this one.`}>
+                    <button type="button" className="button button--primary" onClick={() => openLink(update.releaseUrl)}>
+                        Open download page
+                    </button>
+                </SettingRow>
+            )
+        case 'available':
+            return (
+                <SettingRow label="Updates" help={`Version ${update.version} is out.`}>
+                    <button type="button" className="button button--primary" onClick={() => void download()}>
+                        Download update
+                    </button>
+                </SettingRow>
+            )
+        case 'downloading':
+            return (
+                <SettingRow label="Updates" help={`Downloading version ${update.version}: ${Math.round(update.fraction * 100)}%`}>
+                    <button type="button" className="button" disabled>
+                        Download update
+                    </button>
+                </SettingRow>
+            )
+        case 'ready':
+            return (
+                <SettingRow label="Updates" help={`Version ${update.version} is ready. easy-props will close, update itself and open again.`}>
+                    <button type="button" className="button button--primary" onClick={() => void restart()}>
+                        Restart to update
+                    </button>
+                </SettingRow>
+            )
+        case 'failed':
+            return (
+                <SettingRow label="Updates" help={update.message}>
+                    <button type="button" className="button" onClick={() => void check()}>
+                        Try again
+                    </button>
+                </SettingRow>
+            )
+    }
+}
+
 function AboutPage() {
     return (
         <>
             <SettingRow label="easy-props" help="Make game-ready trees and props, with no 3D experience needed.">
                 <span className="tabular setting__value">Version {APP_VERSION}</span>
             </SettingRow>
+            {canCheckForUpdates() ? <UpdateRow /> : null}
             <SettingRow label="Developer" help="AHS12. The code, releases and issues are on GitHub.">
                 <button type="button" className="button" onClick={() => openLink(GITHUB_URL)}>
                     github.com/AHS12/easy-props

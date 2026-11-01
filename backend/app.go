@@ -1,8 +1,8 @@
 // Package backend holds the desktop integration for easy-props.
 //
-// Its responsibilities are deliberately narrow: native file dialogs and
-// reading and writing project files. Geometry, validation, and the editor
-// state all live in the TypeScript frontend.
+// Its responsibilities are deliberately narrow: native file dialogs, reading
+// and writing project files, and fetching and starting app updates. Geometry,
+// validation, and the editor state all live in the TypeScript frontend.
 package backend
 
 import (
@@ -48,6 +48,22 @@ type App struct {
 	// interface's own dialog, so the next close goes through without asking
 	// again. It is set by ConfirmClose and read by BeforeClose.
 	allowClose bool
+
+	// updateAPI, updateRoot and appFolder override where updates are looked for,
+	// downloaded and installed, and startInstaller overrides how one is started.
+	// All are empty in the running app; tests set them.
+	updateAPI      string
+	updateRoot     string
+	appFolder      string
+	startInstaller func(installer string, folder string) error
+
+	// updateAsset is what the last check found, updateInstaller is its checked
+	// download, and installOnClose records that the user asked to install it. See
+	// update.go. mu guards them too.
+	updateAsset       *githubAsset
+	updateInstaller   string
+	updateDownloading bool
+	installOnClose    bool
 }
 
 // NewApp creates a new App application struct.
@@ -59,13 +75,22 @@ func NewApp() *App {
 // call the runtime methods.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.removeOldInstaller()
 }
 
 // Shutdown is called when the app is about to exit. The saved context belongs
 // to a frontend that is going away, so it is dropped: a late dialog request
 // then reports an error instead of reaching a runtime that no longer exists.
+//
+// This is also where an update the user asked for begins, once every close
+// question has been answered. If it cannot start there is no window left to say
+// so in, and the app simply opens on the old version next time.
 func (a *App) Shutdown(ctx context.Context) {
+	a.mu.Lock()
 	a.ctx = nil
+	a.mu.Unlock()
+
+	_ = a.runPendingInstaller()
 }
 
 // CloseRequestedEvent is the event the window asks its interface about before

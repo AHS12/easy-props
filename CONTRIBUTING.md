@@ -71,7 +71,7 @@ under the GPL or a paid license.
 | `frontend/src/assets` | Generators and presets. Pure geometry |
 | `frontend/src/core` | Scene model, undo, commands, settings, export |
 | `frontend/src/panels`, `frontend/src/viewport` | The interface and the 3D view |
-| `backend` | Go. Files and native dialogs only |
+| `backend` | Go. Files, native dialogs and app updates only |
 
 ## License
 

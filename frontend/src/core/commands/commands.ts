@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     Box, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
+    PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
@@ -20,6 +20,8 @@ import {LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
 import {useUiStore} from '../../store/ui-store'
+import {useUpdateStore} from '../../store/update-store'
+import {canCheckForUpdates} from '../../platform/update'
 import {viewportHandle, type ViewAngle} from '../../viewport/viewport-bridge'
 
 export type CommandId = string
@@ -572,6 +574,19 @@ export const COMMANDS: readonly Command[] = [
         global: true,
         keywords: 'changelog release notes version update',
         run: () => useUiStore.getState().setWhatsNewOpen(true),
+    },
+    {
+        id: 'check-updates',
+        label: 'Check for updates',
+        group: 'Help',
+        icon: RefreshCw,
+        global: true,
+        keywords: 'update upgrade new version download',
+        unavailable: () => (canCheckForUpdates() ? null : 'Updates are only available in the desktop app.'),
+        run: () => {
+            useUiStore.getState().openSettings('About')
+            void useUpdateStore.getState().check()
+        },
     },
     {
         id: 'about',

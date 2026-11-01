@@ -42,6 +42,7 @@ func main() {
 		},
 		OnStartup:     app.Startup,
 		OnBeforeClose: app.BeforeClose,
+		OnShutdown:    app.Shutdown,
 		Bind: []interface{}{
 			app,
 		},

@@ -46,3 +46,5 @@ Then build and open the installer on whatever you can, with `make release`.
    Actions with the tag and platform.
 3. The tag has to match the version, or the run stops before building.
 4. When the run ends, check that both the Windows installer and the Mac DMG are attached.
+   The app finds updates by those file names, so keep them in step with
+   `updateAssetName` in `backend/update.go`. A test fails if they drift.
