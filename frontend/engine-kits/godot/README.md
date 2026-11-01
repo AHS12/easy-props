@@ -27,6 +27,9 @@ Export the prop with **Engine: Godot** and **Wind data** on.
 2. Right-click it and tick **Editable Children**.
 3. Select each mesh and set **Surface Material Override > 0** to the matching material.
 
+If you exported with **Join parts**, there is one mesh with a surface for each material.
+Set **Surface Material Override > 0** and **> 1**, matching the names you noted above.
+
 ## Change the look
 
 The settings are under **Shader Parameters**. Give both materials the same sway

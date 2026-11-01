@@ -58,6 +58,14 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         set: (value) => update({wind: value === true}),
     },
     {
+        key: 'join',
+        label: 'Join parts',
+        help: 'Makes wood and leaves one object, for placing many at once.',
+        keywords: 'merge combine single forest',
+        get: () => loadExportPreferences().join,
+        set: (value) => update({join: value === true}),
+    },
+    {
         key: 'budget',
         label: 'Budget target',
         help: 'What a prop is for, which sets the face count the status bar checks it against.',

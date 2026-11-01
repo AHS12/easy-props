@@ -7,7 +7,7 @@
 
 import * as THREE from 'three'
 import {collisionNodeName, collisionShapes, prismGeometry} from './collision'
-import {mergeParts} from './merge'
+import {joinMeshes, mergeParts} from './merge'
 import {EVEN_REACH, measureWindExtent, type WindExtent} from './wind'
 import {yieldIfBusy} from './yield'
 import {writeGLB, type NamedMesh} from '../glb-exporter'
@@ -66,19 +66,25 @@ export async function buildExport(
             }
         }
 
-        const meshes = mergeParts(parts, name, pivot, extent)
+        const merged = mergeParts(parts, name, pivot, extent)
+        const meshes = settings.join ? joinMeshes(merged, name) : merged
+        const inlineShapes = settings.join && engine === 'unreal' && meshes.length > 0
+        let shapeNodes: NamedMesh[] = []
 
         // One set of shapes, made once: they stand for every level.
         if (level === 0 && settings.collision) {
             const shapes = collisionShapes(source.collision(), parts)
-            const material = new THREE.MeshStandardMaterial({name: `${name}_collision`})
+            // Beside the prop they borrow its material, as one of their own would be one more for an engine to list.
+            const material = inlineShapes ? [meshes[0].material].flat()[0] : new THREE.MeshStandardMaterial({name: `${name}_collision`})
             const nodes: NamedMesh[] = shapes.map((shape, index) => ({
-                name: collisionNodeName(engine, name, index),
+                name: collisionNodeName(engine, name, index, inlineShapes ? name : undefined),
                 geometry: prismGeometry(shape, pivot),
                 material,
             }))
 
-            if (nodes.length > 0) {
+            if (inlineShapes) {
+                shapeNodes = nodes
+            } else if (nodes.length > 0) {
                 files.push({name: `${name}_collision.glb`, bytes: new Uint8Array(await writeGLB(nodes, `${name}_collision`))})
             }
 
@@ -89,7 +95,7 @@ export async function buildExport(
         const fileName = levels > 1 ? `${name}_LOD${level}.glb` : `${name}.glb`
 
         faceCounts[`LOD${level}`] = faces
-        files.push({name: fileName, bytes: new Uint8Array(await writeGLB(meshes, name)), faces})
+        files.push({name: fileName, bytes: new Uint8Array(await writeGLB([...meshes, ...shapeNodes], name)), faces})
         disposeParts(parts)
         done++
         await yieldIfBusy()

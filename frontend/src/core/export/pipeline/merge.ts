@@ -43,6 +43,10 @@ export interface MergedMesh {
     readonly faces: number
 }
 
+export interface JoinedMesh extends Omit<MergedMesh, 'material'> {
+    readonly material: THREE.MeshStandardMaterial[]
+}
+
 function hasFinitePositions(geometry: THREE.BufferGeometry): boolean {
     const position = geometry.getAttribute('position')
 
@@ -183,4 +187,31 @@ export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Ve
     }
 
     return merged
+}
+
+/**
+ * Makes one mesh of merged ones, for an engine that places a mesh many times over.
+ * Each keeps its own material, because leaves and wood still draw differently.
+ */
+export function joinMeshes(meshes: readonly MergedMesh[], name: string): JoinedMesh[] {
+    if (meshes.length === 0) {
+        return []
+    }
+
+    const geometry = mergeGeometries(meshes.map((mesh) => mesh.geometry), true)
+
+    if (!geometry) {
+        throw new Error('The parts of this prop could not be joined.')
+    }
+
+    for (const mesh of meshes) {
+        mesh.geometry.dispose()
+    }
+
+    return [{
+        name,
+        geometry,
+        material: meshes.map((mesh) => mesh.material),
+        faces: geometry.index!.count / 3,
+    }]
 }

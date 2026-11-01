@@ -51,7 +51,7 @@ export function ExportDialog() {
     const [writing, setWriting] = useState(false)
 
     const safeName = exportNameOf(name)
-    const {engine, levels, collision, wind, folder} = preferences
+    const {engine, levels, collision, wind, join, folder} = preferences
 
     useEffect(() => {
         if (open) {
@@ -83,7 +83,7 @@ export function ExportDialog() {
         const timer = window.setTimeout(() => {
             buildExport(
                 sceneExportSource(scene, getStyleProfile(style), APP_VERSION),
-                {name: safeName, engine, levels, collision, wind},
+                {name: safeName, engine, levels, collision, wind, join},
                 (done, total) => current && setProgress(done / total),
             )
                 .then(
@@ -97,7 +97,7 @@ export function ExportDialog() {
             current = false
             window.clearTimeout(timer)
         }
-    }, [open, name, safeName, scene, style, engine, levels, collision, wind])
+    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join])
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -204,6 +204,9 @@ export function ExportDialog() {
                             <Switch label="Wind data" value={wind} onChange={(next) => change({wind: next})} />
                         </Row>
                     )}
+                    <Row label="Join parts" help="Makes wood and leaves one object, for placing many at once.">
+                        <Switch label="Join parts" value={join} onChange={(next) => change({join: next})} />
+                    </Row>
                     <Row label="Folder">
                         <input
                             className="field field--path"

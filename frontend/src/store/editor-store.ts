@@ -998,7 +998,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatch: () => set({batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, folder}) => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder}) => {
             const state = get()
 
             if (state.batch && !state.batch.summary) {
@@ -1016,7 +1016,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({batch: {done: 0, total: items.length, current: null, summary: null}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind},
+                settings: {engine, levels, collision, wind, join},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files) => writeFilesTo(folder, files),

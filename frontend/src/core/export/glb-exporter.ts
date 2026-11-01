@@ -12,7 +12,7 @@ import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js'
 export interface NamedMesh {
     readonly name: string
     readonly geometry: THREE.BufferGeometry
-    readonly material: THREE.Material
+    readonly material: THREE.Material | THREE.Material[]
 }
 
 export async function writeGLB(meshes: readonly NamedMesh[], name: string): Promise<ArrayBuffer> {
@@ -47,7 +47,10 @@ export async function writeGLB(meshes: readonly NamedMesh[], name: string): Prom
 
         for (const {geometry, material} of meshes) {
             geometry.dispose()
-            material.dispose()
+
+            for (const each of [material].flat()) {
+                each.dispose()
+            }
         }
     }
 }

@@ -40,7 +40,7 @@ interface Accessor {
 interface Gltf {
     readonly nodes?: {name: string; mesh?: number}[]
     readonly meshes?: {name: string; primitives: {attributes: Record<string, number>; indices: number; material: number}[]}[]
-    readonly materials?: {alphaMode?: string; pbrMetallicRoughness?: {baseColorTexture?: unknown}}[]
+    readonly materials?: {name?: string; alphaMode?: string; pbrMetallicRoughness?: {baseColorTexture?: unknown}}[]
     readonly textures?: unknown[]
     readonly images?: unknown[]
     readonly accessors: Accessor[]
@@ -207,6 +207,65 @@ describe('game-ready export', () => {
         expect(unreal.nodes!.every((node) => /^UCX_oak_01_LOD0_\d\d$/.test(node.name))).toBe(true)
         expect(godot.nodes!.every((node) => /^oak_01_\d+-convcolonly$/.test(node.name))).toBe(true)
     }, 60000)
+
+    describe.each(['plain', 'godot', 'unreal'] as const)('with parts joined for %s', (engine) => {
+        const exportBoth = async (levels: number) => {
+            const settings = {name: 'oak_01', engine, levels, collision: true, wind: true}
+            const source = () => sceneExportSource(createSceneFromPreset('blossom-tree'), STYLE, 'test')
+
+            return {
+                apart: await buildExport(source(), settings),
+                joined: await buildExport(source(), {...settings, join: true}),
+            }
+        }
+
+        it('writes one object with a part per material, losing nothing', async () => {
+            const {apart, joined} = await exportBoth(2)
+
+            for (const level of ['LOD0', 'LOD1']) {
+                const before = readGLB(fileNamed(apart, `${level}.glb`).bytes).json
+                const after = readGLB(fileNamed(joined, `${level}.glb`).bytes).json
+                const drawn = after.nodes!.filter((node) => !node.name.startsWith('UCX_'))
+
+                expect(drawn.map((node) => node.name)).toEqual(['oak_01'])
+
+                const mesh = after.meshes![drawn[0].mesh!]
+
+                expect(mesh.primitives.length).toBe(before.meshes!.length)
+                expect(mesh.primitives.map((primitive) => after.materials![primitive.material].name).sort()).toEqual(
+                    ['oak_01_leaves', 'oak_01_wood'],
+                )
+
+                for (const primitive of mesh.primitives) {
+                    expect(primitive.attributes.COLOR_0).toBeDefined()
+                    expect(primitive.attributes.TEXCOORD_1, 'wind data').toBeDefined()
+                }
+
+                expect(after.materials!.map((material) => material.name).sort()).toEqual(['oak_01_leaves', 'oak_01_wood'])
+
+                const own = {...after, meshes: [mesh]}
+
+                expect(faces(own)).toBe(faces(before))
+                expect(bounds(own)).toEqual(bounds(before))
+            }
+        }, 60000)
+
+        it('puts collision where the engine can read it', async () => {
+            const {joined} = await exportBoth(2)
+            const lod = (level: number) => readGLB(fileNamed(joined, `LOD${level}.glb`).bytes).json
+            const shapesIn = (level: number) => lod(level).nodes!.filter((node) => node.name.startsWith('UCX_'))
+
+            if (engine === 'unreal') {
+                expect(joined.some((file) => file.name.endsWith('_collision.glb'))).toBe(false)
+                expect(shapesIn(0).length).toBeGreaterThan(0)
+                expect(shapesIn(0).every((node) => /^UCX_oak_01_\d\d$/.test(node.name))).toBe(true)
+                expect(shapesIn(1)).toEqual([])
+            } else {
+                expect(fileNamed(joined, '_collision.glb')).toBeDefined()
+                expect(shapesIn(0)).toEqual([])
+            }
+        }, 60000)
+    })
 
     it('still writes a valid file for a scene with nothing in it', async () => {
         const files = await buildExport(sceneExportSource(createEmptyScene(), STYLE, 'test'), {
