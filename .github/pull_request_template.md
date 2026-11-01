@@ -18,7 +18,7 @@ Closes #
 
 - [ ] `make check` passes
 - [ ] I added or updated tests where a test can show the change
-- [ ] Words on screen follow the [terminology table](https://github.com/AHS12/easy-props/blob/dev/specs/01-product-spec.md#5-terminology-mapping)
+- [ ] Words on screen follow the [terminology table](https://github.com/AHS12/easy-props/blob/dev/docs/terminology.md)
 - [ ] Layout changes look right at more than 100% interface scale
 - [ ] Props saved before this change still open, and any generator whose output changed has a higher `version`
 - [ ] No downloaded art or copied code

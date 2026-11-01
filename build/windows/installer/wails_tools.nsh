@@ -17,7 +17,7 @@
     !define INFO_PRODUCTVERSION "0.1.5"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "© 2026 Azizul Hakim"
+    !define INFO_COPYRIGHT "© 2026 AHS12"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

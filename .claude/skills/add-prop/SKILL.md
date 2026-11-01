@@ -21,7 +21,7 @@ the existing controls can't reach is a **generator**. Prefer a preset.
 1. Read `frontend/src/assets/shared/generator-types.ts`, then copy the structure of the
    closest generator. `grass/grass-generator.ts` is a compact example.
 2. Keep parameters in `ParameterSpec` entries, with plain labels from the terminology table
-   in `specs/01-product-spec.md`. `validate` clamps and never throws.
+   in `docs/terminology.md`. `validate` clamps and never throws.
 3. Set the flags that apply: `still` for something wind doesn't move, `swaysEvenly`,
    `paintsOwnColours`, and `budgetAdvice` in the words of its own controls.
 4. Draw every random choice from `context.random` or the seed. Don't use `Math.random` or

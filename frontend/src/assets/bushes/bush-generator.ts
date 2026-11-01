@@ -1,5 +1,5 @@
 /**
- * Bushes. See `bush-mesh.ts` and `specs/08-rocks-bushes-grass.md`.
+ * Bushes. See `bush-mesh.ts`.
  *
  * Two parts, because they draw with different materials: the solid core, and the
  * leaves with their cut-out texture.

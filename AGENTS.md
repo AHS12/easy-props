@@ -45,11 +45,10 @@ Commit or push only when asked. Work on `dev`, and don't touch `main`.
 ## Rules that are easy to break
 
 - **Randomness:** generators use only the random source and seed they're given. Nothing
-  enforces this, so check it yourself. There's no lint rule for `Math.random` or `Date.now`,
-  whatever older specs say.
+  enforces this, so check it yourself. There's no lint rule for `Math.random` or `Date.now`.
 - **Generator output:** if the same settings now make different geometry, raise `version`.
   Keep old generators so saved props still open.
-- **Words on screen:** follow the terminology table in `specs/01-product-spec.md`. "Mesh",
+- **Words on screen:** follow the terminology table in `docs/terminology.md`. "Mesh",
   "vertex", "UV" and "normal" are never shown. Write labels, tooltips and the changelog in
   plain language.
 - **Sizes:** a postcss step in `vite.config.ts` turns stylesheet pixels into rems, and the
@@ -63,12 +62,6 @@ Commit or push only when asked. Work on `dev`, and don't touch `main`.
 Match the code around you: four-space indent, no semicolons, single quotes, no spaces inside
 import braces. Comments are few, and explain why rather than what. Test names read as plain
 sentences about behavior. Tests sit in `frontend/src/tests`, or beside the code they cover.
-
-## Specs
-
-`specs/` records intent and research. It has drifted from the code in places: the module map
-in `03-architecture-spec.md` is older than the current layout, for example. Trust the code
-for how things work now, and the specs for why.
 
 ## Reporting your work
 

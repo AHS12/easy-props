@@ -46,8 +46,8 @@ asks for the line to use.
 every feature without reading anything. If it needs a tutorial, it needs a redesign.
 
 **Plain words in the interface.** People see "Thickness", not "radius", and "Push / Pull",
-not "sculpt". The [terminology table](specs/01-product-spec.md#5-terminology-mapping)
-applies to every word on screen.
+not "sculpt". The [terminology table](docs/terminology.md) applies to
+every word on screen.
 
 **The same seed gives the same prop.** Generators under `frontend/src/assets` use the
 random source they're given, never `Math.random` or the clock, and they can't import
@@ -72,7 +72,6 @@ under the GPL or a paid license.
 | `frontend/src/core` | Scene model, undo, commands, settings, export |
 | `frontend/src/panels`, `frontend/src/viewport` | The interface and the 3D view |
 | `backend` | Go. Files and native dialogs only |
-| `specs` | Why things are the way they are. Some of it is older than the code |
 
 ## License
 
