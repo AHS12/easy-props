@@ -14,10 +14,10 @@
     !define INFO_PRODUCTNAME "easy-props"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "0.1.5"
+    !define INFO_PRODUCTVERSION "0.1.6"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "© 2026 Azizul Hakim"
+    !define INFO_COPYRIGHT "© 2026 AHS12"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

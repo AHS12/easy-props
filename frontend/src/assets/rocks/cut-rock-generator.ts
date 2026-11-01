@@ -2,7 +2,7 @@
  * Stylized rocks: solid chunks cut by flat planes, and overlapped.
  *
  * Replaces the sculpted rock in `rock-generator.ts`, which stays so that a rock
- * someone already saved still opens. See `specs/08-rocks-bushes-grass.md`.
+ * someone already saved still opens.
  */
 
 import {z} from 'zod'

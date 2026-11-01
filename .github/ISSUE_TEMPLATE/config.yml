@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Using props in Unreal
+    url: https://github.com/AHS12/easy-props/blob/main/docs/unreal-trees.md
+    about: Step-by-step material setup, including wind.
+  - name: Using props in Godot
+    url: https://github.com/AHS12/easy-props/blob/main/docs/godot-trees.md
+    about: How to use the shaders in the Godot kit.

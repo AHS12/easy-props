@@ -1,5 +1,8 @@
 # easy-props
 
+[![Latest version](https://img.shields.io/github/v/release/AHS12/easy-props?label=version)](https://github.com/AHS12/easy-props/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/AHS12/easy-props/total)](https://github.com/AHS12/easy-props/releases)
+
 Make game-ready 3D props in minutes, with no 3D experience needed.
 
 Pick a tree, rock, bush, fern or patch of grass, shape it with plain sliders, and
@@ -89,3 +92,12 @@ The tag has to match the version, or the run stops before building anything.
 Wails (Go) for the desktop shell, React and TypeScript for the interface, and Three.js
 for the 3D view. Go only handles files and native dialogs: geometry, editing and export
 all live in TypeScript under `frontend/src`.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. [Open an issue](https://github.com/AHS12/easy-props/issues/new/choose),
+or read [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+## License
+
+[MIT](LICENSE.md)

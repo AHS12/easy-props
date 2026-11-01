@@ -2,6 +2,11 @@
 
 What's new in each version of easy-props.
 
+## 0.1.6 (November 1, 2026)
+
+- Tree roots now end in rounded tips, instead of thin dark spikes lying on the ground.
+- About in Settings now shows who makes the app, with a link to the project on GitHub.
+
 ## 0.1.5 (November 1, 2026)
 
 **New props that look the part**

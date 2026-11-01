@@ -1,5 +1,5 @@
 /**
- * Grass tufts and patches. See `blade-mesh.ts` and `specs/08-rocks-bushes-grass.md`.
+ * Grass tufts and patches. See `blade-mesh.ts`.
  *
  * Nothing to collide with, and every blade moves about as much as any other, so
  * a patch's rim does not swing further than its middle.

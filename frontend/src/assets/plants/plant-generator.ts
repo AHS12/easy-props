@@ -1,5 +1,5 @@
 /**
- * Flowering plants. See `plant-mesh.ts` and `specs/08-rocks-bushes-grass.md`.
+ * Flowering plants. See `plant-mesh.ts`.
  */
 
 import {z} from 'zod'

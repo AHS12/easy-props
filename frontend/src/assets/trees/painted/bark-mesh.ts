@@ -262,11 +262,17 @@ export function prepareBark(
     const slim = trunkRadius > SLIM_TRUNK_MIN && plan.clumps.some((clump) => clump.kind === 'frond')
     const cell = slim ? Math.min(coarse, (trunkRadius / SCULPT_MIN_CELLS) * 0.9) : coarse * bareScale
     const sculptMin = cell * SCULPT_MIN_CELLS
+    // A thick root stays sculpted to its end. Swept, its thin end would be a dark spike
+    // lying on the ground, and stopping short would change the tree's footprint per level.
+    const isThickRoot = (limb: Limb) => limb.key.startsWith('r') && limb.radii[0] >= sculptMin
     const isSculpted = (limb: Limb, segment: number) =>
-        limb.level < 3 && Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin
+        limb.level < 3 && (isThickRoot(limb) || Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin)
+    const wood = plan.limbs.map((limb) =>
+        isThickRoot(limb) ? {...limb, radii: limb.radii.map((radius) => Math.max(radius, sculptMin))} : limb,
+    )
     const sculptedSegments: {a: Vec3; b: Vec3; radius: number}[] = []
 
-    for (const limb of plan.limbs) {
+    for (const limb of wood) {
         for (let segment = 0; segment < limb.points.length - 1; segment++) {
             if (isSculpted(limb, segment)) {
                 sculptedSegments.push({
@@ -282,7 +288,7 @@ export function prepareBark(
         plan,
         tree,
         detail,
-        field: createWoodField(plan.limbs, tree, seed, isSculpted),
+        field: createWoodField(wood, tree, seed, isSculpted),
         cell,
         sculptMin,
         isSculpted,
