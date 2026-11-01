@@ -15,7 +15,7 @@ describe('the loading screen', () => {
     })
 
     it('says something different at every step', () => {
-        const steps: LoadStep[] = ['view', 'prop', 'draw', 'scene']
+        const steps: LoadStep[] = ['view', 'prop', 'draw', 'previews', 'scene']
 
         expect(new Set(steps.map((step) => loadStepLabel(step, 'x'))).size).toBe(steps.length)
     })
@@ -33,5 +33,6 @@ describe('the loading screen', () => {
 
         expect(share('view')).toBeLessThan(share('prop'))
         expect(share('prop')).toBeLessThan(share('draw'))
+        expect(share('draw')).toBeLessThan(share('previews'))
     })
 })

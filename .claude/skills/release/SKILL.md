@@ -35,7 +35,9 @@ if it's only been improved. A test fails if the top version doesn't match `APP_V
 
 ## 3. Check
 
-Run `make check`. Then build and open the installer on whatever you can, with `make release`.
+Run `make check`, which fails if a preset's picture is out of date. A change to how a generator
+behaves without a raised `version` won't trip it, so if trees changed, run `make previews` anyway.
+Then build and open the installer on whatever you can, with `make release`.
 
 ## 4. Publish
 

@@ -1,11 +1,49 @@
-import {defineConfig} from 'vite'
+import {mkdirSync, writeFileSync} from 'node:fs'
+import {resolve} from 'node:path'
+import {defineConfig, type Plugin} from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwind from '@tailwindcss/vite'
 import {pxToRem} from './src/core/settings/px-to-rem'
 
+/** Lets draw-previews.html save what it draws. Exists only on the dev server. */
+function savePresetPictures(): Plugin {
+    return {
+        name: 'save-preset-pictures',
+        apply: 'serve',
+        // The tool imports this list, so reloading on it would start the drawing all over again.
+        handleHotUpdate({file}) {
+            return file.endsWith('preset-thumbs.json') ? [] : undefined
+        },
+        configureServer(server) {
+            server.middlewares.use('/__preset-thumbs/', (request, response, next) => {
+                const name = request.url?.slice(1) ?? ''
+
+                if (request.method !== 'POST' || !/^[a-z0-9-]+$/.test(name)) {
+                    next()
+                    return
+                }
+
+                const chunks: Buffer[] = []
+
+                request.on('data', (chunk: Buffer) => chunks.push(chunk))
+                request.on('end', () => {
+                    const folder = resolve(__dirname, 'public/preset-thumbs')
+
+                    mkdirSync(folder, {recursive: true})
+                    writeFileSync(
+                        name === 'manifest' ? resolve(__dirname, 'src/panels/preset-thumbs.json') : resolve(folder, `${name}.png`),
+                        Buffer.concat(chunks),
+                    )
+                    response.end('saved')
+                })
+            })
+        },
+    }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react(), tailwind()],
+    plugins: [react(), tailwind(), savePresetPictures()],
     css: {
         postcss: {
             plugins: [

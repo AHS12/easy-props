@@ -21,7 +21,6 @@ import {openLink} from '../platform/window'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
-import {clearPresetThumbnails} from './preset-thumbnails'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
     {id: 'General', icon: Settings2},
@@ -267,7 +266,6 @@ function StoragePage() {
     const custom = useSettingsStore((state) => state.libraryFolder)
     const refreshGallery = useEditorStore((state) => state.refreshGallery)
     const [info, setInfo] = useState<LibraryInfo | null>(null)
-    const [cleared, setCleared] = useState(false)
 
     const reload = () => void libraryInfo().then(setInfo, () => setInfo(null))
 
@@ -321,19 +319,6 @@ function StoragePage() {
             ) : (
                 <p className="settings__intro">Running in a browser, props are kept in this browser's storage.</p>
             )}
-            <SettingRow label="Preset pictures" help="Forget the saved pictures, and draw them again when needed.">
-                <button
-                    type="button"
-                    className="button"
-                    disabled={cleared}
-                    onClick={() => {
-                        clearPresetThumbnails()
-                        setCleared(true)
-                    }}
-                >
-                    {cleared ? 'Cleared' : 'Clear pictures'}
-                </button>
-            </SettingRow>
         </>
     )
 }
