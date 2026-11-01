@@ -14,6 +14,7 @@ built, what it looks like, and how each piece is verified.
 | [`05-painted-trees.md`](./05-painted-trees.md) | How painted trees are built, their controls and presets | Frontend |
 | [`06-game-ready-export.md`](./06-game-ready-export.md) | Merged meshes, detail levels, collision, wind, batch export, and the generic prop pipeline | Everyone |
 | [`07-ui-overhaul.md`](./07-ui-overhaul.md) | Editor-style layout on HeroUI, settings, and command palette improvements. Built | Frontend, design |
+| [`08-rocks-bushes-grass.md`](./08-rocks-bushes-grass.md) | Research and plan for stylized rocks, bushes and grass that match the reference. Not built | Frontend, design |
 | [`design-tokens.css`](./design-tokens.css) | Implementable design tokens: color, type, space, radius, elevation, motion | Frontend |
 | [`prototype/index.html`](./prototype/index.html) | Interactive visual reference of the app shell and components | Design, product |
 

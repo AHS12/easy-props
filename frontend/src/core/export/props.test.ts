@@ -71,7 +71,10 @@ describe('rocks go through the same pipeline', () => {
 
         expect(faces[1]).toBeLessThan(faces[0] * 0.55)
         expect(faces[2]).toBeLessThan(faces[0] * 0.2)
-        expect(byName(files, 'rock_collision.glb').nodes!.length).toBe(1)
+        const shapes = byName(files, 'rock_collision.glb').nodes!.length
+
+        expect(shapes).toBeGreaterThanOrEqual(1)
+        expect(shapes).toBeLessThanOrEqual(8)
     }, 60000)
 
     it('stays within its size, resting on the ground', async () => {

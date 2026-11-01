@@ -8,7 +8,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useSetting, useSettingsStore, settingValue} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {applyCameraScheme, type CameraScheme} from './scene/camera-controls'
-import {createViewportScene, type ViewportScene} from './scene/create-scene'
+import {createViewportScene, type Backdrop, type ViewportScene} from './scene/create-scene'
 import {registerViewport, type ViewAngle} from './viewport-bridge'
 import {createHandles, type HandleSet} from './scene/handles'
 import {createPicker, pickNearestAxis, pickNearestHandle, pickSurface, pointerOnAxis, pointerOnPlane} from './scene/picking'
@@ -617,7 +617,7 @@ export function Viewport() {
             viewport.controls.rotateSpeed = Number(values.orbitSpeed)
             viewport.controls.zoomSpeed = Number(values.zoomSpeed) * (invert ? -1 : 1)
             viewport.setFieldOfView(Number(values.fov))
-            viewport.setBackdrop(values.backdrop as 'sky' | 'grey' | 'colour', String(values.backdropColour))
+            viewport.setBackdrop(values.backdrop as Backdrop, String(values.backdropColour))
             viewport.setGridVisible(values.grid === true)
             viewport.setRenderScale(Number(values.renderScale) / 100)
             schemeOff()

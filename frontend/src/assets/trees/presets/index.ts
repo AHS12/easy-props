@@ -6,7 +6,7 @@
  * remains the user's to change afterwards.
  */
 
-import {rockDefaults} from '../../rocks/rock-generator'
+import {cutRockDefaults} from '../../rocks/cut-rock-generator'
 import {paintedTreeDefaults} from '../painted'
 
 export interface TreePreset {
@@ -33,6 +33,7 @@ export const PRESET_CATEGORIES = [
     'Ferns',
     'Grass & flowers',
     'Boulders',
+    'Outcrops',
     'Stones',
     'Cliffs',
 ] as const
@@ -55,6 +56,7 @@ const familyOfCategory = (category: PresetCategory | undefined): PropFamily => {
         case 'Grass & flowers':
             return 'bush'
         case 'Boulders':
+        case 'Outcrops':
         case 'Stones':
         case 'Cliffs':
             return 'rock'
@@ -89,7 +91,7 @@ const rock = (
     sub: string,
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
-): TreePreset => ({id, name, sub, category, seed, generatorId: 'rock', parameters: {...rockDefaults, ...parameters}})
+): TreePreset => ({id, name, sub, category, seed, generatorId: 'cut-rock', parameters: {...cutRockDefaults, ...parameters}})
 
 const PALM_BASE = {
     form: 'palm',
@@ -207,15 +209,18 @@ const foliagePresets: readonly TreePreset[] = [
 ]
 
 const rockPresets: readonly TreePreset[] = [
-    rock('Boulders', 'boulder', 'Boulder', 'Big, round and weathered', 401, {width: 3, height: 2, depth: 2.6}),
-    rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old and half green', 402, {width: 3.4, height: 2, depth: 3, roundness: 0.75, facets: 0.25, moss: 0.7}),
-    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, roundness: 0.2, facets: 1, lumpiness: 0.2, palette: 'pine'}),
-    rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, roundness: 0.7, facets: 0.3}),
-    rock('Stones', 'river-stone', 'River stone', 'Smooth and flat', 405, {width: 0.7, height: 0.25, depth: 0.5, roundness: 1, facets: 0, lumpiness: 0.1, palette: 'pine'}),
-    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {width: 1, height: 3, depth: 0.7, roundness: 0.3, facets: 0.6, moss: 0.25}),
-    rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall in layers', 407, {width: 12, height: 9, depth: 5, roundness: 0, facets: 0.6, lumpiness: 0.55, layers: 0.8, palette: 'autumn'}),
-    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {width: 5, height: 11, depth: 4.5, roundness: 0.15, facets: 0.7, lumpiness: 0.45, layers: 0.6, palette: 'pine'}),
-    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and banded', 409, {width: 14, height: 6, depth: 11, roundness: 0, facets: 0.35, lumpiness: 0.35, layers: 1, palette: 'maple'}),
+    rock('Boulders', 'boulder', 'Boulder', 'Heavy, with stones at its feet', 401, {}),
+    rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old, with a green cap', 421, {width: 3.4, depth: 3, moss: 0.7, chunks: 3, faces: 0.8}),
+    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, chunks: 2, faces: 0.8, cuts: 1, edges: 0.35, moss: 0, palette: 'granite'}),
+    rock('Outcrops', 'grassy-outcrop', 'Grassy outcrop', 'Stepping up a slope', 410, {kind: 'outcrop', width: 6, height: 2.6, depth: 3.5, chunks: 5, moss: 0.85}),
+    rock('Outcrops', 'low-ledge', 'Low ledge', 'A long shelf of stone', 411, {kind: 'outcrop', width: 8, height: 1.3, depth: 3, chunks: 7, moss: 0.7, palette: 'slate'}),
+    rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, chunks: 1, faces: 0.45, cuts: 0.5, moss: 0.3}),
+    rock('Stones', 'river-stone', 'River stone', 'Worn nearly round', 405, {width: 0.7, height: 0.25, depth: 0.5, chunks: 1, faces: 0.7, cuts: 0.2, edges: 1, moss: 0, palette: 'slate'}),
+    rock('Stones', 'step-stone', 'Stepping stone', 'A flat slab for a path', 412, {width: 1, height: 0.14, depth: 0.8, chunks: 1, faces: 0.35, cuts: 0.45, moss: 0, variation: 0.3}),
+    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {kind: 'pillar', width: 1, height: 3, depth: 0.7, chunks: 1, moss: 0.35}),
+    rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall of wedged stone', 407, {kind: 'cliff', width: 14, height: 10, depth: 6, chunks: 18, faces: 0.45, moss: 0.25}),
+    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {kind: 'pillar', width: 5, height: 11, depth: 4.5, chunks: 5, palette: 'slate'}),
+    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and warm', 409, {kind: 'cliff', width: 16, height: 6, depth: 11, chunks: 14, moss: 0, palette: 'redrock'}),
 ]
 
 export const treePresets: readonly TreePreset[] = [

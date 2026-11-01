@@ -39,7 +39,7 @@ export interface BudgetCheck {
     readonly warning: string | null
 }
 
-export function checkBudget(counts: FaceCounts, target: BudgetTarget): BudgetCheck {
+export function checkBudget(counts: FaceCounts, target: BudgetTarget, solidAdvice?: string): BudgetCheck {
     const faces = counts.wood + counts.leaves
 
     if (faces <= target.faces) {
@@ -54,6 +54,8 @@ export function checkBudget(counts: FaceCounts, target: BudgetTarget): BudgetChe
         over: true,
         warning: leavesCostMost
             ? `Leaves are ${share}% of this prop. Lower Leaf density or Clumps.`
-            : `Wood is ${share}% of this prop. Lower Bark detail or Branches.`,
+            : solidAdvice
+              ? `Over budget. ${solidAdvice}`
+              : `Wood is ${share}% of this prop. Lower Bark detail or Branches.`,
     }
 }

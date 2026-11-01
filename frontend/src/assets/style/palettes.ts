@@ -161,6 +161,22 @@ export const BARK_TONES: Readonly<
     bone: {barkDeep: '#6b6358', barkLight: '#e8e0cf'},
 }
 
+export type RockPaletteId = 'lavender' | 'slate' | 'granite' | 'sandstone' | 'redrock' | 'basalt' | 'frost'
+
+/** Stone for cut rocks, shadow to highlight. The shadow shifts hue, as a palette's does. */
+export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
+    lavender: ['#3f4180', '#6467a8', '#9598d4', '#d9daf6'],
+    slate: ['#27354f', '#4f6585', '#83a0bd', '#cfe0ee'],
+    granite: ['#35364a', '#676a7c', '#9fa2ad', '#dfdfe2'],
+    sandstone: ['#5a3f4a', '#a0785f', '#d2ad80', '#f6e3bd'],
+    redrock: ['#4a2438', '#94483f', '#cb7c58', '#f2c49a'],
+    basalt: ['#14162a', '#30334e', '#565a78', '#9599b4'],
+    frost: ['#3c5583', '#7c9fc9', '#bcd6ec', '#f4fbff'],
+}
+
+/** Moss on any stone, shadow to highlight. */
+export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
+
 /** The colours of stone, shadow to highlight. */
 export interface StoneColours {
     readonly stoneDeep: string
