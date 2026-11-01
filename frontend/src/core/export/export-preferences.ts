@@ -7,7 +7,7 @@
 import {BUDGET_TARGETS, DEFAULT_BUDGET_TARGET, type BudgetTargetId} from './pipeline/budget'
 import {ENGINE_LABELS, type EngineId} from './pipeline/types'
 
-export const APP_VERSION = '0.1.6'
+export const APP_VERSION = '0.2.1'
 
 /** What Godot needs told. Its own simplifying deletes leaf cards, and a file cannot turn it off. */
 export const GODOT_IMPORT_NOTE =
@@ -21,10 +21,11 @@ export interface ExportPreferences {
     readonly levels: number
     readonly collision: boolean
     readonly wind: boolean
+    readonly join: boolean
     readonly folder: string
 }
 
-const DEFAULTS: ExportPreferences = {engine: 'plain', levels: 3, collision: true, wind: true, folder: ''}
+const DEFAULTS: ExportPreferences = {engine: 'plain', levels: 3, collision: true, wind: true, join: false, folder: ''}
 
 export function loadExportPreferences(): ExportPreferences {
     try {
@@ -35,6 +36,7 @@ export function loadExportPreferences(): ExportPreferences {
             levels: raw.levels === 1 || raw.levels === 2 || raw.levels === 3 ? raw.levels : DEFAULTS.levels,
             collision: typeof raw.collision === 'boolean' ? raw.collision : DEFAULTS.collision,
             wind: typeof raw.wind === 'boolean' ? raw.wind : DEFAULTS.wind,
+            join: typeof raw.join === 'boolean' ? raw.join : DEFAULTS.join,
             folder: typeof raw.folder === 'string' ? raw.folder : DEFAULTS.folder,
         }
     } catch {

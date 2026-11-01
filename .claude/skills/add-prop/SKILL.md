@@ -41,5 +41,6 @@ the old one, as `rock-generator.ts` and `cut-rock-generator.ts` do.
 
 ## Before you finish
 
+- If you added a preset or changed what one makes, run `make previews` and commit the pictures.
 - Run `make lint` and `make test-frontend`.
 - Compare it with what's already in the Meadow scene. It should look as if it belongs there.

@@ -52,6 +52,8 @@ export interface ExportSettings {
     readonly collision: boolean
     /** Asks for wind data. A prop that does not move gets none regardless. */
     readonly wind: boolean
+    /** Writes the prop as one object, each material still its own part of it. */
+    readonly join?: boolean
 }
 
 export interface ExportFile {

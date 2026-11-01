@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import {describe, expect, it} from 'vitest'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
@@ -45,6 +46,7 @@ const triangles = (parts: ReturnType<typeof buildParts>) =>
     parts
         .filter((part) => !part.surface?.proxy)
         .reduce((sum, part) => sum + part.geometry.index!.count / 3, 0)
+
 
 describe('painted tree', () => {
     it('stays inside its triangle budget, whatever the seed', () => {
@@ -106,14 +108,83 @@ describe('painted tree', () => {
         }
     })
 
-    it('carries colour, its own normals, and a cut-out for leaves', () => {
+    it('carries colour, its own normals, printed bark, and a cut-out for leaves', () => {
         const [bark, clump] = buildParts(paintedTreeDefaults, 3)
 
         expect(bark.geometry.getAttribute('color')).toBeDefined()
-        expect(bark.surface?.map).toBeUndefined()
+        expect(bark.geometry.getAttribute('uv').count).toBe(bark.geometry.getAttribute('position').count)
+        expect(bark.surface?.map).toBeDefined()
+        expect(bark.surface?.alphaTest).toBeUndefined()
         expect(clump.geometry.getAttribute('normal')).toBeDefined()
         expect(clump.surface?.alphaTest).toBeGreaterThan(0)
         expect(clump.surface?.map).toBeDefined()
+    })
+
+    it('prints brush strokes as strongly as asked, and keeps its relief with none at all', () => {
+        const stroked = (brushStrokes: number) => buildParts({...paintedTreeDefaults, brushStrokes}, 3)[0].surface?.map
+        const darkest = (brushStrokes: number) => {
+            const {image} = stroked(brushStrokes) as unknown as {image: {data: Uint8Array}}
+
+            return image.data.reduce((least, value) => Math.min(least, value), 255)
+        }
+
+        expect(darkest(0)).toBe(255)
+        expect(buildParts({...paintedTreeDefaults, brushStrokes: 0}, 3)[0].surface?.normalMap).toBeDefined()
+        expect(stroked(1)).toBe(stroked(1))
+        expect(darkest(2)).toBeLessThan(darkest(1))
+        expect(darkest(1)).toBeLessThan(darkest(0.25))
+    })
+
+    it('keeps relief edges smooth, so light does not pick out their pixels as dots', () => {
+        const relief = buildParts(paintedTreeDefaults, 3)[0].surface!.normalMap as unknown as {
+            image: {data: Uint8Array; width: number}
+        }
+        const {data, width} = relief.image
+        let sharpest = 0
+
+        for (let at = 4; at < data.length - 4; at += 4) {
+            if ((at / 4) % width !== 0) {
+                sharpest = Math.max(sharpest, Math.abs(data[at] - data[at - 4]))
+            }
+        }
+
+        expect(sharpest).toBeLessThan(150)
+    })
+
+    it('faces all of its wood outwards, so a branch is never drawn inside out', () => {
+        const geometry = buildBark(planPaintedTree(paintedTreeDefaults, 9), paintedTreeDefaults, 9, 0.68)
+        const position = geometry.getAttribute('position')
+        const normal = geometry.getAttribute('normal')
+        const index = geometry.index!
+        const point = new THREE.Vector3()
+        const u = new THREE.Vector3()
+        const v = new THREE.Vector3()
+        const out = new THREE.Vector3()
+        let inward = 0
+
+        for (let at = 0; at < index.count; at += 3) {
+            const [a, b, c] = [index.getX(at), index.getX(at + 1), index.getX(at + 2)]
+
+            point.fromBufferAttribute(position, a)
+            u.fromBufferAttribute(position, b).sub(point)
+            v.fromBufferAttribute(position, c).sub(point)
+            out.fromBufferAttribute(normal, a).add(point.fromBufferAttribute(normal, b)).add(point.fromBufferAttribute(normal, c))
+
+            if (u.cross(v).dot(out) < 0) {
+                inward++
+            }
+        }
+
+        // A sliver at a joint can lean the wrong way. A whole limb cannot.
+        expect(inward / (index.count / 3)).toBeLessThan(0.02)
+    })
+
+    it('gives every bark pattern its own relief and paint', () => {
+        const patterns = ['none', 'ringed', 'plated', 'banded', 'peeling', 'fibrous'] as const
+        const surfaces = patterns.map((barkPattern) => buildParts({...paintedTreeDefaults, barkPattern}, 3)[0].surface!)
+
+        expect(new Set(surfaces.map((surface) => surface.normalMap)).size).toBe(patterns.length)
+        expect(new Set(surfaces.map((surface) => surface.map)).size).toBe(patterns.length)
     })
 
     it('adding a branch leaves the other branches where they were', () => {

@@ -27,6 +27,7 @@ export function createPartMaterial(
         flatShading: surface ? false : flatShading,
         vertexColors: surface?.vertexColors ?? false,
         map: surface?.map ?? null,
+        normalMap: surface?.normalMap ?? null,
         alphaTest: surface?.alphaTest ?? 0,
     })
 }

@@ -19,7 +19,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install hooks dev web build build-frontend build-check installer mac dmg release run test test-go test-frontend test-watch typecheck lint lint-go lint-frontend check clean
+.PHONY: help install hooks dev web previews build build-frontend build-check installer mac dmg release run test test-go test-frontend test-watch typecheck lint lint-go lint-frontend check clean
 
 help: ## List the tasks
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -35,6 +35,9 @@ dev: ## Run the desktop app with hot reload
 
 web: ## Run only the frontend, in a browser
 	pnpm --dir $(FRONTEND) dev
+
+previews: ## Draw every preset's picture again. Stop it when the page says Done
+	pnpm --dir $(FRONTEND) dev --open /draw-previews.html
 
 build: ## Build the desktop app into build/bin
 	wails build

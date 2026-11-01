@@ -122,10 +122,13 @@ export function collisionShapes(
     return [...shapes].sort((a, b) => weightOf(b) - weightOf(a)).slice(0, MAX_COLLISION_SHAPES)
 }
 
-/** The node name that tells an engine this mesh is for colliding. */
-export function collisionNodeName(engine: EngineId, name: string, index: number): string {
+/**
+ * The node name that tells an engine this mesh is for colliding. Unreal reads a
+ * shape only beside the mesh it names, which is `owner` when they share a file.
+ */
+export function collisionNodeName(engine: EngineId, name: string, index: number, owner = `${name}_LOD0`): string {
     if (engine === 'unreal') {
-        return `UCX_${name}_LOD0_${String(index).padStart(2, '0')}`
+        return `UCX_${owner}_${String(index).padStart(2, '0')}`
     }
 
     return engine === 'godot' ? `${name}_${index}-convcolonly` : `${name}_collision_${index}`

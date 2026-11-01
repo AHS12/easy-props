@@ -124,6 +124,10 @@ describe('the engine kits', () => {
             expect(shader).toContain('COLOR.rgb')
         }
 
-        expect(new TextDecoder().decode(engineKitFiles('unreal')[0].bytes)).toContain('Coordinate Index 1')
+        const unreal = engineKitFiles('unreal')
+        const script = new TextDecoder().decode(unreal.find((file) => file.name === 'setup_props.py')!.bytes)
+
+        expect(new TextDecoder().decode(unreal[0].bytes)).toContain('Coordinate Index 1')
+        expect(script).toContain('coordinate_index=1')
     })
 })

@@ -291,7 +291,7 @@ export const SETTING_SPECS = [
         page: 'Performance',
         kind: 'toggle',
         label: 'Preset pictures',
-        help: 'Draws a real picture of each preset. Off shows a simple icon instead.',
+        help: 'Shows a real picture of each preset. Off shows a simple icon instead.',
         keywords: 'thumbnails',
         default: true,
     },

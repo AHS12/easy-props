@@ -22,7 +22,10 @@ import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import type {LoadStep} from './load-steps'
 import {ViewportLoading} from './ViewportLoading'
 import {ViewportOverlay} from './ViewportOverlay'
+import {presetThumbnailsDrawn} from '../panels/preset-thumbnails'
 
+/** The longest the loading screen waits for the side panel's previews. */
+const PREVIEWS_WAIT_MS = 20000
 /** A pointer that moves more than this counts as an orbit, not a click. */
 const CLICK_THRESHOLD_PX = 5
 
@@ -720,6 +723,19 @@ export function Viewport() {
             // The first draw is slow too: it is when the graphics card prepares its shaders.
             frame = requestAnimationFrame(render)
             await afterPaint()
+
+            if (stopped) {
+                return
+            }
+
+            // Each preview blocks the page while its tree is built, so they are drawn behind
+            // this screen, not under someone's first drag. The limit is for a very slow computer:
+            // what is left then is only some late pictures.
+            setLoadStep('previews')
+            await Promise.race([
+                presetThumbnailsDrawn(),
+                new Promise((resolve) => window.setTimeout(resolve, PREVIEWS_WAIT_MS)),
+            ])
 
             if (!stopped) {
                 setLoadStep(null)

@@ -90,7 +90,7 @@ The tag has to match the version, or the run stops before building anything.
 ## How it's built
 
 Wails (Go) for the desktop shell, React and TypeScript for the interface, and Three.js
-for the 3D view. Go only handles files and native dialogs: geometry, editing and export
+for the 3D view. Go only handles files, native dialogs and app updates: geometry, editing and export
 all live in TypeScript under `frontend/src`.
 
 ## Contributing

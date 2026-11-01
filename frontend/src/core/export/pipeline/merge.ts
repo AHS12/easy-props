@@ -36,11 +36,76 @@ function whiteTexture(): THREE.DataTexture {
     return white
 }
 
+const fileReliefs = new WeakMap<THREE.Texture, THREE.DataTexture>()
+const smallFileReliefs = new WeakMap<THREE.Texture, THREE.DataTexture>()
+
+/** Half a relief's size each way. Fine bark is noise to a PNG, so this is most of a lighter file's weight. */
+function halved({data, width, height}: {data: Uint8Array; width: number; height: number}) {
+    const smallWidth = width / 2
+    const smallHeight = height / 2
+    const small = new Uint8Array(smallWidth * smallHeight * 4)
+
+    for (let y = 0; y < smallHeight; y++) {
+        for (let x = 0; x < smallWidth; x++) {
+            for (let channel = 0; channel < 4; channel++) {
+                const sum =
+                    data[(y * 2 * width + x * 2) * 4 + channel] +
+                    data[(y * 2 * width + x * 2 + 1) * 4 + channel] +
+                    data[((y * 2 + 1) * width + x * 2) * 4 + channel] +
+                    data[((y * 2 + 1) * width + x * 2 + 1) * 4 + channel]
+
+                small[(y * smallWidth + x) * 4 + channel] = Math.round(sum / 4)
+            }
+        }
+    }
+
+    return {data: small, width: smallWidth, height: smallHeight}
+}
+
+/**
+ * Relief as a file wants it. The viewport works out its directions from the texture
+ * coordinates and a file's reader the other way up, so green is inverted. GLTFExporter
+ * would do this itself but cannot read a DataTexture: a negative `normalScale.y`, set
+ * beside this, tells it the work is done.
+ */
+function reliefForFile(relief: THREE.Texture, full: boolean): THREE.Texture {
+    const store = full ? fileReliefs : smallFileReliefs
+    const cached = store.get(relief)
+
+    if (cached) {
+        return cached
+    }
+
+    const image = relief.image as {data: Uint8Array; width: number; height: number}
+    const {data, width, height} = full ? image : halved(image)
+    const flipped = Uint8Array.from(data)
+
+    for (let at = 1; at < flipped.length; at += 4) {
+        flipped[at] = 255 - flipped[at]
+    }
+
+    const texture = new THREE.DataTexture(flipped, width, height, THREE.RGBAFormat)
+
+    texture.wrapS = relief.wrapS
+    texture.wrapT = relief.wrapT
+    texture.magFilter = relief.magFilter
+    texture.minFilter = relief.minFilter
+    texture.generateMipmaps = relief.generateMipmaps
+    texture.needsUpdate = true
+    store.set(relief, texture)
+
+    return texture
+}
+
 export interface MergedMesh {
     readonly name: string
     readonly geometry: THREE.BufferGeometry
     readonly material: THREE.MeshStandardMaterial
     readonly faces: number
+}
+
+export interface JoinedMesh extends Omit<MergedMesh, 'material'> {
+    readonly material: THREE.MeshStandardMaterial[]
 }
 
 function hasFinitePositions(geometry: THREE.BufferGeometry): boolean {
@@ -127,7 +192,13 @@ function bucketName(part: PlacedPart): string {
  * show, and one with a broken coordinate is dropped rather than written out:
  * one NaN vertex makes the whole file unreadable in most viewers.
  */
-export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Vec3, wind?: WindExtent): MergedMesh[] {
+export function mergeParts(
+    parts: readonly PlacedPart[],
+    name: string,
+    pivot: Vec3,
+    wind?: WindExtent,
+    fullRelief = true,
+): MergedMesh[] {
     const buckets = new Map<string, PlacedPart[]>()
 
     for (const placed of parts) {
@@ -176,6 +247,8 @@ export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Ve
                 metalness: METALNESS,
                 vertexColors: true,
                 map: surface?.map ?? whiteTexture(),
+                normalMap: surface?.normalMap ? reliefForFile(surface.normalMap, fullRelief) : null,
+                normalScale: new THREE.Vector2(1, -1),
                 alphaTest: surface?.alphaTest ?? 0,
             }),
             faces: geometry.index!.count / 3,
@@ -183,4 +256,31 @@ export function mergeParts(parts: readonly PlacedPart[], name: string, pivot: Ve
     }
 
     return merged
+}
+
+/**
+ * Makes one mesh of merged ones, for an engine that places a mesh many times over.
+ * Each keeps its own material, because leaves and wood still draw differently.
+ */
+export function joinMeshes(meshes: readonly MergedMesh[], name: string): JoinedMesh[] {
+    if (meshes.length === 0) {
+        return []
+    }
+
+    const geometry = mergeGeometries(meshes.map((mesh) => mesh.geometry), true)
+
+    if (!geometry) {
+        throw new Error('The parts of this prop could not be joined.')
+    }
+
+    for (const mesh of meshes) {
+        mesh.geometry.dispose()
+    }
+
+    return [{
+        name,
+        geometry,
+        material: meshes.map((mesh) => mesh.material),
+        faces: geometry.index!.count / 3,
+    }]
 }

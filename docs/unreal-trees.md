@@ -1,12 +1,34 @@
 # Using easy-props trees in Unreal
 
 How to get a tree from easy-props into Unreal with its leaves and wind working. Tested
-on Unreal Engine 5.8 with one tree, on 2026-10-31. See [Not tested yet](#not-tested-yet)
+on Unreal Engine 5.8 with one kind of tree, on 2026-11-01. See [Not tested yet](#not-tested-yet)
 for the parts still unproven.
 
 An Unreal material is a binary file, so easy-props cannot ship one. You build the wind
 function and two materials by hand, once per project. After that, each new tree only
 needs importing and its materials assigned.
+
+## The quick way
+
+The Unreal kit (**Export > Engine kit > Save kit**) includes `setup_props.py`, which does
+everything below for you:
+
+1. Export with **Engine: Unreal**, **Wind data** on and **Join parts** on.
+2. In the **Output Log**, switch the box at the bottom to **Cmd** and run this, with your own paths:
+
+       py "C:/path/to/setup_props.py" "C:/path/to/export/folder"
+
+The folder can hold one prop or many. Each prop goes to `/Game/EasyProps/<name>`, and the
+shared `MF_PropWind`, `M_PropWood` and `M_PropLeaves` go to `/Game/EasyProps/Shared`. They
+are made only once, so your changes to them are kept. Add a third argument to use another
+place. The script needs Unreal's Python Editor Script Plugin.
+
+With **Join parts** on, a prop is one mesh with a material slot for each material, and its
+collision shapes are inside the `_LOD0` file. Place it with the Foliage tool or PCG. Without
+it, you get separate meshes as described below, and the script gives the wood a capsule.
+
+The script imports the full-detail file only. Imports use Nanite by default, which doesn't
+need lighter levels.
 
 ## Quick checklist
 
@@ -42,8 +64,10 @@ You get these files:
 3. Keep **Recompute Normals** off, or the soft leaf shading is lost.
 4. Keep **Generate Lightmap UVs** off, so nothing can overwrite the wind data.
 
-You get a `name_wood` mesh, a `name_leaves` mesh and the leaf texture
-`name_LOD0_texture_1`.
+You get a `name_wood` mesh, a `name_leaves` mesh and three textures. On a tree, these are
+usually the bark `name_LOD0_texture_0`, the relief `name_LOD0_texture_1` and the leaves
+`name_LOD0_texture_2`. Check them by eye: bark is pale, relief is blue-purple, and leaves
+are scattered dabs.
 
 Unreal wraps each mesh in a large collision cage, which feels like an invisible wall:
 
@@ -71,17 +95,19 @@ flutter part added together.
 
 1. Add **Object Position** and a **Constant3Vector** of `0.001, 0.0015, 0`.
 2. Connect both to a **Dot**.
+3. **Add** a **Per Instance Random** to the **Dot**. Trees placed with the Foliage tool all
+   read the same **Object Position**, so this is what keeps them apart.
 
 **First sway wave:**
 
 1. Multiply **Time** by a **Constant** `0.2`.
-2. **Add** the Tree offset **Dot**.
+2. **Add** the Tree offset.
 3. Connect that to a **Sine**.
 
 **Second sway wave,** so that the tree does not swing like a pendulum:
 
 1. Multiply the same **Time** by a **Constant** `0.46`.
-2. **Add** the same Tree offset **Dot**.
+2. **Add** the same Tree offset.
 3. Connect that to a new **Sine**.
 4. Multiply it by a **Constant** `0.4`.
 
@@ -109,9 +135,10 @@ click **Save**.
 
 Make a material called `M_PropWood`:
 
-1. Connect **Vertex Color** to **Base Color**.
-2. Connect a **Constant** `0.85` to **Roughness**.
-3. Add `MF_PropWind` and connect it to **World Position Offset**.
+1. Add a **Texture Sample** using the bark texture. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
+2. Add a second **Texture Sample** using the relief texture, and connect it to **Normal**.
+3. Connect a **Constant** `0.85` to **Roughness**.
+4. Add `MF_PropWind` and connect it to **World Position Offset**.
 
 ### Make the leaves material
 
@@ -121,7 +148,7 @@ Make a material called `M_PropLeaves`:
    Model** to **Two Sided Foliage**.
 2. Leave the **Two Sided** checkbox off. The leaf cards already have both faces, and
    turning it on spoils their soft shading.
-3. Add a **Texture Sample** using `name_LOD0_texture_1`.
+3. Add a **Texture Sample** using the leaf texture.
 4. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
 5. Multiply the same result by a **Constant** `0.5`, and connect that to **Subsurface Color**.
 6. Connect the sample's **A** to **Opacity Mask**.
@@ -171,6 +198,7 @@ the leaves look too bright.
 
 | What you see | Cause | Fix |
 |---|---|---|
+| Bark looks blurry for a moment | Unreal is still streaming the sharper texture | Wait a few seconds. A scene capture may never load it |
 | The whole tree slides, base included | The **Mask (R)** is not connected to the sway | Reconnect it |
 | The tree bends far too much | The sway vector has the wrong value | Check it reads `25, 8, 0` |
 | Leaves move like liquid | Flutter is too strong or its waves too large | Use strength `1.5` and divide by `60` |
@@ -207,11 +235,12 @@ does one full swing per unit, where Godot's `sin` uses radians.
 ## Not tested yet
 
 - `name_LOD1.glb` and `name_LOD2.glb` in Unreal.
-- `name_collision.glb`.
-- More than one tree. That includes whether **Tree offset** keeps them out of step, and
-  the steps in [Adding another tree](#adding-another-tree).
-- Trees placed with the Foliage tool or as instances, where **Object Position** may not
-  differ per tree.
+- `name_collision.glb` on its own. With **Join parts**, shapes inside the `_LOD0` file do import.
+- How a forest moves by eye, and what its wind costs. 64 trees placed with the Foliage tool
+  rendered with different **Per Instance Random** values, but that's all that was checked.
+- PCG scattering.
+- The steps in [Adding another tree](#adding-another-tree) by hand. The script has run on one
+  tree, joined and apart.
 - Whether the black speckles are fully gone.
 - Whether the sway and flutter look good on trees of very different sizes.
 - Other Unreal versions.

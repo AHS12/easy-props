@@ -35,6 +35,8 @@ export interface CollisionShape {
 export interface PaintedSurface {
     readonly vertexColors: boolean
     readonly map?: THREE.Texture
+    /** Fine relief for light to catch. Needs a `map`, whose texture coordinates it shares. */
+    readonly normalMap?: THREE.Texture
     readonly alphaTest?: number
     /** False for leaves, where a shadow map would only speckle soft shading. */
     readonly receiveShadow?: boolean
@@ -96,7 +98,7 @@ export interface PartGenerator<P extends object = object> {
      */
     buildOffThread?(parameters: P, style: StyleProfile, detail?: number): Promise<THREE.BufferGeometry> | null
     /** Turns what `buildOffThread` made into the part `generate` would have returned. */
-    dress?(geometry: THREE.BufferGeometry): GeneratedPart
+    dress?(geometry: THREE.BufferGeometry, parameters: P): GeneratedPart
     /** True when `context.detail` lightens this part. An export thins out any other part itself. */
     readonly scalesWithDetail?: boolean
 }

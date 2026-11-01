@@ -21,6 +21,7 @@ import {GalleryPage} from '../pages/GalleryPage'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
 import {onCloseRequested} from '../platform/close-guard'
+import {cancelUpdateInstall} from '../platform/update'
 import {settingNumber, settingValue, uiScale, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {Viewport} from '../viewport/Viewport'
@@ -296,7 +297,14 @@ export function App() {
             <SettingsDialog />
             <ConfirmDialog />
             <WhatsNewDialog />
-            {closeRequested ? <CloseDialog onStay={() => setCloseRequested(false)} /> : null}
+            {closeRequested ? (
+                <CloseDialog
+                    onStay={() => {
+                        setCloseRequested(false)
+                        void cancelUpdateInstall()
+                    }}
+                />
+            ) : null}
             <CommandPalette />
             <div className="visually-hidden" role="status" aria-live="polite">
                 {announcement}

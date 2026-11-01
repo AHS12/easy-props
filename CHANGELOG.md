@@ -2,6 +2,43 @@
 
 What's new in each version of easy-props.
 
+## 0.2.1 (November 1, 2026)
+
+**Update from inside the app**
+
+- Check for updates is new in the Help menu and on the About page. On Windows, the app can
+  download a new version, close, update itself and open again. It asks about unsaved work
+  first.
+- On a Mac, it tells you when a new version is out and opens the download page.
+- The app only looks for updates when you ask it to.
+- On Windows, installing a new version no longer brings back a desktop shortcut you removed.
+
+## 0.2.0 (November 1, 2026)
+
+**Tree wood that looks crisp**
+
+- Tree wood now has sharp, carved detail that catches the light, instead of looking
+  blurry beside the leaves. It adds no extra faces.
+- Brush strokes is a new slider that sets how strongly painted strokes show on the wood.
+  Even at 0, the carved detail stays.
+- Each choice in Bark pattern now has its own carving and paint.
+- Thin branches and twigs now look right. They used to be lit wrongly, with a hard line
+  where they left the thicker wood.
+
+**Ready for your game engine**
+
+- Join parts is a new export choice for every engine. It makes wood and leaves one
+  object, for placing many at once.
+- The Unreal kit now has a setup script that brings in your exported props and gives
+  them shared wind materials.
+- In Unreal, trees in a forest now sway at different times, not all together.
+
+**Smoother to use**
+
+- Preset pictures now come with the app, so the home page and the editor no longer stall
+  while they draw. The Clear pictures button in Settings is gone, as it's no longer needed.
+- The home page now shows the version number beside the app's name.
+
 ## 0.1.6 (November 1, 2026)
 
 - Tree roots now end in rounded tips, instead of thin dark spikes lying on the ground.

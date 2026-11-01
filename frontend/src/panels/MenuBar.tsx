@@ -10,6 +10,7 @@ import {Check, ChevronRight, Copy, Download, Minus, Save, Search, Square, Trees,
 import {Fragment, useEffect, useRef, useState} from 'react'
 import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
+import {APP_VERSION} from '../core/export/export-preferences'
 import {closeWindow, hasInsetTitleBar, hasWindowControls, minimiseWindow, toggleMaximiseWindow, windowIsMaximised} from '../platform/window'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
@@ -34,7 +35,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Help',
-        items: ['palette', 'shortcuts', 'tour', 'whats-new', null, 'about'],
+        items: ['palette', 'shortcuts', 'tour', 'whats-new', null, 'check-updates', 'about'],
     },
 ]
 
@@ -257,7 +258,7 @@ export function MenuBar({home}: {home?: boolean}) {
                 <Trees size={15} aria-hidden="true" />
             </button>
             <Menus />
-            {home ? <span className="menubar__app">easy-props</span> : <PropName />}
+            {home ? <span className="menubar__app">easy-props <span className="tabular">v{APP_VERSION}</span></span> : <PropName />}
             <span className="menubar__drag" />
             <button type="button" className="palette-button" data-coach="search" onClick={() => setPaletteOpen(true)}>
                 <Search size={13} aria-hidden="true" />

@@ -35,7 +35,9 @@ if it's only been improved. A test fails if the top version doesn't match `APP_V
 
 ## 3. Check
 
-Run `make check`. Then build and open the installer on whatever you can, with `make release`.
+Run `make check`, which fails if a preset's picture is out of date. A change to how a generator
+behaves without a raised `version` won't trip it, so if trees changed, run `make previews` anyway.
+Then build and open the installer on whatever you can, with `make release`.
 
 ## 4. Publish
 
@@ -44,3 +46,5 @@ Run `make check`. Then build and open the installer on whatever you can, with `m
    Actions with the tag and platform.
 3. The tag has to match the version, or the run stops before building.
 4. When the run ends, check that both the Windows installer and the Mac DMG are attached.
+   The app finds updates by those file names, so keep them in step with
+   `updateAssetName` in `backend/update.go`. A test fails if they drift.

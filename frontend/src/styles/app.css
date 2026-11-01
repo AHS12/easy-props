@@ -240,6 +240,7 @@ p {
 .menubar__app {
     color: var(--text-tertiary);
     font: var(--text-label);
+    white-space: nowrap;
 }
 
 .menus {
