@@ -88,7 +88,7 @@ export const Compass = forwardRef<CompassHandle, CompassProps>(function Compass(
 
     return (
         <div className="compass" data-coach="compass">
-            <svg width="84" height="84" viewBox="-42 -42 84 84" aria-hidden="true">
+            <svg style={{width: '5.25rem', height: '5.25rem'}} viewBox="-42 -42 84 84" aria-hidden="true">
                 <circle className="compass__face" r="36" />
                 <circle className="compass__ring" r="36" />
 

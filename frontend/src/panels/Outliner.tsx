@@ -73,7 +73,7 @@ function Row({node, depth}: {node: OutlineNode; depth: number}) {
                 {({hasChildItems}) => (
                     <div
                         className="tree-row__content"
-                        style={{paddingLeft: 6 + depth * 14}}
+                        style={{paddingLeft: `${(6 + depth * 14) / 16}rem`}}
                         onPointerEnter={() => setHover(node.componentId ?? null)}
                         onPointerLeave={() => setHover(null)}
                         onDoubleClick={() => {

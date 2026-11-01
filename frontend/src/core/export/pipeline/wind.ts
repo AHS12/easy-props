@@ -24,6 +24,9 @@ export interface WindExtent {
     readonly reach: number
 }
 
+/** Further than any prop, so being far out adds nothing and a patch's rim moves as its middle does. */
+export const EVEN_REACH = 1e6
+
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 /** Sway and flutter at a point, given relative to the pivot. */

@@ -4,6 +4,7 @@
  */
 
 import {AlertTriangle} from 'lucide-react'
+import {findPropGenerator} from '../assets/prop-generators'
 import {BUDGET_TARGETS, checkBudget, findBudgetTarget, type BudgetTargetId} from '../core/export/pipeline/budget'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {useSetting} from '../store/settings-store'
@@ -26,11 +27,11 @@ export function StatusBar() {
     const scheme = String(useSetting('cameraScheme'))
 
     const target = findBudgetTarget(budgetTarget)
-    const budget = checkBudget(faceCounts, target)
     const asset = scene.assets[0]
+    const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.budgetAdvice : undefined)
 
     return (
-        <footer className="statusbar">
+        <footer className="statusbar" data-coach="status">
             <span className="statusbar__hint" data-state={status.state} role="status">
                 {hintFor({status, shapeTool, moveTool, selection, scene}, scheme)}
             </span>

@@ -11,6 +11,8 @@ export interface ViewportHandle {
     /** Frames the selected part, or the whole prop when nothing is selected. */
     frame(): void
     setView(angle: ViewAngle): void
+    /** Steps back to see a whole demo scene, not just the prop. */
+    frameDemo(): void
     /** What the stats overlay shows. */
     stats(): {readonly drawCalls: number; readonly size: readonly [number, number, number]}
 }

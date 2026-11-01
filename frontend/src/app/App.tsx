@@ -16,13 +16,16 @@ import {SettingsDialog} from '../panels/SettingsDialog'
 import {StatusBar} from '../panels/StatusBar'
 import {Toast} from '../panels/Toast'
 import {Tour} from '../panels/Tour'
+import {WhatsNewDialog} from '../panels/WhatsNewDialog'
 import {GalleryPage} from '../pages/GalleryPage'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
 import {onCloseRequested} from '../platform/close-guard'
-import {settingNumber, settingValue, useSettingsStore} from '../store/settings-store'
+import {settingNumber, settingValue, uiScale, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {Viewport} from '../viewport/Viewport'
+
+const ROOT_FONT_PX = 16
 
 /** Applies what the document element carries: theme, scale and motion. */
 function applyAppearance() {
@@ -30,7 +33,9 @@ function applyAppearance() {
 
     applyTheme(resolveTheme(settingValue('theme') as ThemeChoice))
     root.dataset.reduceMotion = String(settingValue('reduceMotion') === true)
-    root.style.setProperty('zoom', String(settingNumber('scale') / 100))
+    // Every style is in rems by the time it gets here, so this scales the interface.
+    root.style.fontSize = `${ROOT_FONT_PX * uiScale()}px`
+    root.style.setProperty('--ui-scale', String(uiScale()))
 }
 
 const LIMITS = {left: [180, 480], right: [240, 520]} as const
@@ -75,7 +80,7 @@ function PanelEdge({side}: {side: 'left' | 'right'}) {
                     onPointerDown={onPointerDown}
                     onPointerMove={(event) => {
                         if (drag.current) {
-                            const moved = event.clientX - drag.current.x
+                            const moved = (event.clientX - drag.current.x) / uiScale()
 
                             setWidth(drag.current.width + (side === 'left' ? moved : -moved))
                         }
@@ -110,7 +115,7 @@ function Editor() {
         <>
             <div className="editor-body" data-maximized={maximized}>
                 {left ? (
-                    <div className="panel-slot" style={{width: layout.leftWidth}}>
+                    <div className="panel-slot" style={{width: `${layout.leftWidth / ROOT_FONT_PX}rem`}}>
                         <LeftPanel />
                     </div>
                 ) : null}
@@ -120,7 +125,7 @@ function Editor() {
                 </main>
                 {hidden ? null : <PanelEdge side="right" />}
                 {right ? (
-                    <div className="panel-slot" style={{width: layout.rightWidth}}>
+                    <div className="panel-slot" style={{width: `${layout.rightWidth / ROOT_FONT_PX}rem`}}>
                         <Details />
                     </div>
                 ) : null}
@@ -163,7 +168,7 @@ export function App() {
             }
 
             // A question on screen owns the keyboard, and so do the windows.
-            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
+            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.whatsNewOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
                 return
             }
 
@@ -290,6 +295,7 @@ export function App() {
             <BatchExportDialog />
             <SettingsDialog />
             <ConfirmDialog />
+            <WhatsNewDialog />
             {closeRequested ? <CloseDialog onStay={() => setCloseRequested(false)} /> : null}
             <CommandPalette />
             <div className="visually-hidden" role="status" aria-live="polite">

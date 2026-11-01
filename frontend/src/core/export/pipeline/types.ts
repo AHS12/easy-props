@@ -29,6 +29,8 @@ export interface ExportSource {
     pivot(): Vec3
     /** Whether this prop moves in the wind. A rock does not. */
     sways(): boolean
+    /** True when every part of it moves about alike. */
+    swaysEvenly?(): boolean
     /** Everything needed to make this prop again, for its `asset.json`. */
     describe(): Readonly<Record<string, unknown>>
 }

@@ -9,6 +9,10 @@ import type {SceneComponent} from './shared/component-types'
 import type {PropGenerator} from './shared/generator-types'
 import {createSeededRandom} from './shared/random'
 import type {StyleProfile} from './style/style-profiles'
+import {bushGenerator} from './bushes/bush-generator'
+import {cutRockGenerator} from './rocks/cut-rock-generator'
+import {grassGenerator} from './grass/grass-generator'
+import {plantGenerator} from './plants/plant-generator'
 import {rockGenerator} from './rocks/rock-generator'
 import {branchingTreeGenerator} from './trees/branching-tree-generator'
 import {paintedTreeGenerator} from './trees/painted-tree-generator'
@@ -19,6 +23,10 @@ export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [paintedTreeGenerator.id]: paintedTreeGenerator,
     [palmTreeGenerator.id]: palmTreeGenerator,
     [rockGenerator.id]: rockGenerator,
+    [cutRockGenerator.id]: cutRockGenerator,
+    [grassGenerator.id]: grassGenerator,
+    [bushGenerator.id]: bushGenerator,
+    [plantGenerator.id]: plantGenerator,
 }
 
 export function findPropGenerator(id: string): PropGenerator | undefined {

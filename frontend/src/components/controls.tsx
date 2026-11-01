@@ -142,7 +142,7 @@ export function Dialog({
             <Modal.Container className="dialog-container" size="lg" placement={position === 'top' ? 'top' : 'center'}>
                 <Modal.Dialog
                     className={`dialog ${className ?? ''}`}
-                    style={{width: `min(${width}px, calc(100vw - 32px))`}}
+                    style={{width: `min(${width / 16}rem, calc(100vw - 2rem))`}}
                     aria-label={title ? undefined : label}
                 >
                     {title ? (

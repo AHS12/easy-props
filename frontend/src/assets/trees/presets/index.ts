@@ -6,7 +6,10 @@
  * remains the user's to change afterwards.
  */
 
-import {rockDefaults} from '../../rocks/rock-generator'
+import {bushDefaults} from '../../bushes/bush-generator'
+import {grassDefaults} from '../../grass/grass-generator'
+import {plantDefaults} from '../../plants/plant-generator'
+import {cutRockDefaults} from '../../rocks/cut-rock-generator'
 import {paintedTreeDefaults} from '../painted'
 
 export interface TreePreset {
@@ -33,6 +36,7 @@ export const PRESET_CATEGORIES = [
     'Ferns',
     'Grass & flowers',
     'Boulders',
+    'Outcrops',
     'Stones',
     'Cliffs',
 ] as const
@@ -55,6 +59,7 @@ const familyOfCategory = (category: PresetCategory | undefined): PropFamily => {
         case 'Grass & flowers':
             return 'bush'
         case 'Boulders':
+        case 'Outcrops':
         case 'Stones':
         case 'Cliffs':
             return 'rock'
@@ -89,7 +94,34 @@ const rock = (
     sub: string,
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
-): TreePreset => ({id, name, sub, category, seed, generatorId: 'rock', parameters: {...rockDefaults, ...parameters}})
+): TreePreset => ({id, name, sub, category, seed, generatorId: 'cut-rock', parameters: {...cutRockDefaults, ...parameters}})
+
+/** One bush: only what differs from the defaults. */
+const bush = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Bushes', seed, generatorId: 'bush', parameters: {...bushDefaults, ...parameters}})
+
+/** One flowering plant: only what differs from the defaults. */
+const plant = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'plant', parameters: {...plantDefaults, ...parameters}})
+
+/** One patch of grass: only what differs from the defaults. */
+const grass = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'grass', parameters: {...grassDefaults, ...parameters}})
 
 const PALM_BASE = {
     form: 'palm',
@@ -179,9 +211,18 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
 
     // Shrubs & saplings
-    painted('Bushes', 'round-bush', 'Round bush', 'Fills in any gap', 361, {palette: 'spring', height: 1.8, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 6, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
-    painted('Bushes', 'flower-bush', 'Flowering bush', 'A patch of colour', 362, {palette: 'blossom', height: 1.6, spread: 2.4, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 45, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 7, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
-    painted('Bushes', 'autumn-bush', 'Autumn bush', 'Low and red', 363, {palette: 'maple', height: 1.6, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 2, twigCount: 0, clumpCount: 5, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    bush('round-bush', 'Round bush', 'A soft dome that fills any gap', 361, {}),
+    bush('small-bush', 'Small bush', 'Knee high and dense', 364, {width: 1.2, height: 0.9, depth: 1.1, lobes: 4, leafSize: 0.11}),
+    bush('spreading-bush', 'Spreading bush', 'Low and wide', 365, {kind: 'spreading', width: 4, height: 1.3, depth: 3.4, lobes: 9, leafSize: 0.22, palette: 'lush'}),
+    bush('tall-shrub', 'Tall shrub', 'Upright and full', 366, {kind: 'tall', width: 2, height: 3, depth: 2, lobes: 8, leafSize: 0.2, palette: 'pine'}),
+    bush('open-bush', 'Airy bush', 'Twigs and sky show through', 369, {inside: 'open', fullness: 1.3, leafSize: 0.16}),
+    bush('wild-shrub', 'Wild shrub', 'Tall, loose and thin', 370, {kind: 'tall', width: 2, height: 2.6, depth: 2, lobes: 7, inside: 'open', fullness: 1.1, leafSize: 0.15, palette: 'olive'}),
+    bush('young-bush', 'Young bush', 'Low, with bare twigs inside', 371, {kind: 'spreading', width: 2.4, height: 1.3, depth: 2.2, lobes: 6, inside: 'open', fullness: 1.4, leafSize: 0.12, palette: 'spring'}),
+    bush('wild-rose', 'Wild rose', 'Open, with scattered pink', 372, {width: 2.2, height: 1.6, depth: 2, lobes: 6, inside: 'open', fullness: 1.3, leafSize: 0.13, palette: 'lush', flowers: 0.6, flowerSize: 0.06}),
+    bush('flower-bush', 'Flowering bush', 'Drifts of pink on green', 362, {width: 2.6, height: 1.7, depth: 2.3, lobes: 6, leafSize: 0.18, palette: 'lush', flowers: 0.8, flowerSize: 0.075}),
+    bush('white-bush', 'White blossom', 'Pale flowers over dark leaves', 367, {width: 2.2, height: 1.5, depth: 2, lobes: 5, leafSize: 0.16, palette: 'pine', flowers: 0.7, flowerSize: 0.065, flowerColour: 'white'}),
+    bush('gold-bush', 'Golden shrub', 'Low, with yellow flowers', 368, {kind: 'spreading', width: 3, height: 1.2, depth: 2.6, lobes: 7, leafSize: 0.18, flowers: 0.6, flowerSize: 0.06, flowerColour: 'gold'}),
+    bush('autumn-bush', 'Autumn bush', 'Low and red', 363, {width: 2.4, height: 1.5, depth: 2.2, lobes: 5, leafSize: 0.17, palette: 'maple'}),
     painted('Shrubs & saplings', 'sapling', 'Young sapling', 'Thin and just started', 364, {palette: 'spring', height: 3.2, spread: 2.6, trunkRadius: 0.1, forkHeight: 0.5, limbAngle: 55, limbCount: 3, branchCount: 2, twigCount: 1, clumpCount: 5, clumpSize: 0.9, rootCount: 0, flare: 0.1, ridgeDepth: 0}),
     painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
 
@@ -200,22 +241,37 @@ const LOW_PLANT = {...PALM_BASE, stem: 0.05, height: 0.8, trunkRadius: 0.02, lea
 const foliagePresets: readonly TreePreset[] = [
     painted('Ferns', 'forest-fern', 'Forest fern', 'Arching and lacy', 381, {...LOW_PLANT, palette: 'forest', stem: 0.2, height: 0.7, clumpCount: 9, droop: 0.2, clumpSize: 0.8, leafSize: 0.7}),
     painted('Ferns', 'bracken', 'Bracken', 'Tall and open', 382, {...LOW_PLANT, palette: 'spring', stem: 0.25, height: 1.1, clumpCount: 7, droop: 0.15, clumpSize: 0.8, leafSize: 0.8}),
-    painted('Grass & flowers', 'grass-tuft', 'Grass tuft', 'A low clump of blades', 383, {...LOW_PLANT, frondStyle: 'blade', palette: 'spring', height: 0.6, clumpCount: 14, droop: 0.3, clumpSize: 1, leafSize: 0.5}),
-    painted('Grass & flowers', 'reeds', 'Reeds', 'Tall thin blades', 384, {...LOW_PLANT, frondStyle: 'blade', palette: 'olive', height: 1.2, clumpCount: 10, droop: 0.15, clumpSize: 1, leafSize: 0.5}),
-    painted('Grass & flowers', 'flower-clump', 'Flower clump', 'A small bright mound', 385, {palette: 'blossom', height: 0.6, spread: 0.8, trunkRadius: 0.02, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.6, fullness: 0.6, rootCount: 0, ridgeDepth: 0, flare: 0}),
-    painted('Bushes', 'low-hedge', 'Low hedge', 'Dense and neat', 386, {palette: 'forest', height: 1, spread: 1.6, trunkRadius: 0.05, forkHeight: 0.2, limbAngle: 55, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 4, clumpMerge: 0.9, clumpSize: 1.1, fullness: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0}),
+    grass('grass-tuft', 'Grass tuft', 'A single dense clump', 383, {width: 0.5, height: 0.6, blades: 70, clumps: 3, smoothness: 4, gather: 0.3, scatter: 0.45, bladeWidth: 0.024, dryness: 0}),
+    grass('meadow-patch', 'Meadow patch', 'Long grass combed by wind', 387, {}),
+    grass('short-lawn', 'Short lawn', 'Low, even and green', 388, {width: 1.5, height: 0.25, blades: 480, lean: 0.35, bladeWidth: 0.018, tall: 0.02, dryness: 0, palette: 'lush'}),
+    grass('long-grass', 'Long grass', 'Waist high and bending', 389, {width: 2, height: 1.1, blades: 400, clumps: 7, lean: 0.75, bladeWidth: 0.036, tall: 0.12}),
+    grass('broad-tuft', 'Broad tuft', 'Few wide blades up close', 390, {width: 0.8, height: 0.7, blades: 36, clumps: 3, smoothness: 4, bladeWidth: 0.06, scatter: 0.5, tall: 0.2, dryness: 0, palette: 'lush'}),
+    grass('dry-tuft', 'Dry tuft', 'Pale and past its season', 391, {width: 0.7, height: 0.8, blades: 110, clumps: 3, scatter: 0.4, bladeWidth: 0.022, dryness: 1}),
+    grass('reeds', 'Reeds', 'Tall thin blades', 384, {width: 0.7, height: 1.4, blades: 60, clumps: 3, lean: 0.2, scatter: 0.4, bladeWidth: 0.026, tall: 0.1, dryness: 0, palette: 'reed'}),
+    plant('flower-clump', 'Pink blooms', 'Open flowers on tall stems', 385, {width: 0.7, height: 0.6, stems: 8, headSize: 0.13, leaves: 3, palette: 'pink'}),
+    plant('daisies', 'Daisies', 'A low white drift', 392, {width: 1, height: 0.32, stems: 24, headSize: 0.07, leaves: 1}),
+    plant('flame-flowers', 'Flame flowers', 'Closed and bright', 393, {kind: 'cup', width: 0.6, height: 0.65, stems: 7, headSize: 0.09, lean: 0.12, leaves: 3, palette: 'flame'}),
+    plant('red-spikes', 'Red spikes', 'Tall towers of small flowers', 394, {kind: 'spike', width: 0.7, height: 0.9, stems: 9, headSize: 0.2, lean: 0.1, leaves: 2, palette: 'flame'}),
+    plant('violet-spikes', 'Violet spikes', 'Cool colour for a meadow', 395, {kind: 'spike', width: 0.8, height: 0.7, stems: 12, headSize: 0.15, lean: 0.12, leaves: 2, palette: 'violet'}),
+    plant('pampas', 'Pampas plumes', 'Pale feathers on long stems', 396, {kind: 'plume', width: 0.8, height: 1.7, stems: 7, headSize: 0.55, lean: 0.45, leaves: 2, palette: 'cream'}),
+    grass('flower-meadow', 'Flower meadow', 'Long grass with daisies through it', 397, {blades: 340, flowers: 30}),
+    grass('far-meadow', 'Far meadow', 'A light patch for the distance', 398, {blades: 70, clumps: 5, bladeWidth: 0.1, smoothness: 2, dryness: 0.08}),
+    bush('low-hedge', 'Low hedge', 'Dense and neat', 386, {kind: 'hedge', width: 5, height: 1.2, depth: 1.1, lobes: 6, lumps: 0.3, leafSize: 0.16, variation: 0.25, palette: 'lush'}),
 ]
 
 const rockPresets: readonly TreePreset[] = [
-    rock('Boulders', 'boulder', 'Boulder', 'Big, round and weathered', 401, {width: 3, height: 2, depth: 2.6}),
-    rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old and half green', 402, {width: 3.4, height: 2, depth: 3, roundness: 0.75, facets: 0.25, moss: 0.7}),
-    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, roundness: 0.2, facets: 1, lumpiness: 0.2, palette: 'pine'}),
-    rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, roundness: 0.7, facets: 0.3}),
-    rock('Stones', 'river-stone', 'River stone', 'Smooth and flat', 405, {width: 0.7, height: 0.25, depth: 0.5, roundness: 1, facets: 0, lumpiness: 0.1, palette: 'pine'}),
-    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {width: 1, height: 3, depth: 0.7, roundness: 0.3, facets: 0.6, moss: 0.25}),
-    rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall in layers', 407, {width: 12, height: 9, depth: 5, roundness: 0, facets: 0.6, lumpiness: 0.55, layers: 0.8, palette: 'autumn'}),
-    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {width: 5, height: 11, depth: 4.5, roundness: 0.15, facets: 0.7, lumpiness: 0.45, layers: 0.6, palette: 'pine'}),
-    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and banded', 409, {width: 14, height: 6, depth: 11, roundness: 0, facets: 0.35, lumpiness: 0.35, layers: 1, palette: 'maple'}),
+    rock('Boulders', 'boulder', 'Boulder', 'Heavy, with stones at its feet', 401, {}),
+    rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old, with a green cap', 421, {width: 3.4, depth: 3, moss: 0.7, chunks: 3, faces: 0.8}),
+    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, chunks: 2, faces: 0.8, cuts: 1, edges: 0.35, moss: 0, palette: 'granite'}),
+    rock('Outcrops', 'grassy-outcrop', 'Grassy outcrop', 'Stepping up a slope', 410, {kind: 'outcrop', width: 6, height: 2.6, depth: 3.5, chunks: 5, moss: 0.85}),
+    rock('Outcrops', 'low-ledge', 'Low ledge', 'A long shelf of stone', 411, {kind: 'outcrop', width: 8, height: 1.3, depth: 3, chunks: 7, moss: 0.7, palette: 'slate'}),
+    rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, chunks: 1, faces: 0.45, cuts: 0.5, moss: 0.3}),
+    rock('Stones', 'river-stone', 'River stone', 'Worn nearly round', 405, {width: 0.7, height: 0.25, depth: 0.5, chunks: 1, faces: 0.7, cuts: 0.2, edges: 1, moss: 0, palette: 'slate'}),
+    rock('Stones', 'step-stone', 'Stepping stone', 'A flat slab for a path', 412, {width: 1, height: 0.14, depth: 0.8, chunks: 1, faces: 0.35, cuts: 0.45, moss: 0, variation: 0.3}),
+    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {kind: 'pillar', width: 1, height: 3, depth: 0.7, chunks: 1, moss: 0.35}),
+    rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall of wedged stone', 407, {kind: 'cliff', width: 14, height: 10, depth: 6, chunks: 18, faces: 0.45, moss: 0.25}),
+    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {kind: 'pillar', width: 5, height: 11, depth: 4.5, chunks: 5, palette: 'slate'}),
+    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and warm', 409, {kind: 'cliff', width: 16, height: 6, depth: 11, chunks: 14, moss: 0, palette: 'redrock'}),
 ]
 
 export const treePresets: readonly TreePreset[] = [

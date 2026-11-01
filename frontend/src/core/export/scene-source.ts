@@ -150,6 +150,10 @@ export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion:
             return treeGenerator?.still !== true
         },
 
+        swaysEvenly() {
+            return treeGenerator?.swaysEvenly === true
+        },
+
         describe() {
             return {
                 generator: asset?.generatorId ?? null,

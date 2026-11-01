@@ -39,11 +39,15 @@ export interface BudgetCheck {
     readonly warning: string | null
 }
 
-export function checkBudget(counts: FaceCounts, target: BudgetTarget): BudgetCheck {
+export function checkBudget(counts: FaceCounts, target: BudgetTarget, advice?: string): BudgetCheck {
     const faces = counts.wood + counts.leaves
 
     if (faces <= target.faces) {
         return {faces, over: false, warning: null}
+    }
+
+    if (advice) {
+        return {faces, over: true, warning: `Over budget. ${advice}`}
     }
 
     const leavesCostMost = counts.leaves >= counts.wood

@@ -8,7 +8,7 @@
 import * as THREE from 'three'
 import {collisionNodeName, collisionShapes, prismGeometry} from './collision'
 import {mergeParts} from './merge'
-import {measureWindExtent, type WindExtent} from './wind'
+import {EVEN_REACH, measureWindExtent, type WindExtent} from './wind'
 import {yieldIfBusy} from './yield'
 import {writeGLB, type NamedMesh} from '../glb-exporter'
 import {LEVEL_SHARES, type ExportFile, type ExportSettings, type ExportSource} from './types'
@@ -60,6 +60,10 @@ export async function buildExport(
         // Measured once at full detail, so every level moves alike.
         if (hasWind && level === 0) {
             extent = measureWindExtent(parts, pivot)
+
+            if (source.swaysEvenly?.()) {
+                extent = {...extent, reach: EVEN_REACH}
+            }
         }
 
         const meshes = mergeParts(parts, name, pivot, extent)

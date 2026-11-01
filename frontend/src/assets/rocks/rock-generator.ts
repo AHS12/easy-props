@@ -1,5 +1,6 @@
 /**
- * Rocks, boulders and cliffs.
+ * The first rocks, sculpted from a distance field. No longer offered: new rocks
+ * come from `cut-rock-generator.ts`. This stays so a saved rock still opens.
  *
  * One distance field, one surface, colour per vertex. A rock is the same field
  * and surface nets as bark, with no leaves and nothing that moves, and it says

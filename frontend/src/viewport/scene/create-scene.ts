@@ -23,6 +23,9 @@ import {
     type ShadingMode,
 } from './component-renderer'
 import {VIEWPORT_COLORS} from './materials'
+import {createMeadowScenery, type MeadowScenery} from './meadow-scenery'
+
+export type Backdrop = 'sky' | 'studio-sky' | 'meadow' | 'grove' | 'grey' | 'colour'
 
 export interface ViewportScene {
     readonly renderer: THREE.WebGLRenderer
@@ -42,7 +45,7 @@ export interface ViewportScene {
     setShadingMode(mode: ShadingMode): void
     /** Frames one part, or the whole prop for null. */
     frameComponent(componentId: string | null): void
-    setBackdrop(backdrop: 'sky' | 'grey' | 'colour', colour: string): void
+    setBackdrop(backdrop: Backdrop, colour: string): void
     setGridVisible(visible: boolean): void
     setShadowsAllowed(allowed: boolean): void
     setFieldOfView(degrees: number): void
@@ -66,6 +69,12 @@ export interface ViewportScene {
 const CAMERA_FOV = 45
 const CAMERA_NEAR = 0.05
 const CAMERA_FAR = 500
+/** A clear midday sun, however warm the rest of the time of day is. */
+const MEADOW_WARMTH = 0.3
+/** A big bright sky: shade stays clearly coloured and never goes dark. */
+const MEADOW_SKY_LIGHT = 1.6
+const MIN_NORMAL_BIAS = 0.035
+const NORMAL_BIAS_TEXELS = 8
 
 /**
  * Counts the triangles of the real geometry under a root.
@@ -118,16 +127,16 @@ function createRenderer(container: HTMLElement, antialias: boolean): THREE.WebGL
  * A flat colour makes the tree look like it is floating in a void. A
  * gradient reads as a place.
  */
-function createSkyTexture(): THREE.Texture {
+function createSkyTexture(top: string, horizon: string): THREE.Texture {
     const canvas = document.createElement('canvas')
     canvas.width = 1
     canvas.height = 256
 
     const context = canvas.getContext('2d')
     const gradient = context!.createLinearGradient(0, 0, 0, 256)
-    gradient.addColorStop(0, VIEWPORT_COLORS.skyTop)
-    gradient.addColorStop(0.62, VIEWPORT_COLORS.skyHorizon)
-    gradient.addColorStop(1, VIEWPORT_COLORS.skyHorizon)
+    gradient.addColorStop(0, top)
+    gradient.addColorStop(0.62, horizon)
+    gradient.addColorStop(1, horizon)
     context!.fillStyle = gradient
     context!.fillRect(0, 0, 1, 256)
 
@@ -180,11 +189,10 @@ function addLighting(scene: THREE.Scene): Lights {
     return {hemisphere, sun, fill}
 }
 
-function addGround(scene: THREE.Scene): void {
-    const ground = new THREE.Mesh(
-        new THREE.CircleGeometry(50, 64),
-        new THREE.MeshStandardMaterial({color: new THREE.Color(VIEWPORT_COLORS.ground), roughness: 1}),
-    )
+function addGround(scene: THREE.Scene): THREE.MeshStandardMaterial {
+    const material = new THREE.MeshStandardMaterial({color: new THREE.Color(VIEWPORT_COLORS.ground), roughness: 1})
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(50, 64), material)
+
     ground.rotation.x = -Math.PI / 2
     ground.receiveShadow = true
     ground.name = 'ground'
@@ -203,6 +211,8 @@ function addGround(scene: THREE.Scene): void {
     major.material.opacity = 0.55
     major.name = 'grid_major'
     scene.add(major)
+
+    return material
 }
 
 /** A plain 1.8 m figure, for judging a prop's size. */
@@ -233,12 +243,18 @@ export function createViewportScene(
     const camera = createCamera(container)
     const scene = new THREE.Scene()
 
-    const sky = createSkyTexture()
+    const sky = createSkyTexture(VIEWPORT_COLORS.skyTop, VIEWPORT_COLORS.skyHorizon)
+    const meadowSky = createSkyTexture(VIEWPORT_COLORS.meadowSkyTop, VIEWPORT_COLORS.meadowHorizon)
     scene.background = sky
     scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), 22, 60)
 
     const lights = addLighting(scene)
-    addGround(scene)
+    const groundMaterial = addGround(scene)
+    let meadow = false
+    /** Meadow's sky and sunlight, which Studio with sky has too. */
+    let bright = false
+    let scenery: MeadowScenery | null = null
+    let gridWanted = true
 
     const controls = attachCameraControls(camera, renderer.domElement)
 
@@ -267,6 +283,12 @@ export function createViewportScene(
     const bounds = new THREE.Box3()
     const sphere = new THREE.Sphere()
 
+    const showGrid = () => {
+        for (const name of ['grid_minor', 'grid_major']) {
+            scene.getObjectByName(name)!.visible = gridWanted && !meadow
+        }
+    }
+
     const applyLighting = () => {
         const direction = sunDirection(lighting)
 
@@ -277,7 +299,7 @@ export function createViewportScene(
         const distance = Math.max(sphere.radius * 3, 12)
         lights.sun.position.copy(sphere.center).add(direction.clone().multiplyScalar(distance))
 
-        lights.sun.color.copy(sunColor(lighting.warmth))
+        lights.sun.color.copy(sunColor(bright ? lighting.warmth * MEADOW_WARMTH : lighting.warmth))
         lights.sun.intensity = 2.4 + lighting.warmth * 0.9
         lights.sun.castShadow = lighting.shadowStrength > 0.02
         lights.sun.shadow.intensity = lighting.shadowStrength
@@ -286,8 +308,8 @@ export function createViewportScene(
         // rises as the sun falls. Nothing reads as black.
         const height = lighting.elevation / 90
         lights.hemisphere.color.copy(ambientColor(lighting.warmth))
-        lights.hemisphere.groundColor.set(lighting.warmth > 0.6 ? '#6b5238' : '#5a4a38')
-        lights.hemisphere.intensity = 1.15 + (1 - height) * 0.9
+        lights.hemisphere.groundColor.set(meadow ? VIEWPORT_COLORS.meadowBounce : lighting.warmth > 0.6 ? '#6b5238' : '#5a4a38')
+        lights.hemisphere.intensity = (1.15 + (1 - height) * 0.9) * (bright ? MEADOW_SKY_LIGHT : 1)
 
         // The fill comes from the opposite side of the sun.
         lights.fill.position.set(-direction.x, 0.4, -direction.z).multiplyScalar(10)
@@ -305,6 +327,9 @@ export function createViewportScene(
         camera.near = 0.1
         camera.far = radius * 6
         camera.updateProjectionMatrix()
+        // Acne grows with the size of a shadow map's texels, so the bias has to as
+        // well, or a large rock shows a jagged edge where its light meets its shade.
+        lights.sun.shadow.normalBias = Math.max(MIN_NORMAL_BIAS, ((radius * 2) / lights.sun.shadow.mapSize.width) * NORMAL_BIAS_TEXELS)
     }
 
     const fitToContent = () => {
@@ -319,6 +344,7 @@ export function createViewportScene(
 
         // The figure stands clear of the crown, on the side the camera starts.
         figure.position.set(bounds.min.x - 0.6, 0, bounds.max.z + 0.6)
+        scenery?.setClearing(Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) / 2)
     }
 
     return {
@@ -341,10 +367,12 @@ export function createViewportScene(
             const asset = nextScene.assets[0]
             const height =
                 typeof asset?.parameters.height === 'number' ? asset.parameters.height : 4.2
+            const width = typeof asset?.parameters.width === 'number' ? asset.parameters.width : 0
 
             // The canopy reaches wider and taller than the trunk, so the
             // frame is driven by the height plus room for the branches.
-            const distance = Math.max(height * 2.7, 8)
+            // A rock says how wide it is, and a long one needs the room.
+            const distance = Math.max(height * 2.7, width * 2.4, asset?.parameters.width === undefined ? 8 : 2)
 
             controls.target.set(0, height * 0.58, 0)
             camera.position
@@ -390,14 +418,30 @@ export function createViewportScene(
             const color =
                 backdrop === 'grey' ? new THREE.Color('#6f7174') : backdrop === 'colour' ? new THREE.Color(colour) : null
 
-            scene.background = color ?? sky
-            ;(scene.fog as THREE.Fog).color.copy(color ?? horizon)
+            meadow = backdrop === 'meadow' || backdrop === 'grove'
+            bright = meadow || backdrop === 'studio-sky'
+            scene.background = color ?? (bright ? meadowSky : sky)
+            ;(scene.fog as THREE.Fog).color.copy(color ?? (bright ? new THREE.Color(VIEWPORT_COLORS.meadowHorizon) : horizon))
+            groundMaterial.color.set(meadow ? VIEWPORT_COLORS.meadowGround : bright ? VIEWPORT_COLORS.studioSkyGround : VIEWPORT_COLORS.ground)
+            applyLighting()
+            showGrid()
+
+            // Built the first time it is wanted: most people never open it.
+            if (meadow && !scenery) {
+                scenery = createMeadowScenery()
+                scene.add(scenery.group)
+                fitToContent()
+            }
+
+            if (scenery) {
+                scenery.group.visible = meadow
+                scenery.setTrees(backdrop === 'grove')
+            }
         },
 
         setGridVisible(visible) {
-            for (const name of ['grid_minor', 'grid_major']) {
-                scene.getObjectByName(name)!.visible = visible
-            }
+            gridWanted = visible
+            showGrid()
         },
 
         setShadowsAllowed(allowed) {
@@ -482,6 +526,8 @@ export function createViewportScene(
             controls.dispose()
             components.dispose()
             sky.dispose()
+            meadowSky.dispose()
+            scenery?.dispose()
             renderer.dispose()
         },
     }

@@ -161,6 +161,71 @@ export const BARK_TONES: Readonly<
     bone: {barkDeep: '#6b6358', barkLight: '#e8e0cf'},
 }
 
+export type RockPaletteId = 'lavender' | 'slate' | 'granite' | 'sandstone' | 'redrock' | 'basalt' | 'frost'
+
+/** Stone for cut rocks, shadow to highlight. The shadow shifts hue, as a palette's does. */
+export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
+    lavender: ['#3f4180', '#6467a8', '#9598d4', '#d9daf6'],
+    slate: ['#27354f', '#4f6585', '#83a0bd', '#cfe0ee'],
+    granite: ['#35364a', '#676a7c', '#9fa2ad', '#dfdfe2'],
+    sandstone: ['#5a3f4a', '#a0785f', '#d2ad80', '#f6e3bd'],
+    redrock: ['#4a2438', '#94483f', '#cb7c58', '#f2c49a'],
+    basalt: ['#14162a', '#30334e', '#565a78', '#9599b4'],
+    frost: ['#3c5583', '#7c9fc9', '#bcd6ec', '#f4fbff'],
+}
+
+/** Moss on any stone, shadow to highlight. */
+export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
+
+export type PetalPaletteId = 'white' | 'pink' | 'flame' | 'gold' | 'violet' | 'cream'
+
+/** Petals, deep to light. */
+export const PETAL_RAMPS: Readonly<Record<PetalPaletteId, readonly string[]>> = {
+    white: ['#cfd4c8', '#f0f0ea', '#ffffff'],
+    pink: ['#c8407c', '#ec7cb0', '#ffd6ea'],
+    flame: ['#b82a10', '#ec5c18', '#ffae3c'],
+    gold: ['#c47c10', '#eeb420', '#ffe670'],
+    violet: ['#5c2ca0', '#9460d8', '#d8bcf8'],
+    cream: ['#a8945c', '#dccb92', '#fbf3d0'],
+}
+
+/** Stems and the leaves at their foot, root to tip. */
+export const STEM_RAMP: readonly string[] = ['#2f6410', '#5c9a18', '#a4d030']
+
+/** The twigs inside an open bush, base to tip. */
+export const TWIG_RAMP: readonly string[] = ['#33261e', '#5a4632', '#7c6848']
+
+/** The middle of a daisy. */
+export const FLOWER_CENTRE = '#f4c430'
+
+export type BushPaletteId = 'summer' | 'lush' | 'spring' | 'olive' | 'pine' | 'autumn' | 'maple'
+
+/** A bush, shadow to highlight: near black under it, yellow where the sun lands. */
+export const BUSH_RAMPS: Readonly<Record<BushPaletteId, readonly string[]>> = {
+    summer: ['#1c3f08', '#3d7410', '#7fb31a', '#d3e85c'],
+    lush: ['#123a14', '#27681c', '#57a02a', '#a8d85a'],
+    spring: ['#2c5a0e', '#5c9a14', '#a0d024', '#e8f47c'],
+    olive: ['#2c3a14', '#556a22', '#8a9a3c', '#c8cf7c'],
+    pine: ['#0f2c20', '#1f5236', '#3f8450', '#8cc084'],
+    autumn: ['#5a2c0c', '#a0601a', '#d89c24', '#f6dc6c'],
+    maple: ['#4a1414', '#982a1a', '#d85a24', '#f6a84c'],
+}
+
+export type GrassPaletteId = 'meadow' | 'lush' | 'spring' | 'reed' | 'autumn' | 'frost'
+
+/** Grass, root to tip. A root near the colour of the ground makes a blade grow out of it. */
+export const GRASS_RAMPS: Readonly<Record<GrassPaletteId, readonly string[]>> = {
+    meadow: ['#3f6e06', '#6da208', '#9ccb1c', '#d6e85e'],
+    lush: ['#1f5a18', '#3f8c1c', '#74b82a', '#b4dc58'],
+    spring: ['#4d8a12', '#88c220', '#bfe040', '#ecf48a'],
+    reed: ['#4c5e1c', '#7f8c2c', '#afb04a', '#dfd688'],
+    autumn: ['#6a5212', '#a58a1e', '#d6b23a', '#f2dc84'],
+    frost: ['#4e7a78', '#84ae9e', '#b8d2bc', '#ecf4e4'],
+}
+
+/** A clump gone pale, root to tip. */
+export const DRY_RAMP: readonly string[] = ['#7c8a2a', '#b2b048', '#d8cf78', '#f0e8ac']
+
 /** The colours of stone, shadow to highlight. */
 export interface StoneColours {
     readonly stoneDeep: string

@@ -247,6 +247,17 @@ export function ExportDialog() {
                     </div>
                 )}
 
+                <div className="export-status" role="status">
+                    {writing ? (
+                        <span>Saving the files…</span>
+                    ) : files && building && !error ? (
+                        <>
+                            <progress max={1} value={progress} aria-label="Updating the files" />
+                            <span className="tabular">Updating… {Math.round(progress * 100)}%</span>
+                        </>
+                    ) : null}
+                </div>
+
                 <div className="dialog__actions">
                     <button type="button" className="text-button dialog__more" onClick={openBatch}>
                         Export many…
@@ -255,7 +266,7 @@ export function ExportDialog() {
                         Cancel
                     </button>
                     <button type="submit" className="button button--primary" disabled={!files || building || writing}>
-                        Export
+                        {writing ? 'Saving…' : 'Export'}
                     </button>
                 </div>
             </form>

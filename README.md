@@ -6,7 +6,9 @@ Pick a tree, rock, bush, fern or patch of grass, shape it with plain sliders, an
 export it for your game engine. It's a focused desktop tool for props, not a
 replacement for Blender.
 
-![The easy-props editor, with a red maple tree, its presets and its controls](docs/images/editor.png)
+![A red maple made in easy-props, standing in the Meadow demo scene with rocks, bushes and grass](docs/images/meadow.png)
+
+**[Download for Windows or Mac](https://github.com/AHS12/easy-props/releases)** · [What's new](CHANGELOG.md)
 
 ## What it does
 
@@ -14,6 +16,8 @@ replacement for Blender.
   ferns, grass and flowers, boulders, stones and cliffs.
 - **Make it yours:** drag a slider or type a value, and the prop updates live. Click a
   branch or a leaf clump to change just that part, and undo anything.
+- **See it in a real place:** stand your prop in the Meadow or Grove demo scene, with a
+  person beside it for scale, to judge it before it goes in your game.
 - **Export for games:** each prop comes as GLB files with detail levels (LOD) and simple
   collision shapes, checked against a face budget.
 - **Wind built in:** trees and plants carry wind data in their second UV set, slow sway
@@ -22,11 +26,13 @@ replacement for Blender.
   ready-made shaders for Godot, and step-by-step material instructions for Unreal.
 - **Export many at once:** batch-export presets, saved props and random variations.
 
-![The home screen, with recent props and presets to start from](docs/images/home.png)
+![The editor, with presets on the left, a red maple in the middle and its controls on the right](docs/images/editor.png)
+
+![The home page, with recent props and presets to start from](docs/images/home.png)
 
 ## Using props in your engine
 
-![The Export dialog, with engine, detail levels, collision and wind data](docs/images/export.png)
+![The Export dialog, listing the files for a red maple with their face counts](docs/images/export.png)
 
 | Target | How |
 |---|---|
@@ -66,7 +72,7 @@ Mac disk image (needs a Mac). Both go to `build/dist`. Run `make` to list every 
 
 ## Releasing
 
-Set the version in `wails.json` and in `APP_VERSION` in
+Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `wails.json` and in `APP_VERSION` in
 `frontend/src/core/export/export-preferences.ts`, then push. There are two ways to
 release, and both build the installers on GitHub and attach them to the release:
 
