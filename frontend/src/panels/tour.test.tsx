@@ -157,7 +157,10 @@ describe('the tours', () => {
     it('still closes if remembering it fails', () => {
         const setGalleryTourSeen = useSettingsStore.getState().setGalleryTourSeen
         const originalError = console.error
+        // React reports the failure to the window as well, where it would fail the whole run.
+        const expected = (event: ErrorEvent) => event.preventDefault()
 
+        window.addEventListener('error', expected)
         console.error = () => undefined
         useSettingsStore.setState({
             setGalleryTourSeen: () => {
@@ -177,6 +180,7 @@ describe('the tours', () => {
 
         useSettingsStore.setState({setGalleryTourSeen})
         console.error = originalError
+        window.removeEventListener('error', expected)
     })
 
     it('remembers each tour apart', () => {

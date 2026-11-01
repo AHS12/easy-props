@@ -1,5 +1,6 @@
-import {useCallback, useEffect, useRef} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
+import {afterPaint} from '../core/export/pipeline/yield'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
 import type {SurfacePush} from '../assets/shared/component-types'
@@ -18,6 +19,8 @@ import {beginPush, pixelsPerMetre, pushFor, type PushGesture} from './scene/push
 import {createMoveGizmo, type MoveGizmo} from './scene/move-gizmo'
 import {findComponent} from '../core/scene/scene-model'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
+import type {LoadStep} from './load-steps'
+import {ViewportLoading} from './ViewportLoading'
 import {ViewportOverlay} from './ViewportOverlay'
 
 /** A pointer that moves more than this counts as an orbit, not a click. */
@@ -29,6 +32,8 @@ const UP: Record<CompassAxis, THREE.Vector3> = {
     y: new THREE.Vector3(0, 0, -1),
     z: new THREE.Vector3(0, 1, 0),
 }
+
+const isDemoScene = (backdrop: unknown) => backdrop === 'meadow' || backdrop === 'grove'
 
 /** How a move drag is pinned to one axis. */
 interface MoveState {
@@ -76,6 +81,20 @@ export function Viewport() {
     const shapeTool = useEditorStore((state) => state.shapeTool)
     // The browser cannot change this on a live canvas, so a change rebuilds the view.
     const antialias = useSetting('antialias') === true
+    const [loadStep, setLoadStep] = useState<LoadStep | null>('view')
+    const [painted, setPainted] = useState(false)
+
+    // Opening the editor stays quick on any computer: the page goes up first, with
+    // the loading screen on it, and the slow work follows.
+    useEffect(() => {
+        let current = true
+
+        void afterPaint().then(() => current && setPainted(true))
+
+        return () => {
+            current = false
+        }
+    }, [])
 
     /**
      * Looks down an axis, keeping the current distance from what the camera is
@@ -101,9 +120,13 @@ export function Viewport() {
 
     useEffect(() => {
         const container = containerRef.current
-        if (!container) {
+        if (!container || !painted) {
             return
         }
+
+        let stopped = false
+
+        setLoadStep('view')
 
         const store = useEditorStore
         const viewport = createViewportScene(container, store.getState().style, antialias)
@@ -146,7 +169,6 @@ export function Viewport() {
             gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             compassRef.current?.update(viewport.camera)
         }
-        frame = requestAnimationFrame(render)
 
         const observer = new ResizeObserver(() => viewport.resize())
         observer.observe(container)
@@ -616,8 +638,24 @@ export function Viewport() {
         // Settings apply at once. The scheme's listener has to be swapped, and the
         // rest only touch what changed.
         let schemeOff = () => undefined as void
+        let demoSceneBuilt = isDemoScene(settingValue('backdrop'))
         const applySettings = () => {
             const values = useSettingsStore.getState().values
+
+            // Built the first time it is wanted, which takes a moment, so say so first.
+            if (isDemoScene(values.backdrop) && !demoSceneBuilt) {
+                demoSceneBuilt = true
+                setLoadStep('scene')
+                void afterPaint().then(() => {
+                    if (!stopped) {
+                        applySettings()
+                        setLoadStep(null)
+                    }
+                })
+
+                return
+            }
+
             const invert = values.invertZoom === true
 
             viewport.controls.rotateSpeed = Number(values.orbitSpeed)
@@ -654,16 +692,44 @@ export function Viewport() {
             applySelectionVisuals(viewport, store.getState().selection)
             reportFaces(viewport)
         })
-        viewport.syncScene(store.getState().scene)
         viewport.setLighting(store.getState().lighting)
         viewport.setShadingMode(store.getState().shadingMode)
-        applySelectionVisuals(viewport, store.getState().selection)
-        refreshHandles()
-        refreshGizmo()
-        reportFaces(viewport)
-        reframeIfNeeded(store.getState().scene)
+
+        const load = async () => {
+            setLoadStep('prop')
+            await afterPaint()
+
+            if (stopped) {
+                return
+            }
+
+            viewport.syncScene(store.getState().scene)
+            applySelectionVisuals(viewport, store.getState().selection)
+            refreshHandles()
+            refreshGizmo()
+            reportFaces(viewport)
+            reframeIfNeeded(store.getState().scene)
+
+            setLoadStep('draw')
+            await afterPaint()
+
+            if (stopped) {
+                return
+            }
+
+            // The first draw is slow too: it is when the graphics card prepares its shaders.
+            frame = requestAnimationFrame(render)
+            await afterPaint()
+
+            if (!stopped) {
+                setLoadStep(null)
+            }
+        }
+
+        void load()
 
         return () => {
+            stopped = true
             cancelAnimationFrame(frame)
             observer.disconnect()
             unsubscribe()
@@ -688,11 +754,12 @@ export function Viewport() {
             sceneRef.current = null
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- snapToAxis never changes.
-    }, [antialias])
+    }, [antialias, painted])
 
     return (
         <div className="viewport" data-tool={shapeTool} data-coach="viewport">
             <div ref={containerRef} style={{position: 'absolute', inset: 0}} />
+            {loadStep ? <ViewportLoading step={loadStep} /> : null}
             <div ref={brushRef} className="viewport__brush" data-visible="false" />
             <Compass ref={compassRef} onSnap={snapToAxis} />
             <ViewportOverlay />

@@ -22,6 +22,13 @@ function nextTask(): Promise<void> {
     })
 }
 
+/** Waits until what is on the page now has reached the screen, so slow work can follow it. */
+export function afterPaint(): Promise<void> {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => void nextTask().then(resolve))
+    })
+}
+
 /** Gives way if this task has run long enough, and carries straight on if not. */
 export async function yieldIfBusy(): Promise<void> {
     if (performance.now() - lastYield >= WORK_MS) {

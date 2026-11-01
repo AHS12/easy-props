@@ -66,7 +66,7 @@ Mac disk image (needs a Mac). Both go to `build/dist`. Run `make` to list every 
 
 ## Releasing
 
-Set the version in `wails.json` and in `APP_VERSION` in
+Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `wails.json` and in `APP_VERSION` in
 `frontend/src/core/export/export-preferences.ts`, then push. There are two ways to
 release, and both build the installers on GitHub and attach them to the release:
 
