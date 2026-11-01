@@ -5,6 +5,8 @@ import tailwind from '@tailwindcss/vite'
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [react(), tailwind()],
+    // What's new reads CHANGELOG.md, which lives at the top of the repository.
+    server: {fs: {allow: ['..']}},
     build: {
         // The Three.js chunk is inherently large. Split it out and raise the
         // warning threshold so real regressions still stand out.

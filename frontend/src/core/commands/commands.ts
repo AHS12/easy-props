@@ -565,6 +565,15 @@ export const COMMANDS: readonly Command[] = [
         run: () => useUiStore.getState().setTourOpen(true),
     },
     {
+        id: 'whats-new',
+        label: "What's new",
+        group: 'Help',
+        icon: Sparkles,
+        global: true,
+        keywords: 'changelog release notes version update',
+        run: () => useUiStore.getState().setWhatsNewOpen(true),
+    },
+    {
         id: 'about',
         label: 'About easy-props',
         group: 'Help',

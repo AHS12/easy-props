@@ -461,6 +461,20 @@ export function SettingsDialog() {
                             </button>
                         </SettingRow>
                     ) : null}
+                    {page === 'General' && !needle ? (
+                        <SettingRow label="See what's new" help="The changes in each version.">
+                            <button
+                                type="button"
+                                className="button"
+                                onClick={() => {
+                                    closeSettings()
+                                    useUiStore.getState().setWhatsNewOpen(true)
+                                }}
+                            >
+                                Show it now
+                            </button>
+                        </SettingRow>
+                    ) : null}
                 </div>
             </div>
         </Dialog>

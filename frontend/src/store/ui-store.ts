@@ -34,6 +34,9 @@ interface UiStore {
     tourOpen: boolean
     setTourOpen(open: boolean): void
 
+    whatsNewOpen: boolean
+    setWhatsNewOpen(open: boolean): void
+
     /** Hides both panels: Ctrl+\. */
     panelsHidden: boolean
     togglePanels(): void
@@ -67,6 +70,9 @@ export const useUiStore = create<UiStore>((set) => ({
 
     tourOpen: false,
     setTourOpen: (tourOpen) => set({tourOpen}),
+
+    whatsNewOpen: false,
+    setWhatsNewOpen: (whatsNewOpen) => set({whatsNewOpen}),
 
     panelsHidden: false,
     togglePanels: () => set((state) => ({panelsHidden: !state.panelsHidden})),

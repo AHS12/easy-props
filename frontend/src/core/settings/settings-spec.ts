@@ -84,6 +84,15 @@ export const SETTING_SPECS = [
         default: false,
     },
     {
+        key: 'showWhatsNew',
+        page: 'General',
+        kind: 'toggle',
+        label: "Show what's new after an update",
+        help: 'Opens the list of changes once, the first time a new version starts.',
+        keywords: 'changelog release notes version',
+        default: true,
+    },
+    {
         key: 'theme',
         page: 'Appearance',
         kind: 'choice',
@@ -326,6 +335,8 @@ export interface SettingsFile {
     readonly layout: PanelLayout
     readonly tourSeen: boolean
     readonly galleryTourSeen: boolean
+    /** The version whose What's new was last closed. */
+    readonly lastSeenVersion: string
     readonly lastTreeId: string | null
     readonly libraryFolder: string
 }
@@ -340,6 +351,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     layout: DEFAULT_LAYOUT,
     tourSeen: false,
     galleryTourSeen: false,
+    lastSeenVersion: '',
     lastTreeId: null,
     libraryFolder: '',
 }
@@ -377,6 +389,7 @@ const fileSchema = z.object({
         .catch(DEFAULT_LAYOUT),
     tourSeen: z.boolean().catch(false),
     galleryTourSeen: z.boolean().catch(false),
+    lastSeenVersion: z.string().catch(''),
     lastTreeId: z.string().nullable().catch(null),
     libraryFolder: z.string().catch(''),
 })

@@ -34,7 +34,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Help',
-        items: ['palette', 'shortcuts', 'tour', null, 'about'],
+        items: ['palette', 'shortcuts', 'tour', 'whats-new', null, 'about'],
     },
 ]
 

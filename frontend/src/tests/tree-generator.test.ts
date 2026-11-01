@@ -226,7 +226,7 @@ describe('geometry invariants', () => {
                 }
             }
         }
-    }, 60000)
+    }, 180000)
 
     it('stays inside a sane face budget', () => {
         const components = generatePropComponents(

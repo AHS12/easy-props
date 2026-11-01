@@ -16,6 +16,7 @@ import {SettingsDialog} from '../panels/SettingsDialog'
 import {StatusBar} from '../panels/StatusBar'
 import {Toast} from '../panels/Toast'
 import {Tour} from '../panels/Tour'
+import {WhatsNewDialog} from '../panels/WhatsNewDialog'
 import {GalleryPage} from '../pages/GalleryPage'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
@@ -163,7 +164,7 @@ export function App() {
             }
 
             // A question on screen owns the keyboard, and so do the windows.
-            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
+            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.whatsNewOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
                 return
             }
 
@@ -290,6 +291,7 @@ export function App() {
             <BatchExportDialog />
             <SettingsDialog />
             <ConfirmDialog />
+            <WhatsNewDialog />
             {closeRequested ? <CloseDialog onStay={() => setCloseRequested(false)} /> : null}
             <CommandPalette />
             <div className="visually-hidden" role="status" aria-live="polite">

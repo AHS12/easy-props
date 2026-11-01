@@ -23,6 +23,8 @@ What's new in each version of easy-props.
 
 - The home page now has its own short tour, separate from the editor's.
 - Tours now start on the right step and fit your interface size.
+- This list now opens by itself after an update. You can turn that off in Settings, and
+  find it any time under Help.
 
 **Smoother on slower computers**
 

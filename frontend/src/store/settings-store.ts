@@ -39,6 +39,7 @@ export interface SettingsStore extends SettingsFile {
     setOpenGroups(family: string, groups: readonly string[]): void
     setTourSeen(seen: boolean): void
     setGalleryTourSeen(seen: boolean): void
+    setLastSeenVersion(version: string): void
     setLastTreeId(id: string | null): void
     setLibraryFolder(folder: string): void
 }
@@ -47,9 +48,9 @@ let writeTimer: number | undefined
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastTreeId, libraryFolder} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastTreeId, libraryFolder}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -125,6 +126,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         setOpenGroups: (family, groups) => change({openGroups: {...get().openGroups, [family]: groups}}),
         setTourSeen: (tourSeen) => change({tourSeen}),
         setGalleryTourSeen: (galleryTourSeen) => change({galleryTourSeen}),
+        setLastSeenVersion: (lastSeenVersion) => change({lastSeenVersion}),
         setLastTreeId: (lastTreeId) => change({lastTreeId}),
 
         setLibraryFolder: (libraryFolder) => {
