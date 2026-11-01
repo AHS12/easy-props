@@ -2,6 +2,17 @@
 
 What's new in each version of easy-props.
 
+## 0.2.1 (November 1, 2026)
+
+**Update from inside the app**
+
+- Check for updates is new in the Help menu and on the About page. On Windows, the app can
+  download a new version, close, update itself and open again. It asks about unsaved work
+  first.
+- On a Mac, it tells you when a new version is out and opens the download page.
+- The app only looks for updates when you ask it to.
+- On Windows, installing a new version no longer brings back a desktop shortcut you removed.
+
 ## 0.2.0 (November 1, 2026)
 
 **Tree wood that looks crisp**
