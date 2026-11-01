@@ -10,16 +10,23 @@
  * the whole surface. How many follows from how many layers should cover a point:
  * `count = coverage * area / (4 * half^2 * opaque share)`, so a bush looks the same
  * at any size.
+ *
+ * An open bush leaves the core out. Twigs take its place, reaching from the foot
+ * into each lobe, and a third of its cards hang deeper, so you see into it and
+ * through it, past leaves at different depths.
  */
 
 import * as THREE from 'three'
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import {LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
+import {BLOOM_CELL, LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {colourRamp} from '../style/ramp'
-import {BUSH_RAMPS, type BushPaletteId} from '../style/palettes'
+import {BUSH_RAMPS, PETAL_RAMPS, TWIG_RAMP, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
 
 export type BushKind = 'round' | 'spreading' | 'tall' | 'hedge'
+
+/** Solid hides everything behind it. Open has twigs and sky inside. */
+export type BushInside = 'solid' | 'open'
 
 export interface BushParameters {
     readonly kind: BushKind
@@ -36,6 +43,12 @@ export interface BushParameters {
     /** How far one lobe's colour strays from the next, 0 to 1. */
     readonly variation: number
     readonly palette: BushPaletteId
+    readonly inside: BushInside
+    /** How thickly it flowers, 0 to 1. */
+    readonly flowers: number
+    /** Half the width of a flower, in metres. */
+    readonly flowerSize: number
+    readonly flowerColour: PetalPaletteId
 }
 
 type Vec3 = readonly [number, number, number]
@@ -49,6 +62,23 @@ interface Lobe {
 
 const SEED_LOBES = 61
 const SEED_CARDS = 3000
+const SEED_FLOWERS = 900000
+const SEED_TWIGS = 800000
+const TWIG_SIDES = 3
+const TWIG_RINGS = 3
+const TWIGS_PER_LOBE = 3
+/** How thick a twig is at its foot, as a share of the bush's size. */
+const TWIG_WIDTH = 0.012
+/** Below this share of its detail, each lobe keeps only its main stem. */
+const SIDE_TWIGS_FROM = 0.25
+/** How far inside the surface the deep cards of an open bush hang, as a share of a card, and how much darker. */
+const DEEP_CARD_LEVEL = 2.2
+const DEEP_CARD_SHADE = 0.18
+/** How much of the surface flowers would cover, at full Flowers. */
+const FLOWER_COVER = 0.55
+/** Below this share of the height, no flowers: they gather in the light. */
+const FLOWER_FROM = 0.2
+const FLOWER_LIFT = 0.75
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 const SNAP_STEPS = 9
 const GRADIENT_STEP = 0.02
@@ -283,10 +313,115 @@ function shapeOf(bush: BushParameters, seed: number): BushShape {
     return new BushShape(placed(bush.width * fitX, bush.height * fitY, bush.depth * fitZ, bush.height * fitY), bush)
 }
 
+const coreDetail = (detail: number) => (detail >= 1 ? FULL_CORE : detail >= 0.25 ? 2 : 1)
+
+/** What the inside of a bush costs at a level: a shell for a solid one, twigs for an open one. */
+function insideFaces(bush: BushParameters, detail: number): number {
+    if (bush.inside === 'solid') {
+        return 20 * (coreDetail(detail) + 1) ** 2
+    }
+
+    const twigs = Math.max(1, Math.round(bush.lobes)) * (detail >= SIDE_TWIGS_FROM ? TWIGS_PER_LOBE : 1)
+
+    return twigs * TWIG_SIDES * 2 * TWIG_RINGS
+}
+
+/** Thin tapering stems from the foot into each lobe. Three sides are enough for something this thin. */
+function buildTwigs(shape: BushShape, bush: BushParameters, seed: number, detail: number): THREE.BufferGeometry {
+    const size = (bush.width + bush.height + bush.depth) / 3
+    const paint = colourRamp(TWIG_RAMP)
+    const positions: number[] = []
+    const normals: number[] = []
+    const colors: number[] = []
+    const indices: number[] = []
+
+    const addTwig = (from: Vec3, to: Vec3, bend: Vec3, width: number) => {
+        const first = positions.length / 3
+        const axis = normalize([to[0] - from[0], to[1] - from[1], to[2] - from[2]])
+        const u = normalize(cross(axis, Math.abs(axis[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]))
+        const v = cross(axis, u)
+
+        for (let ring = 0; ring <= TWIG_RINGS; ring++) {
+            const t = ring / TWIG_RINGS
+            const arc = 4 * t * (1 - t)
+            const radius = width * (1 - t * 0.85)
+            const colour = paint(t)
+
+            for (let side = 0; side < TWIG_SIDES; side++) {
+                const angle = (side / TWIG_SIDES) * Math.PI * 2
+                const n: Vec3 = [
+                    u[0] * Math.cos(angle) + v[0] * Math.sin(angle),
+                    u[1] * Math.cos(angle) + v[1] * Math.sin(angle),
+                    u[2] * Math.cos(angle) + v[2] * Math.sin(angle),
+                ]
+
+                positions.push(
+                    from[0] + (to[0] - from[0]) * t + bend[0] * arc + n[0] * radius,
+                    from[1] + (to[1] - from[1]) * t + bend[1] * arc + n[1] * radius,
+                    from[2] + (to[2] - from[2]) * t + bend[2] * arc + n[2] * radius,
+                )
+                normals.push(n[0], n[1], n[2])
+                colors.push(colour.r, colour.g, colour.b)
+            }
+        }
+
+        for (let ring = 0; ring < TWIG_RINGS; ring++) {
+            for (let side = 0; side < TWIG_SIDES; side++) {
+                const next = (side + 1) % TWIG_SIDES
+                const a = first + ring * TWIG_SIDES + side
+                const b = first + ring * TWIG_SIDES + next
+                const c = a + TWIG_SIDES
+                const d = b + TWIG_SIDES
+
+                indices.push(a, b, d, a, d, c)
+            }
+        }
+    }
+
+    shape.lobes.forEach((lobe, index) => {
+        const random = createSeededRandom(hashSeed(seed, SEED_TWIGS + index))
+        const offset = (): Vec3 => [randomRange(random, -0.12, 0.12) * size, randomRange(random, -0.06, 0.06) * size, randomRange(random, -0.12, 0.12) * size]
+        const shift = offset()
+        const foot: Vec3 = [lobe.centre[0] * 0.15 + shift[0] * 0.4, -0.02 * bush.height, lobe.centre[2] * 0.15 + shift[2] * 0.4]
+        const end: Vec3 = [lobe.centre[0], Math.max(lobe.centre[1] + lobe.radii[1] * 0.4, bush.height * 0.2), lobe.centre[2]]
+        const fork: Vec3 = [foot[0] + (end[0] - foot[0]) * 0.55, foot[1] + (end[1] - foot[1]) * 0.55, foot[2] + (end[2] - foot[2]) * 0.55]
+        const width = TWIG_WIDTH * size
+
+        addTwig(foot, end, offset(), width)
+
+        if (detail >= SIDE_TWIGS_FROM) {
+            for (let twig = 1; twig < TWIGS_PER_LOBE; twig++) {
+                const out: Vec3 = [
+                    lobe.centre[0] + lobe.radii[0] * randomRange(random, -0.8, 0.8),
+                    lobe.centre[1] + lobe.radii[1] * randomRange(random, 0, 0.7),
+                    lobe.centre[2] + lobe.radii[2] * randomRange(random, -0.8, 0.8),
+                ]
+
+                addTwig(fork, out, offset(), width * 0.55)
+            }
+        }
+    })
+
+    const geometry = new THREE.BufferGeometry()
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    geometry.setIndex(indices)
+    geometry.computeBoundingSphere()
+
+    return geometry
+}
+
 export function buildBushCore(bush: BushParameters, seed: number, detail: number): THREE.BufferGeometry {
     const shape = shapeOf(bush, seed)
+
+    if (bush.inside === 'open') {
+        return buildTwigs(shape, bush, seed, detail)
+    }
+
     const level = -CORE_INSET * bush.leafSize
-    const geometry = shellGeometry(shape, bush, level, detail >= 1 ? FULL_CORE : detail >= 0.25 ? 2 : 1)
+    const geometry = shellGeometry(shape, bush, level, coreDetail(detail))
     const position = geometry.getAttribute('position')
     const paint = colourRamp(BUSH_RAMPS[bush.palette])
     const normals = new Float32Array(position.count * 3)
@@ -314,6 +449,9 @@ interface Card {
     readonly normal: Vec3
     readonly seed: number
     readonly priority: number
+    readonly flower: boolean
+    /** Hangs inside the surface of an open bush, in its shade. */
+    readonly deep: boolean
 }
 
 /** Evenly over the surface: each triangle gets its share of cards by area. */
@@ -361,13 +499,49 @@ function placeCards(shape: BushShape, bush: BushParameters, seed: number): reado
             s = 1 - s
         }
 
+        const deep = bush.inside === 'open' && i % 3 === 0
+        const point = shape.snap(
+            [a.x + (b.x - a.x) * r + (c.x - a.x) * s, a.y + (b.y - a.y) * r + (c.y - a.y) * s, a.z + (b.z - a.z) * r + (c.z - a.z) * s],
+            deep ? -DEEP_CARD_LEVEL * bush.leafSize : 0,
+        )
+
+        if (point[1] >= 0) {
+            cards.push({point, normal: shape.gradient(point[0], point[1], point[2]), seed: cardSeed, priority: random(), flower: false, deep})
+        }
+    }
+
+    // Flowers gather in drifts, chosen by a smooth wave, on the upper part of the bush.
+    const flowerCount = Math.round((bush.flowers * FLOWER_COVER * area) / (4 * bush.flowerSize * bush.flowerSize))
+    const wave = 5 / ((bush.width + bush.height + bush.depth) / 3)
+
+    at = 0
+
+    for (let i = 0; i < flowerCount; i++) {
+        const cardSeed = hashSeed(seed, SEED_FLOWERS + i)
+        const random = createSeededRandom(cardSeed)
+        const target = ((i + random()) / flowerCount) * area
+
+        while (at < triangles.length - 1 && triangles[at + 1].from <= target) {
+            at++
+        }
+
+        const {a, b, c} = triangles[at]
+        let r = random()
+        let s = random()
+
+        if (r + s > 1) {
+            r = 1 - r
+            s = 1 - s
+        }
+
         const point = shape.snap(
             [a.x + (b.x - a.x) * r + (c.x - a.x) * s, a.y + (b.y - a.y) * r + (c.y - a.y) * s, a.z + (b.z - a.z) * r + (c.z - a.z) * s],
             0,
         )
+        const drift = Math.sin(point[0] * wave + 1) * Math.sin(point[2] * wave * 1.2) + Math.sin(point[1] * wave * 1.4)
 
-        if (point[1] >= 0) {
-            cards.push({point, normal: shape.gradient(point[0], point[1], point[2]), seed: cardSeed, priority: random()})
+        if (point[1] > bush.height * FLOWER_FROM && drift > -0.2) {
+            cards.push({point, normal: shape.gradient(point[0], point[1], point[2]), seed: cardSeed, priority: random(), flower: true, deep: false})
         }
     }
 
@@ -390,10 +564,8 @@ function cardsAtDetail(cards: readonly Card[], count: number): readonly Card[] {
 export function buildBushLeaves(bush: BushParameters, seed: number, detail: number): THREE.BufferGeometry {
     const shape = shapeOf(bush, seed)
     const all = placeCards(shape, bush, seed)
-    const coreFull = 20 * (FULL_CORE + 1) ** 2
-    const coreHere = 20 * ((detail >= 1 ? FULL_CORE : detail >= 0.25 ? 2 : 1) + 1) ** 2
-    // The whole bush is held to its share, and the core has already taken some of it.
-    const wanted = Math.round(((all.length * FACES_PER_CARD + coreFull) * detail - coreHere) / FACES_PER_CARD)
+    // The whole bush is held to its share, and its inside has already taken some of it.
+    const wanted = Math.round(((all.length * FACES_PER_CARD + insideFaces(bush, 1)) * detail - insideFaces(bush, detail)) / FACES_PER_CARD)
     const cards = detail < 1 ? cardsAtDetail(all, Math.max(wanted, MIN_CARDS)) : all
     const growth = Math.min(Math.sqrt(all.length / Math.max(cards.length, 1)), MAX_CARD_GROWTH)
     const paint = colourRamp(BUSH_RAMPS[bush.palette])
@@ -409,11 +581,13 @@ export function buildBushLeaves(bush: BushParameters, seed: number, detail: numb
     const uvs: number[] = []
     const indices: number[] = []
 
-    for (const {point, normal, seed: cardSeed} of cards) {
+    const petal = colourRamp(PETAL_RAMPS[bush.flowerColour])
+
+    for (const {point, normal, seed: cardSeed, flower, deep} of cards) {
         const random = createSeededRandom(hashSeed(cardSeed, 1))
-        const plain = bush.leafSize * randomRange(random, 0.8, 1.2)
+        const plain = (flower ? bush.flowerSize : bush.leafSize) * randomRange(random, 0.8, 1.2)
         const half = plain * growth
-        const lift = plain * randomRange(random, 0, CARD_FLOAT) - (half - plain) * GROWTH_PULL
+        const lift = flower ? bush.leafSize * FLOWER_LIFT : plain * randomRange(random, 0, CARD_FLOAT) - (half - plain) * GROWTH_PULL
         const middle: Vec3 = [point[0] + normal[0] * lift, point[1] + normal[1] * lift, point[2] + normal[2] * lift]
         // Faces only roughly outwards, so the outline breaks up where a flat card would vanish edge on.
         const facing = normalize([
@@ -430,13 +604,13 @@ export function buildBushLeaves(bush: BushParameters, seed: number, detail: numb
         const side = normalize(cross(facing, downhill))
         const down = normalize(cross(side, facing))
         const shading = normalize([normal[0], normal[1] + SKY_BIAS, normal[2]])
-        const value = shape.value(point, normal, bush.variation) + randomRange(random, -0.04, 0.04)
-        const colour = paint(value).clone()
-        const [u0, v0, size] = leafCell(Math.floor(random() * LEAF_VARIANTS))
+        const value = shape.value(point, normal, bush.variation) + randomRange(random, -0.04, 0.04) - (deep ? DEEP_CARD_SHADE : 0)
+        const colour = flower ? petal(0.35 + random() * 0.65).clone() : paint(value).clone()
+        const [u0, v0, size] = leafCell(flower ? BLOOM_CELL : Math.floor(random() * LEAF_VARIANTS))
         const base = positions.length / 3
 
         for (const [a, b] of CORNERS) {
-            const shade = b > 0 ? TIP_SHADE : 1
+            const shade = b > 0 && !flower ? TIP_SHADE : 1
             // A card neither digs into the ground nor, when grown, reaches past the full bush.
             const reach = (axis: 0 | 1 | 2) =>
                 Math.min(limitMax[axis], Math.max(limitMin[axis], middle[axis] + (side[axis] * a + down[axis] * b) * half))

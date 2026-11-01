@@ -1,127 +1,111 @@
 /**
- * The tour: four short steps, each pointing at the real thing.
+ * The tours: short steps, each pointing at the real thing.
  *
- * It shows once by itself, the first time the editor opens, and can be replayed from
- * Help. Every step can be skipped, and nothing behind it is lost.
+ * Each page has its own. A tour shows once by itself, the first time its page opens,
+ * and the current page's can be replayed from Help. Every step can be skipped, and
+ * nothing behind it is lost.
+ *
+ * Its position is measured every frame while it is open. A panel opening, a page
+ * scrolling, the window resizing and the interface scale changing all move what it
+ * points at, and none of them need to know about it.
  */
 
-import {useEffect, useLayoutEffect, useState} from 'react'
+import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
+import {availableSteps, placeCard, TOUR_NAMES, TOUR_STEPS, unzoomed, type Box, type TourPage} from './tour-steps'
 
-interface Step {
-    /** The `data-coach` attribute of the element being pointed at. */
-    readonly target: string
-    readonly title: string
-    readonly text: string
-    readonly side: 'right' | 'left' | 'below' | 'center'
-}
+const CARD_WIDTH = 330
+const SPOTLIGHT_PADDING = 4
 
-const STEPS: readonly Step[] = [
-    {
-        target: 'presets',
-        title: 'Pick a starting point',
-        text: 'Every prop starts from a preset. Click one to try it. You can always press Ctrl+Z.',
-        side: 'right',
-    },
-    {
-        target: 'details',
-        title: 'Make it yours',
-        text: 'These controls change the prop straight away. Rest on a name to learn what it does, click a number to type one, or use the arrow to reset it.',
-        side: 'left',
-    },
-    {
-        target: 'viewport',
-        title: 'Look around and pick parts',
-        text: 'Drag to orbit and scroll to zoom. Click a branch or a clump to change just that part. The bar along the bottom always says what you can do next.',
-        side: 'center',
-    },
-    {
-        target: 'export',
-        title: 'Take it to your game',
-        text: 'Export gets it ready for Unreal, Godot, Unity or Blender. Press Ctrl+K any time to find anything.',
-        side: 'below',
-    },
-]
+const pageZoom = () => Number(getComputedStyle(document.documentElement).zoom) || 1
+const targetElement = (target: string) => document.querySelector(`[data-coach="${target}"]`)
 
-const CARD_WIDTH = 300
-const GAP = 12
+const sameBox = (a: Box | null, b: Box | null) =>
+    a === b || (a !== null && b !== null && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height)
 
-function placement(step: Step, rect: DOMRect | null): React.CSSProperties {
-    if (!rect || step.side === 'center') {
-        return rect
-            ? {left: rect.left + rect.width / 2 - CARD_WIDTH / 2, top: rect.top + rect.height / 2 - 80}
-            : {left: `calc(50% - ${CARD_WIDTH / 2}px)`, top: '40%'}
-    }
-
-    if (step.side === 'right') {
-        return {left: rect.right + GAP, top: rect.top + 12}
-    }
-
-    if (step.side === 'left') {
-        return {left: rect.left - GAP - CARD_WIDTH, top: rect.top + 12}
-    }
-
-    return {left: Math.max(GAP, rect.right - CARD_WIDTH), top: rect.bottom + GAP}
-}
-
-export function Tour() {
-    const open = useUiStore((state) => state.tourOpen)
-    const setOpen = useUiStore((state) => state.setTourOpen)
+function TourRun({page, onDone}: {page: TourPage; onDone(): void}) {
     const setLeftTab = useUiStore((state) => state.setLeftTab)
-    const tourSeen = useSettingsStore((state) => state.tourSeen)
-    const setTourSeen = useSettingsStore((state) => state.setTourSeen)
-    const page = useEditorStore((state) => state.page)
     const [index, setIndex] = useState(0)
-    const [rect, setRect] = useState<DOMRect | null>(null)
-    const step = STEPS[index]
+    const [rect, setRect] = useState<Box | null>(null)
+    const [screen, setScreen] = useState({width: window.innerWidth, height: window.innerHeight})
+    const [cardHeight, setCardHeight] = useState(0)
+    const card = useRef<HTMLDivElement>(null)
+    const primary = useRef<HTMLButtonElement>(null)
+    // Worked out for the whole tour at each step: what has appeared since, like saved props, can still be shown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const steps = useMemo(() => availableSteps(TOUR_STEPS[page], (target) => targetElement(target) !== null), [page, index])
+    const step = steps[Math.min(index, steps.length - 1)]
+    const last = index >= steps.length - 1
 
+    // The editor's tour points at its panels, so they have to be there. They go
+    // back as they were afterwards.
     useEffect(() => {
-        if (!tourSeen && page === 'editor') {
-            setOpen(true)
-        }
-    }, [tourSeen, page, setOpen])
-
-    useEffect(() => {
-        if (open) {
-            setIndex(0)
-            setLeftTab('presets')
-            useUiStore.setState({panelsHidden: false, maximized: false})
-        }
-    }, [open, setLeftTab])
-
-    useLayoutEffect(() => {
-        if (!open) {
+        if (page !== 'editor') {
             return
         }
 
-        const measure = () => {
-            const element = document.querySelector(`[data-coach="${step.target}"]`)
+        const {leftOpen, rightOpen} = useSettingsStore.getState().layout
 
-            setRect(element ? element.getBoundingClientRect() : null)
+        setLeftTab('presets')
+        useUiStore.setState({panelsHidden: false, maximized: false})
+        useSettingsStore.getState().setLayout({leftOpen: true, rightOpen: true})
+
+        return () => useSettingsStore.getState().setLayout({leftOpen, rightOpen})
+    }, [page, setLeftTab])
+
+    useEffect(() => {
+        if (step.target) {
+            targetElement(step.target)?.scrollIntoView?.({block: 'center', inline: 'nearest'})
+        }
+
+        primary.current?.focus()
+    }, [step])
+
+    useLayoutEffect(() => {
+        let frame = 0
+
+        const measure = () => {
+            const zoom = pageZoom()
+            const element = step.target ? targetElement(step.target) : null
+            const measured = element?.getBoundingClientRect()
+            const next = measured && measured.width > 0 && measured.height > 0 ? unzoomed(measured, zoom) : null
+
+            setRect((current) => (sameBox(current, next) ? current : next))
+            setScreen((current) => {
+                const width = window.innerWidth / zoom
+                const height = window.innerHeight / zoom
+
+                return current.width === width && current.height === height ? current : {width, height}
+            })
+
+            if (card.current) {
+                setCardHeight(card.current.offsetHeight)
+            }
+
+            frame = requestAnimationFrame(measure)
         }
 
         measure()
-        window.addEventListener('resize', measure)
 
-        return () => window.removeEventListener('resize', measure)
-    }, [open, step])
+        return () => cancelAnimationFrame(frame)
+    }, [step])
 
-    const finish = () => {
-        setTourSeen(true)
-        setOpen(false)
-    }
+    const forward = () => (last ? onDone() : setIndex(index + 1))
+    const back = () => setIndex(Math.max(0, index - 1))
 
     useEffect(() => {
-        if (!open) {
-            return
-        }
-
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 event.stopPropagation()
-                finish()
+                onDone()
+            } else if (event.key === 'ArrowRight') {
+                event.stopPropagation()
+                forward()
+            } else if (event.key === 'ArrowLeft') {
+                event.stopPropagation()
+                back()
             }
         }
 
@@ -130,45 +114,102 @@ export function Tour() {
         return () => window.removeEventListener('keydown', onKeyDown, true)
     })
 
-    if (!open || page !== 'editor') {
-        return null
-    }
+    const width = Math.min(CARD_WIDTH, screen.width - 24)
+    const place = placeCard(step.side, rect, screen, {width, height: cardHeight})
 
     return (
-        <div className="tour" role="dialog" aria-modal="true" aria-label="Tour">
+        <div className="tour" role="dialog" aria-modal="true" aria-label={TOUR_NAMES[page]} data-dim={rect === null}>
             {rect ? (
                 <div
                     className="tour__spotlight"
-                    style={{left: rect.left, top: rect.top, width: rect.width, height: rect.height}}
+                    data-large={step.side === 'over'}
+                    style={{
+                        left: rect.left - SPOTLIGHT_PADDING,
+                        top: rect.top - SPOTLIGHT_PADDING,
+                        width: rect.width + SPOTLIGHT_PADDING * 2,
+                        height: rect.height + SPOTLIGHT_PADDING * 2,
+                    }}
                     aria-hidden="true"
                 />
             ) : null}
-            <div className="tour__card" style={{...placement(step, rect), width: CARD_WIDTH}}>
-                <div className="tour__count tabular">
-                    {index + 1} of {STEPS.length}
+            <div
+                ref={card}
+                className="tour__card"
+                data-side={place.side}
+                style={{left: place.left, top: place.top, width, ['--tour-arrow' as string]: `${place.arrow}px`}}
+            >
+                <div className="tour__count">
+                    <span>{TOUR_NAMES[page]}</span>
+                    <span className="tabular">
+                        Step {index + 1} of {steps.length}
+                    </span>
+                </div>
+                <div className="tour__progress" aria-hidden="true">
+                    {steps.map((other, position) => (
+                        <span key={other.title} className="tour__dot" data-done={position <= index} />
+                    ))}
                 </div>
                 <h2 className="tour__title">{step.title}</h2>
                 <p className="tour__text">{step.text}</p>
+                {step.tryIt ? <p className="tour__try">{step.tryIt}</p> : null}
                 <div className="tour__actions">
-                    <button type="button" className="text-button" onClick={finish}>
-                        Skip
-                    </button>
+                    {last ? null : (
+                        <button type="button" className="text-button" onClick={onDone}>
+                            Skip tour
+                        </button>
+                    )}
                     <span className="tour__spacer" />
                     {index > 0 ? (
-                        <button type="button" className="button" onClick={() => setIndex(index - 1)}>
+                        <button type="button" className="button" onClick={back}>
                             Back
                         </button>
                     ) : null}
-                    <button
-                        type="button"
-                        className="button button--primary"
-                        autoFocus
-                        onClick={() => (index === STEPS.length - 1 ? finish() : setIndex(index + 1))}
-                    >
-                        {index === STEPS.length - 1 ? 'Start making' : 'Next'}
+                    <button ref={primary} type="button" className="button button--primary" onClick={forward}>
+                        {last ? (page === 'gallery' ? 'Pick a prop' : 'Start making') : 'Next'}
                     </button>
                 </div>
             </div>
         </div>
     )
+}
+
+export function Tour() {
+    const open = useUiStore((state) => state.tourOpen)
+    const setOpen = useUiStore((state) => state.setTourOpen)
+    const page = useEditorStore((state) => state.page)
+    const loaded = useSettingsStore((state) => state.loaded)
+    const seen = useSettingsStore((state) => (page === 'editor' ? state.tourSeen : state.galleryTourSeen))
+    const shownFor = useRef(page)
+
+    // Moving to the other page ends a tour, so it never stands there pointing at
+    // what has gone. That page's own tour follows if it has not been seen.
+    useEffect(() => {
+        if (shownFor.current !== page) {
+            shownFor.current = page
+            setOpen(false)
+        }
+    }, [page, setOpen])
+
+    useEffect(() => {
+        // Not before the settings are read, or everyone would get it at every start.
+        if (loaded && !seen) {
+            setOpen(true)
+        }
+    }, [loaded, seen, page, setOpen])
+
+    const finish = () => {
+        // First, so nothing that goes wrong after it can leave someone stuck behind the tour.
+        setOpen(false)
+
+        const settings = useSettingsStore.getState()
+
+        if (page === 'editor') {
+            settings.setTourSeen(true)
+        } else {
+            settings.setGalleryTourSeen(true)
+        }
+    }
+
+    // Keyed by page, so a tour always starts from its own first step.
+    return open ? <TourRun key={page} page={page} onDone={finish} /> : null
 }

@@ -12,6 +12,7 @@ import type {StyleProfile} from './style/style-profiles'
 import {bushGenerator} from './bushes/bush-generator'
 import {cutRockGenerator} from './rocks/cut-rock-generator'
 import {grassGenerator} from './grass/grass-generator'
+import {plantGenerator} from './plants/plant-generator'
 import {rockGenerator} from './rocks/rock-generator'
 import {branchingTreeGenerator} from './trees/branching-tree-generator'
 import {paintedTreeGenerator} from './trees/painted-tree-generator'
@@ -25,6 +26,7 @@ export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [cutRockGenerator.id]: cutRockGenerator,
     [grassGenerator.id]: grassGenerator,
     [bushGenerator.id]: bushGenerator,
+    [plantGenerator.id]: plantGenerator,
 }
 
 export function findPropGenerator(id: string): PropGenerator | undefined {

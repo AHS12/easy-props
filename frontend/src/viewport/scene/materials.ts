@@ -18,6 +18,8 @@ export const VIEWPORT_COLORS = {
     meadowHorizon: '#cfe7f8',
     meadowGround: '#6fa61c',
     meadowBounce: '#8fa860',
+    /** Plain ground under a bright sky: light enough to show a shadow, and no colour of its own. */
+    studioSkyGround: '#aeb3a8',
     grid: '#5c6656',
     gridMajor: '#6d7864',
     selection: '#f5a63a',

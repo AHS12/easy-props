@@ -14,9 +14,10 @@
  */
 
 import * as THREE from 'three'
+import {addDaisy, addStrip, stemPath} from '../plants/plant-mesh'
 import {createSeededRandom, hashSeed, randomRange} from '../shared/random'
 import {colourRamp} from '../style/ramp'
-import {DRY_RAMP, GRASS_RAMPS, type GrassPaletteId} from '../style/palettes'
+import {DRY_RAMP, GRASS_RAMPS, PETAL_RAMPS, STEM_RAMP, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 
 export interface GrassParameters {
     readonly width: number
@@ -40,6 +41,9 @@ export interface GrassParameters {
     /** How far one clump's colour strays from the next, 0 to 1. */
     readonly variation: number
     readonly palette: GrassPaletteId
+    /** Flowers standing among the blades, in drifts. */
+    readonly flowers: number
+    readonly flowerColour: PetalPaletteId
 }
 
 interface Clump {
@@ -65,6 +69,11 @@ export interface Blade {
 
 const SEED_CLUMPS = 51
 const SEED_BLADE = 1000
+const SEED_FLOWER = 60000
+const FLOWER_PETALS = 6
+const FLOWER_ACROSS = 0.06
+const FLOWER_STEM = 0.007
+const FLOWER_STEM_PIECES = 2
 /** How tall a blade stands near the rim, at the very least. */
 const RIM_HEIGHT = 0.4
 const TALL_HEIGHT = 1.45
@@ -174,6 +183,32 @@ function bladesAtDetail(blades: readonly Blade[], count: number): readonly Blade
     return [...edges, ...rest.slice(0, Math.max(0, count - edges.size))]
 }
 
+/** A flower belongs to a drift, so only those falling near one of a few centres stand. */
+function addFlowers(buffers: {positions: number[]; normals: number[]; colors: number[]; indices: number[]}, grass: GrassParameters, seed: number, detail: number) {
+    const count = Math.round(grass.flowers * detail)
+    const petal = colourRamp(PETAL_RAMPS[grass.flowerColour])
+    const stem = colourRamp(STEM_RAMP)
+    const radius = grass.width / 2
+    const drift = createSeededRandom(hashSeed(seed, SEED_FLOWER))
+    const centres = [0, 1, 2].map(() => {
+        const azimuth = drift() * Math.PI * 2
+        const out = Math.sqrt(drift()) * radius * 0.7
+
+        return [Math.cos(azimuth) * out, Math.sin(azimuth) * out] as const
+    })
+
+    for (let i = 0; i < count; i++) {
+        const random = createSeededRandom(hashSeed(seed, SEED_FLOWER + 1 + i))
+        const [cx, cz] = centres[i % centres.length]
+        const azimuth = random() * Math.PI * 2
+        const out = random() * radius * 0.4
+        const path = stemPath(cx + Math.cos(azimuth) * out, cz + Math.sin(azimuth) * out, random() * Math.PI * 2, grass.height * randomRange(random, 0.7, 0.98), grass.lean * 0.25)
+
+        addStrip(buffers, path, FLOWER_STEM, FLOWER_STEM_PIECES, (t) => stem(0.2 + t * 0.6), false)
+        addDaisy(buffers, path.point(1), path.tangent(1), FLOWER_ACROSS * randomRange(random, 0.8, 1.2), FLOWER_PETALS, petal, random)
+    }
+}
+
 export function buildGrassMesh(grass: GrassParameters, seed: number, detail: number): THREE.BufferGeometry {
     const all = planGrass(grass, seed)
     const fullPieces = Math.max(MIN_PIECES, Math.round(grass.smoothness))
@@ -247,6 +282,8 @@ export function buildGrassMesh(grass: GrassParameters, seed: number, detail: num
             }
         }
     }
+
+    addFlowers({positions, normals, colors, indices}, grass, seed, detail)
 
     const geometry = new THREE.BufferGeometry()
 

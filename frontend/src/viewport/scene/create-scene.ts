@@ -23,8 +23,9 @@ import {
     type ShadingMode,
 } from './component-renderer'
 import {VIEWPORT_COLORS} from './materials'
+import {createMeadowScenery, type MeadowScenery} from './meadow-scenery'
 
-export type Backdrop = 'sky' | 'meadow' | 'grey' | 'colour'
+export type Backdrop = 'sky' | 'studio-sky' | 'meadow' | 'grove' | 'grey' | 'colour'
 
 export interface ViewportScene {
     readonly renderer: THREE.WebGLRenderer
@@ -250,6 +251,10 @@ export function createViewportScene(
     const lights = addLighting(scene)
     const groundMaterial = addGround(scene)
     let meadow = false
+    /** Meadow's sky and sunlight, which Studio with sky has too. */
+    let bright = false
+    let scenery: MeadowScenery | null = null
+    let gridWanted = true
 
     const controls = attachCameraControls(camera, renderer.domElement)
 
@@ -278,6 +283,12 @@ export function createViewportScene(
     const bounds = new THREE.Box3()
     const sphere = new THREE.Sphere()
 
+    const showGrid = () => {
+        for (const name of ['grid_minor', 'grid_major']) {
+            scene.getObjectByName(name)!.visible = gridWanted && !meadow
+        }
+    }
+
     const applyLighting = () => {
         const direction = sunDirection(lighting)
 
@@ -288,7 +299,7 @@ export function createViewportScene(
         const distance = Math.max(sphere.radius * 3, 12)
         lights.sun.position.copy(sphere.center).add(direction.clone().multiplyScalar(distance))
 
-        lights.sun.color.copy(sunColor(meadow ? lighting.warmth * MEADOW_WARMTH : lighting.warmth))
+        lights.sun.color.copy(sunColor(bright ? lighting.warmth * MEADOW_WARMTH : lighting.warmth))
         lights.sun.intensity = 2.4 + lighting.warmth * 0.9
         lights.sun.castShadow = lighting.shadowStrength > 0.02
         lights.sun.shadow.intensity = lighting.shadowStrength
@@ -298,7 +309,7 @@ export function createViewportScene(
         const height = lighting.elevation / 90
         lights.hemisphere.color.copy(ambientColor(lighting.warmth))
         lights.hemisphere.groundColor.set(meadow ? VIEWPORT_COLORS.meadowBounce : lighting.warmth > 0.6 ? '#6b5238' : '#5a4a38')
-        lights.hemisphere.intensity = (1.15 + (1 - height) * 0.9) * (meadow ? MEADOW_SKY_LIGHT : 1)
+        lights.hemisphere.intensity = (1.15 + (1 - height) * 0.9) * (bright ? MEADOW_SKY_LIGHT : 1)
 
         // The fill comes from the opposite side of the sun.
         lights.fill.position.set(-direction.x, 0.4, -direction.z).multiplyScalar(10)
@@ -333,6 +344,7 @@ export function createViewportScene(
 
         // The figure stands clear of the crown, on the side the camera starts.
         figure.position.set(bounds.min.x - 0.6, 0, bounds.max.z + 0.6)
+        scenery?.setClearing(Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) / 2)
     }
 
     return {
@@ -406,17 +418,30 @@ export function createViewportScene(
             const color =
                 backdrop === 'grey' ? new THREE.Color('#6f7174') : backdrop === 'colour' ? new THREE.Color(colour) : null
 
-            meadow = backdrop === 'meadow'
-            scene.background = color ?? (meadow ? meadowSky : sky)
-            ;(scene.fog as THREE.Fog).color.copy(color ?? (meadow ? new THREE.Color(VIEWPORT_COLORS.meadowHorizon) : horizon))
-            groundMaterial.color.set(meadow ? VIEWPORT_COLORS.meadowGround : VIEWPORT_COLORS.ground)
+            meadow = backdrop === 'meadow' || backdrop === 'grove'
+            bright = meadow || backdrop === 'studio-sky'
+            scene.background = color ?? (bright ? meadowSky : sky)
+            ;(scene.fog as THREE.Fog).color.copy(color ?? (bright ? new THREE.Color(VIEWPORT_COLORS.meadowHorizon) : horizon))
+            groundMaterial.color.set(meadow ? VIEWPORT_COLORS.meadowGround : bright ? VIEWPORT_COLORS.studioSkyGround : VIEWPORT_COLORS.ground)
             applyLighting()
+            showGrid()
+
+            // Built the first time it is wanted: most people never open it.
+            if (meadow && !scenery) {
+                scenery = createMeadowScenery()
+                scene.add(scenery.group)
+                fitToContent()
+            }
+
+            if (scenery) {
+                scenery.group.visible = meadow
+                scenery.setTrees(backdrop === 'grove')
+            }
         },
 
         setGridVisible(visible) {
-            for (const name of ['grid_minor', 'grid_major']) {
-                scene.getObjectByName(name)!.visible = visible
-            }
+            gridWanted = visible
+            showGrid()
         },
 
         setShadowsAllowed(allowed) {
@@ -502,6 +527,7 @@ export function createViewportScene(
             components.dispose()
             sky.dispose()
             meadowSky.dispose()
+            scenery?.dispose()
             renderer.dispose()
         },
     }

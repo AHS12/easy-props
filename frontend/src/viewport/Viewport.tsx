@@ -585,6 +585,12 @@ export function Viewport() {
 
         registerViewport({
             frame: () => viewport.frameComponent(store.getState().selection.selectedId),
+            frameDemo: () => {
+                viewport.camera.up.set(0, 1, 0)
+                viewport.camera.position.set(-10, 5, 15)
+                viewport.controls.target.set(3, 3.5, -5)
+                viewport.controls.update()
+            },
             setView: (angle: ViewAngle) => {
                 const target = viewport.controls.target
                 const distance = Math.max(viewport.camera.position.distanceTo(target), 0.5)

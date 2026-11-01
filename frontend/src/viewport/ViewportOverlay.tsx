@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, Wind,
+    Box, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -14,6 +14,7 @@ import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode} from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
 import {useEditorStore} from '../store/editor-store'
+import {useSetting, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {SunDial} from './SunDial'
 import {viewportHandle, type ViewAngle} from './viewport-bridge'
@@ -21,6 +22,14 @@ import {viewportHandle, type ViewAngle} from './viewport-bridge'
 const STATS_REFRESH_MS = 500
 
 const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, flat: Box, wireframe: Grid2x2, wind: Wind}
+
+const SCENES: readonly {id: string; label: string; help: string}[] = [
+    {id: 'sky', label: 'Studio', help: 'A plain place to work'},
+    {id: 'studio-sky', label: 'Studio with sky', help: 'A plain place to work, in bright daylight under a blue sky'},
+    {id: 'meadow', label: 'Meadow demo', help: 'Grass, flowers, bushes, rocks and a cliff around your prop'},
+    {id: 'grove', label: 'Grove demo', help: 'The meadow, with trees as well'},
+    {id: 'grey', label: 'Neutral grey', help: 'Best for judging colour'},
+]
 
 const ANGLES: readonly {id: ViewAngle; label: string}[] = [
     {id: 'perspective', label: 'Perspective'},
@@ -199,6 +208,7 @@ export function ViewportOverlay() {
 
     const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
     const ShadingIcon = SHADING_ICONS[shadingMode]
+    const backdrop = String(useSetting('backdrop'))
     const command = (id: string) => () => {
         const found = findCommand(id)
 
@@ -262,6 +272,25 @@ export function ViewportOverlay() {
                     />
                 </div>
                 <div className="tool-group">
+                    <span data-coach="scene" className="tool-coach">
+                        <ToolMenu
+                            label="Scene"
+                            trigger={<TreePine size={14} aria-hidden="true" />}
+                            items={SCENES.map(({id, label, help}) => ({
+                                id,
+                                label,
+                                help,
+                                checked: id === backdrop,
+                                run: () => {
+                                    useSettingsStore.getState().setValue('backdrop', id)
+
+                                    if (id === 'meadow' || id === 'grove') {
+                                        viewportHandle()?.frameDemo()
+                                    }
+                                },
+                            }))}
+                        />
+                    </span>
                     <LightingButton />
                     <ToolMenu
                         label="Camera angle"

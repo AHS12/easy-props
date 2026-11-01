@@ -177,6 +177,27 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
 /** Moss on any stone, shadow to highlight. */
 export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
 
+export type PetalPaletteId = 'white' | 'pink' | 'flame' | 'gold' | 'violet' | 'cream'
+
+/** Petals, deep to light. */
+export const PETAL_RAMPS: Readonly<Record<PetalPaletteId, readonly string[]>> = {
+    white: ['#cfd4c8', '#f0f0ea', '#ffffff'],
+    pink: ['#c8407c', '#ec7cb0', '#ffd6ea'],
+    flame: ['#b82a10', '#ec5c18', '#ffae3c'],
+    gold: ['#c47c10', '#eeb420', '#ffe670'],
+    violet: ['#5c2ca0', '#9460d8', '#d8bcf8'],
+    cream: ['#a8945c', '#dccb92', '#fbf3d0'],
+}
+
+/** Stems and the leaves at their foot, root to tip. */
+export const STEM_RAMP: readonly string[] = ['#2f6410', '#5c9a18', '#a4d030']
+
+/** The twigs inside an open bush, base to tip. */
+export const TWIG_RAMP: readonly string[] = ['#33261e', '#5a4632', '#7c6848']
+
+/** The middle of a daisy. */
+export const FLOWER_CENTRE = '#f4c430'
+
 export type BushPaletteId = 'summer' | 'lush' | 'spring' | 'olive' | 'pine' | 'autumn' | 'maple'
 
 /** A bush, shadow to highlight: near black under it, yellow where the sun lands. */

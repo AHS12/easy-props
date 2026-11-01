@@ -1,7 +1,7 @@
 # 08 — Rocks, bushes and grass
 
-Status: rocks, grass, bushes and the Meadow backdrop are built (stages 0 to 3, see the "Built"
-sections). Flowers and mixed patches (stage 4) are still a plan. Images named `proto-` came from throwaway browser code.
+Status: all four stages are built, see the "Built" sections. None of it has been tried in Unreal
+or Godot yet, which is the main thing left. Images named `proto-` came from throwaway browser code.
 
 ## The short version
 
@@ -92,6 +92,43 @@ shares the leaves' shape, normals and gradient, so no sky shows through and gaps
 **Not done:** Not tried in Unreal or Godot. Bushes build on the main thread with no worker pool
 like bark, and their rebuild time hasn't been measured. Their collision is one tapered shape, which fits a
 long hedge poorly. Flowers are stage 4.
+
+## Built: flowers and the Meadow scene
+
+| | |
+|---|---|
+| ![Flowering bush in the Meadow scene](./images/08/built-meadow.jpg) | ![Pampas in the Meadow scene](./images/08/built-meadow-pampas.jpg) |
+
+- **Plants** (`assets/plants/`): stems with daisy, cup, spike or plume heads and leaves at the foot.
+  Solid shapes, no texture, no collision. Six presets under Grass & flowers.
+- **Flowering bushes:** flower cards in drifts on the upper part, printed from a fourth cell of the
+  leaf atlas, so they share the leaves' material and add no draw call. Three presets. The old
+  tree-based Flowering bush is gone from the list.
+- **Flowers through grass:** daisies in a few drifts among the blades. Flower meadow is the preset.
+- **Far patches:** Far meadow is 70 wide blades of 2 pieces, 420 faces. It's a preset to place
+  by hand, not a fourth automatic level.
+- **The Meadow backdrop is now a real scene** (`viewport/scene/meadow-scenery.ts`): grass, flowers,
+  bushes, rocks and a cliff from the same generators, with your prop in the middle. Never counted,
+  picked or exported. It clears a space for a prop, built the first time it's chosen. Shadows only
+  come from the prop, so scenery has no cast shadows.
+
+**Demo scenes.** A Scene button on the viewport toolbar picks Studio, Studio with sky (Meadow's sky
+and light over plain ground, no scenery), Meadow demo, Grove demo or Neutral grey, and choosing a
+demo steps the camera back to show all of it. The tour has a step for it. Grove adds real preset
+trees, merged at their 40% detail level and arriving a moment later. Open bushes appear in both.
+
+![Grove demo](./images/08/built-grove.jpg)
+
+**Open bushes.** Set Inside to Open: the core is replaced by twigs from the foot into each lobe, and a
+third of the cards hang deeper and darker. With low Fullness you see through it. It's cut-out leaves,
+not blended transparency. Presets: Airy bush, Wild shrub, Young bush, Wild rose.
+
+**Not measured:** Meadow draws about 420,000 faces, half of them facing away, and Grove adds five
+trees. Their frame rate hasn't been measured, because the only browser available was hidden and
+throttled. They're opt-in, so the normal view is unaffected.
+
+**Not done:** Lighter levels of a plant drop whole stems and never simplify a head. A plant's leaves
+are all flat strips. Scenery in the Meadow scene doesn't move.
 
 ## The target
 

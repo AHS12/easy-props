@@ -17,11 +17,12 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
-import {BUSH_RAMPS, type BushPaletteId} from '../style/palettes'
-import {buildBushCore, buildBushLeaves, type BushKind, type BushParameters} from './bush-mesh'
+import {BUSH_RAMPS, PETAL_RAMPS, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
+import {buildBushCore, buildBushLeaves, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
 
 const SHAPE = 'Shape'
 const LEAVES = 'Leaves'
+const FLOWERS_GROUP = 'Flowers'
 
 const number = (
     group: string,
@@ -50,6 +51,19 @@ const KIND: ChoiceParameter<BushKind> = {
     ],
 }
 
+const INSIDE: ChoiceParameter<BushInside> = {
+    kind: 'choice',
+    group: LEAVES,
+    key: 'inside',
+    label: 'Inside',
+    help: 'Solid hides whatever is behind it. Open shows twigs, and lets you see through. Lower Fullness to open it further.',
+    default: 'solid',
+    options: [
+        {value: 'solid', label: 'Solid'},
+        {value: 'open', label: 'Open'},
+    ],
+}
+
 const PALETTE: ChoiceParameter<BushPaletteId> = {
     kind: 'choice',
     group: LEAVES,
@@ -63,16 +77,32 @@ const PALETTE: ChoiceParameter<BushPaletteId> = {
     })),
 }
 
+const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId> = {
+    kind: 'choice',
+    group: FLOWERS_GROUP,
+    key: 'flowerColour',
+    label: 'Flower colour',
+    help: 'The colour of its flowers.',
+    default: 'pink',
+    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
+        value,
+        label: value[0].toUpperCase() + value.slice(1),
+    })),
+}
+
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the bush is.', 0.2, 12, 0.1, 3, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall it stands.', 0.2, 8, 0.1, 2, 'm')
 const DEPTH = number(SHAPE, 'depth', 'Depth', 'How far it runs from front to back.', 0.2, 12, 0.1, 2.6, 'm')
 const LOBES = number(SHAPE, 'lobes', 'Masses', 'How many rounded masses it is made of.', 1, 16, 1, 7)
 const LUMPS = number(SHAPE, 'lumps', 'Lumps', 'How far the surface ripples between them.', 0, 1, 0.05, 0.5)
-const FULLNESS = number(LEAVES, 'fullness', 'Fullness', 'How many layers of leaves cover each point.', 1, 6, 0.1, 3)
+const FULLNESS = number(LEAVES, 'fullness', 'Fullness', 'How many layers of leaves cover each point.', 0.5, 6, 0.1, 3)
 const LEAF_SIZE = number(LEAVES, 'leafSize', 'Leaf size', 'How large each cluster of leaves is. Smaller costs more.', 0.04, 0.6, 0.01, 0.2, 'm')
 const VARIATION = number(LEAVES, 'variation', 'Variation', 'How much one mass differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, FULLNESS, LEAF_SIZE, VARIATION, PALETTE]
+const FLOWERS = number(FLOWERS_GROUP, 'flowers', 'Flowers', 'How thickly it flowers. They gather in drifts on its upper part.', 0, 1, 0.05, 0)
+const FLOWER_SIZE = number(FLOWERS_GROUP, 'flowerSize', 'Flower size', 'How large each flower is.', 0.02, 0.3, 0.01, 0.1, 'm')
+
+const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR]
 
 export const bushDefaults: BushParameters = {
     kind: KIND.default,
@@ -85,6 +115,10 @@ export const bushDefaults: BushParameters = {
     leafSize: LEAF_SIZE.default,
     variation: VARIATION.default,
     palette: PALETTE.default,
+    inside: INSIDE.default,
+    flowers: FLOWERS.default,
+    flowerSize: FLOWER_SIZE.default,
+    flowerColour: FLOWER_COLOUR.default,
 }
 
 const bushSchema = z.object({
@@ -98,6 +132,10 @@ const bushSchema = z.object({
     leafSize: numberSchema(LEAF_SIZE),
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
+    inside: choiceSchema(INSIDE),
+    flowers: numberSchema(FLOWERS),
+    flowerSize: numberSchema(FLOWER_SIZE),
+    flowerColour: choiceSchema(FLOWER_COLOUR),
 })
 
 const validateBush = (parameters: unknown) => validateParameters<BushParameters>(bushSchema, parameters, bushDefaults)

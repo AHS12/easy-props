@@ -11,7 +11,7 @@ import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 
 /** Bump when trees change, so stale pictures are drawn again. */
-const STORAGE_VERSION = 7
+const STORAGE_VERSION = 9
 const SIZE = 180
 
 const pictures = new Map<string, string>()

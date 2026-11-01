@@ -114,3 +114,29 @@ describe('bushes', () => {
         }
     })
 })
+
+describe('open bushes', () => {
+    const open: BushParameters = {...bushDefaults, inside: 'open', fullness: 1.3, leafSize: 0.16}
+
+    it('has twigs in place of a solid core, far lighter than one', () => {
+        expect(facesOf(buildBushCore(open, 5, 1))).toBeLessThan(facesOf(buildBushCore(bushDefaults, 5, 1)) * 0.8)
+    })
+
+    it('has fewer cards than a solid one, so it can be seen through', () => {
+        expect(facesOf(buildBushLeaves(open, 5, 1))).toBeLessThan(facesOf(buildBushLeaves({...bushDefaults, leafSize: 0.16}, 5, 1)))
+    })
+
+    it('has brown twigs', () => {
+        const color = buildBushCore(open, 5, 1).getAttribute('color')
+
+        expect(color.getX(0)).toBeGreaterThan(color.getZ(0))
+    })
+
+    it('holds its share at every level, and its twigs reach the ground', () => {
+        expect(boundsOf(buildBushCore(open, 5, 1)).min.y).toBeLessThanOrEqual(0)
+
+        const faces = (detail: number) => facesOf(buildBushCore(open, 5, detail)) + facesOf(buildBushLeaves(open, 5, detail))
+
+        expect(faces(0.12)).toBeLessThan(faces(1) * 0.3)
+    })
+})

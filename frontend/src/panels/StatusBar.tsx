@@ -31,7 +31,7 @@ export function StatusBar() {
     const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.budgetAdvice : undefined)
 
     return (
-        <footer className="statusbar">
+        <footer className="statusbar" data-coach="status">
             <span className="statusbar__hint" data-state={status.state} role="status">
                 {hintFor({status, shapeTool, moveTool, selection, scene}, scheme)}
             </span>

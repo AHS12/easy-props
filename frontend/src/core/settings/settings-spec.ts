@@ -190,12 +190,14 @@ export const SETTING_SPECS = [
         page: 'Viewport',
         kind: 'choice',
         label: 'Backdrop',
-        help: 'What is behind the prop. Neutral grey is best for judging colour, and Meadow for judging it in a bright outdoor scene.',
+        help: 'What is behind the prop. Neutral grey is best for judging colour. The demos stand it in a finished outdoor scene.',
         keywords: 'background sky meadow grass',
-        default: 'sky',
+        default: 'studio-sky',
         options: [
-            {value: 'sky', label: 'Sky'},
-            {value: 'meadow', label: 'Meadow'},
+            {value: 'sky', label: 'Studio'},
+            {value: 'studio-sky', label: 'Studio with sky'},
+            {value: 'meadow', label: 'Meadow demo'},
+            {value: 'grove', label: 'Grove demo'},
             {value: 'grey', label: 'Neutral grey'},
             {value: 'colour', label: 'A colour'},
         ],
@@ -297,7 +299,9 @@ export const DEFAULT_VALUES = Object.fromEntries(
 ) as unknown as SettingValues
 
 /** The current settings file's shape. Bump when a change cannot be read as-is. */
-export const SETTINGS_VERSION = 1
+export const SETTINGS_VERSION = 2
+/** Before this version the backdrop started as plain Studio, so that was no one's choice. */
+const BRIGHT_BACKDROP_VERSION = 2
 
 export interface PanelLayout {
     readonly leftWidth: number
@@ -321,6 +325,7 @@ export interface SettingsFile {
     readonly openGroups: Readonly<Record<string, readonly string[]>>
     readonly layout: PanelLayout
     readonly tourSeen: boolean
+    readonly galleryTourSeen: boolean
     readonly lastTreeId: string | null
     readonly libraryFolder: string
 }
@@ -334,6 +339,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     openGroups: {},
     layout: DEFAULT_LAYOUT,
     tourSeen: false,
+    galleryTourSeen: false,
     lastTreeId: null,
     libraryFolder: '',
 }
@@ -370,6 +376,7 @@ const fileSchema = z.object({
         })
         .catch(DEFAULT_LAYOUT),
     tourSeen: z.boolean().catch(false),
+    galleryTourSeen: z.boolean().catch(false),
     lastTreeId: z.string().nullable().catch(null),
     libraryFolder: z.string().catch(''),
 })
@@ -388,13 +395,13 @@ export function parseSettings(text: string | null): SettingsFile {
             return DEFAULT_SETTINGS
         }
 
-        return {
-            ...file,
-            version: SETTINGS_VERSION,
-            values: Object.fromEntries(
-                SETTING_SPECS.map((spec) => [spec.key, validSettingValue(spec, file.values[spec.key])]),
-            ) as unknown as SettingValues,
-        }
+        const values = Object.fromEntries(
+            SETTING_SPECS.map((spec) => [spec.key, validSettingValue(spec, file.values[spec.key])]),
+        ) as unknown as SettingValues
+
+        const backdrop = file.version < BRIGHT_BACKDROP_VERSION && values.backdrop === 'sky' ? 'studio-sky' : values.backdrop
+
+        return {...file, version: SETTINGS_VERSION, values: {...values, backdrop}}
     } catch {
         return DEFAULT_SETTINGS
     }

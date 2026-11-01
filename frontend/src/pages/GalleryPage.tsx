@@ -259,7 +259,7 @@ export function GalleryPage() {
                 </header>
 
                 {draftAvailable ? (
-                    <section className="home__draft">
+                    <section className="home__draft" data-coach="gallery-draft">
                         <div>
                             <h2 className="home__draft-title">You left some work unsaved</h2>
                             <p className="dialog__hint">The app closed before you saved. Pick it up, or let it go.</p>
@@ -276,7 +276,7 @@ export function GalleryPage() {
                 ) : null}
 
                 {gallery.length > 0 || galleryLoading ? (
-                    <section className="home__section" aria-label="Recent props">
+                    <section className="home__section" aria-label="Recent props" data-coach="gallery-recent">
                         <div className="home__section-head">
                             <h2 className="home__section-title">Recent props</h2>
                             {gallery.length > 6 ? (
@@ -330,7 +330,7 @@ export function GalleryPage() {
                 <section className="home__section" aria-label="Start a new prop">
                     <div className="home__section-head">
                         <h2 className="home__section-title">Start a new prop</h2>
-                        <div className="kind-tabs" role="tablist" aria-label="Kind of prop">
+                        <div className="kind-tabs" role="tablist" aria-label="Kind of prop" data-coach="gallery-kinds">
                             {PROP_FAMILIES.map(({id, label}) => {
                                 const Icon = FAMILY_ICONS[id]
 
@@ -353,8 +353,8 @@ export function GalleryPage() {
 
                     {presetGroups
                         .filter((group) => group.family === family)
-                        .map((group) => (
-                            <div key={group.title}>
+                        .map((group, index) => (
+                            <div key={group.title} data-coach={index === 0 ? 'gallery-presets' : undefined}>
                                 {presetGroups.filter((other) => other.family === family).length > 1 ? (
                                     <h3 className="settings__group">{group.title}</h3>
                                 ) : null}

@@ -281,7 +281,7 @@ describe('game-ready export', () => {
         expect(Math.abs(fullBounds.min[1])).toBeLessThan(height * 0.2)
 
         // Nothing stops a player walking through grass, so it has nothing to collide with.
-        if (preset.generatorId === 'grass') {
+        if (preset.generatorId === 'grass' || preset.generatorId === 'plant') {
             expect(files.some((file) => file.name.endsWith('_collision.glb'))).toBe(false)
 
             return

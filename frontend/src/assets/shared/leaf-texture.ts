@@ -4,6 +4,7 @@
  * Generated like the brush dabs in `dab-texture.ts`, with less contrast and finer
  * marks, so a bush reads as a soft volume first and as leaves second. Every leaf
  * points the same rough way, down the card, so they overlap like roof tiles.
+ * The fourth cell is one bloom, so flowers on a bush share the leaves' material.
  */
 
 import * as THREE from 'three'
@@ -14,7 +15,10 @@ const CELLS = 2
 const LEAVES_PER_CELL = 64
 const TEXTURE_SEED = 40417
 
-export const LEAF_VARIANTS = CELLS * CELLS
+export const LEAF_VARIANTS = CELLS * CELLS - 1
+export const BLOOM_CELL = LEAF_VARIANTS
+const BLOOM_PETALS = 5
+const BLOOM_MIDDLE: readonly [number, number, number] = [250, 196, 60]
 
 /** Where variant `cell` sits in the atlas, as `[u, v, size]`. */
 export function leafCell(cell: number): readonly [number, number, number] {
@@ -90,6 +94,26 @@ export function getLeafTexture(): THREE.DataTexture {
                 Math.PI / 2 + randomRange(random, -0.8, 0.8),
                 Math.round(randomRange(random, 215, 255)),
             )
+        }
+    }
+
+    const bloomX = (BLOOM_CELL % CELLS) * cellSize
+    const bloomY = Math.floor(BLOOM_CELL / CELLS) * cellSize
+    const middle = cellSize / 2
+
+    for (let petal = 0; petal < BLOOM_PETALS; petal++) {
+        const turn = (petal / BLOOM_PETALS) * Math.PI * 2
+
+        stamp(bloomX, bloomY, middle + Math.cos(turn) * middle * 0.46, middle + Math.sin(turn) * middle * 0.46, middle * 0.48, middle * 0.42, turn, 250)
+    }
+
+    for (let y = -14; y <= 14; y++) {
+        for (let x = -14; x <= 14; x++) {
+            if (x * x + y * y <= 196) {
+                const at = ((bloomY + Math.round(middle) + y) * SIZE + bloomX + Math.round(middle) + x) * 4
+
+                data.set([...BLOOM_MIDDLE, 255], at)
+            }
         }
     }
 

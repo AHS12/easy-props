@@ -28,6 +28,24 @@ describe('reading settings', () => {
         expect(file.layout).toEqual(DEFAULT_SETTINGS.layout)
     })
 
+    it('starts in the Studio with sky view', () => {
+        expect(DEFAULT_VALUES.backdrop).toBe('studio-sky')
+    })
+
+    it('moves a file from before that default onto it, once', () => {
+        expect(parseSettings(JSON.stringify({version: 1, values: {backdrop: 'sky'}})).values.backdrop).toBe('studio-sky')
+    })
+
+    it('leaves any other backdrop someone chose alone', () => {
+        expect(parseSettings(JSON.stringify({version: 1, values: {backdrop: 'grey'}})).values.backdrop).toBe('grey')
+    })
+
+    it('respects choosing plain Studio since that default', () => {
+        const file = parseSettings(JSON.stringify({version: SETTINGS_VERSION, values: {backdrop: 'sky'}}))
+
+        expect(file.values.backdrop).toBe('sky')
+    })
+
     it('fills in settings added since the file was written', () => {
         const file = parseSettings(JSON.stringify({version: 1, values: {}}))
 

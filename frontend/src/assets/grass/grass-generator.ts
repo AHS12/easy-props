@@ -16,7 +16,7 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
-import {GRASS_RAMPS, type GrassPaletteId} from '../style/palettes'
+import {GRASS_RAMPS, PETAL_RAMPS, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildGrassMesh, type GrassParameters} from './blade-mesh'
 
 const SHAPE = 'Shape'
@@ -48,6 +48,19 @@ const PALETTE: ChoiceParameter<GrassPaletteId> = {
     })),
 }
 
+const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId> = {
+    kind: 'choice',
+    group: COLOUR,
+    key: 'flowerColour',
+    label: 'Flower colour',
+    help: 'The colour of the flowers among the blades.',
+    default: 'white',
+    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
+        value,
+        label: value[0].toUpperCase() + value.slice(1),
+    })),
+}
+
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the patch is.', 0.1, 10, 0.1, 2, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall its tallest blade stands.', 0.05, 3, 0.05, 0.7, 'm')
 const COUNT = number(SHAPE, 'blades', 'Blades', 'How many blades there are.', 5, 1500, 5, 450)
@@ -61,7 +74,9 @@ const TALL = number(BLADES, 'tall', 'Standouts', 'How many blades rise taller an
 const DRYNESS = number(COLOUR, 'dryness', 'Dry clumps', 'How many clumps have gone pale.', 0, 1, 0.05, 0.1)
 const VARIATION = number(COLOUR, 'variation', 'Variation', 'How much one clump differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE]
+const FLOWERS = number(COLOUR, 'flowers', 'Flowers', 'How many flowers stand among the blades, in drifts.', 0, 120, 1, 0)
+
+const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, FLOWERS, FLOWER_COLOUR]
 
 export const grassDefaults: GrassParameters = {
     width: WIDTH.default,
@@ -77,6 +92,8 @@ export const grassDefaults: GrassParameters = {
     dryness: DRYNESS.default,
     variation: VARIATION.default,
     palette: PALETTE.default,
+    flowers: FLOWERS.default,
+    flowerColour: FLOWER_COLOUR.default,
 }
 
 const grassSchema = z.object({
@@ -93,6 +110,8 @@ const grassSchema = z.object({
     dryness: numberSchema(DRYNESS),
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
+    flowers: numberSchema(FLOWERS),
+    flowerColour: choiceSchema(FLOWER_COLOUR),
 })
 
 const validateGrass = (parameters: unknown) => validateParameters<GrassParameters>(grassSchema, parameters, grassDefaults)

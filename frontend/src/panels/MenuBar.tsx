@@ -259,7 +259,7 @@ export function MenuBar({home}: {home?: boolean}) {
             <Menus />
             {home ? <span className="menubar__app">easy-props</span> : <PropName />}
             <span className="menubar__drag" />
-            <button type="button" className="palette-button" onClick={() => setPaletteOpen(true)}>
+            <button type="button" className="palette-button" data-coach="search" onClick={() => setPaletteOpen(true)}>
                 <Search size={13} aria-hidden="true" />
                 <span>Search or run…</span>
                 <Keys keys={shortcutFor('palette') ?? 'Ctrl+K'} />
@@ -267,7 +267,7 @@ export function MenuBar({home}: {home?: boolean}) {
             <span className="menubar__drag" />
             {home ? null : (
                 <Fragment>
-                    <button type="button" className="button" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
+                    <button type="button" className="button" data-coach="save" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
                         <Save size={13} aria-hidden="true" />
                         Save
                     </button>

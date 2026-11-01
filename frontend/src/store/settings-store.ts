@@ -24,6 +24,8 @@ const WRITE_DELAY_MS = 300
 const RECENT_LIMIT = 5
 
 export interface SettingsStore extends SettingsFile {
+    /** True once the settings on disk have been read, or could not be. */
+    readonly loaded: boolean
     /** Replaces the settings with what is on disk. Called once at startup. */
     load(): Promise<void>
     setValue(key: SettingKey, value: SettingValue): void
@@ -36,6 +38,7 @@ export interface SettingsStore extends SettingsFile {
     noteUsed(id: string): void
     setOpenGroups(family: string, groups: readonly string[]): void
     setTourSeen(seen: boolean): void
+    setGalleryTourSeen(seen: boolean): void
     setLastTreeId(id: string | null): void
     setLibraryFolder(folder: string): void
 }
@@ -44,9 +47,9 @@ let writeTimer: number | undefined
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, lastTreeId, libraryFolder} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastTreeId, libraryFolder} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, lastTreeId, libraryFolder}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastTreeId, libraryFolder}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -61,13 +64,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
 
     return {
         ...parseSettings(readSettingsCopy()),
+        loaded: false,
 
         load: async () => {
-            const text = await readSettingsFile()
+            const text = await readSettingsFile().catch(() => null)
 
             if (text) {
                 set(parseSettings(text))
             }
+
+            set({loaded: true})
 
             const {libraryFolder} = get()
 
@@ -118,6 +124,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
 
         setOpenGroups: (family, groups) => change({openGroups: {...get().openGroups, [family]: groups}}),
         setTourSeen: (tourSeen) => change({tourSeen}),
+        setGalleryTourSeen: (galleryTourSeen) => change({galleryTourSeen}),
         setLastTreeId: (lastTreeId) => change({lastTreeId}),
 
         setLibraryFolder: (libraryFolder) => {
