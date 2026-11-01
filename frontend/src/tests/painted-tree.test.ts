@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import {describe, expect, it} from 'vitest'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
@@ -45,6 +46,7 @@ const triangles = (parts: ReturnType<typeof buildParts>) =>
     parts
         .filter((part) => !part.surface?.proxy)
         .reduce((sum, part) => sum + part.geometry.index!.count / 3, 0)
+
 
 describe('painted tree', () => {
     it('stays inside its triangle budget, whatever the seed', () => {
@@ -147,6 +149,34 @@ describe('painted tree', () => {
         }
 
         expect(sharpest).toBeLessThan(150)
+    })
+
+    it('faces all of its wood outwards, so a branch is never drawn inside out', () => {
+        const geometry = buildBark(planPaintedTree(paintedTreeDefaults, 9), paintedTreeDefaults, 9, 0.68)
+        const position = geometry.getAttribute('position')
+        const normal = geometry.getAttribute('normal')
+        const index = geometry.index!
+        const point = new THREE.Vector3()
+        const u = new THREE.Vector3()
+        const v = new THREE.Vector3()
+        const out = new THREE.Vector3()
+        let inward = 0
+
+        for (let at = 0; at < index.count; at += 3) {
+            const [a, b, c] = [index.getX(at), index.getX(at + 1), index.getX(at + 2)]
+
+            point.fromBufferAttribute(position, a)
+            u.fromBufferAttribute(position, b).sub(point)
+            v.fromBufferAttribute(position, c).sub(point)
+            out.fromBufferAttribute(normal, a).add(point.fromBufferAttribute(normal, b)).add(point.fromBufferAttribute(normal, c))
+
+            if (u.cross(v).dot(out) < 0) {
+                inward++
+            }
+        }
+
+        // A sliver at a joint can lean the wrong way. A whole limb cannot.
+        expect(inward / (index.count / 3)).toBeLessThan(0.02)
     })
 
     it('gives every bark pattern its own relief and paint', () => {

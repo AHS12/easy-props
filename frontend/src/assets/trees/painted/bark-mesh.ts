@@ -42,6 +42,8 @@ const CREASE_FROM = 0.3
 const CREASE_SPAN = 0.3
 const CREASE_STRENGTH = 0.6
 const CREASE_DARKNESS = 0.6
+/** How late along a thin limb its tip's ink sets in. Above 1 keeps most of it the colour of the wood. */
+const INK_CURVE = 2
 
 /** How many sides a tube gets, by its radius where it starts. */
 function sidesFor(radius: number, level: number, detail: number): number {
@@ -167,7 +169,20 @@ export function listBarkCells({sculptedSegments, cell}: BarkContext): Int32Array
  * slices can run at once and be joined in order by `assembleBark`.
  */
 export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkChunk {
-    const {field, cell, tree} = context
+    const paintWood = woodPainter(context)
+
+    return sculptCells(context.field, cells, context.cell, (x, y, z, n, colors) => {
+        const paint = paintWood(x, y, z, n)
+
+        colors.push(paint.r, paint.g, paint.b)
+    })
+}
+
+/**
+ * How wood is coloured at a point. Sculpted and swept wood both start from this, so
+ * the place one becomes the other cannot show as a change of colour.
+ */
+function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: number, n: Vec3) => THREE.Color {
     const palette = resolvePalette(tree)
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
@@ -176,7 +191,7 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
     const crease = deep.clone().multiplyScalar(CREASE_DARKNESS)
     const occlusionReach = tree.trunkRadius * OCCLUSION_REACH
 
-    return sculptCells(field, cells, cell, (x, y, z, n, colors) => {
+    return (x, y, z, n) => {
         // Lit from above, dark in the ridges and in the crooks of the joints. How
         // open a point is comes straight from the field: step out along the normal
         // and see how far the wood really is.
@@ -217,9 +232,8 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
         const shut = 1 - Math.min(1, Math.max(0, open))
         const inCrease = Math.min(1, Math.max(0, (shut + field.valley(x, y, z) * 0.5 - CREASE_FROM) / CREASE_SPAN))
 
-        paint.lerp(crease, inCrease * inCrease * (3 - 2 * inCrease) * CREASE_STRENGTH)
-        colors.push(paint.r, paint.g, paint.b)
-    })
+        return paint.lerp(crease, inCrease * inCrease * (3 - 2 * inCrease) * CREASE_STRENGTH)
+    }
 }
 
 /** Sweeps the thin end of a limb, from `startRing` to a sharp tip. */
@@ -228,7 +242,7 @@ function sweep(
     startRing: number,
     detail: number,
     field: WoodField,
-    paintVertex: (n: Vec3, radius: number) => void,
+    paintVertex: (x: number, y: number, z: number, n: Vec3, along: number) => void,
     buffers: MeshBuffers,
 ): void {
     const first = buffers.positions.length / 3
@@ -280,7 +294,7 @@ function sweep(
             buried.push(field.distance(x, y, z) < -0.02)
             buffers.positions.push(x, y, z)
             buffers.normals.push(out[0], out[1], out[2])
-            paintVertex(out, limb.radii[at])
+            paintVertex(x, y, z, out, ring / (ringCount - 1))
         }
     }
 
@@ -293,11 +307,11 @@ function sweep(
             const d = (ring + 1) * sides + side
 
             if (!(buried[a] && buried[b] && buried[c])) {
-                buffers.indices.push(first + a, first + c, first + b)
+                buffers.indices.push(first + a, first + b, first + c)
             }
 
             if (!(buried[a] && buried[c] && buried[d])) {
-                buffers.indices.push(first + a, first + d, first + c)
+                buffers.indices.push(first + a, first + c, first + d)
             }
         }
     }
@@ -359,17 +373,13 @@ export function assembleBark(
     cells: Int32Array,
     chunks: readonly BarkChunk[],
 ): BarkArrays {
-    const {plan, tree, detail, field, sculptMin, isSculpted} = context
+    const {plan, tree, detail, field, isSculpted} = context
     const palette = resolvePalette(tree)
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
-    const paint = new THREE.Color()
+    const ink = new THREE.Color()
+    const paintWood = woodPainter(context)
     const buffers: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
-
-    const writeValue = (value: number) => {
-        paint.copy(deep).lerp(light, Math.min(1, Math.max(0, value)))
-        buffers.colors.push(paint.r, paint.g, paint.b)
-    }
 
     joinChunks(cells, chunks, buffers, GROUND_LEVEL)
 
@@ -407,8 +417,14 @@ export function assembleBark(
             Math.max(start - 1, 0),
             detail,
             field,
-            (n, radius) => {
-                writeValue(0.1 + (n[1] * 0.5 + 0.5) * 0.5 + Math.min(radius / sculptMin, 1) * 0.15)
+            (x, y, z, n, along) => {
+                ink.copy(deep).lerp(light, 0.1 + (n[1] * 0.5 + 0.5) * 0.5)
+
+                // By how far along, not how thin: a twig is thin from its first ring,
+                // and would start as a dark spike on the paler wood it grows from.
+                const paint = paintWood(x, y, z, n).lerp(ink, along ** INK_CURVE)
+
+                buffers.colors.push(paint.r, paint.g, paint.b)
             },
             buffers,
         )
