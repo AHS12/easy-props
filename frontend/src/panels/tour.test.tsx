@@ -4,7 +4,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {Tour} from './Tour'
-import {availableSteps, placeCard, TOUR_STEPS, unzoomed} from './tour-steps'
+import {availableSteps, placeCard, TOUR_STEPS} from './tour-steps'
 
 const SCREEN = {width: 1200, height: 800}
 const CARD = {width: 330, height: 200}
@@ -50,15 +50,6 @@ describe('where the card goes', () => {
         const place = placeCard('below', {left: 1100, top: 20, width: 60, height: 30}, SCREEN, CARD)
 
         expect(place.left + place.arrow).toBeCloseTo(1130)
-    })
-
-    it.each([0.75, 1, 1.25, 1.5])('lands on what it measured at a scale of %f', (zoom) => {
-        const measured = {left: 300, top: 150, width: 90, height: 30}
-        const box = unzoomed(measured, zoom)
-
-        // Placed in the page's units, then zoomed by the page, it is back on the target.
-        expect(box.left * zoom).toBeCloseTo(measured.left)
-        expect(box.width * zoom).toBeCloseTo(measured.width)
     })
 })
 

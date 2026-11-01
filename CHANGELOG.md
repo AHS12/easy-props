@@ -26,6 +26,12 @@ What's new in each version of easy-props.
 - This list now opens by itself after an update. You can turn that off in Settings, and
   find it any time under Help.
 
+**Interface scale that works**
+
+- Dropdowns, menus and tooltips now open in the right place at every interface scale.
+- Dragging a panel edge follows your pointer, the 3D view stays sharp at larger sizes,
+  and the panels and toolbar now fit the window.
+
 **Smoother on slower computers**
 
 - Opening a prop now shows a loading screen with a progress bar, instead of the app

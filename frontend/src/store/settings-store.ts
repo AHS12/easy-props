@@ -142,3 +142,6 @@ export const settingValue = (key: SettingKey) => useSettingsStore.getState().val
 
 /** Reads a stored number chosen from a list, where the options are strings. */
 export const settingNumber = (key: SettingKey) => Number(settingValue(key))
+
+/** The interface scale, where 1 is 100%. A size set in code multiplies by this, or uses rems. */
+export const uiScale = () => settingNumber('scale') / 100

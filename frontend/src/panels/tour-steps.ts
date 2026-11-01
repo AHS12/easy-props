@@ -142,20 +142,6 @@ const ARROW_INSET = 22
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, Math.max(low, high)))
 
-/**
- * Converts a measured box to the units the tour is positioned in.
- *
- * The interface scale zooms the whole page. Measuring gives what is on screen, and
- * placing is zoomed again, so without this everything lands too far out as the
- * scale rises, and too far in as it falls.
- */
-export const unzoomed = (box: Box, zoom: number): Box => ({
-    left: box.left / zoom,
-    top: box.top / zoom,
-    width: box.width / zoom,
-    height: box.height / zoom,
-})
-
 /** Where a card goes. It stays on screen, moving to the other side of its target when it has to. */
 export function placeCard(side: TourSide, target: Box | null, screen: {width: number; height: number}, card: {width: number; height: number}): CardPlace {
     const middle = {

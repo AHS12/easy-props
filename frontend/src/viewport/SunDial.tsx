@@ -52,8 +52,7 @@ export function SunDial({lighting, onChange}: SunDialProps) {
         <svg
             ref={ref}
             className="sun-dial"
-            width={DIAL_SIZE}
-            height={DIAL_SIZE}
+            style={{width: `${DIAL_SIZE / 16}rem`, height: `${DIAL_SIZE / 16}rem`}}
             viewBox={`0 0 ${DIAL_SIZE} ${DIAL_SIZE}`}
             role="slider"
             tabIndex={0}

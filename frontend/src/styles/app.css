@@ -84,15 +84,16 @@ p {
     min-height: 0;
 }
 
+/* A panel gives up width before the view does, so a large scale still fits the window. */
 .panel-slot {
-    flex: none;
-    min-width: 0;
+    flex: 0 1 auto;
+    min-width: 208px;
     display: flex;
 }
 
 .view-slot {
     flex: 1;
-    min-width: 280px;
+    min-width: min(45vw, 440px);
     position: relative;
     display: flex;
 }
@@ -1584,6 +1585,11 @@ html[data-theme='dark'] .text-button--danger:hover {
     transition: transform 900ms ease-out;
 }
 
+/* An icon's size is written on it, where the build cannot turn it into rems. */
+svg.lucide {
+    zoom: var(--ui-scale, 1);
+}
+
 .viewport__canvas {
     display: block;
     width: 100%;
@@ -1626,6 +1632,10 @@ html[data-theme='dark'] .text-button--danger:hover {
 }
 
 .viewport-tools--right {
+    /* Clear of the tools on the left, and onto a second line when that is too narrow. */
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 112px);
     right: 18px;
 }
 

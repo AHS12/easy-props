@@ -12,14 +12,13 @@
 
 import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react'
 import {useEditorStore} from '../store/editor-store'
-import {useSettingsStore} from '../store/settings-store'
+import {uiScale, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
-import {availableSteps, placeCard, TOUR_NAMES, TOUR_STEPS, unzoomed, type Box, type TourPage} from './tour-steps'
+import {availableSteps, placeCard, TOUR_NAMES, TOUR_STEPS, type Box, type TourPage} from './tour-steps'
 
 const CARD_WIDTH = 330
 const SPOTLIGHT_PADDING = 4
 
-const pageZoom = () => Number(getComputedStyle(document.documentElement).zoom) || 1
 const targetElement = (target: string) => document.querySelector(`[data-coach="${target}"]`)
 
 const sameBox = (a: Box | null, b: Box | null) =>
@@ -67,15 +66,14 @@ function TourRun({page, onDone}: {page: TourPage; onDone(): void}) {
         let frame = 0
 
         const measure = () => {
-            const zoom = pageZoom()
             const element = step.target ? targetElement(step.target) : null
             const measured = element?.getBoundingClientRect()
-            const next = measured && measured.width > 0 && measured.height > 0 ? unzoomed(measured, zoom) : null
+            const next = measured && measured.width > 0 && measured.height > 0 ? {left: measured.left, top: measured.top, width: measured.width, height: measured.height} : null
 
             setRect((current) => (sameBox(current, next) ? current : next))
             setScreen((current) => {
-                const width = window.innerWidth / zoom
-                const height = window.innerHeight / zoom
+                const width = window.innerWidth
+                const height = window.innerHeight
 
                 return current.width === width && current.height === height ? current : {width, height}
             })
@@ -114,7 +112,7 @@ function TourRun({page, onDone}: {page: TourPage; onDone(): void}) {
         return () => window.removeEventListener('keydown', onKeyDown, true)
     })
 
-    const width = Math.min(CARD_WIDTH, screen.width - 24)
+    const width = Math.min(CARD_WIDTH * uiScale(), screen.width - 24)
     const place = placeCard(step.side, rect, screen, {width, height: cardHeight})
 
     return (
