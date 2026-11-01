@@ -1,7 +1,7 @@
 # 08 — Rocks, bushes and grass
 
-Status: rocks, grass and the Meadow backdrop are built (stages 0 to 2, see "Built: rocks" and
-"Built: grass"). Bushes and flowers are still a plan. Images named `proto-` came from throwaway browser code.
+Status: rocks, grass, bushes and the Meadow backdrop are built (stages 0 to 3, see the "Built"
+sections). Flowers and mixed patches (stage 4) are still a plan. Images named `proto-` came from throwaway browser code.
 
 ## The short version
 
@@ -70,6 +70,28 @@ What differs from the plan below:
 
 **Not done:** Not tried in Unreal or Godot, and full-density meadows haven't been tested for cost
 in an engine. Flowers through grass are stage 4.
+
+## Built: bushes
+
+| | |
+|---|---|
+| ![Round bush](./images/08/built-bush.jpg) | ![Spreading bush](./images/08/built-bush-spreading.jpg) |
+
+Code: `assets/bushes/bush-mesh.ts`, `bush-generator.ts` and `shared/leaf-texture.ts`. Six presets
+under Bushes. The old painted Flowering bush stays until stage 4. Both problems the prototype
+showed are solved: cards are placed by triangle area, so there are no bare bands, and the core
+shares the leaves' shape, normals and gradient, so no sky shows through and gaps don't read as holes.
+
+- **Two parts, two materials:** solid core and cut-out leaves, so a bush exports as 2 draw calls.
+- **Cost:** a round bush is about 2,850 faces, and every preset stays under 5,000 at the tested seeds.
+- **Creases and masses:** points between lobes are painted darker, and each lobe leans lighter or
+  darker, so a bush reads as several masses and not one ball.
+- **Lighter levels** always keep the core, keep the cards marking the outline, and clamp grown
+  cards to the full bush's extent.
+
+**Not done:** Not tried in Unreal or Godot. Bushes build on the main thread with no worker pool
+like bark, and their rebuild time hasn't been measured. Their collision is one tapered shape, which fits a
+long hedge poorly. Flowers are stage 4.
 
 ## The target
 

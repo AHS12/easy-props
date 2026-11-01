@@ -16,6 +16,8 @@ export type ComponentType =
     | 'bark'
     | 'rock'
     | 'grass'
+    | 'bush-core'
+    | 'bush-leaves'
 
 export interface Transform {
     readonly position: readonly [number, number, number]
@@ -119,6 +121,8 @@ const TYPE_LABELS: Readonly<Record<ComponentType, string>> = {
     bark: 'Bark',
     rock: 'Rock',
     grass: 'Grass',
+    'bush-core': 'Bush core',
+    'bush-leaves': 'Leaves',
 }
 
 export function describeComponent(type: ComponentType): string {

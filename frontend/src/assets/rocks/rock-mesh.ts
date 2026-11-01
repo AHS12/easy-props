@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three'
+import {colourRamp} from '../style/ramp'
 import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import {distanceToChunk, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
 
@@ -51,18 +52,6 @@ const PLAIN_CUTS: readonly number[] = [0.15, 0.25, 0.35, 0.45, 0.6, 0.8, 1]
 const WELD = 500
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
-
-function ramp(stops: readonly string[]): (value: number) => THREE.Color {
-    const colours = stops.map((stop) => new THREE.Color(stop))
-    const paint = new THREE.Color()
-
-    return (value) => {
-        const at = clamp01(value) * (colours.length - 1)
-        const below = Math.min(Math.floor(at), colours.length - 2)
-
-        return paint.copy(colours[below]).lerp(colours[below + 1], at - below)
-    }
-}
 
 /** A lighter level drops the small chunks and the last cuts of the rest. */
 function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number): readonly RockChunk[] {
@@ -124,8 +113,8 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
 function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {
     const size = (plan.width + plan.height + plan.depth) / 3
     const chunks = chunksAtDetail(plan, detail, cutShare)
-    const stone = ramp(ROCK_RAMPS[surface.palette])
-    const moss = ramp(MOSS_RAMP)
+    const stone = colourRamp(ROCK_RAMPS[surface.palette])
+    const moss = colourRamp(MOSS_RAMP)
     const mossAbove = surface.moss > 0 ? 1 - surface.moss * MOSS_REACH : Infinity
     const withRings = detail >= RINGS_FROM && surface.edges > 0
     const edgeWidth = surface.edges * EDGE_WIDTH * size ** 0.6

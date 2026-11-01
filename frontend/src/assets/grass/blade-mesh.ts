@@ -15,6 +15,7 @@
 
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../shared/random'
+import {colourRamp} from '../style/ramp'
 import {DRY_RAMP, GRASS_RAMPS, type GrassPaletteId} from '../style/palettes'
 
 export interface GrassParameters {
@@ -86,18 +87,6 @@ const FEWER_PIECES_BELOW = 0.25
 const MIN_PIECES = 2
 /** The most a blade may widen to cover for the ones a lighter level leaves out. */
 const MAX_WIDENING = 2.5
-
-function ramp(stops: readonly string[]): (value: number) => THREE.Color {
-    const colours = stops.map((stop) => new THREE.Color(stop))
-    const paint = new THREE.Color()
-
-    return (value) => {
-        const at = Math.min(1, Math.max(0, value)) * (colours.length - 1)
-        const below = Math.min(Math.floor(at), colours.length - 2)
-
-        return paint.copy(colours[below]).lerp(colours[below + 1], at - below)
-    }
-}
 
 const tipHeight = (blade: Pick<Blade, 'height' | 'lean'>) => blade.height * (1 - LEAN_DROP * blade.lean)
 
@@ -193,8 +182,8 @@ export function buildGrassMesh(grass: GrassParameters, seed: number, detail: num
     const wanted = Math.round((all.length * detail * (4 * fullPieces - 2)) / (4 * pieces - 2))
     const blades = wanted < all.length ? bladesAtDetail(all, wanted) : all
     const widening = Math.min(Math.sqrt(all.length / blades.length), MAX_WIDENING)
-    const lush = ramp(GRASS_RAMPS[grass.palette])
-    const dry = ramp(DRY_RAMP)
+    const lush = colourRamp(GRASS_RAMPS[grass.palette])
+    const dry = colourRamp(DRY_RAMP)
     const radius = Math.max(grass.width / 2, 1e-3)
 
     const positions: number[] = []

@@ -177,6 +177,19 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
 /** Moss on any stone, shadow to highlight. */
 export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
 
+export type BushPaletteId = 'summer' | 'lush' | 'spring' | 'olive' | 'pine' | 'autumn' | 'maple'
+
+/** A bush, shadow to highlight: near black under it, yellow where the sun lands. */
+export const BUSH_RAMPS: Readonly<Record<BushPaletteId, readonly string[]>> = {
+    summer: ['#1c3f08', '#3d7410', '#7fb31a', '#d3e85c'],
+    lush: ['#123a14', '#27681c', '#57a02a', '#a8d85a'],
+    spring: ['#2c5a0e', '#5c9a14', '#a0d024', '#e8f47c'],
+    olive: ['#2c3a14', '#556a22', '#8a9a3c', '#c8cf7c'],
+    pine: ['#0f2c20', '#1f5236', '#3f8450', '#8cc084'],
+    autumn: ['#5a2c0c', '#a0601a', '#d89c24', '#f6dc6c'],
+    maple: ['#4a1414', '#982a1a', '#d85a24', '#f6a84c'],
+}
+
 export type GrassPaletteId = 'meadow' | 'lush' | 'spring' | 'reed' | 'autumn' | 'frost'
 
 /** Grass, root to tip. A root near the colour of the ground makes a blade grow out of it. */

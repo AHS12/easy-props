@@ -6,6 +6,7 @@
  * remains the user's to change afterwards.
  */
 
+import {bushDefaults} from '../../bushes/bush-generator'
 import {grassDefaults} from '../../grass/grass-generator'
 import {cutRockDefaults} from '../../rocks/cut-rock-generator'
 import {paintedTreeDefaults} from '../painted'
@@ -93,6 +94,15 @@ const rock = (
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
 ): TreePreset => ({id, name, sub, category, seed, generatorId: 'cut-rock', parameters: {...cutRockDefaults, ...parameters}})
+
+/** One bush: only what differs from the defaults. */
+const bush = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Bushes', seed, generatorId: 'bush', parameters: {...bushDefaults, ...parameters}})
 
 /** One patch of grass: only what differs from the defaults. */
 const grass = (
@@ -191,9 +201,12 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
 
     // Shrubs & saplings
-    painted('Bushes', 'round-bush', 'Round bush', 'Fills in any gap', 361, {palette: 'spring', height: 1.8, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 6, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    bush('round-bush', 'Round bush', 'A soft dome that fills any gap', 361, {}),
+    bush('small-bush', 'Small bush', 'Knee high and dense', 364, {width: 1.2, height: 0.9, depth: 1.1, lobes: 4, leafSize: 0.11}),
+    bush('spreading-bush', 'Spreading bush', 'Low and wide', 365, {kind: 'spreading', width: 4, height: 1.3, depth: 3.4, lobes: 9, leafSize: 0.22, palette: 'lush'}),
+    bush('tall-shrub', 'Tall shrub', 'Upright and full', 366, {kind: 'tall', width: 2, height: 3, depth: 2, lobes: 8, leafSize: 0.2, palette: 'pine'}),
     painted('Bushes', 'flower-bush', 'Flowering bush', 'A patch of colour', 362, {palette: 'blossom', height: 1.6, spread: 2.4, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 45, limbCount: 4, branchCount: 2, twigCount: 0, clumpCount: 7, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
-    painted('Bushes', 'autumn-bush', 'Autumn bush', 'Low and red', 363, {palette: 'maple', height: 1.6, spread: 2.2, trunkRadius: 0.1, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 2, twigCount: 0, clumpCount: 5, clumpMerge: 0.8, clumpSize: 1.2, rootCount: 0, ridgeDepth: 0, flare: 0.1}),
+    bush('autumn-bush', 'Autumn bush', 'Low and red', 363, {width: 2.4, height: 1.5, depth: 2.2, lobes: 5, leafSize: 0.17, palette: 'maple'}),
     painted('Shrubs & saplings', 'sapling', 'Young sapling', 'Thin and just started', 364, {palette: 'spring', height: 3.2, spread: 2.6, trunkRadius: 0.1, forkHeight: 0.5, limbAngle: 55, limbCount: 3, branchCount: 2, twigCount: 1, clumpCount: 5, clumpSize: 0.9, rootCount: 0, flare: 0.1, ridgeDepth: 0}),
     painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
 
@@ -220,7 +233,7 @@ const foliagePresets: readonly TreePreset[] = [
     grass('dry-tuft', 'Dry tuft', 'Pale and past its season', 391, {width: 0.7, height: 0.8, blades: 110, clumps: 3, scatter: 0.4, bladeWidth: 0.022, dryness: 1}),
     grass('reeds', 'Reeds', 'Tall thin blades', 384, {width: 0.7, height: 1.4, blades: 60, clumps: 3, lean: 0.2, scatter: 0.4, bladeWidth: 0.026, tall: 0.1, dryness: 0, palette: 'reed'}),
     painted('Grass & flowers', 'flower-clump', 'Flower clump', 'A small bright mound', 385, {palette: 'blossom', height: 0.6, spread: 0.8, trunkRadius: 0.02, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.6, fullness: 0.6, rootCount: 0, ridgeDepth: 0, flare: 0}),
-    painted('Bushes', 'low-hedge', 'Low hedge', 'Dense and neat', 386, {palette: 'forest', height: 1, spread: 1.6, trunkRadius: 0.05, forkHeight: 0.2, limbAngle: 55, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 4, clumpMerge: 0.9, clumpSize: 1.1, fullness: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0}),
+    bush('low-hedge', 'Low hedge', 'Dense and neat', 386, {kind: 'hedge', width: 5, height: 1.2, depth: 1.1, lobes: 6, lumps: 0.3, leafSize: 0.16, variation: 0.25, palette: 'lush'}),
 ]
 
 const rockPresets: readonly TreePreset[] = [

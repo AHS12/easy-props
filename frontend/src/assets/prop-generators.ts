@@ -9,6 +9,7 @@ import type {SceneComponent} from './shared/component-types'
 import type {PropGenerator} from './shared/generator-types'
 import {createSeededRandom} from './shared/random'
 import type {StyleProfile} from './style/style-profiles'
+import {bushGenerator} from './bushes/bush-generator'
 import {cutRockGenerator} from './rocks/cut-rock-generator'
 import {grassGenerator} from './grass/grass-generator'
 import {rockGenerator} from './rocks/rock-generator'
@@ -23,6 +24,7 @@ export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [rockGenerator.id]: rockGenerator,
     [cutRockGenerator.id]: cutRockGenerator,
     [grassGenerator.id]: grassGenerator,
+    [bushGenerator.id]: bushGenerator,
 }
 
 export function findPropGenerator(id: string): PropGenerator | undefined {
