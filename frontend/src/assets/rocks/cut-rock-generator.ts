@@ -199,7 +199,7 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
     parameters: specs,
     paintsOwnColours: true,
     still: true,
-    solidAdvice: 'Lower Chunks or Faces.',
+    budgetAdvice: 'Lower Chunks or Faces.',
 
     createDefaultParameters() {
         return cutRockDefaults

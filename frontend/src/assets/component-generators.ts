@@ -7,6 +7,7 @@
 
 import type {PartGenerator} from './shared/generator-types'
 import {cutRockBodyGenerator} from './rocks/cut-rock-generator'
+import {grassBodyGenerator} from './grass/grass-generator'
 import {rockBodyGenerator} from './rocks/rock-generator'
 import {branchGenerator} from './trees/components/branch'
 import {coconutClusterGenerator} from './trees/components/coconut-cluster'
@@ -30,6 +31,7 @@ export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [palmTrunkGenerator.id]: palmTrunkGenerator,
     [rockBodyGenerator.id]: rockBodyGenerator,
     [cutRockBodyGenerator.id]: cutRockBodyGenerator,
+    [grassBodyGenerator.id]: grassBodyGenerator,
     [rootGenerator.id]: rootGenerator,
     [trunkGenerator.id]: trunkGenerator,
 }

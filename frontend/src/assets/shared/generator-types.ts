@@ -143,8 +143,10 @@ export interface PropGenerator<P extends object = object> {
     readonly paintsOwnColours?: boolean
     /** True for a prop the wind does not move. */
     readonly still?: boolean
-    /** What to lower when its solid parts cost too much, in the words of its own controls. */
-    readonly solidAdvice?: string
+    /** True when every part of it moves about alike, as across a patch of grass. */
+    readonly swaysEvenly?: boolean
+    /** What to lower when it costs too much, in the words of its own controls. */
+    readonly budgetAdvice?: string
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>
     generate(parameters: P, context: GenerationContext): readonly GeneratedComponent[]

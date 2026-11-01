@@ -6,6 +6,7 @@
  * remains the user's to change afterwards.
  */
 
+import {grassDefaults} from '../../grass/grass-generator'
 import {cutRockDefaults} from '../../rocks/cut-rock-generator'
 import {paintedTreeDefaults} from '../painted'
 
@@ -92,6 +93,15 @@ const rock = (
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
 ): TreePreset => ({id, name, sub, category, seed, generatorId: 'cut-rock', parameters: {...cutRockDefaults, ...parameters}})
+
+/** One patch of grass: only what differs from the defaults. */
+const grass = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'grass', parameters: {...grassDefaults, ...parameters}})
 
 const PALM_BASE = {
     form: 'palm',
@@ -202,8 +212,13 @@ const LOW_PLANT = {...PALM_BASE, stem: 0.05, height: 0.8, trunkRadius: 0.02, lea
 const foliagePresets: readonly TreePreset[] = [
     painted('Ferns', 'forest-fern', 'Forest fern', 'Arching and lacy', 381, {...LOW_PLANT, palette: 'forest', stem: 0.2, height: 0.7, clumpCount: 9, droop: 0.2, clumpSize: 0.8, leafSize: 0.7}),
     painted('Ferns', 'bracken', 'Bracken', 'Tall and open', 382, {...LOW_PLANT, palette: 'spring', stem: 0.25, height: 1.1, clumpCount: 7, droop: 0.15, clumpSize: 0.8, leafSize: 0.8}),
-    painted('Grass & flowers', 'grass-tuft', 'Grass tuft', 'A low clump of blades', 383, {...LOW_PLANT, frondStyle: 'blade', palette: 'spring', height: 0.6, clumpCount: 14, droop: 0.3, clumpSize: 1, leafSize: 0.5}),
-    painted('Grass & flowers', 'reeds', 'Reeds', 'Tall thin blades', 384, {...LOW_PLANT, frondStyle: 'blade', palette: 'olive', height: 1.2, clumpCount: 10, droop: 0.15, clumpSize: 1, leafSize: 0.5}),
+    grass('grass-tuft', 'Grass tuft', 'A single dense clump', 383, {width: 0.5, height: 0.6, blades: 70, clumps: 3, smoothness: 4, gather: 0.3, scatter: 0.45, bladeWidth: 0.024, dryness: 0}),
+    grass('meadow-patch', 'Meadow patch', 'Long grass combed by wind', 387, {}),
+    grass('short-lawn', 'Short lawn', 'Low, even and green', 388, {width: 1.5, height: 0.25, blades: 480, lean: 0.35, bladeWidth: 0.018, tall: 0.02, dryness: 0, palette: 'lush'}),
+    grass('long-grass', 'Long grass', 'Waist high and bending', 389, {width: 2, height: 1.1, blades: 400, clumps: 7, lean: 0.75, bladeWidth: 0.036, tall: 0.12}),
+    grass('broad-tuft', 'Broad tuft', 'Few wide blades up close', 390, {width: 0.8, height: 0.7, blades: 36, clumps: 3, smoothness: 4, bladeWidth: 0.06, scatter: 0.5, tall: 0.2, dryness: 0, palette: 'lush'}),
+    grass('dry-tuft', 'Dry tuft', 'Pale and past its season', 391, {width: 0.7, height: 0.8, blades: 110, clumps: 3, scatter: 0.4, bladeWidth: 0.022, dryness: 1}),
+    grass('reeds', 'Reeds', 'Tall thin blades', 384, {width: 0.7, height: 1.4, blades: 60, clumps: 3, lean: 0.2, scatter: 0.4, bladeWidth: 0.026, tall: 0.1, dryness: 0, palette: 'reed'}),
     painted('Grass & flowers', 'flower-clump', 'Flower clump', 'A small bright mound', 385, {palette: 'blossom', height: 0.6, spread: 0.8, trunkRadius: 0.02, forkHeight: 0.2, limbAngle: 50, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 0.6, clumpSize: 1.1, leafSize: 0.6, fullness: 0.6, rootCount: 0, ridgeDepth: 0, flare: 0}),
     painted('Bushes', 'low-hedge', 'Low hedge', 'Dense and neat', 386, {palette: 'forest', height: 1, spread: 1.6, trunkRadius: 0.05, forkHeight: 0.2, limbAngle: 55, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 4, clumpMerge: 0.9, clumpSize: 1.1, fullness: 0.7, rootCount: 0, ridgeDepth: 0, flare: 0}),
 ]

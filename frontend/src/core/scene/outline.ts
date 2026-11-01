@@ -118,6 +118,8 @@ function paintedOutline(components: readonly SceneComponent[], editsText: string
 function nestedOutline(components: readonly SceneComponent[]): OutlineNode[] {
     const counts = new Map<string, number>()
 
+    const isOnlyOne = (part: SceneComponent) => part.type === 'trunk' || part.type === 'rock' || part.type === 'grass'
+
     const nodeFor = (part: SceneComponent): OutlineNode => {
         const name = describeComponent(part.type)
         const count = (counts.get(name) ?? 0) + 1
@@ -126,10 +128,10 @@ function nestedOutline(components: readonly SceneComponent[]): OutlineNode[] {
 
         return {
             id: part.id,
-            label: part.type === 'trunk' || part.type === 'rock' ? name : `${name} ${count}`,
+            label: isOnlyOne(part) ? name : `${name} ${count}`,
             componentId: part.id,
             edited: part.slot === null || part.edited,
-            fixed: part.type === 'trunk' || part.type === 'rock',
+            fixed: isOnlyOne(part),
             children: components.filter((child) => child.parentId === part.id).map(nodeFor),
         }
     }

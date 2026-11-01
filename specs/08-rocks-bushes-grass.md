@@ -1,7 +1,7 @@
 # 08 — Rocks, bushes and grass
 
-Status: rocks and the Meadow backdrop are built (stages 0 and 1, see "Built: rocks"). Grass,
-bushes and flowers are still a plan. Images named `proto-` came from throwaway browser code.
+Status: rocks, grass and the Meadow backdrop are built (stages 0 to 2, see "Built: rocks" and
+"Built: grass"). Bushes and flowers are still a plan. Images named `proto-` came from throwaway browser code.
 
 ## The short version
 
@@ -50,6 +50,26 @@ other props beside yours, because bushes and grass don't exist.
 
 **Not done:** Rocks haven't been imported into Unreal or Godot. Moss is per face, with no lip over
 the edge yet. Cliffs read as one mass from the front but less so from the side.
+
+## Built: grass
+
+![Meadow patch](./images/08/built-grass.jpg)
+
+Code: `assets/grass/blade-mesh.ts` and `grass-generator.ts`. Seven presets under Grass & flowers.
+What differs from the plan below:
+
+- **No texture at all.** Blades are solid shapes, so they need no cut-out and cost no overdraw.
+- **Density comes first.** A patch is 2 m wide at 450 blades, about 143 per square metre and 4,500
+  faces. At 3 m it looked thin. Cover ground by placing several, each lightened by the rim falloff.
+- **Patches are round, not square tiles.** Random placement and rotation in an engine suits them,
+  and the falling rim is what hides the join. A strict grid may show the circles.
+- **Wind is even across a patch** (`swaysEvenly`), so a rim doesn't swing further than its middle.
+  There's no separate phase per clump in the file, so an engine's wind has to vary by position.
+- **Lighter levels** keep the blades marking the outline, drop the rest by a fixed order, and
+  widen those left. The far, very light version planned for stage 4 isn't built.
+
+**Not done:** Not tried in Unreal or Godot, and full-density meadows haven't been tested for cost
+in an engine. Flowers through grass are stage 4.
 
 ## The target
 

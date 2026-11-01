@@ -177,6 +177,21 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
 /** Moss on any stone, shadow to highlight. */
 export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
 
+export type GrassPaletteId = 'meadow' | 'lush' | 'spring' | 'reed' | 'autumn' | 'frost'
+
+/** Grass, root to tip. A root near the colour of the ground makes a blade grow out of it. */
+export const GRASS_RAMPS: Readonly<Record<GrassPaletteId, readonly string[]>> = {
+    meadow: ['#3f6e06', '#6da208', '#9ccb1c', '#d6e85e'],
+    lush: ['#1f5a18', '#3f8c1c', '#74b82a', '#b4dc58'],
+    spring: ['#4d8a12', '#88c220', '#bfe040', '#ecf48a'],
+    reed: ['#4c5e1c', '#7f8c2c', '#afb04a', '#dfd688'],
+    autumn: ['#6a5212', '#a58a1e', '#d6b23a', '#f2dc84'],
+    frost: ['#4e7a78', '#84ae9e', '#b8d2bc', '#ecf4e4'],
+}
+
+/** A clump gone pale, root to tip. */
+export const DRY_RAMP: readonly string[] = ['#7c8a2a', '#b2b048', '#d8cf78', '#f0e8ac']
+
 /** The colours of stone, shadow to highlight. */
 export interface StoneColours {
     readonly stoneDeep: string

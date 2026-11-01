@@ -28,7 +28,7 @@ export function StatusBar() {
 
     const target = findBudgetTarget(budgetTarget)
     const asset = scene.assets[0]
-    const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.solidAdvice : undefined)
+    const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.budgetAdvice : undefined)
 
     return (
         <footer className="statusbar">

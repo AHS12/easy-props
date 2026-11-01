@@ -7,6 +7,7 @@
 
 import * as THREE from 'three'
 import type {PaintedSurface, PropGenerator} from '../../assets/shared/generator-types'
+import {EVEN_REACH} from '../../core/export/pipeline/wind'
 
 export interface WindUniforms {
     readonly pivot: THREE.IUniform<THREE.Vector3>
@@ -103,9 +104,11 @@ export function measureWind(
 
     uniforms.pivot.value.set(pivot[0], pivot[1], pivot[2])
     uniforms.height.value = Math.max(box.max.y - pivot[1], 1e-3)
-    uniforms.reach.value = Math.max(
-        Math.hypot(box.max.x - pivot[0], box.max.z - pivot[2]),
-        Math.hypot(box.min.x - pivot[0], box.min.z - pivot[2]),
-        1e-3,
-    )
+    uniforms.reach.value = generator?.swaysEvenly
+        ? EVEN_REACH
+        : Math.max(
+              Math.hypot(box.max.x - pivot[0], box.max.z - pivot[2]),
+              Math.hypot(box.min.x - pivot[0], box.min.z - pivot[2]),
+              1e-3,
+          )
 }

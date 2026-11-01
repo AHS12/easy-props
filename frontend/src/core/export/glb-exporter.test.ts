@@ -280,6 +280,13 @@ describe('game-ready export', () => {
         // The pivot is the middle of the base, so a prop stands on the origin.
         expect(Math.abs(fullBounds.min[1])).toBeLessThan(height * 0.2)
 
+        // Nothing stops a player walking through grass, so it has nothing to collide with.
+        if (preset.generatorId === 'grass') {
+            expect(files.some((file) => file.name.endsWith('_collision.glb'))).toBe(false)
+
+            return
+        }
+
         // Closed convex shapes, within the limit.
         const collision = readGLB(fileNamed(files, '_collision.glb').bytes)
 
