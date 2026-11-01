@@ -1,0 +1,103 @@
+name: Bug report
+description: Something is broken, looks wrong or exports badly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting this. Please check that it isn't already in the open issues.
+  - type: dropdown
+    id: action
+    attributes:
+      label: What were you doing?
+      options:
+        - Installing or opening the app
+        - Browsing the home page or my saved props
+        - Choosing a preset
+        - Shaping a prop with the sliders
+        - Selecting or changing one part of a prop
+        - Using a demo scene or backdrop
+        - Saving or opening a prop
+        - Exporting one prop
+        - Exporting many props at once
+        - Bringing a prop into a game engine
+        - Changing settings or the interface scale
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen?
+      placeholder: |
+        1. Open the Red maple preset
+        2. Drag Amount of leaves to the end
+        3. Choose Export
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - Only once so far
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Choose About easy-props in the Help menu.
+      placeholder: 0.1.5
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Windows 11
+        - Windows 10
+        - Mac with Apple silicon
+        - Mac with Intel
+        - Built from source on another system
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Game engine
+      description: Only if the problem shows up after exporting.
+      options:
+        - Not about an engine
+        - Unreal
+        - Godot
+        - Unity
+        - Blender
+        - Another tool
+    validations:
+      required: false
+  - type: input
+    id: prop
+    attributes:
+      label: Preset and seed
+      description: If one prop comes out wrong, this lets us make the same one.
+      placeholder: Red maple, seed 1234
+    validations:
+      required: false
+  - type: textarea
+    id: pictures
+    attributes:
+      label: Pictures and files
+      description: Drag in screenshots, a video or an exported file. Check them first for anything private, such as your name in a folder path.
+    validations:
+      required: false

@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a change to how the app works.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app is it about?
+      options:
+        - Home page and saved props
+        - Shaping props
+        - The 3D view and demo scenes
+        - Export
+        - Engine kits
+        - Settings and shortcuts
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The goal or problem matters more than the solution.
+      placeholder: I'm making a forest for my game, and every tree I export...
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What do you do today instead?
+    validations:
+      required: false
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Helping out
+      options:
+        - label: I'd like to work on this myself
+          required: false

@@ -89,3 +89,12 @@ The tag has to match the version, or the run stops before building anything.
 Wails (Go) for the desktop shell, React and TypeScript for the interface, and Three.js
 for the 3D view. Go only handles files and native dialogs: geometry, editing and export
 all live in TypeScript under `frontend/src`.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. [Open an issue](https://github.com/AHS12/easy-props/issues/new/choose),
+or read [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+## License
+
+[MIT](LICENSE.md)

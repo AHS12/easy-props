@@ -1,0 +1,46 @@
+name: New prop or preset
+description: Ask for a kind of prop the app can't make yet, or a new starting point.
+title: "[Prop]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of prop is it?
+      options:
+        - Tree
+        - Palm
+        - Conifer
+        - Fantasy tree
+        - Bush
+        - Fern or plant
+        - Grass or flowers
+        - Rock or cliff
+        - A new kind of prop
+    validations:
+      required: true
+  - type: dropdown
+    id: style
+    attributes:
+      label: What style is it?
+      options:
+        - Painted
+        - Low-poly
+        - Detailed
+        - No preference
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What should it look like?
+      description: What makes it different from what's already in the app?
+    validations:
+      required: true
+  - type: textarea
+    id: pictures
+    attributes:
+      label: Reference pictures
+      description: Photos or concept art help a lot. They're only for reference and won't be added to the app.
+    validations:
+      required: false

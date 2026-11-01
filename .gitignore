@@ -10,4 +10,9 @@ node_modules
 
 # Frontend build output
 frontend/dist
+
+# Personal Claude Code files. Project skills in .claude/skills are shared.
+.claude/launch.json
+.claude/settings.local.json
+.claude/worktrees
 .commandcode
