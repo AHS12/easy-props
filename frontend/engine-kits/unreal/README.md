@@ -53,14 +53,15 @@ Sizes are in centimetres. In a wood material the G channel is 0, so it never flu
 
 Wood, named `M_PropWood`:
 
-1. Connect **Vertex Color** to **Base Color**.
-2. Add a constant 0.85 to **Roughness**.
-3. Connect `MF_PropWind` to **World Position Offset**.
+1. Add a **Texture Sample** using the imported bark texture. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
+2. Add a second **Texture Sample** using the imported relief texture, and connect it to **Normal**.
+3. Add a constant 0.85 to **Roughness**.
+4. Connect `MF_PropWind` to **World Position Offset**.
 
 Leaves, named `M_PropLeaves`:
 
 1. Set **Blend Mode** to **Masked** and **Shading Model** to **Two Sided Foliage**. Leave **Two Sided** off: the leaf cards already have both faces, and turning it on spoils their soft shading.
-2. Add a **Texture Sample** using the imported leaf texture.
+2. Add a **Texture Sample** using the imported leaf texture, the one of scattered dabs.
 3. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
 4. Multiply the same result by 0.5, and connect that to **Subsurface Color**.
 5. Connect its **A** to **Opacity Mask**.

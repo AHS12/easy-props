@@ -64,8 +64,10 @@ You get these files:
 3. Keep **Recompute Normals** off, or the soft leaf shading is lost.
 4. Keep **Generate Lightmap UVs** off, so nothing can overwrite the wind data.
 
-You get a `name_wood` mesh, a `name_leaves` mesh and the leaf texture
-`name_LOD0_texture_1`.
+You get a `name_wood` mesh, a `name_leaves` mesh and three textures. On a tree, these are
+usually the bark `name_LOD0_texture_0`, the relief `name_LOD0_texture_1` and the leaves
+`name_LOD0_texture_2`. Check them by eye: bark is pale, relief is blue-purple, and leaves
+are scattered dabs.
 
 Unreal wraps each mesh in a large collision cage, which feels like an invisible wall:
 
@@ -133,9 +135,10 @@ click **Save**.
 
 Make a material called `M_PropWood`:
 
-1. Connect **Vertex Color** to **Base Color**.
-2. Connect a **Constant** `0.85` to **Roughness**.
-3. Add `MF_PropWind` and connect it to **World Position Offset**.
+1. Add a **Texture Sample** using the bark texture. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
+2. Add a second **Texture Sample** using the relief texture, and connect it to **Normal**.
+3. Connect a **Constant** `0.85` to **Roughness**.
+4. Add `MF_PropWind` and connect it to **World Position Offset**.
 
 ### Make the leaves material
 
@@ -145,7 +148,7 @@ Make a material called `M_PropLeaves`:
    Model** to **Two Sided Foliage**.
 2. Leave the **Two Sided** checkbox off. The leaf cards already have both faces, and
    turning it on spoils their soft shading.
-3. Add a **Texture Sample** using `name_LOD0_texture_1`.
+3. Add a **Texture Sample** using the leaf texture.
 4. Multiply its **RGB** by **Vertex Color**, and connect that to **Base Color**.
 5. Multiply the same result by a **Constant** `0.5`, and connect that to **Subsurface Color**.
 6. Connect the sample's **A** to **Opacity Mask**.
@@ -195,6 +198,7 @@ the leaves look too bright.
 
 | What you see | Cause | Fix |
 |---|---|---|
+| Bark looks blurry for a moment | Unreal is still streaming the sharper texture | Wait a few seconds. A scene capture may never load it |
 | The whole tree slides, base included | The **Mask (R)** is not connected to the sway | Reconnect it |
 | The tree bends far too much | The sway vector has the wrong value | Check it reads `25, 8, 0` |
 | Leaves move like liquid | Flutter is too strong or its waves too large | Use strength `1.5` and divide by `60` |

@@ -202,6 +202,8 @@ function reprint(component: RenderedComponent, part: GeneratedPart | undefined):
         material.needsUpdate = !material.map !== !map
         material.map = map
     }
+
+    lit.normalMap = part?.surface?.normalMap ?? null
 }
 
 /** A style id that also says which detail level is showing. Full detail is just the style. */

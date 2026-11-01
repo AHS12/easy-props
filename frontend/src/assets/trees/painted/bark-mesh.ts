@@ -37,6 +37,11 @@ const GROUND_LEVEL = -0.02
 /** How far out occlusion looks, as a share of the trunk radius. */
 const OCCLUSION_REACH = 0.42
 const MOSS_COLOUR = '#6c9a3c'
+/** How shut in a point must be before it counts as a crease, and over how much that takes hold. */
+const CREASE_FROM = 0.3
+const CREASE_SPAN = 0.3
+const CREASE_STRENGTH = 0.6
+const CREASE_DARKNESS = 0.6
 
 /** How many sides a tube gets, by its radius where it starts. */
 function sidesFor(radius: number, level: number, detail: number): number {
@@ -168,6 +173,7 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
     const light = new THREE.Color(palette.barkLight)
     const paint = new THREE.Color()
     const moss = new THREE.Color(MOSS_COLOUR)
+    const crease = deep.clone().multiplyScalar(CREASE_DARKNESS)
     const occlusionReach = tree.trunkRadius * OCCLUSION_REACH
 
     return sculptCells(field, cells, cell, (x, y, z, n, colors) => {
@@ -205,6 +211,13 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
         const mossHere = tree.moss * Math.max(0, n[1] * 1.4 + blotch * 0.9 + 0.1)
 
         paint.lerp(moss, Math.min(1, mossHere))
+
+        // Creases get a colour of their own, not just less light: the sharper this
+        // turns, the more the wood reads as shapes rather than one soft gradient.
+        const shut = 1 - Math.min(1, Math.max(0, open))
+        const inCrease = Math.min(1, Math.max(0, (shut + field.valley(x, y, z) * 0.5 - CREASE_FROM) / CREASE_SPAN))
+
+        paint.lerp(crease, inCrease * inCrease * (3 - 2 * inCrease) * CREASE_STRENGTH)
         colors.push(paint.r, paint.g, paint.b)
     })
 }

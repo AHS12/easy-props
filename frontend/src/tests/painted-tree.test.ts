@@ -118,7 +118,7 @@ describe('painted tree', () => {
         expect(clump.surface?.map).toBeDefined()
     })
 
-    it('prints brush strokes on the wood as strongly as asked, and not at all at zero', () => {
+    it('prints brush strokes as strongly as asked, and keeps its relief with none at all', () => {
         const stroked = (brushStrokes: number) => buildParts({...paintedTreeDefaults, brushStrokes}, 3)[0].surface?.map
         const darkest = (brushStrokes: number) => {
             const {image} = stroked(brushStrokes) as unknown as {image: {data: Uint8Array}}
@@ -126,10 +126,35 @@ describe('painted tree', () => {
             return image.data.reduce((least, value) => Math.min(least, value), 255)
         }
 
-        expect(stroked(0)).toBeUndefined()
+        expect(darkest(0)).toBe(255)
+        expect(buildParts({...paintedTreeDefaults, brushStrokes: 0}, 3)[0].surface?.normalMap).toBeDefined()
         expect(stroked(1)).toBe(stroked(1))
         expect(darkest(2)).toBeLessThan(darkest(1))
         expect(darkest(1)).toBeLessThan(darkest(0.25))
+    })
+
+    it('keeps relief edges smooth, so light does not pick out their pixels as dots', () => {
+        const relief = buildParts(paintedTreeDefaults, 3)[0].surface!.normalMap as unknown as {
+            image: {data: Uint8Array; width: number}
+        }
+        const {data, width} = relief.image
+        let sharpest = 0
+
+        for (let at = 4; at < data.length - 4; at += 4) {
+            if ((at / 4) % width !== 0) {
+                sharpest = Math.max(sharpest, Math.abs(data[at] - data[at - 4]))
+            }
+        }
+
+        expect(sharpest).toBeLessThan(150)
+    })
+
+    it('gives every bark pattern its own relief and paint', () => {
+        const patterns = ['none', 'ringed', 'plated', 'banded', 'peeling', 'fibrous'] as const
+        const surfaces = patterns.map((barkPattern) => buildParts({...paintedTreeDefaults, barkPattern}, 3)[0].surface!)
+
+        expect(new Set(surfaces.map((surface) => surface.normalMap)).size).toBe(patterns.length)
+        expect(new Set(surfaces.map((surface) => surface.map)).size).toBe(patterns.length)
     })
 
     it('adding a branch leaves the other branches where they were', () => {

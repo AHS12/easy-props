@@ -21,6 +21,7 @@ import {
     buildFrond,
     canBuildBarkOffThread,
     COLOUR_KEYS,
+    getBarkRelief,
     getBarkTexture,
     getDabTexture,
     parseEdits,
@@ -119,9 +120,16 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     scalesWithDetail: true,
 
     dress(geometry, {tree}) {
-        const map = tree.brushStrokes > 0 ? getBarkTexture(tree.brushStrokes) : undefined
-
-        return {geometry, material: 'painted', surface: {vertexColors: true, map}, role: 'solid'}
+        return {
+            geometry,
+            material: 'painted',
+            surface: {
+                vertexColors: true,
+                map: getBarkTexture(tree.brushStrokes, tree.barkPattern),
+                normalMap: getBarkRelief(tree.barkPattern),
+            },
+            role: 'solid',
+        }
     },
 
     generate({tree, seed}, context) {

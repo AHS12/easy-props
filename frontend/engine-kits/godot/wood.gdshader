@@ -1,7 +1,11 @@
-// easy-props wood. Paint comes from the vertex colours, movement from UV2.
+// easy-props wood. Paint comes from the vertex colours and the bark texture,
+// fine detail from the relief texture, and movement from UV2.
 // UV2.x is sway, from 0 at the base to 1 at the far tips.
 shader_type spatial;
 
+uniform sampler2D bark_texture : source_color, hint_default_white, repeat_enable, filter_linear_mipmap_anisotropic;
+uniform sampler2D relief_texture : hint_normal, repeat_enable, filter_linear_mipmap_anisotropic;
+uniform float relief_strength = 1.0;
 uniform float sway_strength = 0.25;
 uniform float sway_speed = 1.1;
 uniform vec3 wind_direction = vec3(1.0, 0.0, 0.3);
@@ -14,6 +18,8 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = COLOR.rgb;
+	ALBEDO = COLOR.rgb * texture(bark_texture, UV).rgb;
+	NORMAL_MAP = texture(relief_texture, UV).rgb;
+	NORMAL_MAP_DEPTH = relief_strength;
 	ROUGHNESS = 0.85;
 }

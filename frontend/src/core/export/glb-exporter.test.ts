@@ -8,6 +8,7 @@ import {createEmptyScene} from '../scene/scene-model'
 import {createSceneFromPreset} from '../scene/initial-scene'
 import {findBudgetTarget} from './pipeline/budget'
 import {MAX_COLLISION_SHAPES} from './pipeline/collision'
+import {mergeParts} from './pipeline/merge'
 import {buildExport} from './pipeline/package'
 import {LEVEL_SHARES, exportNameOf, type ExportFile} from './pipeline/types'
 import {sceneExportSource} from './scene-source'
@@ -208,6 +209,21 @@ describe('game-ready export', () => {
         expect(godot.nodes!.every((node) => /^oak_01_\d+-convcolonly$/.test(node.name))).toBe(true)
     }, 60000)
 
+    it('writes relief on the wood alone, as the file format reads it', async () => {
+        const {json} = readGLB(fileNamed(await exportPreset('blossom-tree', 1, false), 'oak_01.glb').bytes)
+        const relief = (name: string) => (json.materials!.find((material) => material.name === name) as {normalTexture?: unknown}).normalTexture
+
+        expect(relief('oak_01_wood')).toBeDefined()
+        expect(relief('oak_01_leaves')).toBeUndefined()
+
+        // The exporter cannot read our relief to invert it, and a canvas stub here would hide that it tried.
+        const parts = await sceneExportSource(createSceneFromPreset('blossom-tree'), STYLE, 'test').buildAtDetail(1)
+
+        for (const {material} of mergeParts(parts, 'oak', [0, 0, 0])) {
+            expect(material.normalScale.y).toBeLessThan(0)
+        }
+    }, 60000)
+
     describe.each(['plain', 'godot', 'unreal'] as const)('with parts joined for %s', (engine) => {
         const exportBoth = async (levels: number) => {
             const settings = {name: 'oak_01', engine, levels, collision: true, wind: true}
@@ -291,7 +307,8 @@ describe('game-ready export', () => {
             // Merged, named after the prop, and sharing one texture.
             expect(json.meshes!.length, `LOD${level} meshes`).toBeLessThanOrEqual(2)
             expect(json.materials!.length, `LOD${level} materials`).toBeLessThanOrEqual(2)
-            expect((json.images ?? []).length, `LOD${level} images`).toBeLessThanOrEqual(2)
+            // Strokes and relief on the wood, and the leaves' dabs.
+            expect((json.images ?? []).length, `LOD${level} images`).toBeLessThanOrEqual(3)
 
             // Every mesh has a texture, or Unreal ignores its vertex colours.
             for (const mesh of json.meshes!) {

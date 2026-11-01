@@ -35,6 +35,8 @@ export interface CollisionShape {
 export interface PaintedSurface {
     readonly vertexColors: boolean
     readonly map?: THREE.Texture
+    /** Fine relief for light to catch. Needs a `map`, whose texture coordinates it shares. */
+    readonly normalMap?: THREE.Texture
     readonly alphaTest?: number
     /** False for leaves, where a shadow map would only speckle soft shading. */
     readonly receiveShadow?: boolean

@@ -16,10 +16,14 @@ Export the prop with **Engine: Godot** and **Wind data** on.
 1. In the FileSystem panel, right-click and choose **Create New > Resource > ShaderMaterial**.
    Save it as `wood.tres`. Make another called `leaves.tres`.
 2. Open `wood.tres` and set **Shader** to `wood.gdshader`.
-3. Open `leaves.tres` and set **Shader** to `leaves.gdshader`.
-4. Still on `leaves.tres`, open **Shader Parameters** and set **Dab Texture** to the image
-   the import made beside the file, the one ending in `_LOD0_1.png`. The `_0.png` is plain
-   white, and with it the leaves show as solid polygons.
+3. Under **Shader Parameters**, use the images the import made beside the file: set **Bark
+   Texture** to the one ending in `_LOD0_0.png` and **Relief Texture** to `_LOD0_1.png`.
+4. Open `leaves.tres` and set **Shader** to `leaves.gdshader`.
+5. Under **Shader Parameters**, set **Dab Texture** to the image ending in `_LOD0_2.png`.
+   With the wrong one, the leaves show as solid polygons.
+
+For a tree of a different kind, the numbers can differ. Open the image to check it: bark is
+pale, relief is blue-purple, and leaves are scattered dabs.
 
 ## Use them
 
@@ -37,6 +41,7 @@ settings, or the leaves slide away from the branches.
 
 | Setting | Does |
 |---|---|
+| Relief Strength | How deeply the bark looks carved |
 | Sway Strength | How far the whole tree bends, in metres at the tips |
 | Sway Speed | How fast it bends |
 | Flutter Strength | How far each leaf moves |

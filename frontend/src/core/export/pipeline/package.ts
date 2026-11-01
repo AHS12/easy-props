@@ -66,7 +66,8 @@ export async function buildExport(
             }
         }
 
-        const merged = mergeParts(parts, name, pivot, extent)
+        // Only the full level is seen up close, where a small relief shows its pixels.
+        const merged = mergeParts(parts, name, pivot, extent, level === 0)
         const meshes = settings.join ? joinMeshes(merged, name) : merged
         const inlineShapes = settings.join && engine === 'unreal' && meshes.length > 0
         let shapeNodes: NamedMesh[] = []

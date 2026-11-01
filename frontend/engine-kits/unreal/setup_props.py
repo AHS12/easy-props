@@ -17,6 +17,7 @@ import sys
 import unreal
 
 WHITE_TEXTURE = '/Engine/EngineResources/WhiteSquareTexture'
+FLAT_RELIEF = '/Engine/EngineMaterials/DefaultNormal'
 
 lib = unreal.MaterialEditingLibrary
 assets = unreal.EditorAssetLibrary
@@ -129,6 +130,16 @@ def parent_material(path, wind, leaves):
         texture=unreal.load_asset(WHITE_TEXTURE),
     )
     color = g.join('Multiply', texture, g.node('VertexColor'), 'RGB')
+
+    if not leaves:
+        relief = g.node(
+            'TextureSampleParameter2D',
+            parameter_name='Relief',
+            sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+            texture=unreal.load_asset(FLAT_RELIEF),
+        )
+        lib.connect_material_property(relief, 'RGB', unreal.MaterialProperty.MP_NORMAL)
+
     call = g.node('MaterialFunctionCall')
     call.set_material_function(wind)
     still = g.vector(0, 0, 0)
@@ -189,13 +200,21 @@ def assets_of(folder, kind):
     return found
 
 
-def own_texture(material, destination):
-    """The picture imported for a material, or None when it only got plain white."""
-    for texture in lib.get_used_textures(material):
-        if texture.get_name().lower() != 'white' and texture.get_path_name().startswith(destination + '/'):
-            return texture
+def own_textures(material, destination):
+    """The picture and relief imported for a material. Either is None when it has none."""
+    picture = None
+    relief = None
 
-    return None
+    for texture in lib.get_used_textures(material):
+        if texture.get_name().lower() == 'white' or not texture.get_path_name().startswith(destination + '/'):
+            continue
+
+        if texture.get_editor_property('compression_settings') == unreal.TextureCompressionSettings.TC_NORMALMAP:
+            relief = texture
+        else:
+            picture = texture
+
+    return picture, relief
 
 
 def material_for(slot_name, imported, destination, parents, moves):
@@ -204,12 +223,15 @@ def material_for(slot_name, imported, destination, parents, moves):
     path = '{}/MI_{}'.format(destination, slot_name)
     instance, _ = load_or_create(path, factory, unreal.MaterialInstanceConstant)
     # On a second run the slot still holds this instance, with its texture already set.
-    texture = own_texture(imported, destination) if isinstance(imported, unreal.Material) else None
+    texture, relief = own_textures(imported, destination) if isinstance(imported, unreal.Material) else (None, None)
 
     instance.set_editor_property('parent', parents['leaves' if leaves else 'wood'])
 
     if texture:
         lib.set_material_instance_texture_parameter_value(instance, 'Texture', texture)
+
+    if relief and not leaves:
+        lib.set_material_instance_texture_parameter_value(instance, 'Relief', relief)
 
     lib.set_material_instance_static_switch_parameter_value(instance, 'Wind', moves)
     lib.update_material_instance(instance)
