@@ -96,7 +96,7 @@ export interface PartGenerator<P extends object = object> {
      */
     buildOffThread?(parameters: P, style: StyleProfile, detail?: number): Promise<THREE.BufferGeometry> | null
     /** Turns what `buildOffThread` made into the part `generate` would have returned. */
-    dress?(geometry: THREE.BufferGeometry): GeneratedPart
+    dress?(geometry: THREE.BufferGeometry, parameters: P): GeneratedPart
     /** True when `context.detail` lightens this part. An export thins out any other part itself. */
     readonly scalesWithDetail?: boolean
 }

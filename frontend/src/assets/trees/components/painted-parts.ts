@@ -21,6 +21,7 @@ import {
     buildFrond,
     canBuildBarkOffThread,
     COLOUR_KEYS,
+    getBarkTexture,
     getDabTexture,
     parseEdits,
     planPaintedTree,
@@ -86,7 +87,7 @@ const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
 
 export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     id: 'painted-bark',
-    version: 2,
+    version: 3,
     type: 'bark',
     label: 'Bark',
     // The tree's controls live on the tree: one rebuild, one undo step.
@@ -117,14 +118,16 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
 
     scalesWithDetail: true,
 
-    dress(geometry) {
-        return {geometry, material: 'painted', surface: {vertexColors: true}, role: 'solid'}
+    dress(geometry, {tree}) {
+        const map = tree.brushStrokes > 0 ? getBarkTexture(tree.brushStrokes) : undefined
+
+        return {geometry, material: 'painted', surface: {vertexColors: true, map}, role: 'solid'}
     },
 
     generate({tree, seed}, context) {
         const detail = detailOf(context.style) * (context.detail ?? 1)
 
-        return this.dress!(buildBark(planPaintedTree(tree, seed), tree, seed, detail))
+        return this.dress!(buildBark(planPaintedTree(tree, seed), tree, seed, detail), {tree, seed})
     },
 
     buildOffThread({tree, seed}, style, detail = 1) {

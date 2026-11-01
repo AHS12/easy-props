@@ -106,14 +106,30 @@ describe('painted tree', () => {
         }
     })
 
-    it('carries colour, its own normals, and a cut-out for leaves', () => {
+    it('carries colour, its own normals, printed bark, and a cut-out for leaves', () => {
         const [bark, clump] = buildParts(paintedTreeDefaults, 3)
 
         expect(bark.geometry.getAttribute('color')).toBeDefined()
-        expect(bark.surface?.map).toBeUndefined()
+        expect(bark.geometry.getAttribute('uv').count).toBe(bark.geometry.getAttribute('position').count)
+        expect(bark.surface?.map).toBeDefined()
+        expect(bark.surface?.alphaTest).toBeUndefined()
         expect(clump.geometry.getAttribute('normal')).toBeDefined()
         expect(clump.surface?.alphaTest).toBeGreaterThan(0)
         expect(clump.surface?.map).toBeDefined()
+    })
+
+    it('prints brush strokes on the wood as strongly as asked, and not at all at zero', () => {
+        const stroked = (brushStrokes: number) => buildParts({...paintedTreeDefaults, brushStrokes}, 3)[0].surface?.map
+        const darkest = (brushStrokes: number) => {
+            const {image} = stroked(brushStrokes) as unknown as {image: {data: Uint8Array}}
+
+            return image.data.reduce((least, value) => Math.min(least, value), 255)
+        }
+
+        expect(stroked(0)).toBeUndefined()
+        expect(stroked(1)).toBe(stroked(1))
+        expect(darkest(2)).toBeLessThan(darkest(1))
+        expect(darkest(1)).toBeLessThan(darkest(0.25))
     })
 
     it('adding a branch leaves the other branches where they were', () => {

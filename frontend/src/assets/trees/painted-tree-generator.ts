@@ -68,7 +68,7 @@ function typeOf(limb: Limb): GeneratedComponent['type'] {
 
 export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     id: 'painted-tree',
-    version: 3,
+    version: 4,
     label: 'Painted tree',
     parameters: paintedTreeParameterSpecs,
     paintsOwnColours: true,
@@ -100,7 +100,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
             id: 'cmp-bark-0',
             type: 'bark',
             generatorId: 'painted-bark',
-            generatorVersion: 2,
+            generatorVersion: 3,
             parentId: null,
             transform: IDENTITY_TRANSFORM,
             parameters: {tree: parameters, seed},

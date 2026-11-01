@@ -11,7 +11,7 @@ import {roleOfPart} from '../../assets/shared/generator-types'
 import {findComponentGenerator} from '../../assets/component-generators'
 import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
-import type {MaterialKind} from '../../assets/shared/generator-types'
+import type {GeneratedPart, MaterialKind} from '../../assets/shared/generator-types'
 import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
 import {createPartMaterial} from '../../assets/style/part-material'
 import {createWindUniforms, createWindMaterial, measureWind, type WindUniforms} from './wind-material'
@@ -189,6 +189,18 @@ function buildComponent(
         materialKind: part.material,
         signature,
         styleId: style.id,
+    }
+}
+
+/** Keeps a part's materials showing the texture of a mesh swapped in under them. */
+function reprint(component: RenderedComponent, part: GeneratedPart | undefined): void {
+    const map = part?.surface?.map ?? null
+    const {lit, flat} = component.materials
+
+    for (const material of [lit, flat, component.outline.material as THREE.MeshBasicMaterial]) {
+        // Gaining or losing a texture changes the shader, not just a value.
+        material.needsUpdate = !material.map !== !map
+        material.map = map
     }
 }
 
@@ -378,6 +390,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                         existing.mesh.geometry = geometry
                         existing.outline.geometry = geometry
                         existing.signature = signature
+                        reprint(existing, generator.dress?.(geometry, generator.validate(component.parameters).parameters))
                     }
 
                     // The rest of the tree joins it now, so the whole tree moves

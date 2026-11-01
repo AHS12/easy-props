@@ -75,7 +75,51 @@ export interface BarkArrays {
     readonly positions: Float32Array
     readonly normals: Float32Array
     readonly colors: Float32Array
+    readonly uvs: Float32Array
     readonly indices: Uint32Array
+}
+
+/** How much wood one repeat of the bark texture covers, against trunk radius. */
+const BARK_TILE_SHARE = 2.2
+
+/**
+ * Prints the bark texture from whichever side each face looks most towards.
+ *
+ * Wood has no sides to unwrap, and joints have no seam a cylinder's would suit.
+ * This asks nothing of its shape, and a vertex on the line between two sides
+ * simply becomes two, leaving the number of faces alone.
+ */
+function projectBark(buffers: MeshBuffers, tile: number): {buffers: MeshBuffers; uvs: number[]} {
+    const {positions: p, normals: n, colors: c, indices} = buffers
+    const out: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
+    const uvs: number[] = []
+    const copies = new Map<number, number>()
+
+    for (let at = 0; at < indices.length; at += 3) {
+        const sum = [0, 1, 2].map((axis) => n[indices[at] * 3 + axis] + n[indices[at + 1] * 3 + axis] + n[indices[at + 2] * 3 + axis])
+        const side = Math.abs(sum[1]) >= Math.abs(sum[0]) && Math.abs(sum[1]) >= Math.abs(sum[2]) ? 1 : Math.abs(sum[0]) >= Math.abs(sum[2]) ? 0 : 2
+
+        for (let corner = 0; corner < 3; corner++) {
+            const vertex = indices[at + corner]
+            const key = vertex * 3 + side
+            let copy = copies.get(key)
+
+            if (copy === undefined) {
+                const [x, y, z] = [p[vertex * 3], p[vertex * 3 + 1], p[vertex * 3 + 2]]
+
+                copy = out.positions.length / 3
+                copies.set(key, copy)
+                out.positions.push(x, y, z)
+                out.normals.push(n[vertex * 3], n[vertex * 3 + 1], n[vertex * 3 + 2])
+                out.colors.push(c[vertex * 3], c[vertex * 3 + 1], c[vertex * 3 + 2])
+                uvs.push((side === 0 ? z : x) / tile, (side === 1 ? z : y) / tile)
+            }
+
+            out.indices.push(copy)
+        }
+    }
+
+    return {buffers: out, uvs}
 }
 
 /**
@@ -357,20 +401,24 @@ export function assembleBark(
         )
     }
 
+    const printed = projectBark(buffers, tree.trunkRadius * BARK_TILE_SHARE)
+
     return {
-        positions: Float32Array.from(buffers.positions),
-        normals: Float32Array.from(buffers.normals),
-        colors: Float32Array.from(buffers.colors),
-        indices: Uint32Array.from(buffers.indices),
+        positions: Float32Array.from(printed.buffers.positions),
+        normals: Float32Array.from(printed.buffers.normals),
+        colors: Float32Array.from(printed.buffers.colors),
+        uvs: Float32Array.from(printed.uvs),
+        indices: Uint32Array.from(printed.buffers.indices),
     }
 }
 
-export function barkGeometry({positions, normals, colors, indices}: BarkArrays): THREE.BufferGeometry {
+export function barkGeometry({positions, normals, colors, uvs, indices}: BarkArrays): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry()
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
     geometry.setIndex(
         positions.length / 3 < 65535
             ? new THREE.Uint16BufferAttribute(indices, 1)

@@ -57,6 +57,7 @@ function run(task: BarkTask): {result: BarkTaskResult; transfer: Transferable[]}
                     arrays.positions.buffer,
                     arrays.normals.buffer,
                     arrays.colors.buffer,
+                    arrays.uvs.buffer,
                     arrays.indices.buffer,
                 ],
             }

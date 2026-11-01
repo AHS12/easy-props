@@ -42,7 +42,7 @@ async function buildPart(
     const build = generator.dress ? generator.buildOffThread?.(parameters, style, detail) : null
 
     if (build) {
-        return generator.dress!(await build)
+        return generator.dress!(await build, parameters)
     }
 
     return generator.generate(parameters, {
