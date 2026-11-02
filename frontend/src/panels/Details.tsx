@@ -6,7 +6,7 @@
  * says, and which groups are open is remembered per kind of prop.
  */
 
-import {ChevronRight, Dices, Search, Trash2, X} from 'lucide-react'
+import {ChevronRight, Dices, LayoutGrid, Search, Trash2, X} from 'lucide-react'
 import {createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ColourRow} from '../components/ColourRow'
 import {Select} from '../components/controls'
@@ -365,6 +365,15 @@ export function Details() {
                         <button type="button" className="icon-text-button" onClick={randomizeTree} title="Try a different one with the same shape (R)">
                             <Dices size={13} aria-hidden="true" />
                             Surprise me
+                        </button>
+                        <button
+                            type="button"
+                            className="icon-button"
+                            onClick={() => useUiStore.getState().setVariationsOpen(true)}
+                            title="Show me more: nine versions side by side"
+                            aria-label="Show me more"
+                        >
+                            <LayoutGrid size={13} aria-hidden="true" />
                         </button>
                     </div>
                     {filterBox}

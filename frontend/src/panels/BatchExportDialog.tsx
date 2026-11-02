@@ -7,16 +7,20 @@
 
 import {useEffect, useState} from 'react'
 import {presetGroups} from '../assets/trees/presets'
-import {MAX_VARIATIONS, type BatchChoice} from '../core/export/batch-items'
+import {MAX_VARIATIONS, propsOf, type BatchChoice} from '../core/export/batch-items'
 import {GODOT_IMPORT_NOTE, loadExportPreferences, saveExportPreferences} from '../core/export/export-preferences'
 import {findBudgetTarget} from '../core/export/pipeline/budget'
-import {ENGINE_LABELS, type EngineId} from '../core/export/pipeline/types'
-import {chooseFolder, isDesktop, showFolder} from '../platform/desktop'
+import {ENGINE_LABELS, folderNameOf, type EngineId} from '../core/export/pipeline/types'
+import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
+import {chooseFolder, desktopJoin, isDesktop, showFolder, writeFilesTo} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
-import {Dialog, Select} from '../components/controls'
+import {Dialog, Select, Switch} from '../components/controls'
 import {Row} from '../components/PropertyRow'
 
 const ENGINES = Object.keys(ENGINE_LABELS) as EngineId[]
+const LEVEL_CHOICES = [1, 2, 3]
+/** The checklist key of the versions picked in Show me more. */
+const PICKED = 'picked'
 
 function formatSize(bytes: number): string {
     return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -61,13 +65,26 @@ export function BatchExportDialog() {
     const [preferences, setPreferences] = useState(loadExportPreferences)
     const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
     const [variations, setVariations] = useState(1)
+    const [subfolder, setSubfolder] = useState('')
+    const [kitSaved, setKitSaved] = useState<string | null>(null)
+    const [kitError, setKitError] = useState<string | null>(null)
+    const picked = useEditorStore((state) => state.batchPicked)
 
     useEffect(() => {
         if (open) {
             void refreshGallery()
             setPreferences(loadExportPreferences())
+            setKitSaved(null)
+            setKitError(null)
         }
     }, [open, refreshGallery])
+
+    // Versions just picked are what the person came here for.
+    useEffect(() => {
+        if (picked) {
+            setChosen((current) => new Set(current).add(PICKED))
+        }
+    }, [picked])
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -86,6 +103,38 @@ export function BatchExportDialog() {
         setChosen(next)
     }
 
+    const pickFolder = async () => {
+        const next = await chooseFolder(preferences.folder)
+
+        if (next) {
+            change({folder: next})
+        }
+    }
+
+    const saveKit = async () => {
+        const {engine} = preferences
+
+        if (engine === 'plain') {
+            return
+        }
+
+        const chosen = await chooseFolder(preferences.folder)
+
+        if (!chosen) {
+            return
+        }
+
+        const kit = desktopJoin(chosen, kitFolder(engine))
+
+        try {
+            await writeFilesTo(kit, engineKitFiles(engine))
+            setKitError(null)
+            setKitSaved(kit)
+        } catch (failure) {
+            setKitError(failure instanceof Error ? failure.message : 'Something went wrong.')
+        }
+    }
+
     const start = async () => {
         const folder = preferences.folder || (await chooseFolder(''))
 
@@ -95,18 +144,26 @@ export function BatchExportDialog() {
 
         change({folder})
 
-        const choices = [...chosen].map((key): BatchChoice => {
-            const id = key.slice(key.indexOf(':') + 1)
-
-            return key.startsWith('saved:')
-                ? {kind: 'saved', id, name: gallery.find((tree) => tree.id === id)?.name ?? id}
-                : {kind: 'preset', id}
-        })
-
-        startBatch(choices, variations, {...preferences, folder})
+        startBatch(choices, variations, {...preferences, folder}, subfolder)
     }
 
-    const total = chosen.size * variations
+    const choices = [...chosen].flatMap((key): BatchChoice[] => {
+        if (key === PICKED) {
+            return picked ? [picked] : []
+        }
+
+        const id = key.slice(key.indexOf(':') + 1)
+
+        return key.startsWith('saved:')
+            ? [{kind: 'saved', id, name: gallery.find((tree) => tree.id === id)?.name ?? id}]
+            : [{kind: 'preset', id}]
+    })
+    const total = choices.reduce((sum, choice) => sum + propsOf(choice, variations), 0)
+    const inside = folderNameOf(subfolder)
+    const base = inside ? desktopJoin(preferences.folder, inside) : preferences.folder
+    const destination = preferences.folderPerProp && isDesktop()
+        ? `Each prop gets a folder of its own in ${base}.`
+        : `Files go in ${base}.`
     const summary = batch?.summary
 
     return (
@@ -187,6 +244,14 @@ export function BatchExportDialog() {
                     }}
                 >
                     <div className="checklists">
+                        {picked?.kind === 'seeds' ? (
+                            <Checklist
+                                title="Picked in Show me more"
+                                entries={[{key: PICKED, label: `${picked.name}, ${picked.seeds.length} ${picked.seeds.length === 1 ? 'version' : 'versions'}`}]}
+                                chosen={chosen}
+                                onToggle={toggle}
+                            />
+                        ) : null}
                         {gallery.length > 0 ? (
                             <Checklist
                                 title="Your props"
@@ -210,7 +275,7 @@ export function BatchExportDialog() {
                     </div>
 
                     <div className="form-rows">
-                        <Row label="Variations of each">
+                        <Row label="Variations of each" help="New seeds of each prop ticked above. Versions picked in Show me more are one each.">
                             <input
                                 className="field field--short"
                                 aria-label="Variations of each"
@@ -223,7 +288,7 @@ export function BatchExportDialog() {
                                 }
                             />
                         </Row>
-                        <Row label="Engine">
+                        <Row label="Engine" help="Prepares the files for this engine's axes and import rules.">
                             <Select
                                 label="Engine"
                                 value={preferences.engine}
@@ -231,13 +296,82 @@ export function BatchExportDialog() {
                                 options={ENGINES.map((id) => ({value: id, label: ENGINE_LABELS[id]}))}
                             />
                         </Row>
+                        {preferences.engine === 'godot' ? <p className="dialog__note">{GODOT_IMPORT_NOTE}</p> : null}
+                        <Row label="Detail levels (LOD)" help="Lighter versions, for showing each prop far away.">
+                            <Select
+                                label="Detail levels (LOD)"
+                                value={String(preferences.levels)}
+                                onChange={(next) => change({levels: Number(next)})}
+                                options={LEVEL_CHOICES.map((count) => ({value: String(count), label: String(count)}))}
+                            />
+                        </Row>
+                        <Row label="Collision" help="Simple shapes for the trunk and heavy branches, for walking into.">
+                            <Switch label="Collision" value={preferences.collision} onChange={(next) => change({collision: next})} />
+                        </Row>
+                        <Row label="Wind data" help="Stores how each part may move, for the wind materials in your engine. Rocks never get any.">
+                            <Switch label="Wind data" value={preferences.wind} onChange={(next) => change({wind: next})} />
+                        </Row>
+                        <Row label="Join parts" help="Makes wood and leaves one object, for placing many at once.">
+                            <Switch label="Join parts" value={preferences.join} onChange={(next) => change({join: next})} />
+                        </Row>
+                        <Row label="Folder">
+                            <input
+                                className="field field--path"
+                                aria-label="Folder"
+                                readOnly
+                                value={preferences.folder}
+                                placeholder="You will be asked when you export"
+                                title={preferences.folder}
+                            />
+                            <button type="button" className="button" onClick={() => void pickFolder()}>
+                                Choose…
+                            </button>
+                        </Row>
+                        {isDesktop() ? (
+                            <>
+                                <Row label="Subfolder" help="Puts the whole batch in a new folder inside the one above. Leave it empty to write straight into it.">
+                                    <input
+                                        className="field"
+                                        aria-label="Subfolder"
+                                        value={subfolder}
+                                        maxLength={60}
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        placeholder="None"
+                                        onChange={(event) => setSubfolder(event.target.value)}
+                                    />
+                                </Row>
+                                <Row label="A folder for each prop" help="Puts each prop's files in a folder named after it, as Export does.">
+                                    <Switch
+                                        label="A folder for each prop"
+                                        value={preferences.folderPerProp}
+                                        onChange={(next) => change({folderPerProp: next})}
+                                    />
+                                </Row>
+                            </>
+                        ) : null}
+                        {preferences.engine !== 'plain' ? (
+                            <Row label="Engine kit" help={KIT_LABELS[preferences.engine]}>
+                                <span className="dialog__hint dialog__hint--grow">
+                                    {kitSaved ? `Saved to ${kitSaved}` : KIT_LABELS[preferences.engine]}
+                                </span>
+                                <button type="button" className="button" onClick={() => void saveKit()}>
+                                    Save kit…
+                                </button>
+                            </Row>
+                        ) : null}
                     </div>
 
-                    {preferences.engine === 'godot' ? <p className="dialog__note">{GODOT_IMPORT_NOTE}</p> : null}
+                    {kitError ? (
+                        <p className="dialog__error" role="alert">
+                            {kitError}
+                        </p>
+                    ) : null}
 
                     <p className="dialog__hint">
-                        {preferences.levels} detail levels{preferences.collision ? ' and collision' : ''} each, as in
-                        Export. Files go in one folder, and replace any with the same names.
+                        {preferences.folder
+                            ? `${destination} They replace any files with the same names.`
+                            : 'Files replace any with the same names.'}
                     </p>
 
                     <div className="dialog__actions">

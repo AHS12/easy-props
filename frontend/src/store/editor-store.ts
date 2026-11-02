@@ -50,10 +50,11 @@ import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences}
 import {describeChanges, makeItFit} from '../core/export/make-it-fit'
 import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
 import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/export/pipeline/budget'
+import {folderNameOf} from '../core/export/pipeline/types'
 import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
-import {openProjectFile, saveProjectFile, writeFilesTo} from '../platform/desktop'
+import {desktopJoin, openProjectFile, saveProjectFile, writeExportFiles, writeFilesTo} from '../platform/desktop'
 import {
     clearDraftText,
     readDraftText,
@@ -258,10 +259,14 @@ export interface EditorStore {
     /** The panel for exporting many props. A batch outlives it. */
     batchOpen: boolean
     openBatch(): void
+    /** Versions picked in Show me more, offered at the top of Export many. */
+    batchPicked: BatchChoice | null
+    openBatchWith(choice: BatchChoice): void
     closeBatch(): void
     /** The batch running or just finished, or null. */
     batch: BatchState | null
-    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences): void
+    /** `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch. */
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string): void
     cancelBatch(): void
     clearBatch(): void
     /** Which detail level the viewport is showing. */
@@ -1024,9 +1029,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         notify: (message, folder, action) => set({toast: {message, undoable: false, folder, action}}),
         batchOpen: false,
         openBatch: () => set({batchOpen: true, exportOpen: false}),
+        batchPicked: null,
+        openBatchWith: (batchPicked) => set({batchPicked, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder}) => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder: chosen, folderPerProp}, subfolder = '') => {
+            const inside = folderNameOf(subfolder)
+            const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
 
             if (state.batch && !state.batch.summary) {
@@ -1047,7 +1056,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 settings: {engine, levels, collision, wind, join},
                 budget: state.budgetTarget,
                 signal: controller.signal,
-                write: (files) => writeFilesTo(folder, files),
+                write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),
                 onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
             }).then((summary) => {
                 batchController = null

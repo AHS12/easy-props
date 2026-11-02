@@ -76,6 +76,10 @@ interface UiStore {
     /** The seed panel above the status bar. */
     seedPanelOpen: boolean
     setSeedPanelOpen(open: boolean): void
+
+    /** Show me more's grid of versions. */
+    variationsOpen: boolean
+    setVariationsOpen(open: boolean): void
 }
 
 /** Whether someone's system or Settings asks for less movement on screen. */
@@ -135,4 +139,7 @@ export const useUiStore = create<UiStore>((set) => ({
 
     seedPanelOpen: false,
     setSeedPanelOpen: (seedPanelOpen) => set({seedPanelOpen}),
+
+    variationsOpen: false,
+    setVariationsOpen: (variationsOpen) => set({variationsOpen}),
 }))

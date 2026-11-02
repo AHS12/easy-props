@@ -25,9 +25,20 @@ export interface ExportPreferences {
     readonly folder: string
     /** Off once someone ticks Don't ask again, since replacing is the usual case while tuning a prop. */
     readonly askBeforeReplacing: boolean
+    /** Export many: each prop in a folder named after it, as one export does. */
+    readonly folderPerProp: boolean
 }
 
-const DEFAULTS: ExportPreferences = {engine: 'plain', levels: 3, collision: true, wind: true, join: false, folder: '', askBeforeReplacing: true}
+const DEFAULTS: ExportPreferences = {
+    engine: 'plain',
+    levels: 3,
+    collision: true,
+    wind: true,
+    join: false,
+    folder: '',
+    askBeforeReplacing: true,
+    folderPerProp: false,
+}
 
 export function loadExportPreferences(): ExportPreferences {
     try {
@@ -41,6 +52,7 @@ export function loadExportPreferences(): ExportPreferences {
             join: typeof raw.join === 'boolean' ? raw.join : DEFAULTS.join,
             folder: typeof raw.folder === 'string' ? raw.folder : DEFAULTS.folder,
             askBeforeReplacing: typeof raw.askBeforeReplacing === 'boolean' ? raw.askBeforeReplacing : DEFAULTS.askBeforeReplacing,
+            folderPerProp: typeof raw.folderPerProp === 'boolean' ? raw.folderPerProp : DEFAULTS.folderPerProp,
         }
     } catch {
         return DEFAULTS

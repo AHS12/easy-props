@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
@@ -491,6 +491,15 @@ export const COMMANDS: readonly Command[] = [
         icon: Dices,
         keywords: 'randomize variation new seed',
         run: (state) => state.randomizeTree(),
+    },
+    {
+        id: 'show-more',
+        label: 'Show me more',
+        group: 'Prop',
+        icon: LayoutGrid,
+        keywords: 'variations seeds grid compare pick choose versions',
+        unavailable: (state) => (state.scene.assets[0] ? null : 'There is no prop open'),
+        run: () => useUiStore.getState().setVariationsOpen(true),
     },
     {
         id: 'make-it-fit',

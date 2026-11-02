@@ -103,7 +103,7 @@ export function Select<T extends string>({
     )
 }
 
-/** A modal panel. Focus stays inside it, and Esc or a click outside closes it. */
+/** A modal panel. Focus stays inside it, and Esc or, unless told otherwise, a click outside closes it. */
 export function Dialog({
     open,
     onClose,
@@ -113,6 +113,7 @@ export function Dialog({
     className,
     position = 'center',
     dismissable = true,
+    closesOnOutsideClick = true,
     children,
 }: {
     open: boolean
@@ -124,6 +125,8 @@ export function Dialog({
     className?: string
     position?: 'center' | 'top'
     dismissable?: boolean
+    /** False for a dialog holding choices a stray click shouldn't throw away. Esc still closes it. */
+    closesOnOutsideClick?: boolean
     children: ReactNode
 }) {
     return (
@@ -134,7 +137,7 @@ export function Dialog({
                     onClose()
                 }
             }}
-            isDismissable={dismissable}
+            isDismissable={dismissable && closesOnOutsideClick}
             isKeyboardDismissDisabled={!dismissable}
             className="dialog-backdrop"
             data-position={position}
