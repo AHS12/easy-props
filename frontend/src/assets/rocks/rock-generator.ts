@@ -271,7 +271,7 @@ function validateBody(parameters: unknown) {
 
 export const rockBodyGenerator: PartGenerator<RockBodyParameters> = {
     id: 'rock-body',
-    version: 1,
+    version: 2,
     type: 'rock',
     label: 'Rock',
     // Its controls live on the prop: one rebuild, one undo step.

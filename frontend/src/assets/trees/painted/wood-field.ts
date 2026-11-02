@@ -48,6 +48,9 @@ const PATTERN_WAVELENGTH = 1.25
 /** How far a pattern carves, as a share of the local radius, at full depth. */
 const PATTERN_CARVE = 0.2
 
+/** How far below the ground the wood is sliced flat, against the trunk's radius. Deeper than a root's tip reaches. */
+const BURIED_DEPTH = 0.6
+
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 /**
@@ -328,7 +331,9 @@ export function createWoodField(
             result = -smoothMin(-result, inside, hollow.r * 0.5)
         }
 
-        return result
+        // A flat base, so the wood is closed however high a prop is placed, and spends
+        // nothing on carrying its flare on down out of sight.
+        return Math.max(result, -y - tree.trunkRadius * BURIED_DEPTH)
     }
 
     return {

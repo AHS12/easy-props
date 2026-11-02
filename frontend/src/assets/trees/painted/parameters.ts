@@ -89,7 +89,7 @@ const NUMBERS = {
     hollow: number(BARK, 'hollow', 'Hollow', 'Carves an opening into the trunk.', 0, 1, 0.05, 0),
     moss: number(BARK, 'moss', 'Moss', 'Green growth on the upper sides of the wood.', 0, 1, 0.05, 0),
     patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
-    patternScale: number(BARK, 'patternScale', 'Pattern size', 'How big the bark pattern is. Patterns finer than the mesh detail blur away.', 0.6, 2, 0.05, 1),
+    patternScale: number(BARK, 'patternScale', 'Bark size', 'How big each plate or mark on the wood is.', 0.6, 2, 0.05, 1),
 } as const
 
 const FORM = {
@@ -303,7 +303,7 @@ export function controlsForTree(
         .filter(
             (spec) =>
                 !hidden.includes(spec.key) &&
-                (hasPattern || (spec.key !== 'patternDepth' && spec.key !== 'patternScale')) &&
+                (hasPattern || spec.key !== 'patternDepth') &&
                 (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize')) &&
                 (values.palette !== 'custom' || spec.key !== 'barkTone'),
         )

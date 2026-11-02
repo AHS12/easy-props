@@ -2,6 +2,27 @@
 
 What's new in each version of easy-props.
 
+## 0.2.2 (November 2, 2026)
+
+**Bark that follows the wood**
+
+- Bark now runs along each branch and root, and its marks get smaller as the wood gets
+  thinner, instead of being the same size all over the tree.
+- Pattern size is now called Bark size. It sets how big the marks on the wood are, including
+  brush strokes, and it also works on Plain bark.
+- Presets no longer start with the Plates bark pattern. You can still choose it, and trees
+  you saved keep the pattern they have. Old oak now has smooth, gently peeling bark.
+
+**Roots and trunks that hold together**
+
+- Roots now run along the ground and sink into it, instead of ending in a blunt stub.
+- The wood now has a closed base below the ground, so a tree placed a little too high no
+  longer shows a jagged, open edge.
+- Fixed small holes in the wood, which showed most when a bark pattern was fine and deep.
+
+Trees you saved earlier keep their shape, but the marks on their bark will sit differently,
+and a tree saved with its own pattern size will have marks of a different size.
+
 ## 0.2.1 (November 1, 2026)
 
 **Update from inside the app**
