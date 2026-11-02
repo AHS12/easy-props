@@ -8,7 +8,7 @@ import type {SpineLike} from '../assets/shared/spines'
 import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {useSetting, useSettingsStore, settingValue} from '../store/settings-store'
-import {useUiStore} from '../store/ui-store'
+import {useUiStore, windWanted} from '../store/ui-store'
 import {applyCameraScheme, type CameraScheme} from './scene/camera-controls'
 import {createViewportScene, type Backdrop, type ViewportScene} from './scene/create-scene'
 import {registerViewport, type ViewAngle} from './viewport-bridge'
@@ -36,7 +36,10 @@ const UP: Record<CompassAxis, THREE.Vector3> = {
     z: new THREE.Vector3(0, 1, 0),
 }
 
-const isDemoScene = (backdrop: unknown) => backdrop === 'meadow' || backdrop === 'grove'
+/** How quickly the wind rises and settles, per second. */
+const WIND_EASING = 3
+
+const isDemoScene =(backdrop: unknown) => backdrop === 'meadow' || backdrop === 'grove'
 
 /** How a move drag is pinned to one axis. */
 interface MoveState {
@@ -152,6 +155,7 @@ export function Viewport() {
 
         let frame = 0
         let lastDrawn = 0
+        let wind = 0
         const render = (now: number) => {
             frame = requestAnimationFrame(render)
 
@@ -161,6 +165,14 @@ export function Viewport() {
             if (limit > 0 && now - lastDrawn < 1000 / limit - 2) {
                 return
             }
+
+            // Eases in and out, and calms while a part is dragged, so a handle stays under the pointer.
+            const dragging = dragRef.current !== null || moveRef.current !== null
+            const wanted = windWanted() && !dragging ? Number(settingValue('windStrength')) : 0
+            const elapsed = lastDrawn === 0 ? 0 : Math.min((now - lastDrawn) / 1000, 0.1)
+
+            wind += (wanted - wind) * Math.min(elapsed * WIND_EASING, 1)
+            viewport.setWind(wind < 0.005 ? 0 : wind, now / 1000)
 
             lastDrawn = now
             viewport.controls.update()

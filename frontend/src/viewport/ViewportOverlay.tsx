@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
-import {Tooltip} from '../components/controls'
+import {Switch, Tooltip} from '../components/controls'
+import {findPropGenerator} from '../assets/prop-generators'
 import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
 import {loadExportPreferences} from '../core/export/export-preferences'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
@@ -16,7 +17,7 @@ import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode}
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
 import {useEditorStore} from '../store/editor-store'
 import {useSetting, useSettingsStore} from '../store/settings-store'
-import {useUiStore} from '../store/ui-store'
+import {asksForLessMotion, useUiStore} from '../store/ui-store'
 import {SunDial} from './SunDial'
 import {viewportHandle, type ViewAngle} from './viewport-bridge'
 
@@ -160,6 +161,61 @@ function LightingButton() {
                         step={0.05}
                         onChange={(value) => setLighting({...lighting, shadowStrength: value})}
                     />
+                </Popover.Dialog>
+            </Popover.Content>
+        </Popover>
+    )
+}
+
+function WindButton() {
+    const on = useSetting('wind') === true
+    const strength = Number(useSetting('windStrength'))
+    const chosen = useUiStore((state) => state.windChosen)
+    const setWind = useUiStore((state) => state.setWind)
+    const shadingMode = useEditorStore((state) => state.shadingMode)
+    const generatorId = useEditorStore((state) => state.scene.assets[0]?.generatorId ?? '')
+    const still = findPropGenerator(generatorId)?.still === true
+    const heldForMotion = on && !chosen && asksForLessMotion()
+    const moving = on && !heldForMotion && !still && shadingMode !== 'wind'
+
+    const note = still
+        ? "This prop doesn't move in the wind."
+        : heldForMotion
+          ? 'Your computer asks for less motion, so Wind starts off. Switch it on to see it anyway.'
+          : on && shadingMode === 'wind'
+            ? 'The Wind view shows how much each part may move, so the prop holds still in it.'
+            : null
+
+    return (
+        <Popover>
+            <Popover.Trigger>
+                <Tooltip text="Wind" placement="bottom" always>
+                    <button type="button" className="tool" aria-label="Wind" aria-pressed={moving}>
+                        <Wind size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip>
+            </Popover.Trigger>
+            <Popover.Content className="sun-panel" placement="bottom end" offset={6}>
+                <Popover.Dialog aria-label="Wind">
+                    <div className="wind-panel__row">
+                        <span>Wind</span>
+                        <Switch label="Wind" value={on && !heldForMotion} onChange={setWind} />
+                    </div>
+                    <PropertyRow
+                        label="Strength"
+                        value={strength}
+                        min={0.3}
+                        max={2}
+                        step={0.1}
+                        onChange={(value) => useSettingsStore.getState().setValue('windStrength', value)}
+                    />
+                    <div className="wind-panel__ends" aria-hidden="true">
+                        <span>Calm</span>
+                        <span>Storm</span>
+                    </div>
+                    <p className="sun-panel__caption">
+                        {note ?? 'Moves the prop as the wind materials will move it in your engine.'}
+                    </p>
                 </Popover.Dialog>
             </Popover.Content>
         </Popover>
@@ -314,6 +370,7 @@ export function ViewportOverlay() {
                         />
                     </span>
                     <LightingButton />
+                    <WindButton />
                     <ToolMenu
                         label="Camera angle"
                         trigger={<Camera size={14} aria-hidden="true" />}

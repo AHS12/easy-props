@@ -54,6 +54,8 @@ export interface ViewportScene {
     /** Draws at this share of the screen's resolution. */
     setRenderScale(scale: number): void
     setScaleFigureVisible(visible: boolean): void
+    /** Moves the prop in the wind: 0 holds it still. */
+    setWind(strength: number, seconds: number): void
     /** Draws the shapes a game uses for walking into. An empty list clears them. */
     setCollisionShapes(shapes: readonly CollisionShape[]): void
     /** The prop's size in metres: width, height, depth. */
@@ -477,6 +479,10 @@ export function createViewportScene(
 
         setScaleFigureVisible(visible) {
             figure.visible = visible
+        },
+
+        setWind(strength, seconds) {
+            components.setWind(strength, seconds)
         },
 
         setCollisionShapes(shapes) {

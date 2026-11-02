@@ -1673,6 +1673,21 @@ svg.lucide {
     pointer-events: none;
 }
 
+.wind-panel__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font: var(--text-body);
+}
+
+.wind-panel__ends {
+    display: flex;
+    justify-content: space-between;
+    margin-top: calc(var(--space-1) * -1);
+    color: var(--text-tertiary);
+    font: var(--text-caption);
+}
+
 /* Under the tools on the left, clear of the stats on the right. */
 .viewport-note {
     position: absolute;
