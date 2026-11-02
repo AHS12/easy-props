@@ -9,7 +9,7 @@ Pick a tree, rock, bush, fern or patch of grass, shape it with plain sliders, an
 export it for your game engine. It's a focused desktop tool for props, not a
 replacement for Blender.
 
-![A red maple made in easy-props, standing in the Meadow demo scene with rocks, bushes and grass](docs/images/meadow.png)
+![A red maple open in easy-props, standing in the Meadow demo scene in front of a cliff, with rocks, bushes and grass](docs/images/meadow.png)
 
 **[Download for Windows or Mac](https://github.com/AHS12/easy-props/releases)** · [What's new](CHANGELOG.md)
 
@@ -17,17 +17,27 @@ replacement for Blender.
 
 - **Start from a preset:** broadleaf trees, palms, conifers, fantasy trees, bushes,
   ferns, grass and flowers, boulders, stones and cliffs.
+- **Find the one you want:** **Show me more** puts nine versions of your prop side by
+  side. Click one to use it, or tick several and export them all.
 - **Make it yours:** drag a slider or type a value, and the prop updates live. Click a
-  branch or a leaf clump to change just that part, and undo anything.
+  branch or a leaf clump to change just that part, move it, or turn a branch around its
+  base, and undo anything.
 - **See it in a real place:** stand your prop in the Meadow or Grove demo scene, with a
   person beside it for scale, to judge it before it goes in your game.
+- **See it move:** turn on **Wind** to watch your prop sway in the view, as the engine
+  kits will move it, from a calm day to a storm.
 - **Export for games:** each prop comes as GLB files with detail levels (LOD) and simple
-  collision shapes, checked against a face budget.
+  collision shapes, which you can see in the view first, checked against a face budget.
+  Over budget? **Make it fit** lowers the controls that cost the most, in one step you can
+  undo.
 - **Wind built in:** trees and plants carry wind data in their second UV set, slow sway
   and fast flutter, so they can move in your engine at almost no cost.
 - **Engine kits:** **Save kit…** in Export writes what your engine needs for that wind:
   ready-made shaders for Godot, and step-by-step material instructions for Unreal.
-- **Export many at once:** batch-export presets, saved props and random variations.
+- **Export many at once:** batch-export presets, saved props and random variations, with
+  all of Export's choices, into a folder of their own.
+
+![A red maple swaying in the view with Wind switched on, from the Wind panel at the top](docs/images/wind.gif)
 
 ![The editor, with presets on the left, a red maple in the middle and its controls on the right](docs/images/editor.png)
 
@@ -35,7 +45,7 @@ replacement for Blender.
 
 ## Using props in your engine
 
-![The Export dialog, listing the files for a red maple with their face counts](docs/images/export.png)
+![The Export dialog set up for Godot, listing the files for a red maple with their face counts](docs/images/export.png)
 
 | Target | How |
 |---|---|
@@ -75,8 +85,9 @@ Mac disk image (needs a Mac). Both go to `build/dist`. Run `make` to list every 
 
 ## Releasing
 
-Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `wails.json` and in `APP_VERSION` in
-`frontend/src/core/export/export-preferences.ts`, then push. There are two ways to
+Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `wails.json`, in `APP_VERSION` in
+`frontend/src/core/export/export-preferences.ts`, and in `INFO_PRODUCTVERSION` in
+`build/windows/installer/wails_tools.nsh`, then push. There are two ways to
 release, and both build the installers on GitHub and attach them to the release:
 
 - **Automatic:** publish a GitHub Release tagged `vX.Y.Z`.
