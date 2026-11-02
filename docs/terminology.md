@@ -30,7 +30,7 @@ agree on the term first, or rethink the control.
 | UV, unwrap | *(never shown)* | |
 | Normal, tangent | *(never shown)* | |
 | Shader, material graph | **Material** | Fixed presets only in MVP |
-| Seed | **Seed** | Plus a shuffle button |
+| Seed | **Seed** | Plus **Surprise me** for a new one. Shown as a whole number you can type, paste or copy |
 | LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. |
 | Pivot | *(never shown)* | |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |

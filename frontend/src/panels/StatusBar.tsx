@@ -8,6 +8,7 @@ import {findPropGenerator} from '../assets/prop-generators'
 import {BUDGET_TARGETS, checkBudget, findBudgetTarget, type BudgetTargetId} from '../core/export/pipeline/budget'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {useSetting} from '../store/settings-store'
+import {SeedPanel} from './SeedPanel'
 import {hintFor} from './status-hint'
 
 export function StatusBar() {
@@ -48,7 +49,7 @@ export function StatusBar() {
                         Over budget
                     </span>
                 ) : null}
-                {asset ? <span className="tabular">Seed {asset.seed}</span> : null}
+                {asset ? <SeedPanel seed={asset.seed} /> : null}
                 {previewLevel > 0 ? (
                     <span className="tabular" title="Faces in the detail level on screen">
                         LOD{previewLevel}: {(shownFaceCounts.wood + shownFaceCounts.leaves).toLocaleString()} faces

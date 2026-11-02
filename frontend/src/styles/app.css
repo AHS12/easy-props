@@ -1876,6 +1876,61 @@ svg.lucide {
     gap: 3px;
 }
 
+.statusbar__seed {
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.statusbar__seed:hover,
+.statusbar__seed[aria-expanded='true'] {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.seed-panel {
+    width: 250px;
+}
+
+.seed-panel__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.seed-panel__label {
+    color: var(--text-secondary);
+    font: var(--text-label);
+}
+
+.seed-panel__field {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    font: var(--text-label);
+}
+
+.seed-panel__field[aria-invalid='true'] {
+    border-color: var(--danger);
+}
+
+.seed-panel__surprise {
+    align-self: flex-start;
+}
+
+.seed-panel [data-error='true'] {
+    color: var(--danger);
+}
+
 .statusbar__link {
     padding: 0;
     border: 0;

@@ -208,6 +208,8 @@ export interface EditorStore {
     restoreRemovedPart(kind: 'limb' | 'clump', key: string): void
     /** Rerolls the tree's variation while keeping its shape. */
     randomizeTree(): void
+    /** Uses a seed someone chose, as one undo step. The same seed does nothing. */
+    setSeed(seed: number): void
 
     /** Adds a part from the library and selects it. */
     addLibraryPart(part: LibraryPart): void
@@ -599,6 +601,16 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             const seed = hashSeed(currentSeed, currentSeed + 1)
 
             commit('surprise me', (scene, style) =>
+                setAssetSeed(scene, FIRST_ASSET_ID, seed, getStyleProfile(style)),
+            )
+        },
+
+        setSeed: (seed) => {
+            if (seed === get().scene.assets[0]?.seed) {
+                return
+            }
+
+            commit('change seed', (scene, style) =>
                 setAssetSeed(scene, FIRST_ASSET_ID, seed, getStyleProfile(style)),
             )
         },

@@ -58,6 +58,10 @@ interface UiStore {
 
     confirm: ConfirmRequest | null
     askConfirm(request: ConfirmRequest | null): void
+
+    /** The seed panel above the status bar. */
+    seedPanelOpen: boolean
+    setSeedPanelOpen(open: boolean): void
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -92,4 +96,7 @@ export const useUiStore = create<UiStore>((set) => ({
 
     confirm: null,
     askConfirm: (confirm) => set({confirm}),
+
+    seedPanelOpen: false,
+    setSeedPanelOpen: (seedPanelOpen) => set({seedPanelOpen}),
 }))
