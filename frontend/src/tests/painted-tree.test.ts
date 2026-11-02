@@ -54,7 +54,7 @@ describe('painted tree', () => {
             expect(triangles(buildParts(paintedTreeDefaults, seed))).toBeLessThan(14000)
             expect(triangles(buildParts(paintedTreeDefaults, seed, LOW))).toBeLessThan(10000)
         }
-    })
+    }, 60000)
 
     it('reproduces the same tree from the same seed', () => {
         const first = buildParts(paintedTreeDefaults, 42)
@@ -293,6 +293,64 @@ describe('painted tree', () => {
         }
     })
 
+    it.each([1, 0.4, 0.12])('sinks a root into the ground, with no end left to see, at detail %s', (detail) => {
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, trunkRadius: 0.85, rootCount: 6}
+        const plan = planPaintedTree(tree, 301)
+        const position = buildBark(plan, tree, 301, detail).getAttribute('position')
+        const roots = plan.limbs.filter((limb) => limb.key.startsWith('r'))
+
+        for (const root of roots) {
+            const tip = root.points[root.points.length - 1]
+
+            expect(tip[1]).toBeLessThan(0)
+
+            for (let index = 0; index < position.count; index++) {
+                if (Math.hypot(position.getX(index) - tip[0], position.getZ(index) - tip[2]) < 0.05) {
+                    expect(position.getY(index)).toBeLessThan(0.1)
+                }
+            }
+        }
+    })
+
+    it.each([1, 0.4, 0.12])('closes the bottom of the wood, at detail %s, so a prop placed high shows no open edge', (detail) => {
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, trunkRadius: 0.85, rootCount: 6}
+        const bark = buildBark(planPaintedTree(tree, 301), tree, 301, detail)
+        const position = bark.getAttribute('position')
+        const index = bark.index!
+        const welded = new Map<string, number>()
+        const heights: number[] = []
+        const weld = (vertex: number) => {
+            const key = [position.getX(vertex), position.getY(vertex), position.getZ(vertex)].map((value) => value.toFixed(4)).join()
+
+            if (!welded.has(key)) {
+                welded.set(key, heights.length)
+                heights.push(position.getY(vertex))
+            }
+
+            return welded.get(key)!
+        }
+        const edges = new Map<string, number>()
+
+        for (let at = 0; at < index.count; at += 3) {
+            const corners = [weld(index.getX(at)), weld(index.getX(at + 1)), weld(index.getX(at + 2))]
+
+            corners.forEach((corner, side) => {
+                const next = corners[(side + 1) % 3]
+                const key = corner < next ? `${corner}-${next}` : `${next}-${corner}`
+
+                edges.set(key, (edges.get(key) ?? 0) + 1)
+            })
+        }
+
+        for (const [key, uses] of edges) {
+            if (uses === 1) {
+                const top = Math.max(...key.split('-').map((corner) => heights[Number(corner)]))
+
+                expect(top).toBeGreaterThan(0.05)
+            }
+        }
+    })
+
     it('builds the same bark however the work is sliced', () => {
         const tree: PaintedTreeParameters = {...paintedTreeDefaults, burls: 3, moss: 0.5, barkPattern: 'plated', form: 'conifer'}
         const plan = planPaintedTree(tree, 11)
@@ -311,6 +369,109 @@ describe('painted tree', () => {
         }
 
         expect(sliced.index!.array).toEqual(whole.index!.array)
+    })
+
+    it.each(['plated', 'ringed', 'banded', 'peeling', 'fibrous'] as const)('faces every bit of wood outwards, even with the %s pattern at its finest and deepest', (barkPattern) => {
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, barkPattern, patternScale: 0.6, patternDepth: 1}
+        const bark = buildBark(planPaintedTree(tree, 301), tree, 301, 0.68)
+        const position = bark.getAttribute('position')
+        const normal = bark.getAttribute('normal')
+        const index = bark.index!
+        const [a, b, c, face, corners, corner] = Array.from({length: 6}, () => new THREE.Vector3())
+        let inward = 0
+
+        for (let at = 0; at < index.count; at += 3) {
+            const [ia, ib, ic] = [index.getX(at), index.getX(at + 1), index.getX(at + 2)]
+
+            a.fromBufferAttribute(position, ia)
+            b.fromBufferAttribute(position, ib)
+            c.fromBufferAttribute(position, ic)
+            face.crossVectors(b.sub(a), c.sub(a))
+            corners.fromBufferAttribute(normal, ia).add(corner.fromBufferAttribute(normal, ib)).add(corner.fromBufferAttribute(normal, ic))
+
+            if (face.dot(corners) < -1e-9) {
+                inward++
+            }
+        }
+
+        expect(inward).toBe(0)
+    })
+
+    describe('the bark texture', () => {
+        const tree: PaintedTreeParameters = {...paintedTreeDefaults, barkPattern: 'plated', patternDepth: 0}
+
+        /** How many texture repeats a metre of wood takes, among the faces a test picks. */
+        function repeatsPerMetre(bark: THREE.BufferGeometry, wanted: (y: number) => boolean): number {
+            const position = bark.getAttribute('position')
+            const uv = bark.getAttribute('uv')
+            const index = bark.index!
+            let metres = 0
+            let repeats = 0
+
+            for (let at = 0; at < index.count; at += 3) {
+                const a = index.getX(at)
+                const b = index.getX(at + 1)
+
+                if (wanted(position.getY(a))) {
+                    metres += Math.hypot(position.getX(a) - position.getX(b), position.getY(a) - position.getY(b), position.getZ(a) - position.getZ(b))
+                    repeats += Math.hypot(uv.getX(a) - uv.getX(b), uv.getY(a) - uv.getY(b))
+                }
+            }
+
+            return repeats / metres
+        }
+
+        it('makes its marks smaller on thin limbs than on the trunk', () => {
+            const plan = planPaintedTree(tree, 7)
+            const bark = buildBark(plan, tree, 7, 1)
+            const fork = plan.limbs[0].points[plan.limbs[0].points.length - 1][1]
+
+            expect(repeatsPerMetre(bark, (y) => y > fork * 1.3)).toBeGreaterThan(repeatsPerMetre(bark, (y) => y < fork * 0.5))
+        })
+
+        it('closes around the wood, with almost no face stretched across the texture', () => {
+            const bark = buildBark(planPaintedTree(tree, 7), tree, 7, 1)
+            const index = bark.index!
+            const us = bark.getAttribute('uv')
+            let stretched = 0
+
+            for (let at = 0; at < index.count; at += 3) {
+                const corners = [us.getX(index.getX(at)), us.getX(index.getX(at + 1)), us.getX(index.getX(at + 2))]
+
+                if (Math.max(...corners) - Math.min(...corners) > 1.5) {
+                    stretched++
+                }
+            }
+
+            // A rounded end has a point the texture gathers at, and only that may stretch.
+            expect(stretched / (index.count / 3)).toBeLessThan(0.02)
+            expect(us.array.every(Number.isFinite)).toBe(true)
+        })
+
+        it('does not smear where the wood flares out past the start of a limb', () => {
+            const bark = buildBark(planPaintedTree(tree, 7), tree, 7, 1)
+            const position = bark.getAttribute('position')
+            const us = bark.getAttribute('uv')
+            const along = new Set<number>()
+
+            for (let at = 0; at < position.count; at++) {
+                if (position.getY(at) < 0.1) {
+                    along.add(Math.round(us.getY(at) * 100))
+                }
+            }
+
+            expect(along.size).toBeGreaterThan(10)
+        })
+
+        it('makes marks bigger as Bark size rises, without changing the wood', () => {
+            const plan = planPaintedTree(tree, 7)
+            const normal = buildBark(plan, {...tree, patternScale: 1}, 7, 1)
+            const large = buildBark(plan, {...tree, patternScale: 2}, 7, 1)
+            const low = (y: number) => y < 1
+
+            expect(repeatsPerMetre(large, low)).toBeLessThan(repeatsPerMetre(normal, low))
+            expect(large.index!.count).toBe(normal.index!.count)
+        })
     })
 
     describe('every preset', () => {

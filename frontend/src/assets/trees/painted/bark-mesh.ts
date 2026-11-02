@@ -32,8 +32,6 @@ const MIN_CELL = 0.05
 const SCULPT_MIN_CELLS = 1.15
 /** Thinner than this, a trunk is a bush's stem, and a tube suits it. */
 const SLIM_TRUNK_MIN = 0.12
-/** Below this a face is underground and is not drawn. */
-const GROUND_LEVEL = -0.02
 /** How far out occlusion looks, as a share of the trunk radius. */
 const OCCLUSION_REACH = 0.42
 const MOSS_COLOUR = '#6c9a3c'
@@ -86,40 +84,169 @@ export interface BarkArrays {
     readonly indices: Uint32Array
 }
 
-/** How much wood one repeat of the bark texture covers, against trunk radius. */
-const BARK_TILE_SHARE = 2.2
+/** How many times the bark texture wraps around a limb, by the limb's level, at Bark size 1. */
+const BARK_WRAPS = [3, 2, 1, 1]
+/** Below this a limb's end counts as this thick, so the mapping stays finite at a point. */
+const MAPPED_RADIUS_FLOOR = 0.012
+
+/** A limb, ready to have points on its surface placed on the bark texture. */
+interface MappedLimb {
+    readonly limb: Limb
+    /** Which way "around" starts at each point, carried along so it never spins. */
+    readonly frames: readonly Vec3[]
+    /** How far along the texture each point is. */
+    readonly along: readonly number[]
+    readonly wraps: number
+    readonly low: Vec3
+    readonly high: Vec3
+    readonly reach: number
+}
+
+function mapLimb(limb: Limb, barkSize: number): MappedLimb {
+    const wraps = Math.max(1, Math.round((BARK_WRAPS[limb.level] ?? 1) / barkSize))
+    const frames: Vec3[] = []
+    const along = [0]
+    let frame = perpendicularTo(tangentAt(limb, 0))
+
+    for (let at = 0; at < limb.points.length; at++) {
+        const tangent = tangentAt(limb, at)
+        const drift = frame[0] * tangent[0] + frame[1] * tangent[1] + frame[2] * tangent[2]
+
+        frame = normalize([frame[0] - tangent[0] * drift, frame[1] - tangent[1] * drift, frame[2] - tangent[2] * drift])
+        frames.push(frame)
+
+        if (at > 0) {
+            const a = limb.points[at - 1]
+            const b = limb.points[at]
+            const radius = Math.max((limb.radii[at - 1] + limb.radii[at]) / 2, MAPPED_RADIUS_FLOOR)
+
+            along.push(along[at - 1] + (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / radius) * (wraps / (Math.PI * 2)))
+        }
+    }
+
+    const axis = (index: number) => limb.points.map((point) => point[index])
+
+    return {
+        limb,
+        frames,
+        along,
+        wraps,
+        low: [Math.min(...axis(0)), Math.min(...axis(1)), Math.min(...axis(2))],
+        high: [Math.max(...axis(0)), Math.max(...axis(1)), Math.max(...axis(2))],
+        reach: Math.max(...limb.radii),
+    }
+}
+
+/** Where a point lands on a limb's texture, and how far outside the limb it is. */
+function placeOnLimb({limb, frames, along, wraps}: MappedLimb, x: number, y: number, z: number) {
+    let gap = Infinity
+    let u = 0
+    let v = 0
+
+    for (let at = 0; at < limb.points.length - 1; at++) {
+        const a = limb.points[at]
+        const b = limb.points[at + 1]
+        const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+        const raw = ((x - a[0]) * ab[0] + (y - a[1]) * ab[1] + (z - a[2]) * ab[2]) / Math.max(ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2], 1e-9)
+        const share = Math.min(1, Math.max(0, raw))
+        const here = Math.hypot(x - a[0] - ab[0] * share, y - a[1] - ab[1] * share, z - a[2] - ab[2] * share) - (limb.radii[at] + (limb.radii[at + 1] - limb.radii[at]) * share)
+
+        if (here < gap) {
+            // Past either end of the limb the texture carries on, or a flare or a rounded
+            // tip would all land on one line of it and smear.
+            const past = (at === 0 && raw < 0) || (at === limb.points.length - 2 && raw > 1) ? raw : share
+            const off: Vec3 = [x - a[0] - ab[0] * past, y - a[1] - ab[1] * past, z - a[2] - ab[2] * past]
+            const frame = frames[at]
+            const side = cross(tangentAt(limb, at), frame)
+            const angle = Math.atan2(off[0] * side[0] + off[1] * side[1] + off[2] * side[2], off[0] * frame[0] + off[1] * frame[1] + off[2] * frame[2])
+            const radius = Math.max(limb.radii[at] + (limb.radii[at + 1] - limb.radii[at]) * share, MAPPED_RADIUS_FLOOR)
+
+            gap = here
+            u = (angle / (Math.PI * 2)) * wraps
+            // Spreading outwards from the limb, as at a trunk's flare, counts as going back down it.
+            v = along[at] + (along[at + 1] - along[at]) * past - (Math.max(here, 0) / radius) * (wraps / (Math.PI * 2))
+        }
+    }
+
+    return {gap, u, v}
+}
 
 /**
- * Prints the bark texture from whichever side each face looks most towards.
+ * Prints the bark texture along each limb, as real bark grows.
  *
- * Wood has no sides to unwrap, and joints have no seam a cylinder's would suit.
- * This asks nothing of its shape, and a vertex on the line between two sides
- * simply becomes two, leaving the number of faces alone.
+ * Going around, it repeats a whole number of times, so it closes with no seam. Going
+ * along, each step counts for its length over the limb's radius. That keeps a plate's
+ * shape as the limb tapers, so plates simply shrink towards the twigs. A face belongs
+ * to the nearest limb, and a vertex shared between two limbs or across the texture's
+ * edge simply becomes two, leaving the number of faces alone.
  */
-function projectBark(buffers: MeshBuffers, tile: number): {buffers: MeshBuffers; uvs: number[]} {
+function printAlongLimbs(buffers: MeshBuffers, limbs: readonly Limb[], barkSize: number): {buffers: MeshBuffers; uvs: number[]} {
     const {positions: p, normals: n, colors: c, indices} = buffers
+    const mapped = limbs.map((limb) => mapLimb(limb, barkSize))
     const out: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
     const uvs: number[] = []
+    const owners = new Map<number, number>()
     const copies = new Map<number, number>()
+    let lastOwner = 0
+
+    const ownerOf = (vertex: number): number => {
+        const known = owners.get(vertex)
+
+        if (known !== undefined) {
+            return known
+        }
+
+        const [x, y, z] = [p[vertex * 3], p[vertex * 3 + 1], p[vertex * 3 + 2]]
+        // Neighbouring vertices mostly share a limb, so that one gives a close bound to
+        // start from, and any limb whose box lies further away than that is skipped.
+        let owner = lastOwner
+        let least = placeOnLimb(mapped[owner], x, y, z).gap
+
+        mapped.forEach((entry, index) => {
+            const outside = Math.hypot(
+                Math.max(entry.low[0] - x, 0, x - entry.high[0]),
+                Math.max(entry.low[1] - y, 0, y - entry.high[1]),
+                Math.max(entry.low[2] - z, 0, z - entry.high[2]),
+            )
+
+            if (index !== lastOwner && outside - entry.reach < least) {
+                const {gap} = placeOnLimb(entry, x, y, z)
+
+                if (gap < least) {
+                    least = gap
+                    owner = index
+                }
+            }
+        })
+
+        owners.set(vertex, owner)
+        lastOwner = owner
+
+        return owner
+    }
 
     for (let at = 0; at < indices.length; at += 3) {
-        const sum = [0, 1, 2].map((axis) => n[indices[at] * 3 + axis] + n[indices[at + 1] * 3 + axis] + n[indices[at + 2] * 3 + axis])
-        const side = Math.abs(sum[1]) >= Math.abs(sum[0]) && Math.abs(sum[1]) >= Math.abs(sum[2]) ? 1 : Math.abs(sum[0]) >= Math.abs(sum[2]) ? 0 : 2
+        const corners = [indices[at], indices[at + 1], indices[at + 2]]
+        const owned = corners.map(ownerOf)
+        const owner = owned[1] === owned[2] ? owned[1] : owned[0]
+        const {wraps} = mapped[owner]
+        const placed = corners.map((vertex) => placeOnLimb(mapped[owner], p[vertex * 3], p[vertex * 3 + 1], p[vertex * 3 + 2]))
+        const furthest = Math.max(...placed.map(({u}) => u))
 
         for (let corner = 0; corner < 3; corner++) {
-            const vertex = indices[at + corner]
-            const key = vertex * 3 + side
+            const vertex = corners[corner]
+            // A face across the texture's edge reads its low corners one whole round on.
+            const onward = furthest - placed[corner].u > wraps / 2
+            const key = (vertex * mapped.length + owner) * 2 + (onward ? 1 : 0)
             let copy = copies.get(key)
 
             if (copy === undefined) {
-                const [x, y, z] = [p[vertex * 3], p[vertex * 3 + 1], p[vertex * 3 + 2]]
-
                 copy = out.positions.length / 3
                 copies.set(key, copy)
-                out.positions.push(x, y, z)
+                out.positions.push(p[vertex * 3], p[vertex * 3 + 1], p[vertex * 3 + 2])
                 out.normals.push(n[vertex * 3], n[vertex * 3 + 1], n[vertex * 3 + 2])
                 out.colors.push(c[vertex * 3], c[vertex * 3 + 1], c[vertex * 3 + 2])
-                uvs.push((side === 0 ? z : x) / tile, (side === 1 ? z : y) / tile)
+                uvs.push(placed[corner].u + (onward ? wraps : 0), placed[corner].v)
             }
 
             out.indices.push(copy)
@@ -140,7 +267,7 @@ export function listBarkCells({sculptedSegments, cell}: BarkContext): Int32Array
         const reach = radius * 2.2 + cell * 2
         const minI = Math.floor((Math.min(a[0], b[0]) - reach) / cell)
         const maxI = Math.floor((Math.max(a[0], b[0]) + reach) / cell)
-        const minJ = Math.max(Math.floor((Math.min(a[1], b[1]) - reach) / cell), -2)
+        const minJ = Math.floor((Math.min(a[1], b[1]) - reach) / cell)
         const maxJ = Math.floor((Math.max(a[1], b[1]) + reach) / cell)
         const minK = Math.floor((Math.min(a[2], b[2]) - reach) / cell)
         const maxK = Math.floor((Math.max(a[2], b[2]) + reach) / cell)
@@ -381,7 +508,8 @@ export function assembleBark(
     const paintWood = woodPainter(context)
     const buffers: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
 
-    joinChunks(cells, chunks, buffers, GROUND_LEVEL)
+    // Nothing is left out below the ground, so the wood is whole however high a prop is placed.
+    joinChunks(cells, chunks, buffers, -Infinity)
 
     // Thin wood goes dark as it thins, so the tips read as ink.
     for (const limb of plan.limbs) {
@@ -430,7 +558,7 @@ export function assembleBark(
         )
     }
 
-    const printed = projectBark(buffers, tree.trunkRadius * BARK_TILE_SHARE)
+    const printed = printAlongLimbs(buffers, plan.limbs, tree.patternScale)
 
     return {
         positions: Float32Array.from(printed.buffers.positions),

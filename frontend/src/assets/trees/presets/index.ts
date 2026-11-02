@@ -140,7 +140,7 @@ const CONIFER_BASE = {
     form: 'conifer',
     palette: 'pine',
     barkTone: 'pine',
-    barkPattern: 'plated',
+    barkPattern: 'fibrous',
     ridgeDepth: 0,
     trunkBend: 0.02,
     lean: 0.02,
@@ -158,7 +158,7 @@ const BIRCH_BARK = {barkTone: 'birch', barkPattern: 'banded', patternDepth: 0.9,
 
 const paintedPresets: readonly TreePreset[] = [
     // Broadleaf
-    painted('Broadleaf', 'oak', 'Old oak', 'Broad, heavy and gnarled', 301, {palette: 'forest', barkTone: 'oak', barkPattern: 'plated', height: 9, spread: 12, trunkRadius: 0.85, limbCount: 6, gnarl: 0.8, clumpCount: 14, forkHeight: 0.32, limbAngle: 28, burls: 2, ridgeDepth: 0.08}),
+    painted('Broadleaf', 'oak', 'Old oak', 'Broad, heavy and gnarled', 301, {palette: 'forest', barkTone: 'oak', barkPattern: 'peeling', patternDepth: 0.1, patternScale: 0.7, brushStrokes: 0, barkDetail: 2, roughness: 0.2, height: 9, spread: 12, trunkRadius: 0.85, limbCount: 6, gnarl: 0.8, clumpCount: 14, forkHeight: 0.32, limbAngle: 28, burls: 2, ridgeDepth: 0.08}),
     painted('Broadleaf', 'beech', 'Beech', 'Tall, smooth and grey', 302, {palette: 'forest', barkTone: 'ash', height: 12, spread: 8, trunkRadius: 0.5, ridgeDepth: 0.02, forkHeight: 0.42, gnarl: 0.3, limbAngle: 48, clumpMerge: 0.5}),
     painted('Broadleaf', 'birch', 'Silver birch', 'Slim with white bark', 303, {...BIRCH_BARK, palette: 'spring', height: 10, spread: 5, trunkRadius: 0.24, forkHeight: 0.45, limbAngle: 55, limbCount: 5, gnarl: 0.3, clumpCount: 12, clumpSize: 0.85, leafSize: 0.8, rootCount: 3, flare: 0.15}),
     painted('Broadleaf', 'aspen', 'Golden aspen', 'A narrow yellow flame', 304, {...BIRCH_BARK, palette: 'golden', height: 10, spread: 4, trunkRadius: 0.22, forkHeight: 0.4, limbAngle: 62, clumpCount: 13, clumpSize: 0.8, rootCount: 2, flare: 0.1}),
@@ -193,7 +193,7 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Conifers', 'snow-pine', 'Snowy pine', 'Winter on every tier', 333, {...CONIFER_BASE, palette: 'frost', barkTone: 'charcoal', height: 10, trunkRadius: 0.28, clumpCount: 8, spread: 6, droop: 0.45, colourVariation: 0.1}),
     painted('Conifers', 'christmas', 'Festive fir', 'Round, with baubles', 334, {...CONIFER_BASE, palette: 'pine', height: 6, trunkRadius: 0.17, clumpCount: 7, spread: 5, droop: 0.3, fruitCount: 5, fruitKind: 'apple', fruitSize: 0.8}),
     painted('Conifers', 'larch', 'Autumn larch', 'A gold conifer', 335, {...CONIFER_BASE, palette: 'golden', height: 12, trunkRadius: 0.27, clumpCount: 9, spread: 5.5, droop: 0.55, fullness: 0.6}),
-    painted('Conifers', 'scots-pine', 'Scots pine', 'A bare stem, a high flat top', 336, {palette: 'pine', barkTone: 'pine', barkPattern: 'plated', height: 12, spread: 7, trunkRadius: 0.36, forkHeight: 0.68, limbAngle: 22, limbCount: 6, gnarl: 0.6, clumpCount: 9, clumpFlatten: 0.95, clumpMerge: 0.5, leafSize: 0.75, ridgeDepth: 0.02}),
+    painted('Conifers', 'scots-pine', 'Scots pine', 'A bare stem, a high flat top', 336, {palette: 'pine', barkTone: 'pine', barkPattern: 'fibrous', height: 12, spread: 7, trunkRadius: 0.36, forkHeight: 0.68, limbAngle: 22, limbCount: 6, gnarl: 0.6, clumpCount: 9, clumpFlatten: 0.95, clumpMerge: 0.5, leafSize: 0.75, ridgeDepth: 0.02}),
     painted('Conifers', 'cypress', 'Cypress', 'A dark flame', 337, {...CONIFER_BASE, height: 11, trunkRadius: 0.22, clumpCount: 12, spread: 2.5, clumpFlatten: 0.75, droop: 0, clumpSize: 1.05}),
 
     // Weeping
@@ -203,9 +203,9 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Weeping', 'golden-willow', 'Golden willow', 'Autumn curtains', 344, {palette: 'golden', barkTone: 'oak', height: 8, spread: 10, trunkRadius: 0.48, droop: 0.65, clumpCount: 12, clumpMerge: 0.5, clumpSize: 0.8, strands: 0.75, strandLength: 0.75, leafSize: 0.7, fullness: 0.45}),
 
     // Old & bare
-    painted('Old & bare', 'dead-oak', 'Dead oak', 'Bare, grey and split', 351, {palette: 'spring', barkTone: 'ash', barkPattern: 'plated', height: 8, spread: 10, trunkRadius: 0.7, clumpCount: 0, gnarl: 1, limbCount: 6, hollow: 0.55, burls: 3, moss: 0.15, ridgeDepth: 0.15}),
+    painted('Old & bare', 'dead-oak', 'Dead oak', 'Bare, grey and split', 351, {palette: 'spring', barkTone: 'ash', barkPattern: 'peeling', patternDepth: 0.3, height: 8, spread: 10, trunkRadius: 0.7, clumpCount: 0, gnarl: 1, limbCount: 6, hollow: 0.55, burls: 3, moss: 0.15, ridgeDepth: 0.15}),
     painted('Old & bare', 'bleached', 'Bleached snag', 'Desert bones', 352, {palette: 'olive', barkTone: 'bone', height: 6, spread: 5, trunkRadius: 0.32, clumpCount: 0, gnarl: 0.9, limbCount: 3, branchCount: 2, twigCount: 1, corkscrew: 0.5, ridgeTwist: 2, rootCount: 4, rootLength: 1.4}),
-    painted('Old & bare', 'burnt', 'Burnt stump tree', 'After the fire', 353, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 1, height: 5.5, spread: 4, trunkRadius: 0.45, clumpCount: 0, limbCount: 3, branchCount: 2, twigCount: 0, hollow: 0.6, roughness: 0.7}),
+    painted('Old & bare', 'burnt', 'Burnt stump tree', 'After the fire', 353, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'peeling', patternDepth: 0.6, height: 5.5, spread: 4, trunkRadius: 0.45, clumpCount: 0, limbCount: 3, branchCount: 2, twigCount: 0, hollow: 0.6, roughness: 0.7}),
     painted('Old & bare', 'winter', 'Winter tree', 'Asleep and full of twigs', 354, {palette: 'spring', barkTone: 'oak', height: 9, spread: 9, trunkRadius: 0.42, clumpCount: 0, branchCount: 5, twigCount: 4, gnarl: 0.55, limbCount: 6}),
     painted('Old & bare', 'ancient', 'Ancient giant', 'Roots, burls and moss', 355, {palette: 'spring', barkTone: 'oak', height: 11, spread: 14, trunkRadius: 1.15, flare: 0.8, rootCount: 11, rootLength: 1.7, burls: 6, hollow: 0.45, moss: 0.65, ridgeDepth: 0.28, ridgeTwist: 1.3, gnarl: 0.8, limbCount: 7, clumpCount: 15, forkHeight: 0.3}),
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
@@ -229,7 +229,7 @@ const paintedPresets: readonly TreePreset[] = [
     // Fantasy
     painted('Fantasy', 'spirit-tree', 'Spirit tree', 'Glowing teal', 371, {palette: 'teal', barkTone: 'charcoal', corkscrew: 0.6, ridgeTwist: 2, height: 9, spread: 11, trunkRadius: 0.6, gnarl: 0.9, clumpCount: 13}),
     painted('Fantasy', 'witch-tree', 'Witch tree', 'Violet and crooked', 372, {palette: 'violet', barkTone: 'charcoal', corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.8, hollow: 0.6, gnarl: 1, height: 8, spread: 9, trunkRadius: 0.6, clumpCount: 8, droop: 0.3}),
-    painted('Fantasy', 'ember-tree', 'Ember tree', 'Burning leaves, black wood', 373, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 1, height: 8, spread: 9, trunkRadius: 0.55, gnarl: 0.8, clumpCount: 11}),
+    painted('Fantasy', 'ember-tree', 'Ember tree', 'Burning leaves, black wood', 373, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'peeling', patternDepth: 0.6, height: 8, spread: 9, trunkRadius: 0.55, gnarl: 0.8, clumpCount: 11}),
     painted('Fantasy', 'glow-willow', 'Glow willow', 'Teal curtains', 374, {palette: 'teal', barkTone: 'ash', height: 8, spread: 10, trunkRadius: 0.5, droop: 0.7, clumpCount: 12, clumpMerge: 0.5, clumpSize: 0.8, strands: 0.85, strandLength: 0.85, leafSize: 0.7, fullness: 0.45}),
     painted('Fantasy', 'frost-tree', 'Frost tree', 'White, without a season', 375, {palette: 'frost', barkTone: 'bone', height: 8, spread: 9, trunkRadius: 0.5, gnarl: 0.7, clumpCount: 12, colourVariation: 0.1}),
     painted('Fantasy', 'alien-palm', 'Alien palm', 'From another shore', 376, {...PALM_BASE, palette: 'violet', barkTone: 'charcoal', height: 9, trunkRadius: 0.24, lean: 0.4, corkscrew: 0.7, clumpCount: 12, frondStyle: 'fan', droop: 0.5}),

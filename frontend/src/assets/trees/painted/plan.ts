@@ -65,6 +65,9 @@ export interface TreePlan {
 /** The golden angle, so limbs around a parent never line up. */
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 const DEGREES = Math.PI / 180
+/** How far along a root it starts to sink, and how deep its tip ends, against the trunk's radius. */
+const ROOT_SINKS_FROM = 0.6
+const ROOT_SINK_DEPTH = 0.55
 
 const add = (a: Vec3, b: Vec3, scale = 1): Vec3 => [
     a[0] + b[0] * scale,
@@ -397,8 +400,12 @@ function growWood(
                 rise: -0.6,
                 taperPower: 0.9,
                 controlTs: [0.5, 1],
-                // A root runs along the ground, it does not dive through it.
-                shape: (point) => [point[0], Math.max(point[1], -0.04), point[2]],
+                // A root runs along the ground, then sinks into it, so it has no end to see.
+                shape: (point, t) => {
+                    const sinking = Math.min(1, Math.max(0, (t - ROOT_SINKS_FROM) / (1 - ROOT_SINKS_FROM)))
+
+                    return [point[0], Math.max(point[1], -0.04) - trunkRadius * ROOT_SINK_DEPTH * sinking * sinking * (3 - 2 * sinking), point[2]]
+                },
             },
             seed,
             edits,

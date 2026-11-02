@@ -100,7 +100,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
             id: 'cmp-bark-0',
             type: 'bark',
             generatorId: 'painted-bark',
-            generatorVersion: 3,
+            generatorVersion: 4,
             parentId: null,
             transform: IDENTITY_TRANSFORM,
             parameters: {tree: parameters, seed},
@@ -142,7 +142,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
                     id: `cmp-limb-${limb.key}`,
                     type: typeOf(limb),
                     generatorId: 'painted-limb',
-                    generatorVersion: 1,
+                    generatorVersion: 2,
                     parentId: bark.id,
                     transform: IDENTITY_TRANSFORM,
                     parameters: {

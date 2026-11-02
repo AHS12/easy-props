@@ -88,7 +88,7 @@ const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
 
 export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     id: 'painted-bark',
-    version: 3,
+    version: 4,
     type: 'bark',
     label: 'Bark',
     // The tree's controls live on the tree: one rebuild, one undo step.
@@ -348,7 +348,7 @@ function buildProxy(limb: Limb): THREE.BufferGeometry {
 
 export const paintedLimbGenerator: PartGenerator<PaintedKeyedParameters> = {
     id: 'painted-limb',
-    version: 1,
+    version: 2,
     type: 'branch',
     label: 'Branch',
     parameters: LIMB_SPECS,

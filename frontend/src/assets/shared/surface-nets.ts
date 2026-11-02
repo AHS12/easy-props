@@ -213,10 +213,14 @@ export function joinChunks(
         const ny = abz * acx - abx * acz
         const nz = abx * acy - aby * acx
         const n = buffers.normals
-        const facing = nx * n[a * 3] + ny * n[a * 3 + 1] + nz * n[a * 3 + 2]
+        const facing =
+            nx * (n[a * 3] + n[b * 3] + n[c * 3]) +
+            ny * (n[a * 3 + 1] + n[b * 3 + 1] + n[c * 3 + 1]) +
+            nz * (n[a * 3 + 2] + n[b * 3 + 2] + n[c * 3 + 2])
 
         // The field already says which way is out, so winding never has to be
-        // worked out edge by edge.
+        // worked out edge by edge. All three corners vote: in a sharp crease one
+        // corner's normal can point the other way from the face it sits on.
         if (facing >= 0) {
             buffers.indices.push(a, b, c)
         } else {
