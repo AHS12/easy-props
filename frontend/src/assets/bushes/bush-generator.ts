@@ -214,6 +214,10 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     parameters: specs,
     paintsOwnColours: true,
     budgetAdvice: 'Lower Fullness or raise Leaf size.',
+    fitControls: [
+        {key: 'fullness', limit: 1},
+        {key: 'leafSize', limit: 0.35},
+    ],
 
     createDefaultParameters() {
         return bushDefaults

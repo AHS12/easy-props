@@ -73,6 +73,14 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     label: 'Painted tree',
     parameters: paintedTreeParameterSpecs,
     paintsOwnColours: true,
+    budgetAdvice: 'Lower Leaf density or Wood detail.',
+    // Leaves cost most, and thinning them shows least. The limits keep a tree from going bald.
+    fitControls: [
+        {key: 'fullness', limit: 0.4},
+        {key: 'barkDetail', limit: 0.6},
+        {key: 'clumpCount', limit: 5},
+        {key: 'twigCount', limit: 1},
+    ],
 
     createDefaultParameters() {
         return paintedTreeDefaults

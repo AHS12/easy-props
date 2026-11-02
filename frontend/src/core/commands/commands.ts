@@ -9,13 +9,14 @@ import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
+    PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
+import {findBudgetTarget} from '../export/pipeline/budget'
 import {LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
@@ -490,6 +491,24 @@ export const COMMANDS: readonly Command[] = [
         icon: Dices,
         keywords: 'randomize variation new seed',
         run: (state) => state.randomizeTree(),
+    },
+    {
+        id: 'make-it-fit',
+        label: 'Make it fit',
+        group: 'Prop',
+        icon: Shrink,
+        keywords: 'budget faces lighter reduce mobile performance',
+        unavailable: (state) => {
+            const generator = findPropGenerator(state.scene.assets[0]?.generatorId ?? '')
+            const faces = state.faceCounts.wood + state.faceCounts.leaves
+
+            if (!generator?.fitControls?.length) {
+                return 'This kind of prop has to be lowered by hand'
+            }
+
+            return faces > findBudgetTarget(state.budgetTarget).faces ? null : 'This prop already fits its budget'
+        },
+        run: (state) => void state.makeItFit(),
     },
     {
         id: 'use-seed',

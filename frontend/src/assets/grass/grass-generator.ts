@@ -167,6 +167,10 @@ export const grassGenerator: PropGenerator<GrassParameters> = {
     paintsOwnColours: true,
     swaysEvenly: true,
     budgetAdvice: 'Lower Blades or Smoothness.',
+    fitControls: [
+        {key: 'blades', limit: 40},
+        {key: 'smoothness', limit: 2},
+    ],
 
     createDefaultParameters() {
         return grassDefaults

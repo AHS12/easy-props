@@ -143,6 +143,10 @@ export const plantGenerator: PropGenerator<PlantParameters> = {
     paintsOwnColours: true,
     swaysEvenly: true,
     budgetAdvice: 'Lower Stems or Leaves.',
+    fitControls: [
+        {key: 'stems', limit: 4},
+        {key: 'leaves', limit: 0},
+    ],
 
     createDefaultParameters() {
         return plantDefaults

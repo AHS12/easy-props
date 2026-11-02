@@ -23,6 +23,8 @@ export function StatusBar() {
     const setBudgetTarget = useEditorStore((state) => state.setBudgetTarget)
     const batch = useEditorStore((state) => state.batch)
     const openBatch = useEditorStore((state) => state.openBatch)
+    const fitting = useEditorStore((state) => state.fitting)
+    const makeItFit = useEditorStore((state) => state.makeItFit)
     const dirty = useEditorStore(hasUnsavedChanges)
     // A new prop has nothing to lose yet, but it isn't saved anywhere either.
     const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
@@ -30,7 +32,9 @@ export function StatusBar() {
 
     const target = findBudgetTarget(budgetTarget)
     const asset = scene.assets[0]
-    const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.budgetAdvice : undefined)
+    const generator = asset ? findPropGenerator(asset.generatorId) : undefined
+    const budget = checkBudget(faceCounts, target, generator?.budgetAdvice)
+    const canFit = (generator?.fitControls?.length ?? 0) > 0
 
     return (
         <footer className="statusbar" data-coach="status">
@@ -48,6 +52,17 @@ export function StatusBar() {
                         <AlertTriangle size={11} aria-hidden="true" />
                         Over budget
                     </span>
+                ) : null}
+                {budget.over && canFit ? (
+                    <button
+                        type="button"
+                        className="statusbar__link"
+                        disabled={fitting}
+                        title="Lowers the controls that cost the most until this prop fits. One step to undo."
+                        onClick={() => void makeItFit()}
+                    >
+                        {fitting ? 'Fitting…' : 'Make it fit'}
+                    </button>
                 ) : null}
                 {asset ? <SeedPanel seed={asset.seed} /> : null}
                 {previewLevel > 0 ? (

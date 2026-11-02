@@ -47,8 +47,10 @@ import {
 import {STYLE_ORDER} from '../assets/style/style-profiles'
 import {batchItems, type BatchChoice} from '../core/export/batch-items'
 import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences} from '../core/export/export-preferences'
+import {describeChanges, makeItFit} from '../core/export/make-it-fit'
 import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
-import type {BudgetTargetId, FaceCounts} from '../core/export/pipeline/budget'
+import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/export/pipeline/budget'
+import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
 import {openProjectFile, saveProjectFile, writeFilesTo} from '../platform/desktop'
@@ -273,6 +275,10 @@ export interface EditorStore {
     setShownFaceCounts(counts: FaceCounts): void
     budgetTarget: BudgetTargetId
     setBudgetTarget(target: BudgetTargetId): void
+    /** True while Make it fit is trying values. */
+    fitting: boolean
+    /** Lowers the costliest controls until the prop fits its budget, as one undo step. */
+    makeItFit(): Promise<void>
 
     /** Every tree in the gallery, newest first. */
     gallery: readonly SavedTree[]
@@ -334,6 +340,8 @@ export function hasUnsavedChanges(
 }
 
 const FIRST_ASSET_ID = 'asset-1'
+/** The longest Make it fit keeps trying, before it settles for what it has. */
+const FIT_TIME_MS = 5000
 
 /** An id that is not already used in the scene. */
 function uniqueComponentId(scene: Scene, base: string): string {
@@ -1062,6 +1070,51 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         setBudgetTarget: (budgetTarget) => {
             saveBudgetTarget(budgetTarget)
             set({budgetTarget})
+        },
+        fitting: false,
+        makeItFit: async () => {
+            const {scene, style, budgetTarget, fitting} = get()
+
+            if (fitting) {
+                return
+            }
+
+            const budget = findBudgetTarget(budgetTarget).faces
+
+            set({fitting: true})
+            // The button says it's working before the first build blocks the page.
+            await afterPaint()
+
+            try {
+                const result = await makeItFit(scene, getStyleProfile(style), budget, {
+                    deadline: performance.now() + FIT_TIME_MS,
+                })
+
+                // Something else changed the prop meanwhile, and that wins.
+                if (get().scene !== scene) {
+                    return
+                }
+
+                const faces = `${result.faces.toLocaleString()} of ${budget.toLocaleString()} faces`
+
+                if (result.changes.length === 0) {
+                    set({toast: {message: 'Make it fit could not lower anything more. Try a bigger budget.', undoable: false}})
+
+                    return
+                }
+
+                commit('make it fit', () => result.scene)
+                set({
+                    toast: {
+                        message: result.fits
+                            ? `${describeChanges(result.changes)}. Now ${faces}.`
+                            : `${describeChanges(result.changes)}. Got to ${faces}: lower more by hand, or pick a bigger budget.`,
+                        undoable: true,
+                    },
+                })
+            } finally {
+                set({fitting: false})
+            }
         },
 
         undo: () => {
