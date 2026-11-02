@@ -24,9 +24,12 @@ import {onCloseRequested} from '../platform/close-guard'
 import {cancelUpdateInstall} from '../platform/update'
 import {settingNumber, settingValue, uiScale, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
+import {checkForUpdatesIfDue} from '../store/update-store'
 import {Viewport} from '../viewport/Viewport'
 
 const ROOT_FONT_PX = 16
+/** How long after start the weekly update check waits. */
+const UPDATE_CHECK_DELAY_MS = 5000
 
 /** Applies what the document element carries: theme, scale and motion. */
 function applyAppearance() {
@@ -202,6 +205,7 @@ export function App() {
             }
         })
         const unwatch = watchSystemTheme(applyAppearance)
+        let updateTimer: number | undefined
 
         // Settings from the file win over the copy the first paint used.
         void useSettingsStore
@@ -219,11 +223,15 @@ export function App() {
                 if (values.startOn === 'last' && lastTreeId) {
                     void useEditorStore.getState().openTree(lastTreeId)
                 }
+
+                // After the first screen has settled, so it never slows the start.
+                updateTimer = window.setTimeout(() => checkForUpdatesIfDue(), UPDATE_CHECK_DELAY_MS)
             })
 
         return () => {
             unsubscribe()
             unwatch()
+            window.clearTimeout(updateTimer)
         }
     }, [])
 

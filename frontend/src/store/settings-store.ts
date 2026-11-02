@@ -42,15 +42,16 @@ export interface SettingsStore extends SettingsFile {
     setLastSeenVersion(version: string): void
     setLastTreeId(id: string | null): void
     setLibraryFolder(folder: string): void
+    setLastUpdateCheck(time: number): void
 }
 
 let writeTimer: number | undefined
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -128,6 +129,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         setGalleryTourSeen: (galleryTourSeen) => change({galleryTourSeen}),
         setLastSeenVersion: (lastSeenVersion) => change({lastSeenVersion}),
         setLastTreeId: (lastTreeId) => change({lastTreeId}),
+        setLastUpdateCheck: (lastUpdateCheck) => change({lastUpdateCheck}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})

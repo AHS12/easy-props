@@ -46,6 +46,19 @@ export function Toast() {
                 </button>
             ) : null}
 
+            {toast.action ? (
+                <button
+                    type="button"
+                    className="notice__action"
+                    onClick={() => {
+                        dismissToast()
+                        toast.action!.run()
+                    }}
+                >
+                    {toast.action.label}
+                </button>
+            ) : null}
+
             {toast.folder && isDesktop() ? (
                 <button
                     type="button"

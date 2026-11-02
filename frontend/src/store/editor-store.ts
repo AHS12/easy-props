@@ -128,6 +128,13 @@ export interface Toast {
     readonly undoable: boolean
     /** Where some files were written, so the toast can take you there. */
     readonly folder?: string
+    /** A button of its own, such as seeing a new version. */
+    readonly action?: ToastAction
+}
+
+export interface ToastAction {
+    readonly label: string
+    readonly run: () => void
 }
 
 /** How far a batch has got. It has a summary once it has finished. */
@@ -245,7 +252,7 @@ export interface EditorStore {
     /** Closes the export panel and says what it wrote, and where. */
     finishExport(message: string, folder?: string): void
     /** Says something that needs no answer, such as where a kit was saved. */
-    notify(message: string, folder?: string): void
+    notify(message: string, folder?: string, action?: ToastAction): void
     /** The panel for exporting many props. A batch outlives it. */
     batchOpen: boolean
     openBatch(): void
@@ -1006,7 +1013,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         exportOpen: false,
         closeExport: () => set({exportOpen: false}),
         finishExport: (message, folder) => set({exportOpen: false, toast: {message, undoable: false, folder}}),
-        notify: (message, folder) => set({toast: {message, undoable: false, folder}}),
+        notify: (message, folder, action) => set({toast: {message, undoable: false, folder, action}}),
         batchOpen: false,
         openBatch: () => set({batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
