@@ -426,6 +426,10 @@ function sweep(
     }
 
     for (let ring = 0; ring < ringCount - 1; ring++) {
+        // The last ring is the tip, where every corner is one point, so the second
+        // triangle of each side would have no area.
+        const toTip = ring === ringCount - 2
+
         for (let side = 0; side < sides; side++) {
             const next = (side + 1) % sides
             const a = ring * sides + side
@@ -437,7 +441,7 @@ function sweep(
                 buffers.indices.push(first + a, first + b, first + c)
             }
 
-            if (!(buried[a] && buried[c] && buried[d])) {
+            if (!toTip && !(buried[a] && buried[c] && buried[d])) {
                 buffers.indices.push(first + a, first + c, first + d)
             }
         }

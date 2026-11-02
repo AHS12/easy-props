@@ -11,7 +11,7 @@ import {MAX_VARIATIONS, type BatchChoice} from '../core/export/batch-items'
 import {GODOT_IMPORT_NOTE, loadExportPreferences, saveExportPreferences} from '../core/export/export-preferences'
 import {findBudgetTarget} from '../core/export/pipeline/budget'
 import {ENGINE_LABELS, type EngineId} from '../core/export/pipeline/types'
-import {chooseFolder} from '../platform/desktop'
+import {chooseFolder, isDesktop, showFolder} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
 import {Dialog, Select} from '../components/controls'
 import {Row} from '../components/PropertyRow'
@@ -52,6 +52,7 @@ export function BatchExportDialog() {
     const startBatch = useEditorStore((state) => state.startBatch)
     const cancelBatch = useEditorStore((state) => state.cancelBatch)
     const clearBatch = useEditorStore((state) => state.clearBatch)
+    const notify = useEditorStore((state) => state.notify)
     const batch = useEditorStore((state) => state.batch)
     const gallery = useEditorStore((state) => state.gallery)
     const budgetTarget = useEditorStore((state) => state.budgetTarget)
@@ -143,6 +144,19 @@ export function BatchExportDialog() {
                         </>
                     ) : null}
                     <div className="dialog__actions">
+                        {summary.exported > 0 && isDesktop() ? (
+                            <button
+                                type="button"
+                                className="button"
+                                onClick={() =>
+                                    showFolder(batch.folder).catch(() =>
+                                        notify("Couldn't open the folder. It may have been moved or removed."),
+                                    )
+                                }
+                            >
+                                Show the files
+                            </button>
+                        ) : null}
                         <button type="button" className="button button--primary" onClick={clearBatch}>
                             Done
                         </button>

@@ -8,11 +8,11 @@ import {findPropGenerator} from '../assets/prop-generators'
 import {BUDGET_TARGETS, checkBudget, findBudgetTarget, type BudgetTargetId} from '../core/export/pipeline/budget'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {useSetting} from '../store/settings-store'
+import {SeedPanel} from './SeedPanel'
 import {hintFor} from './status-hint'
 
 export function StatusBar() {
     const status = useEditorStore((state) => state.status)
-    const shapeTool = useEditorStore((state) => state.shapeTool)
     const moveTool = useEditorStore((state) => state.moveTool)
     const selection = useEditorStore((state) => state.selection)
     const scene = useEditorStore((state) => state.scene)
@@ -24,6 +24,8 @@ export function StatusBar() {
     const batch = useEditorStore((state) => state.batch)
     const openBatch = useEditorStore((state) => state.openBatch)
     const dirty = useEditorStore(hasUnsavedChanges)
+    // A new prop has nothing to lose yet, but it isn't saved anywhere either.
+    const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
     const scheme = String(useSetting('cameraScheme'))
 
     const target = findBudgetTarget(budgetTarget)
@@ -33,7 +35,7 @@ export function StatusBar() {
     return (
         <footer className="statusbar" data-coach="status">
             <span className="statusbar__hint" data-state={status.state} role="status">
-                {hintFor({status, shapeTool, moveTool, selection, scene}, scheme)}
+                {hintFor({status, moveTool, selection, scene}, scheme)}
             </span>
             <span className="statusbar__right">
                 {batch && !batch.summary ? (
@@ -47,7 +49,7 @@ export function StatusBar() {
                         Over budget
                     </span>
                 ) : null}
-                {asset ? <span className="tabular">Seed {asset.seed}</span> : null}
+                {asset ? <SeedPanel seed={asset.seed} /> : null}
                 {previewLevel > 0 ? (
                     <span className="tabular" title="Faces in the detail level on screen">
                         LOD{previewLevel}: {(shownFaceCounts.wood + shownFaceCounts.leaves).toLocaleString()} faces
@@ -70,7 +72,7 @@ export function StatusBar() {
                         </option>
                     ))}
                 </select>
-                <span>{dirty ? 'Unsaved' : 'Saved'}</span>
+                <span>{dirty ? 'Unsaved' : neverSaved ? 'Not saved yet' : 'Saved'}</span>
             </span>
         </footer>
     )

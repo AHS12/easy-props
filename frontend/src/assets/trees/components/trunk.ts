@@ -9,16 +9,13 @@
 import * as THREE from 'three'
 import {z} from 'zod'
 import type {PartGenerator} from '../../shared/generator-types'
-import type {SurfacePush} from '../../shared/component-types'
 import {
     buildSpineCurve,
     buildSpinePoints,
     buildTaperedTube,
-    applySurfacePushes,
     taperedRadius,
     type SpinePoint,
 } from '../../shared/geometry-utils'
-import {surfacePushSchema} from '../../shared/pushes'
 import {normaliseSpine} from '../../shared/spines'
 import {
     choiceSchema,
@@ -45,8 +42,6 @@ export type TrunkParameters = {
     readonly leanAzimuth: number
     /** How much wobble the seed added on top of the steady lean. */
     readonly leanWobble: number
-    /** Pushes and pulls on the bark, applied to the built mesh. */
-    readonly pushes: readonly SurfacePush[]
 }
 
 const HEIGHT = {
@@ -146,7 +141,6 @@ const trunkSchema = z.object({
     spine: z.array(spinePointSchema).min(2).catch([]),
     leanAzimuth: z.number().catch(0),
     leanWobble: z.number().catch(0),
-    pushes: z.array(surfacePushSchema).catch([]),
 })
 
 /** How far the trunk leans, as a fraction of its height. */
@@ -212,7 +206,7 @@ export function defaultSpine(count = SPINE_POINT_COUNT): SpinePoint[] {
 
 export const trunkGenerator: PartGenerator<TrunkParameters> = {
     id: 'trunk',
-    version: 1,
+    version: 2,
     type: 'trunk',
     label: 'Trunk',
     parameters: trunkParameterSpecs,
@@ -228,7 +222,6 @@ export const trunkGenerator: PartGenerator<TrunkParameters> = {
             spine: defaultSpine(CONTROL_POINTS.default),
             leanAzimuth: 0,
             leanWobble: 0,
-            pushes: [],
         }
     },
 
@@ -272,9 +265,6 @@ export const trunkGenerator: PartGenerator<TrunkParameters> = {
             capBase: true,
             capTip: true,
         })
-
-        // Pushes move the surface, then the shading follows the new shape.
-        applySurfacePushes(geometry, parameters.pushes)
 
         if (context.style.flatShading) {
             geometry.deleteAttribute('normal')

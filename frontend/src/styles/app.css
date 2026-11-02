@@ -32,6 +32,13 @@ body {
     cursor: default;
 }
 
+/* The desktop window has no frame, so Wails shows its resize arrows by setting the
+   cursor on the root while the pointer is on an edge. Let them through. */
+html[style*='-resize'] body,
+html[style*='-resize'] body * {
+    cursor: inherit !important;
+}
+
 input,
 textarea {
     user-select: text;
@@ -1521,19 +1528,6 @@ html[data-theme='dark'] .text-button--danger:hover {
     font: var(--text-label);
 }
 
-.push-count {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    color: var(--text-secondary);
-    font: var(--text-label);
-}
-
-.push-count span {
-    margin-right: auto;
-    padding-left: 4px;
-}
-
 /* ======================================================================
    Viewport
    ====================================================================== */
@@ -1595,29 +1589,6 @@ svg.lucide {
     display: block;
     width: 100%;
     height: 100%;
-}
-
-.viewport[data-tool='push'] canvas,
-.viewport[data-tool='pull'] canvas {
-    cursor: none;
-}
-
-.viewport__brush {
-    position: absolute;
-    z-index: 3;
-    display: none;
-    width: calc(var(--brush-radius, 20px) * 2);
-    height: calc(var(--brush-radius, 20px) * 2);
-    margin-left: calc(var(--brush-radius, 20px) * -1);
-    margin-top: calc(var(--brush-radius, 20px) * -1);
-    border: 1.5px solid rgba(255, 255, 255, 0.92);
-    border-radius: 50%;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
-    pointer-events: none;
-}
-
-.viewport__brush[data-visible='true'] {
-    display: block;
 }
 
 .viewport-tools {
@@ -1912,6 +1883,61 @@ svg.lucide {
     gap: 3px;
 }
 
+.statusbar__seed {
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.statusbar__seed:hover,
+.statusbar__seed[aria-expanded='true'] {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.seed-panel {
+    width: 250px;
+}
+
+.seed-panel__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.seed-panel__label {
+    color: var(--text-secondary);
+    font: var(--text-label);
+}
+
+.seed-panel__field {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    font: var(--text-label);
+}
+
+.seed-panel__field[aria-invalid='true'] {
+    border-color: var(--danger);
+}
+
+.seed-panel__surprise {
+    align-self: flex-start;
+}
+
+.seed-panel [data-error='true'] {
+    color: var(--danger);
+}
+
 .statusbar__link {
     padding: 0;
     border: 0;
@@ -2099,6 +2125,19 @@ html[data-theme='dark'] .dialog__error {
     height: 18px;
     color: var(--text-secondary);
     font: var(--text-caption);
+}
+
+.export-status__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.export-status .text-button {
+    flex: none;
+    height: 18px;
+    padding-block: 0;
 }
 
 .export-status progress {
@@ -2578,6 +2617,7 @@ html[data-theme='dark'] .dialog__error {
     color: #fff;
     font: var(--text-label);
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .notice__action:hover {

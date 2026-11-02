@@ -44,6 +44,9 @@ const SECTION_ORDER: readonly PaletteSection[] = ['Actions', 'Controls', 'Preset
 
 const SUGGESTED = ['export-model', 'randomize', 'save-project']
 
+/** Home has no prop open, so it suggests ways to get one. */
+const HOME_SUGGESTED = ['new-tree', 'open-project', 'settings']
+
 /** Commands the palette should not list twice, or that only make sense as keys. */
 const HIDDEN = new Set(['palette', 'palette-alt', 'cancel'])
 
@@ -231,7 +234,7 @@ function startingEntries(state: EditorStore): readonly Entry[] {
 
     recent.forEach(({id}) => seen.add(id))
 
-    const suggested = SUGGESTED.flatMap((id) => {
+    const suggested = (onHome ? HOME_SUGGESTED : SUGGESTED).flatMap((id) => {
         const command = findCommand(id)
 
         return command && usable(command) && !seen.has(id) ? [commandEntry(command, state, 'Suggested')] : []

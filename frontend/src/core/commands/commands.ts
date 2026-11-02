@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
@@ -22,6 +22,7 @@ import {settingValue, useSettingsStore} from '../../store/settings-store'
 import {useUiStore} from '../../store/ui-store'
 import {useUpdateStore} from '../../store/update-store'
 import {canCheckForUpdates} from '../../platform/update'
+import {copyText} from '../../platform/clipboard'
 import {viewportHandle, type ViewAngle} from '../../viewport/viewport-bridge'
 
 export type CommandId = string
@@ -109,7 +110,7 @@ const THEMES = [
 ]
 
 /** Runs something that replaces the document, asking first if that loses work. */
-function guardUnsaved(state: EditorStore, action: string, run: () => void) {
+export function guardUnsaved(state: EditorStore, action: string, run: () => void) {
     if (!hasUnsavedChanges(state)) {
         run()
         return
@@ -148,9 +149,7 @@ export const COMMANDS: readonly Command[] = [
             icon: ICONS[id],
             global: true,
             keywords: 'start create prop',
-            run: (state) => {
-                state.startNewProp(FAMILY_STARTERS[id])
-            },
+            run: (state) => guardUnsaved(state, 'Start a new prop', () => state.startNewProp(FAMILY_STARTERS[id])),
         }),
     ),
     {
@@ -254,9 +253,7 @@ export const COMMANDS: readonly Command[] = [
             // Escape backs out one step at a time: the tool first, then the
             // selection. Disarming the tool and losing the selection in one
             // press would be two surprises.
-            if (state.shapeTool !== 'off') {
-                state.setShapeTool('off')
-            } else if (state.moveTool) {
+            if (state.moveTool) {
                 state.setMoveTool(false)
             } else {
                 state.deselect()
@@ -484,6 +481,36 @@ export const COMMANDS: readonly Command[] = [
         icon: Dices,
         keywords: 'randomize variation new seed',
         run: (state) => state.randomizeTree(),
+    },
+    {
+        id: 'use-seed',
+        label: 'Use a seed…',
+        group: 'Prop',
+        icon: Hash,
+        keywords: 'seed type paste number variation',
+        unavailable: (state) => (state.scene.assets[0] ? null : 'There is no prop open'),
+        run: () => useUiStore.getState().setSeedPanelOpen(true),
+    },
+    {
+        id: 'copy-seed',
+        label: 'Copy seed',
+        group: 'Prop',
+        icon: ClipboardCopy,
+        keywords: 'seed clipboard number variation',
+        unavailable: (state) => (state.scene.assets[0] ? null : 'There is no prop open'),
+        run: (state) => {
+            const seed = state.scene.assets[0]?.seed
+
+            if (seed === undefined) {
+                return
+            }
+
+            void copyText(String(seed)).then((copied) =>
+                useEditorStore.setState({
+                    toast: {message: copied ? `Copied seed ${seed}` : "Couldn't copy the seed. Open it from the status bar to copy it yourself.", undoable: false},
+                }),
+            )
+        },
     },
     {
         id: 'restore-tree',

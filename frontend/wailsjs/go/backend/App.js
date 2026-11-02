@@ -30,6 +30,10 @@ export function DownloadUpdate() {
   return window['go']['backend']['App']['DownloadUpdate']();
 }
 
+export function ExistingFiles(arg1, arg2) {
+  return window['go']['backend']['App']['ExistingFiles'](arg1, arg2);
+}
+
 export function GetLibraryInfo() {
   return window['go']['backend']['App']['GetLibraryInfo']();
 }
@@ -74,6 +78,10 @@ export function ReadSettings() {
   return window['go']['backend']['App']['ReadSettings']();
 }
 
+export function RememberWindow() {
+  return window['go']['backend']['App']['RememberWindow']();
+}
+
 export function SaveFileDialog(arg1, arg2, arg3) {
   return window['go']['backend']['App']['SaveFileDialog'](arg1, arg2, arg3);
 }
@@ -84,6 +92,10 @@ export function SetLibraryFolder(arg1) {
 
 export function SetUnsaved(arg1) {
   return window['go']['backend']['App']['SetUnsaved'](arg1);
+}
+
+export function ShowFolder(arg1) {
+  return window['go']['backend']['App']['ShowFolder'](arg1);
 }
 
 export function WriteDraft(arg1) {

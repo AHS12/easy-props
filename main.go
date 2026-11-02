@@ -19,13 +19,16 @@ var assets embed.FS
 
 func main() {
 	app := backend.NewApp()
+	// The size goes in the options so the window doesn't jump. Its place is
+	// put back in Startup, since Wails can't open a window at a position.
+	width, height := app.RememberWindow()
 
 	err := wails.Run(&options.App{
 		Title:     "easy-props",
-		Width:     1440,
-		Height:    900,
-		MinWidth:  1024,
-		MinHeight: 640,
+		Width:     width,
+		Height:    height,
+		MinWidth:  backend.MinWindowWidth,
+		MinHeight: backend.MinWindowHeight,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

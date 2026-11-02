@@ -26,7 +26,7 @@ import {
     validatePaintedTreeParameters,
     type Palette,
 } from '../assets/trees/painted'
-import {describeComponent, type SurfacePush} from '../assets/shared/component-types'
+import {describeComponent} from '../assets/shared/component-types'
 import type {ParameterSpec} from '../assets/shared/parameters'
 import {requestRemovePart} from '../core/commands/commands'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
@@ -263,7 +263,6 @@ export function Details() {
     const copyComponent = useEditorStore((state) => state.copyComponent)
     const restoreComponent = useEditorStore((state) => state.restoreComponent)
     const restoreTree = useEditorStore((state) => state.restoreTree)
-    const setPushes = useEditorStore((state) => state.setPushes)
     const moveComponent = useEditorStore((state) => state.moveComponent)
     const deselect = useEditorStore((state) => state.deselect)
     const revealed = useUiStore((state) => state.revealedControl)
@@ -438,7 +437,6 @@ export function Details() {
     // A painted limb hangs off the tree's plan, and its trunk is the tree.
     const canMove = !isTrunk && !WHOLE_PARTS.includes(component.generatorId)
     const canRemove = !isTrunk && component.type !== 'trunk' && component.generatorId !== 'painted-bark' && component.generatorId !== 'rock-body'
-    const pushes = Array.isArray(component.parameters.pushes) ? (component.parameters.pushes as SurfacePush[]) : []
 
     // The trunk's shape is the tree's shape: its shared controls read and write
     // the tree, so the two panels can never disagree.
@@ -466,7 +464,7 @@ export function Details() {
     }
 
     const sections = sectionsForPart(component.generatorId, component.type)
-    const partTitles = ['This part', 'Position', 'Surface', ...sections.map(({title}) => title)]
+    const partTitles = ['This part', 'Position', ...sections.map(({title}) => title)]
     const title = isFrond ? 'Frond' : describeComponent(component.type)
 
     return (
@@ -526,22 +524,6 @@ export function Details() {
                             </div>
                         </Group>
                     )}
-
-                    {pushes.length > 0 && !filter ? (
-                        <Group title="Surface" open={groups.isOpen('Surface')} onToggle={() => groups.toggle('Surface', partTitles)}>
-                            <div className="push-count">
-                                <span>
-                                    {pushes.length} {pushes.length === 1 ? 'push' : 'pushes'}
-                                </span>
-                                <button type="button" className="text-button" onClick={() => setPushes(component.id, pushes.slice(0, -1))}>
-                                    Undo last
-                                </button>
-                                <button type="button" className="text-button" onClick={() => setPushes(component.id, [])}>
-                                    Clear
-                                </button>
-                            </div>
-                        </Group>
-                    ) : null}
 
                     {sections.map((section) => (
                         <Group

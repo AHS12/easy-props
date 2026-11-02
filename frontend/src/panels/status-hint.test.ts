@@ -5,7 +5,7 @@ import {hintFor} from './status-hint'
 
 const scene = createSceneFromPreset('blossom-tree')
 const clump = scene.assets[0].components.find((part) => part.generatorId === 'painted-clump')!
-const base = {status: {state: 'ready' as const}, shapeTool: 'off' as const, moveTool: false, selection: EMPTY_SELECTION, scene}
+const base = {status: {state: 'ready' as const}, moveTool: false, selection: EMPTY_SELECTION, scene}
 
 describe('the status hint', () => {
     it('follows the camera scheme', () => {

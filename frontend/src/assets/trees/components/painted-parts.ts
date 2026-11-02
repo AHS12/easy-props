@@ -88,7 +88,7 @@ const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
 
 export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     id: 'painted-bark',
-    version: 4,
+    version: 5,
     type: 'bark',
     label: 'Bark',
     // The tree's controls live on the tree: one rebuild, one undo step.

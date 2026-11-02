@@ -67,3 +67,17 @@ func TestSetLibraryFolderCreatesAndUsesIt(t *testing.T) {
 		t.Fatalf("got %q, %v", got, err)
 	}
 }
+
+func TestTheFileManagerGetsAPathItCanRead(t *testing.T) {
+	_, got := fileManagerCommand(`K:\Games\props/spring_tree/`)
+	want := filepath.Clean(`K:\Games\props/spring_tree`)
+
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
+	}
+
+	// Explorer opens Documents for a path with forward slashes in it.
+	if os.PathSeparator == '\\' && got != `K:\Games\props\spring_tree` {
+		t.Fatalf("path = %q, want backslashes only", got)
+	}
+}

@@ -15,7 +15,6 @@ import {
     type TimeOfDay,
 } from '../assets/style/lighting'
 import type {SpineLike} from '../assets/shared/spines'
-import type {ShapeTool} from '../assets/shared/pushes'
 import {hashSeed} from '../assets/shared/random'
 import {
     EMPTY_HISTORY,
@@ -42,7 +41,6 @@ import {
     restoreComponentDefault,
     setAssetSeed,
     setComponentPosition as setComponentPositionInScene,
-    setSurfacePushes,
     updateComponentParameters,
     updateTreeParameters,
 } from '../core/scene/scene-ops'
@@ -116,7 +114,7 @@ function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
 }
 import type {LibraryPart} from '../assets/library/library'
 import {findComponentGenerator} from '../assets/component-generators'
-import {describeComponent, type SceneComponent, type SurfacePush} from '../assets/shared/component-types'
+import {describeComponent, type SceneComponent} from '../assets/shared/component-types'
 
 export type EditorStatus = {
     readonly state: 'ready' | 'busy' | 'error'
@@ -128,6 +126,15 @@ export interface Toast {
     readonly message: string
     /** Set when the toast offers an undo. */
     readonly undoable: boolean
+    /** Where some files were written, so the toast can take you there. */
+    readonly folder?: string
+    /** A button of its own, such as seeing a new version. */
+    readonly action?: ToastAction
+}
+
+export interface ToastAction {
+    readonly label: string
+    readonly run: () => void
 }
 
 /** How far a batch has got. It has a summary once it has finished. */
@@ -136,6 +143,8 @@ export interface BatchState {
     readonly total: number
     readonly current: string | null
     readonly summary: BatchSummary | null
+    /** Where the batch writes its files. */
+    readonly folder: string
 }
 
 /** Stops the batch that is running. Not state: nothing draws it. */
@@ -177,15 +186,6 @@ export interface EditorStore {
     previewSpine(componentId: string, spine: readonly SpineLike[]): void
     /** Records the move a drag ended with as one undo step. */
     commitSpine(before: Scene, componentId: string, spine: readonly SpineLike[]): void
-    /** Which shape tool is armed: off, push, or pull. */
-    shapeTool: ShapeTool
-    setShapeTool(tool: ShapeTool): void
-    /** Shows a push without recording history. Used while dragging. */
-    previewPushes(componentId: string, pushes: readonly SurfacePush[]): void
-    /** Records the push a drag ended with as one undo step. */
-    commitPushes(before: Scene, componentId: string, pushes: readonly SurfacePush[]): void
-    /** Replaces a part's pushes. Undoable. */
-    setPushes(componentId: string, pushes: readonly SurfacePush[]): void
     /** Moves a part along one axis, in metres. */
     moveComponent(componentId: string, axis: 'x' | 'y' | 'z', value: number): void
     /** True while the move gizmo is showing. */
@@ -208,12 +208,19 @@ export interface EditorStore {
     /** Switches the viewport between lit, flat, and wireframe. */
     setShadingMode(mode: ShadingMode): void
     applyPreset(presetId: string): void
-    /** Starts a fresh prop from a preset, named after it, and leaves the saved one alone. */
+    /**
+     * Starts a fresh prop from a preset, named after it, and leaves the saved one alone.
+     * It starts clean, with nothing to undo, so ask before calling this over unsaved work.
+     */
     startNewProp(presetId: string): void
+    /** True once a prop has been started or opened in this session, so there is one to go back to. */
+    propInHand: boolean
     /** Brings back a part of a painted tree that was removed. */
     restoreRemovedPart(kind: 'limb' | 'clump', key: string): void
     /** Rerolls the tree's variation while keeping its shape. */
     randomizeTree(): void
+    /** Uses a seed someone chose, as one undo step. The same seed does nothing. */
+    setSeed(seed: number): void
 
     /** Adds a part from the library and selects it. */
     addLibraryPart(part: LibraryPart): void
@@ -242,8 +249,10 @@ export interface EditorStore {
     exportModel(): void
     exportOpen: boolean
     closeExport(): void
-    /** Closes the export panel and says what it wrote. */
-    finishExport(message: string): void
+    /** Closes the export panel and says what it wrote, and where. */
+    finishExport(message: string, folder?: string): void
+    /** Says something that needs no answer, such as where a kit was saved. */
+    notify(message: string, folder?: string, action?: ToastAction): void
     /** The panel for exporting many props. A batch outlives it. */
     batchOpen: boolean
     openBatch(): void
@@ -495,22 +504,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         commitSpine: (before, componentId, spine) =>
             commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before),
 
-        shapeTool: 'off',
-
-        setShapeTool: (tool) => set({shapeTool: tool}),
-
-        previewPushes: (componentId, pushes) => {
-            const state = get()
-
-            set({scene: setSurfacePushes(state.scene, componentId, pushes)})
-        },
-
-        commitPushes: (before, componentId, pushes) =>
-            commit('push surface', (scene) => setSurfacePushes(scene, componentId, pushes), before),
-
-        setPushes: (componentId, pushes) =>
-            commit('change pushes', (scene) => setSurfacePushes(scene, componentId, pushes)),
-
         moveComponent: (componentId, axis, value) =>
             commit(
                 `move ${axis}`,
@@ -572,14 +565,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
 
         startNewProp: (presetId) => {
-            get().applyPreset(presetId)
+            const scene = createSceneFromPreset(presetId)
+            const style = get().style
+
+            // Nothing to undo: going back would step into another prop under this one's name.
             set({
+                scene,
+                presetId,
+                page: 'editor',
+                history: EMPTY_HISTORY,
+                savedScene: scene,
+                savedStyle: style,
                 treeName: findPreset(presetId)?.name ?? 'My prop',
                 currentTreeId: null,
                 filePath: null,
+                projectExtras: {},
                 selection: EMPTY_SELECTION,
+                propInHand: true,
             })
         },
+
+        propInHand: false,
 
         restoreRemovedPart: (kind, key) =>
             commit('restore part', (scene, style) => {
@@ -608,6 +614,16 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             const seed = hashSeed(currentSeed, currentSeed + 1)
 
             commit('surprise me', (scene, style) =>
+                setAssetSeed(scene, FIRST_ASSET_ID, seed, getStyleProfile(style)),
+            )
+        },
+
+        setSeed: (seed) => {
+            if (seed === get().scene.assets[0]?.seed) {
+                return
+            }
+
+            commit('change seed', (scene, style) =>
                 setAssetSeed(scene, FIRST_ASSET_ID, seed, getStyleProfile(style)),
             )
         },
@@ -852,6 +868,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     history: EMPTY_HISTORY,
                     draftAvailable: false,
                     page: 'editor',
+                    propInHand: true,
                     toast: {message: 'Picked up where you left off', undoable: false},
                 })
             } catch (error) {
@@ -877,6 +894,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     treeName: project.name,
                     currentTreeId: id,
                     page: 'editor',
+                    propInHand: true,
                     filePath: null,
                     projectExtras: project.extras,
                     selection: EMPTY_SELECTION,
@@ -977,6 +995,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     // A file chosen from disk is not a gallery entry.
                     currentTreeId: null,
                     page: 'editor',
+                    propInHand: true,
                     filePath: opened.path,
                     projectExtras: project.extras,
                     selection: EMPTY_SELECTION,
@@ -993,7 +1012,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         exportModel: () => set({exportOpen: true}),
         exportOpen: false,
         closeExport: () => set({exportOpen: false}),
-        finishExport: (message) => set({exportOpen: false, toast: {message, undoable: false}}),
+        finishExport: (message, folder) => set({exportOpen: false, toast: {message, undoable: false, folder}}),
+        notify: (message, folder, action) => set({toast: {message, undoable: false, folder, action}}),
         batchOpen: false,
         openBatch: () => set({batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
@@ -1013,18 +1033,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             })
 
             batchController = controller
-            set({batch: {done: 0, total: items.length, current: null, summary: null}})
+            set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
                 settings: {engine, levels, collision, wind, join},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files) => writeFilesTo(folder, files),
-                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null}}),
+                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
             }).then((summary) => {
                 batchController = null
                 set({
-                    batch: {done: summary.exported, total: summary.total, current: null, summary},
+                    batch: {done: summary.exported, total: summary.total, current: null, summary, folder},
                     // The panel may be long closed, so the news comes back with it.
                     batchOpen: true,
                 })

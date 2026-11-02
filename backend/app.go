@@ -30,6 +30,10 @@ type App struct {
 	// libraryRoot overrides the library. It is empty in the running app.
 	draftRoot string
 
+	// windowStatePath is where the window's size and place are kept. It stays
+	// empty until RememberWindow, so tests never reach for a window.
+	windowStatePath string
+
 	// closeRuntime performs the two window operations the close guard needs:
 	// telling the interface an event happened, and closing the window. It is
 	// nil in the running app, which then calls the Wails runtime; tests replace
@@ -76,6 +80,7 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.removeOldInstaller()
+	a.restoreWindow(ctx)
 }
 
 // Shutdown is called when the app is about to exit. The saved context belongs
@@ -134,13 +139,11 @@ func (a *App) BeforeClose(context.Context) bool {
 	unsaved, allowed, ctx := a.unsaved, a.allowClose, a.ctx
 	a.mu.Unlock()
 
-	// Wails reads this return value as "prevent the close", not "allow it".
-	if !unsaved || allowed {
-		return false
-	}
-
-	// No context means Startup never ran, so there is no interface to ask.
-	if ctx == nil {
+	// Wails reads this return value as "prevent the close", not "allow it". No
+	// context means Startup never ran, so there is no interface to ask.
+	if !unsaved || allowed || ctx == nil {
+		// This close goes ahead, through the update installer's restart too.
+		a.saveWindow(ctx)
 		return false
 	}
 

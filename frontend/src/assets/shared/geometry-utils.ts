@@ -6,67 +6,9 @@
  */
 
 import * as THREE from 'three'
-import type {SpinePoint, SurfacePush} from './component-types'
+import type {SpinePoint} from './component-types'
 
 export type {SpinePoint}
-
-/**
- * Applies surface pushes to a built geometry.
- *
- * Each push moves every vertex within its reach along the push direction, by
- * the push's strength, fading smoothly to nothing at the rim so the surface
- * does not crease. Called after the base form is built and before normals are
- * computed, so the shading follows the new shape.
- */
-export function applySurfacePushes(
-    geometry: THREE.BufferGeometry,
-    pushes: readonly SurfacePush[],
-): void {
-    if (pushes.length === 0) {
-        return
-    }
-
-    const position = geometry.getAttribute('position')
-    if (!position) {
-        return
-    }
-
-    const vertex = new THREE.Vector3()
-    const point = new THREE.Vector3()
-    const direction = new THREE.Vector3()
-
-    for (const push of pushes) {
-        point.set(...push.point)
-        direction.set(...push.direction)
-
-        if (direction.lengthSq() < 1e-12) {
-            continue
-        }
-
-        direction.normalize()
-        const radius = Math.max(push.radius, 1e-3)
-
-        for (let index = 0; index < position.count; index++) {
-            vertex.fromBufferAttribute(position, index)
-            const distance = vertex.distanceTo(point)
-
-            if (distance >= radius) {
-                continue
-            }
-
-            // Smoothstep, so the rim of the push is tangent to the old surface.
-            const t = 1 - distance / radius
-            const falloff = t * t * (3 - 2 * t)
-
-            vertex.addScaledVector(direction, push.strength * falloff)
-            position.setXYZ(index, vertex.x, vertex.y, vertex.z)
-        }
-    }
-
-    position.needsUpdate = true
-    geometry.computeVertexNormals()
-    geometry.computeBoundingSphere()
-}
 
 /** The radius of a tapered form at a point along its length. */
 export function taperedRadius(baseRadius: number, tipRadius: number, t: number): number {
@@ -228,14 +170,17 @@ export function buildTaperedTube(options: TaperedTubeOptions): THREE.BufferGeome
         normals.push(tangent.x * direction, tangent.y * direction, tangent.z * direction)
         uvs.push(0.5, tip ? 1 : 0)
 
+        // Wound to face out of the tube: each cap edge runs the opposite way to the
+        // side face beside it. The other way round, an engine drawing faces one-sided
+        // shows a hole at each end.
         for (let j = 0; j < radialSegments; j++) {
             const current = (radialSegments + 1) * ringIndex + j
             const next = current + 1
 
             if (tip) {
-                indices.push(centerIndex, current, next)
-            } else {
                 indices.push(centerIndex, next, current)
+            } else {
+                indices.push(centerIndex, current, next)
             }
         }
     }

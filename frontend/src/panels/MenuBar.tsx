@@ -31,7 +31,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Prop',
-        items: ['randomize', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
+        items: ['randomize', 'use-seed', 'copy-seed', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
     },
     {
         title: 'Help',
@@ -166,6 +166,7 @@ function PropName() {
     const treeName = useEditorStore((state) => state.treeName)
     const setTreeName = useEditorStore((state) => state.setTreeName)
     const dirty = useEditorStore(hasUnsavedChanges)
+    const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
     const [draft, setDraft] = useState<string | null>(null)
     const input = useRef<HTMLInputElement>(null)
 
@@ -210,7 +211,7 @@ function PropName() {
     return (
         <button type="button" className="prop-name" title="Rename" onClick={() => setDraft(treeName)}>
             <span className="prop-name__text">{treeName}</span>
-            <span className="prop-name__dot" data-dirty={dirty} role="img" aria-label={dirty ? 'Unsaved changes' : 'Saved'} />
+            <span className="prop-name__dot" data-dirty={dirty} role="img" aria-label={dirty ? 'Unsaved changes' : neverSaved ? 'Not saved yet' : 'Saved'} />
         </button>
     )
 }

@@ -21,9 +21,9 @@ import {
     type ParameterSpec,
     type ValidationResult,
 } from '../shared/parameters'
-import {buildTrunkSpine, SPINE_POINT_COUNT, type BendAmount} from './components/trunk'
-import {buildBranchSpine, BRANCH_POINTS, type BranchParameters} from './components/branch'
-import {buildRootSpine, ROOT_POINTS} from './components/root'
+import {buildTrunkSpine, SPINE_POINT_COUNT, trunkGenerator, type BendAmount} from './components/trunk'
+import {branchGenerator, buildBranchSpine, BRANCH_POINTS, type BranchParameters} from './components/branch'
+import {buildRootSpine, ROOT_POINTS, rootGenerator} from './components/root'
 import type {FoliageShape} from './components/foliage-cluster'
 
 export type TreeParameters = {
@@ -249,7 +249,7 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
             id: trunkId,
             type: 'trunk',
             generatorId: 'trunk',
-            generatorVersion: 1,
+            generatorVersion: trunkGenerator.version,
             parentId: null,
             transform: IDENTITY_TRANSFORM,
             parameters: {
@@ -262,7 +262,6 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                 spine,
                 leanAzimuth: azimuth,
                 leanWobble: wobble,
-                pushes: [],
             },
             seed: hashSeed(seed, 0),
             slot: 'trunk',
@@ -333,7 +332,6 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                 twist: randomRange(random, -10, 10),
                 controlPoints: BRANCH_POINTS,
                 spine: buildBranchSpine(bend, curl, length),
-                pushes: [],
             }
 
             const id = `cmp-branch-${nodes.length}`
@@ -356,7 +354,7 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                 id,
                 type: 'branch',
                 generatorId: 'branch',
-                generatorVersion: 1,
+                generatorVersion: branchGenerator.version,
                 parentId: trunkId,
                 transform: transformOf(worldStart, rotationTowards(direction)),
                 parameters: branchParameters,
@@ -415,7 +413,6 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                         twist: randomRange(random, -12, 12),
                         controlPoints: BRANCH_POINTS,
                         spine: buildBranchSpine(childBend, childCurl, childLength),
-                        pushes: [],
                     }
 
                     const id = `cmp-branch-${nodes.length + children.length}`
@@ -438,7 +435,7 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                         id,
                         type: 'branch',
                         generatorId: 'branch',
-                        generatorVersion: 1,
+                        generatorVersion: branchGenerator.version,
                         parentId: parent.id,
                         transform: transformOf(worldStart, rotationTowards(direction)),
                         parameters: branchParameters,
@@ -510,7 +507,7 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                 id: `cmp-root-${i}`,
                 type: 'root',
                 generatorId: 'root',
-                generatorVersion: 1,
+                generatorVersion: rootGenerator.version,
                 parentId: trunkId,
                 transform: transformOf(new THREE.Vector3(0, 0.06, 0), rotationTowards(direction)),
                 parameters: {
@@ -521,7 +518,6 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
                     curl,
                     controlPoints: ROOT_POINTS,
                     spine: buildRootSpine(drop, curl, rootLength),
-                    pushes: [],
                 },
                 seed: hashSeed(seed, 2000 + i),
                 slot: `root-${i}`,

@@ -13,8 +13,6 @@ agree on the term first, or rethink the control.
 | Taper | **Taper** | Slider. "How much the trunk narrows toward the top." |
 | Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes |
 | Shading mode, viewport shading | **View** | Lit / Flat / Wireframe. "Show the triangles" for wireframe |
-| Extrude, intrude, sculpt, vertex edit | **Push / Pull** | "Push the bark out", "pull it in". Never "sculpt" |
-| Displace, deform, offset | **Push / Pull** | |
 | Delete, remove | **Remove** | "Remove this branch" |
 | Curvature | **Bend** | Segmented: Straight / Curved / Very curved |
 | Twist | **Twist** | Acceptable — the word is intuitive |
@@ -32,7 +30,7 @@ agree on the term first, or rethink the control.
 | UV, unwrap | *(never shown)* | |
 | Normal, tangent | *(never shown)* | |
 | Shader, material graph | **Material** | Fixed presets only in MVP |
-| Seed | **Seed** | Plus a shuffle button |
+| Seed | **Seed** | Plus **Surprise me** for a new one. Shown as a whole number you can type, paste or copy |
 | LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. |
 | Pivot | *(never shown)* | |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |

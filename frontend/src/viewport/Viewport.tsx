@@ -3,7 +3,6 @@ import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {afterPaint} from '../core/export/pipeline/yield'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
-import type {SurfacePush} from '../assets/shared/component-types'
 import type {Scene} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {useSetting, useSettingsStore, settingValue} from '../store/settings-store'
@@ -12,10 +11,9 @@ import {applyCameraScheme, type CameraScheme} from './scene/camera-controls'
 import {createViewportScene, type Backdrop, type ViewportScene} from './scene/create-scene'
 import {registerViewport, type ViewAngle} from './viewport-bridge'
 import {createHandles, type HandleSet} from './scene/handles'
-import {createPicker, pickNearestAxis, pickNearestHandle, pickSurface, pointerOnAxis, pointerOnPlane} from './scene/picking'
+import {createPicker, pickNearestAxis, pickNearestHandle, pointerOnAxis, pointerOnPlane} from './scene/picking'
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
-import {beginPush, pixelsPerMetre, pushFor, type PushGesture} from './scene/push-drag'
 import {createMoveGizmo, type MoveGizmo} from './scene/move-gizmo'
 import {findComponent} from '../core/scene/scene-model'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
@@ -67,10 +65,8 @@ export function Viewport() {
     const sceneRef = useRef<ViewportScene | null>(null)
     const pointerDownRef = useRef<{x: number; y: number} | null>(null)
     const dragRef = useRef<DragState | null>(null)
-    const pushRef = useRef<{gesture: PushGesture; latest: SurfacePush | null} | null>(null)
     const moveRef = useRef<MoveState | null>(null)
     const compassRef = useRef<CompassHandle>(null)
-    const brushRef = useRef<HTMLDivElement>(null)
     const reportFaces = (viewport: ViewportScene) => {
         const counts = viewport.countFacesByMesh()
 
@@ -81,7 +77,6 @@ export function Viewport() {
             useEditorStore.getState().setFaceCounts(counts)
         }
     }
-    const shapeTool = useEditorStore((state) => state.shapeTool)
     // The browser cannot change this on a live canvas, so a change rebuilds the view.
     const antialias = useSetting('antialias') === true
     const [loadStep, setLoadStep] = useState<LoadStep | null>('view')
@@ -238,21 +233,6 @@ export function Viewport() {
                 return
             }
 
-            const push = pushRef.current
-
-            if (push) {
-                const next = pushFor(push.gesture, {x: event.clientX, y: event.clientY})
-
-                if (next) {
-                    push.latest = next
-                    store
-                        .getState()
-                        .previewPushes(push.gesture.componentId, [...push.gesture.base, next])
-                }
-
-                return
-            }
-
             const drag = dragRef.current
 
             if (drag) {
@@ -279,8 +259,6 @@ export function Viewport() {
                 return
             }
 
-            moveBrush(event)
-
             // With the move tool on, the arrow under the pointer lights up,
             // so the user can see what a drag is about to grab.
             if (store.getState().moveTool) {
@@ -296,42 +274,6 @@ export function Viewport() {
             }
 
             store.getState().setHover(picker.pick(event.clientX, event.clientY))
-        }
-
-        /**
-         * Puts the brush ring under the pointer, sized to the reach of the
-         * part it is over.
-         */
-        const moveBrush = (event: PointerEvent) => {
-            const ring = brushRef.current
-            if (!ring) {
-                return
-            }
-
-            if (store.getState().shapeTool === 'off') {
-                ring.dataset.visible = 'false'
-                return
-            }
-
-            const rect = container.getBoundingClientRect()
-            ring.style.left = `${event.clientX - rect.left}px`
-            ring.style.top = `${event.clientY - rect.top}px`
-
-            const hit = pickSurface(event.clientX, event.clientY, viewport.camera, canvas, [
-                viewport.components.group,
-            ])
-
-            if (!hit) {
-                ring.dataset.visible = 'false'
-                return
-            }
-
-            const height = canvas.clientHeight
-            const distance = hit.point.distanceTo(viewport.camera.position)
-            const radius = Math.max(hit.reach * pixelsPerMetre(viewport.camera, distance, height), 12)
-
-            ring.style.setProperty('--brush-radius', `${radius.toFixed(1)}px`)
-            ring.dataset.visible = 'true'
         }
 
         const onPointerDown = (event: PointerEvent) => {
@@ -391,42 +333,6 @@ export function Viewport() {
                 }
             }
 
-            // The shape tool takes the pointer before anything else: a drag on
-            // a surface is a push, not a selection.
-            if (state.shapeTool !== 'off') {
-                const hit = pickSurface(event.clientX, event.clientY, viewport.camera, canvas, [
-                    viewport.components.group,
-                ])
-
-                if (hit) {
-                    // Touching a part with the tool armed selects it, so the
-                    // tool is never a dead end on a fresh scene.
-                    if (hit.componentId !== state.selection.selectedId) {
-                        store.getState().select(hit.componentId)
-                    }
-
-                    const gesture = beginPush({
-                        scene: state.scene,
-                        componentId: hit.componentId,
-                        point: hit.point,
-                        normal: hit.normal,
-                        reach: hit.reach,
-                        tool: state.shapeTool,
-                        camera: viewport.camera,
-                        width: canvas.clientWidth,
-                        height: canvas.clientHeight,
-                        pointer: {x: event.clientX, y: event.clientY},
-                    })
-
-                    if (gesture) {
-                        pushRef.current = {gesture, latest: null}
-                        viewport.controls.enabled = false
-                    }
-                }
-
-                return
-            }
-
             const spine = selectedSpine(state.scene, state.selection.selectedId)
 
             if (!spine) {
@@ -460,11 +366,9 @@ export function Viewport() {
         const onPointerUp = (event: PointerEvent) => {
             const start = pointerDownRef.current
             const move = moveRef.current
-            const push = pushRef.current
             const drag = dragRef.current
             pointerDownRef.current = null
             dragRef.current = null
-            pushRef.current = null
             moveRef.current = null
             viewport.controls.enabled = true
 
@@ -473,20 +377,6 @@ export function Viewport() {
                     store
                         .getState()
                         .commitPosition(move.before, move.componentId, move.latest)
-                }
-
-                return
-            }
-
-            if (push) {
-                if (push.latest) {
-                    store
-                        .getState()
-                        .commitPushes(
-                            push.gesture.before,
-                            push.gesture.componentId,
-                            [...push.gesture.base, push.latest],
-                        )
                 }
 
                 return
@@ -521,11 +411,6 @@ export function Viewport() {
         const onPointerLeave = () => {
             pointerDownRef.current = null
             store.getState().setHover(null)
-
-            const ring = brushRef.current
-            if (ring) {
-                ring.dataset.visible = 'false'
-            }
         }
 
         canvas.addEventListener('pointermove', onPointerMove)
@@ -773,10 +658,9 @@ export function Viewport() {
     }, [antialias, painted])
 
     return (
-        <div className="viewport" data-tool={shapeTool} data-coach="viewport">
+        <div className="viewport" data-coach="viewport">
             <div ref={containerRef} style={{position: 'absolute', inset: 0}} />
             {loadStep ? <ViewportLoading step={loadStep} /> : null}
-            <div ref={brushRef} className="viewport__brush" data-visible="false" />
             <Compass ref={compassRef} onSnap={snapToAxis} />
             <ViewportOverlay />
         </div>

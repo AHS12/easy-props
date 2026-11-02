@@ -20,7 +20,12 @@ export interface ConfirmRequest {
     readonly text: string
     readonly action: string
     readonly danger?: boolean
-    readonly run: () => void
+    /** The cancel button's words, when Cancel doesn't say enough. */
+    readonly cancel?: string
+    /** Shows a Don't ask again tick box, and passes whether it was ticked to run. */
+    readonly offerDontAsk?: boolean
+    readonly run: (dontAskAgain: boolean) => void
+    readonly onCancel?: () => void
 }
 
 interface UiStore {
@@ -58,6 +63,10 @@ interface UiStore {
 
     confirm: ConfirmRequest | null
     askConfirm(request: ConfirmRequest | null): void
+
+    /** The seed panel above the status bar. */
+    seedPanelOpen: boolean
+    setSeedPanelOpen(open: boolean): void
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -92,4 +101,7 @@ export const useUiStore = create<UiStore>((set) => ({
 
     confirm: null,
     askConfirm: (confirm) => set({confirm}),
+
+    seedPanelOpen: false,
+    setSeedPanelOpen: (seedPanelOpen) => set({seedPanelOpen}),
 }))

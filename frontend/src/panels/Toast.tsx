@@ -1,5 +1,6 @@
 import {X} from 'lucide-react'
 import {useEffect} from 'react'
+import {isDesktop, showFolder} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
 
 /**
@@ -12,6 +13,7 @@ export function Toast() {
     const toast = useEditorStore((state) => state.toast)
     const dismissToast = useEditorStore((state) => state.dismissToast)
     const undo = useEditorStore((state) => state.undo)
+    const notify = useEditorStore((state) => state.notify)
 
     useEffect(() => {
         if (!toast) {
@@ -41,6 +43,36 @@ export function Toast() {
                     }}
                 >
                     Undo
+                </button>
+            ) : null}
+
+            {toast.action ? (
+                <button
+                    type="button"
+                    className="notice__action"
+                    onClick={() => {
+                        dismissToast()
+                        toast.action!.run()
+                    }}
+                >
+                    {toast.action.label}
+                </button>
+            ) : null}
+
+            {toast.folder && isDesktop() ? (
+                <button
+                    type="button"
+                    className="notice__action"
+                    onClick={() => {
+                        const folder = toast.folder!
+
+                        dismissToast()
+                        showFolder(folder).catch(() =>
+                            notify("Couldn't open the folder. It may have been moved or removed."),
+                        )
+                    }}
+                >
+                    Show the files
                 </button>
             ) : null}
 

@@ -28,7 +28,7 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         key: 'engine',
         label: 'Default engine',
         help: 'Which game engine exports are prepared for.',
-        keywords: 'unreal godot unity blender',
+        keywords: 'unreal godot blender',
         options: (Object.keys(ENGINE_LABELS) as EngineId[]).map((id) => ({value: id, label: ENGINE_LABELS[id]})),
         get: () => loadExportPreferences().engine,
         set: (value) => update({engine: value as EngineId}),
@@ -64,6 +64,14 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         keywords: 'merge combine single forest',
         get: () => loadExportPreferences().join,
         set: (value) => update({join: value === true}),
+    },
+    {
+        key: 'askBeforeReplacing',
+        label: 'Ask before replacing files',
+        help: 'Ask before an export replaces files already in its folder, which your game may be using.',
+        keywords: 'overwrite replace warning existing',
+        get: () => loadExportPreferences().askBeforeReplacing,
+        set: (value) => update({askBeforeReplacing: value === true}),
     },
     {
         key: 'budget',

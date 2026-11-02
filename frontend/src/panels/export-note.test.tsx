@@ -5,7 +5,7 @@ import {useEditorStore} from '../store/editor-store'
 import {BatchExportDialog} from './BatchExportDialog'
 import {ExportDialog} from './ExportDialog'
 
-const PREFERENCES = {levels: 3, collision: true, wind: true, join: false, folder: ''}
+const PREFERENCES = {levels: 3, collision: true, wind: true, join: false, folder: '', askBeforeReplacing: true}
 
 afterEach(() => {
     cleanup()

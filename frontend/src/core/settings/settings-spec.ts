@@ -93,6 +93,15 @@ export const SETTING_SPECS = [
         default: true,
     },
     {
+        key: 'checkUpdates',
+        page: 'General',
+        kind: 'toggle',
+        label: 'Check for updates automatically',
+        help: 'Once a week, when the app opens. It tells you when a new version is out, and never downloads anything by itself.',
+        keywords: 'update upgrade new version github',
+        default: true,
+    },
+    {
         key: 'theme',
         page: 'Appearance',
         kind: 'choice',
@@ -339,6 +348,8 @@ export interface SettingsFile {
     readonly lastSeenVersion: string
     readonly lastTreeId: string | null
     readonly libraryFolder: string
+    /** When updates were last looked for successfully, in milliseconds. 0 for never. */
+    readonly lastUpdateCheck: number
 }
 
 export const DEFAULT_SETTINGS: SettingsFile = {
@@ -354,6 +365,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     lastSeenVersion: '',
     lastTreeId: null,
     libraryFolder: '',
+    lastUpdateCheck: 0,
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -392,6 +404,7 @@ const fileSchema = z.object({
     lastSeenVersion: z.string().catch(''),
     lastTreeId: z.string().nullable().catch(null),
     libraryFolder: z.string().catch(''),
+    lastUpdateCheck: z.number().catch(0),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */
