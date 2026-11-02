@@ -11,7 +11,7 @@ vi.mock('../core/export/pipeline/package', () => ({
     buildExport: async () => [{name: 'Boulder_LOD0.glb', bytes: new Uint8Array([1]), faces: 10}],
 }))
 
-const PREFERENCES = {engine: 'plain', levels: 1, collision: false, wind: false, join: false, folder: 'C:/Games/props', askBeforeReplacing: true} as const
+const PREFERENCES = {engine: 'plain', levels: 1, collision: false, wind: false, join: false, folder: 'C:/Games/props', askBeforeReplacing: true, folderPerProp: false} as const
 
 let existing: string[] = []
 const app = {

@@ -32,6 +32,8 @@ export interface Limb {
     readonly controls: readonly Vec3[]
     readonly lengthScale: number
     readonly thicknessScale: number
+    /** How far it was turned by hand, in degrees about X, Y and Z. */
+    readonly turn: Vec3
 }
 
 /** A mass of leaves: an ellipsoid whose surface the seed breaks up. */
@@ -191,7 +193,14 @@ function growLimb(
         radii.push(tipRadius + (baseRadius - tipRadius) * Math.pow(1 - t, taperPower))
     }
 
-    const shaped = recipe.shape ? path.map((point, step) => recipe.shape!(point, step / steps)) : path
+    const turn = edit.turn ?? NO_TURN
+    // Turned before the handles' offsets, which are moves in the world, so a dragged
+    // handle stays where it was dragged to.
+    const shaped = turnAbout(
+        recipe.shape ? path.map((point, step) => recipe.shape!(point, step / steps)) : path,
+        recipe.start,
+        turn,
+    )
     const offsets = edit.offsets ?? []
     const points = shaped.map((point, step) => add(point, offsetAt(step / steps, recipe.controlTs, offsets)))
     const sampled = (from: readonly Vec3[]) => recipe.controlTs.map((t) => sampleAt(from, t))
@@ -207,7 +216,32 @@ function growLimb(
         controls: sampled(points),
         lengthScale,
         thicknessScale,
+        turn,
     }
+}
+
+const NO_TURN: Vec3 = [0, 0, 0]
+
+/** Points turned around a pivot, in degrees about X, then Y, then Z. */
+function turnAbout(points: readonly Vec3[], pivot: Vec3, [x, y, z]: Vec3): readonly Vec3[] {
+    if (x === 0 && y === 0 && z === 0) {
+        return points
+    }
+
+    const [ax, ay, az] = [x, y, z].map((degrees) => (degrees * Math.PI) / 180)
+    const [cx, sx, cy, sy, cz, sz] = [Math.cos(ax), Math.sin(ax), Math.cos(ay), Math.sin(ay), Math.cos(az), Math.sin(az)]
+
+    return points.map((point) => {
+        let px = point[0] - pivot[0]
+        let py = point[1] - pivot[1]
+        let pz = point[2] - pivot[2]
+
+        ;[py, pz] = [py * cx - pz * sx, py * sx + pz * cx]
+        ;[px, pz] = [px * cy + pz * sy, -px * sy + pz * cy]
+        ;[px, py] = [px * cz - py * sz, px * sz + py * cz]
+
+        return [px + pivot[0], py + pivot[1], pz + pivot[2]]
+    })
 }
 
 function sampleAt(points: readonly Vec3[], t: number): Vec3 {

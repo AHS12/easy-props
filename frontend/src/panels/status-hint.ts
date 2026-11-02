@@ -8,7 +8,10 @@ const CAMERA_HINTS: Readonly<Record<string, string>> = {
 }
 
 /** The hint for this moment: what you can do right now. */
-export function hintFor(state: Pick<EditorStore, 'status' | 'moveTool' | 'selection' | 'scene'>, scheme: string): string {
+export function hintFor(
+    state: Pick<EditorStore, 'status' | 'moveTool' | 'selection' | 'scene'> & Partial<Pick<EditorStore, 'turnTool'>>,
+    scheme: string,
+): string {
     if (state.status.message) {
         return state.status.message
     }
@@ -19,9 +22,13 @@ export function hintFor(state: Pick<EditorStore, 'status' | 'moveTool' | 'select
         return part ? 'Drag an arrow to move the part · Esc to put the tool down' : 'Click a part, then drag an arrow to move it'
     }
 
+    if (state.turnTool) {
+        return part ? 'Drag a ring to turn the part around its base · Esc to put the tool down' : 'Click a branch, then drag a ring to turn it'
+    }
+
     if (part) {
         return part.generatorId === 'painted-limb'
-            ? 'Drag a white handle to reshape · F to frame · Delete to remove · Esc to deselect'
+            ? 'Drag a white handle to reshape · E to turn · F to frame · Delete to remove · Esc to deselect'
             : 'G to move · F to frame · Delete to remove · Esc to deselect'
     }
 

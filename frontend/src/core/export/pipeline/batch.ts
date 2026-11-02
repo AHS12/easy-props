@@ -18,7 +18,8 @@ export interface BatchItem {
 export interface BatchOptions {
     readonly settings: Omit<ExportSettings, 'name'>
     readonly budget: BudgetTargetId
-    write(files: readonly ExportFile[]): Promise<void>
+    /** `name` is the prop's, for a batch that gives each prop a folder of its own. */
+    write(files: readonly ExportFile[], name: string): Promise<void>
     readonly signal?: AbortSignal
     /** Called as each prop starts, and once more at the end. */
     onProgress?(done: number, total: number, current: string | null): void
@@ -54,7 +55,7 @@ export async function runBatch(items: readonly BatchItem[], options: BatchOption
             const files = await buildExport(await item.load(), {...settings, name: item.name}, undefined, signal)
             const faces = Math.max(0, ...files.map((file) => file.faces ?? 0))
 
-            await options.write(files)
+            await options.write(files, item.name)
 
             exported++
             bytes += files.reduce((sum, file) => sum + file.bytes.length, 0)

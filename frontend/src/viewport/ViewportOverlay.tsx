@@ -4,18 +4,20 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Rotate3d, Sun, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
-import {Tooltip} from '../components/controls'
+import {Switch, Tooltip} from '../components/controls'
+import {findPropGenerator} from '../assets/prop-generators'
 import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
+import {loadExportPreferences} from '../core/export/export-preferences'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode} from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
 import {useEditorStore} from '../store/editor-store'
 import {useSetting, useSettingsStore} from '../store/settings-store'
-import {useUiStore} from '../store/ui-store'
+import {asksForLessMotion, useUiStore} from '../store/ui-store'
 import {SunDial} from './SunDial'
 import {viewportHandle, type ViewAngle} from './viewport-bridge'
 
@@ -165,6 +167,61 @@ function LightingButton() {
     )
 }
 
+function WindButton() {
+    const on = useSetting('wind') === true
+    const strength = Number(useSetting('windStrength'))
+    const chosen = useUiStore((state) => state.windChosen)
+    const setWind = useUiStore((state) => state.setWind)
+    const shadingMode = useEditorStore((state) => state.shadingMode)
+    const generatorId = useEditorStore((state) => state.scene.assets[0]?.generatorId ?? '')
+    const still = findPropGenerator(generatorId)?.still === true
+    const heldForMotion = on && !chosen && asksForLessMotion()
+    const moving = on && !heldForMotion && !still && shadingMode !== 'wind'
+
+    const note = still
+        ? "This prop doesn't move in the wind."
+        : heldForMotion
+          ? 'Your computer asks for less motion, so Wind starts off. Switch it on to see it anyway.'
+          : on && shadingMode === 'wind'
+            ? 'The Wind view shows how much each part may move, so the prop holds still in it.'
+            : null
+
+    return (
+        <Popover>
+            <Popover.Trigger>
+                <Tooltip text="Wind" placement="bottom" always>
+                    <button type="button" className="tool" aria-label="Wind" aria-pressed={moving}>
+                        <Wind size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip>
+            </Popover.Trigger>
+            <Popover.Content className="sun-panel" placement="bottom end" offset={6}>
+                <Popover.Dialog aria-label="Wind">
+                    <div className="wind-panel__row">
+                        <span>Wind</span>
+                        <Switch label="Wind" value={on && !heldForMotion} onChange={setWind} />
+                    </div>
+                    <PropertyRow
+                        label="Strength"
+                        value={strength}
+                        min={0.3}
+                        max={2}
+                        step={0.1}
+                        onChange={(value) => useSettingsStore.getState().setValue('windStrength', value)}
+                    />
+                    <div className="wind-panel__ends" aria-hidden="true">
+                        <span>Calm</span>
+                        <span>Storm</span>
+                    </div>
+                    <p className="sun-panel__caption">
+                        {note ?? 'Moves the prop as the wind materials will move it in your engine.'}
+                    </p>
+                </Popover.Dialog>
+            </Popover.Content>
+        </Popover>
+    )
+}
+
 /** Off by default: faces per mesh, draw calls, and size in metres. */
 function StatsOverlay() {
     const faceCounts = useEditorStore((state) => state.shownFaceCounts)
@@ -194,19 +251,41 @@ function StatsOverlay() {
     )
 }
 
+/** Only when the shapes on show would mislead: there are none, or Export leaves them out. */
+function CollisionNote() {
+    const count = useUiStore((state) => state.collisionShapeCount)
+    // Read each time, so a change made in Export shows once the view draws again.
+    const exported = loadExportPreferences().collision
+
+    const note =
+        count === 0
+            ? 'Nothing to walk into: this prop has no collision shapes.'
+            : count !== null && !exported
+              ? "Collision is off in Export, so these won't be exported."
+              : null
+
+    return note ? (
+        <p className="viewport-note" role="status">
+            {note}
+        </p>
+    ) : null
+}
+
 export function ViewportOverlay() {
     const shadingMode = useEditorStore((state) => state.shadingMode)
     const setShadingMode = useEditorStore((state) => state.setShadingMode)
     const previewLevel = useEditorStore((state) => state.previewLevel)
     const setPreviewLevel = useEditorStore((state) => state.setPreviewLevel)
     const moveTool = useEditorStore((state) => state.moveTool)
-    const setMoveTool = useEditorStore((state) => state.setMoveTool)
+    const turnTool = useEditorStore((state) => state.turnTool)
     const showStats = useUiStore((state) => state.showStats)
     const showScaleFigure = useUiStore((state) => state.showScaleFigure)
+    const showCollision = useUiStore((state) => state.showCollision)
     const maximized = useUiStore((state) => state.maximized)
     const editor = useEditorStore()
 
     const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
+    const turnReason = findCommand('tool-turn')?.unavailable?.(editor) ?? null
     const ShadingIcon = SHADING_ICONS[shadingMode]
     const backdrop = String(useSetting('backdrop'))
     const command = (id: string) => () => {
@@ -221,7 +300,7 @@ export function ViewportOverlay() {
         <>
             <div className="viewport-tools viewport-tools--left" role="toolbar" aria-label="Tools">
                 <div className="tool-group">
-                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool} onPress={() => setMoveTool(false)}>
+                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool && !turnTool} onPress={command('tool-select')}>
                         <MousePointer2 size={14} aria-hidden="true" />
                     </ToolButton>
                     <ToolButton
@@ -232,6 +311,15 @@ export function ViewportOverlay() {
                         onPress={command('tool-move')}
                     >
                         <Move size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton
+                        label="Turn"
+                        keys={shortcutFor('tool-turn')}
+                        pressed={turnTool}
+                        disabledReason={turnTool ? null : turnReason}
+                        onPress={command('tool-turn')}
+                    >
+                        <Rotate3d size={14} aria-hidden="true" />
                     </ToolButton>
                 </div>
             </div>
@@ -292,6 +380,7 @@ export function ViewportOverlay() {
                         />
                     </span>
                     <LightingButton />
+                    <WindButton />
                     <ToolMenu
                         label="Camera angle"
                         trigger={<Camera size={14} aria-hidden="true" />}
@@ -306,6 +395,9 @@ export function ViewportOverlay() {
                     <ToolButton label="A person for scale" pressed={showScaleFigure} onPress={command('toggle-scale-figure')}>
                         <PersonStanding size={14} aria-hidden="true" />
                     </ToolButton>
+                    <ToolButton label="What you can walk into" pressed={showCollision} onPress={command('toggle-collision')}>
+                        <BrickWall size={14} aria-hidden="true" />
+                    </ToolButton>
                     <ToolButton label={maximized ? 'Restore the panels' : 'Maximize'} keys={shortcutFor('maximize')} pressed={maximized} onPress={command('maximize')}>
                         {maximized ? <Minimize size={14} aria-hidden="true" /> : <Maximize size={14} aria-hidden="true" />}
                     </ToolButton>
@@ -313,6 +405,7 @@ export function ViewportOverlay() {
             </div>
 
             {showStats ? <StatsOverlay /> : null}
+            {showCollision ? <CollisionNote /> : null}
         </>
     )
 }

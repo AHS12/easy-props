@@ -4,6 +4,7 @@
  */
 
 import {create} from 'zustand'
+import {settingValue, useSettingsStore} from './settings-store'
 
 export type SettingsPageId =
     | 'General'
@@ -56,6 +57,14 @@ interface UiStore {
     toggleStats(): void
     showScaleFigure: boolean
     toggleScaleFigure(): void
+    showCollision: boolean
+    toggleCollision(): void
+    /** Wind was switched on in this session, which outweighs asking for less motion. */
+    windChosen: boolean
+    setWind(on: boolean): void
+    /** How many shapes the view is showing, or null while they are worked out. */
+    collisionShapeCount: number | null
+    setCollisionShapeCount(count: number | null): void
 
     /** A control the palette is pointing at, flashed by the Details panel. */
     revealedControl: string | null
@@ -67,6 +76,23 @@ interface UiStore {
     /** The seed panel above the status bar. */
     seedPanelOpen: boolean
     setSeedPanelOpen(open: boolean): void
+
+    /** Show me more's grid of versions. */
+    variationsOpen: boolean
+    setVariationsOpen(open: boolean): void
+}
+
+/** Whether someone's system or Settings asks for less movement on screen. */
+export function asksForLessMotion(): boolean {
+    return settingValue('reduceMotion') === true || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+}
+
+/**
+ * Whether the prop should move in the wind. Asking for less motion keeps it still
+ * until Wind is switched on again in this session, even if it was on last time.
+ */
+export function windWanted(): boolean {
+    return settingValue('wind') === true && (useUiStore.getState().windChosen || !asksForLessMotion())
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -95,6 +121,15 @@ export const useUiStore = create<UiStore>((set) => ({
     toggleStats: () => set((state) => ({showStats: !state.showStats})),
     showScaleFigure: false,
     toggleScaleFigure: () => set((state) => ({showScaleFigure: !state.showScaleFigure})),
+    showCollision: false,
+    toggleCollision: () => set((state) => ({showCollision: !state.showCollision})),
+    windChosen: false,
+    setWind: (on) => {
+        useSettingsStore.getState().setValue('wind', on)
+        set({windChosen: on})
+    },
+    collisionShapeCount: null,
+    setCollisionShapeCount: (collisionShapeCount) => set({collisionShapeCount}),
 
     revealedControl: null,
     revealControl: (revealedControl) => set({revealedControl}),
@@ -104,4 +139,7 @@ export const useUiStore = create<UiStore>((set) => ({
 
     seedPanelOpen: false,
     setSeedPanelOpen: (seedPanelOpen) => set({seedPanelOpen}),
+
+    variationsOpen: false,
+    setVariationsOpen: (variationsOpen) => set({variationsOpen}),
 }))

@@ -1673,6 +1673,38 @@ svg.lucide {
     pointer-events: none;
 }
 
+.wind-panel__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font: var(--text-body);
+}
+
+.wind-panel__ends {
+    display: flex;
+    justify-content: space-between;
+    margin-top: calc(var(--space-1) * -1);
+    color: var(--text-tertiary);
+    font: var(--text-caption);
+}
+
+/* Under the tools on the left, clear of the stats on the right. */
+.viewport-note {
+    position: absolute;
+    top: 46px;
+    left: 18px;
+    z-index: 2;
+    max-width: min(320px, calc(100% - 36px));
+    margin: 0;
+    padding: 6px var(--space-2);
+    border: 1px solid var(--overlay-border);
+    border-radius: var(--radius-md);
+    background: var(--overlay-bg);
+    color: var(--overlay-text);
+    font: var(--text-caption);
+    pointer-events: none;
+}
+
 .stats dt {
     color: var(--overlay-muted);
 }
@@ -2209,6 +2241,106 @@ html[data-theme='dark'] .dialog__error {
     overflow-y: auto;
     border-radius: var(--radius-sm);
     background: var(--surface-sunken);
+}
+
+.variation-frame {
+    position: relative;
+}
+
+.variation-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: #2b2d30;
+}
+
+.variation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.variation {
+    position: relative;
+}
+
+.variation__pick {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    cursor: pointer;
+}
+
+.variation__pick:hover,
+.variation__pick:focus-visible {
+    border-color: var(--accent);
+}
+
+.variation[data-now] .variation__pick {
+    border: 2px solid var(--accent);
+}
+
+.variation__pick img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.variation__now {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font: var(--text-caption);
+}
+
+.variation__tick {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--overlay-border);
+    border-radius: var(--radius-sm);
+    background: var(--overlay-bg);
+    color: var(--overlay-text);
+    cursor: pointer;
+}
+
+.variation__tick:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+
+.variation__tick:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.variation__tick input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .checklist {

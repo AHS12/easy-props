@@ -33,6 +33,7 @@ agree on the term first, or rethink the control.
 | Seed | **Seed** | Plus **Surprise me** for a new one. Shown as a whole number you can type, paste or copy |
 | LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. |
 | Pivot | *(never shown)* | |
+| Collision, collision shapes | **What you can walk into** | In the view. Export keeps **Collision**, where people look for the word |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
 

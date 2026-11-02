@@ -69,6 +69,7 @@ const componentSchema = z.object({
     seed: z.number().int(),
     slot: z.string().nullable(),
     edited: z.boolean(),
+    moved: vec3.optional(),
 })
 
 const assetSchema = z.object({

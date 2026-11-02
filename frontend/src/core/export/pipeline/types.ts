@@ -67,6 +67,20 @@ export interface ExportFile {
 export const LEVEL_SHARES: readonly number[] = [1, 0.4, 0.12]
 
 /** Makes a prop's name safe to be a file: `Old Oak #1` becomes `old_oak_1`. */
+/**
+ * A folder name as typed, minus what no file system allows. Unlike a file name it
+ * keeps its spaces and capitals, as people read it. Empty means no folder.
+ */
+export function folderNameOf(name: string): string {
+    return [...name]
+        .filter((char) => char >= ' ' && !'<>:"/\\|?*'.includes(char))
+        .join('')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[. ]+$/, '')
+        .replace(/^\.+$/, '')
+}
+
 export function exportNameOf(name: string): string {
     const safe = name
         .trim()

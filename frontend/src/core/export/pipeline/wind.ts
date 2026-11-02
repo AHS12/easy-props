@@ -24,6 +24,18 @@ export interface WindExtent {
     readonly reach: number
 }
 
+/**
+ * How the wind materials move a prop: the defaults the Godot kit's shaders start
+ * with, which the view also uses. A test holds them to the kit's files.
+ */
+export const WIND_MOTION = {
+    swayStrength: 0.25,
+    swaySpeed: 1.1,
+    flutterStrength: 0.04,
+    flutterSpeed: 5,
+    direction: [1, 0, 0.3],
+} as const
+
 /** Further than any prop, so being far out adds nothing and a patch's rim moves as its middle does. */
 export const EVEN_REACH = 1e6
 

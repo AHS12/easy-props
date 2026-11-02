@@ -81,21 +81,39 @@ export function mergeGenerated(
 
     const merged = generated.map((fresh) => {
         const previous = fresh.slot === null ? undefined : bySlot.get(fresh.slot)
+        const placed = previous?.moved ? movedBy(fresh, previous.moved) : fresh
 
         if (previous && previous.edited) {
             if (fresh.type === 'trunk') {
-                return mergeShapedTrunk(fresh, previous)
+                return mergeShapedTrunk(placed, previous)
             }
 
-            return {...fresh, id: previous.id, parameters: previous.parameters, edited: true}
+            return {...placed, id: previous.id, parameters: previous.parameters, edited: true}
         }
 
-        return fresh
+        return placed
     })
 
     const manual = existing.filter((component) => component.slot === null)
 
     return [...merged, ...manual]
+}
+
+/** A fresh part, put where the user moved it. */
+function movedBy(fresh: SceneComponent, moved: readonly [number, number, number]): SceneComponent {
+    const [x, y, z] = fresh.transform.position
+
+    return {...fresh, transform: {...fresh.transform, position: [x + moved[0], y + moved[1], z + moved[2]]}, moved}
+}
+
+/** A part at a new position, remembering how far that is from where its generator put it. */
+function placedAt(component: SceneComponent, position: readonly [number, number, number]): SceneComponent {
+    const [x, y, z] = component.transform.position
+    const [mx, my, mz] = component.moved ?? [0, 0, 0]
+    // Where the generator put it: where it is, less how far it had been moved.
+    const moved: [number, number, number] = [position[0] - (x - mx), position[1] - (y - my), position[2] - (z - mz)]
+
+    return {...component, transform: {...component.transform, position: [...position] as [number, number, number]}, moved}
 }
 
 /**
@@ -326,7 +344,7 @@ export function moveComponent(
                 const position = [...component.transform.position] as [number, number, number]
                 position[index] = value
 
-                return {...component, transform: {...component.transform, position}}
+                return placedAt(component, position)
             }),
         ),
     }
@@ -345,10 +363,7 @@ export function setComponentPosition(
     return {
         ...scene,
         assets: scene.assets.map((asset) =>
-            mapComponent(asset, componentId, (component) => ({
-                ...component,
-                transform: {...component.transform, position},
-            })),
+            mapComponent(asset, componentId, (component) => placedAt(component, position)),
         ),
     }
 }

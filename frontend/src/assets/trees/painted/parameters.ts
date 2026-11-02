@@ -82,7 +82,7 @@ const NUMBERS = {
 
     colourVariation: number('Colours', 'colourVariation', 'Variation', 'How much the colour changes from clump to clump.', 0, 1, 0.05, 0.35),
 
-    barkDetail: number(BARK, 'barkDetail', 'Mesh detail', 'How fine the trunk and big branches are. Higher costs more to draw.', 0.5, 2, 0.05, 1),
+    barkDetail: number(BARK, 'barkDetail', 'Wood detail', 'How fine the trunk and big branches are. Higher costs more to draw.', 0.5, 2, 0.05, 1),
     brushStrokes: number(BARK, 'brushStrokes', 'Brush strokes', 'How strongly brush strokes show on the wood. 0 leaves it smooth.', 0, 2, 0.25, 1),
     roughness: number(BARK, 'roughness', 'Roughness', 'Uneven bumps across the wood.', 0, 1, 0.05, 0.2),
     burls: number(BARK, 'burls', 'Burls', 'Round knots growing out of the trunk.', 0, 8, 1, 0, 'count'),

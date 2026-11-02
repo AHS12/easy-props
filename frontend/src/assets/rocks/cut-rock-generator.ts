@@ -200,6 +200,11 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
     paintsOwnColours: true,
     still: true,
     budgetAdvice: 'Lower Chunks or Faces.',
+    // Fewer faces keeps the rock's outline. Fewer chunks changes its shape, so it comes second.
+    fitControls: [
+        {key: 'faces', limit: 0.2},
+        {key: 'chunks', limit: 2},
+    ],
 
     createDefaultParameters() {
         return cutRockDefaults

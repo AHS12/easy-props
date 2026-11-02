@@ -15,6 +15,7 @@ import type {GeneratedPart, MaterialKind} from '../../assets/shared/generator-ty
 import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
 import {createPartMaterial} from '../../assets/style/part-material'
 import {createWindUniforms, createWindMaterial, measureWind, type WindUniforms} from './wind-material'
+import {addLiveWind, createLiveWindDepthMaterial, createLiveWindUniforms, type LiveWindUniforms} from './live-wind'
 import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets/style/shading'
 import type {StyleProfile} from '../../assets/style/style-profiles'
@@ -49,6 +50,8 @@ export interface ComponentRenderer {
     get(componentId: string): RenderedComponent | undefined
     /** Every rendered component. */
     all(): readonly RenderedComponent[]
+    /** Moves the prop in the wind: 0 holds it still. A prop that never moves ignores this. */
+    setWind(strength: number, seconds: number): void
     dispose(): void
 }
 
@@ -104,6 +107,7 @@ function buildComponent(
     materials: SceneMaterials,
     detail: number,
     windUniforms: WindUniforms,
+    liveWind: LiveWindUniforms,
 ): RenderedComponent | undefined {
     const generator = findComponentGenerator(component.generatorId)
 
@@ -140,7 +144,20 @@ function buildComponent(
         wireframe: true,
     })
 
+    const foliage = roleOfPart(part) === 'foliage'
+
+    for (const material of [lit, flat, wire]) {
+        addLiveWind(material, windUniforms, liveWind, foliage)
+    }
+
     const mesh = new THREE.Mesh(part.geometry, lit)
+    mesh.customDepthMaterial = createLiveWindDepthMaterial(
+        windUniforms,
+        liveWind,
+        foliage,
+        part.surface?.map ?? null,
+        part.surface?.alphaTest ?? 0,
+    )
     mesh.castShadow = true
     mesh.receiveShadow = true
     mesh.name = `${component.type}_${component.id}`
@@ -164,6 +181,8 @@ function buildComponent(
             ...(isProxy ? {side: THREE.FrontSide, depthTest: false, opacity: 0.4} : {}),
         }),
     )
+    // The outline moves with its part, so a selection stays on what it selects.
+    addLiveWind(outline.material as THREE.Material, windUniforms, liveWind, foliage)
     outline.name = `${component.type}_${component.id}_outline`
     // A proxy already sits outside the bark, and its vertices are in world
     // space, where scaling about the origin would slide it off the limb.
@@ -196,8 +215,9 @@ function buildComponent(
 function reprint(component: RenderedComponent, part: GeneratedPart | undefined): void {
     const map = part?.surface?.map ?? null
     const {lit, flat} = component.materials
+    const depth = component.mesh.customDepthMaterial as THREE.MeshDepthMaterial
 
-    for (const material of [lit, flat, component.outline.material as THREE.MeshBasicMaterial]) {
+    for (const material of [lit, flat, component.outline.material as THREE.MeshBasicMaterial, depth]) {
         // Gaining or losing a texture changes the shader, not just a value.
         material.needsUpdate = !material.map !== !map
         material.map = map
@@ -235,6 +255,20 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
 
     let shading: ShadingMode = 'lit'
     const windUniforms = createWindUniforms()
+    const liveWind = createLiveWindUniforms()
+    /** What the wind was last measured against, so it is measured once per change. */
+    let measuredScene: Scene | null = null
+    let shownScene: Scene | null = null
+    let still = false
+
+    const measureFor = (scene: Scene) => {
+        const asset = scene.assets[0]
+
+        if (asset && measuredScene !== scene) {
+            measuredScene = scene
+            measureWind(windUniforms, rendered.values(), findPropGenerator(asset.generatorId), asset)
+        }
+    }
 
     const applyShading = (component: RenderedComponent) => {
         component.mesh.material =
@@ -257,6 +291,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
         component.materials.flat.dispose()
         component.materials.wire.dispose()
         component.materials.wind.dispose()
+        component.mesh.customDepthMaterial?.dispose()
         ;(component.outline.material as THREE.Material).dispose()
         component.group.removeFromParent()
     }
@@ -331,7 +366,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 rendered.delete(component.id)
             }
 
-            const created = buildComponent(component, style, signature, asset.materials, detail, windUniforms)
+            const created = buildComponent(component, style, signature, asset.materials, detail, windUniforms, liveWind)
 
             if (created) {
                 applyShading(created)
@@ -348,8 +383,12 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
             }
         }
 
-        if (shading === 'wind') {
-            measureWind(windUniforms, rendered.values(), findPropGenerator(asset.generatorId), asset)
+        shownScene = scene
+        measuredScene = null
+        still = findPropGenerator(asset.generatorId)?.still === true
+
+        if (shading === 'wind' || liveWind.strength.value > 0) {
+            measureFor(scene)
         }
     }
 
@@ -457,6 +496,18 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
 
         all() {
             return [...rendered.values()]
+        },
+
+        setWind(strength, seconds) {
+            // The Wind view shows the numbers, and moving them would only blur them.
+            const next = still || shading === 'wind' ? 0 : strength
+
+            if (next > 0 && shownScene) {
+                measureFor(shownScene)
+            }
+
+            liveWind.strength.value = next
+            liveWind.time.value = seconds
         },
 
         dispose() {

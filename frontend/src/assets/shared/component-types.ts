@@ -85,6 +85,12 @@ export interface SceneComponent {
      * tree's height.
      */
     readonly edited: boolean
+    /**
+     * How far the user moved this part from where its generator put it, in metres.
+     * Kept apart from the position so a rebuild can put the part back where it was
+     * moved to, wherever the generator now puts it.
+     */
+    readonly moved?: readonly [number, number, number]
 }
 
 /**

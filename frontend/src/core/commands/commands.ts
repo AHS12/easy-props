@@ -7,15 +7,16 @@
 
 import type {LucideIcon} from 'lucide-react'
 import {
-    Box, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
+    Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
+    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
+import {findBudgetTarget} from '../export/pipeline/budget'
 import {LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
@@ -85,6 +86,20 @@ const whyNotMove = (state: EditorStore) => {
     return part.generatorId === 'painted-limb' || FIXED_PARTS.includes(part.generatorId)
         ? 'Reshape this part with its handles instead'
         : null
+}
+
+const whyNotTurn = (state: EditorStore) => {
+    const part = selectedPart(state)
+
+    if (!part) {
+        return 'Select a part first'
+    }
+
+    if (part.generatorId !== 'painted-limb') {
+        return 'Only branches and roots turn'
+    }
+
+    return part.parameters.key === 't' ? 'This part is the whole prop. Use Lean to tip it' : null
 }
 
 /** What a New command opens on. */
@@ -255,6 +270,8 @@ export const COMMANDS: readonly Command[] = [
             // press would be two surprises.
             if (state.moveTool) {
                 state.setMoveTool(false)
+            } else if (state.turnTool) {
+                state.setTurnTool(false)
             } else {
                 state.deselect()
             }
@@ -318,7 +335,10 @@ export const COMMANDS: readonly Command[] = [
         shortcut: 'Q',
         icon: MousePointer2,
         keywords: 'pointer click',
-        run: (state) => state.setMoveTool(false),
+        run: (state) => {
+            state.setMoveTool(false)
+            state.setTurnTool(false)
+        },
     },
     {
         id: 'tool-move',
@@ -330,6 +350,17 @@ export const COMMANDS: readonly Command[] = [
         relevant: (state) => Boolean(selected(state)),
         unavailable: whyNotMove,
         run: (state) => state.setMoveTool(!state.moveTool),
+    },
+    {
+        id: 'tool-turn',
+        label: 'Turn part',
+        group: 'Tools',
+        shortcut: 'E',
+        icon: Rotate3d,
+        keywords: 'rotate gizmo tilt angle swing rings',
+        relevant: (state) => Boolean(selected(state)),
+        unavailable: whyNotTurn,
+        run: (state) => state.setTurnTool(!state.turnTool),
     },
     {
         id: 'frame',
@@ -424,6 +455,15 @@ export const COMMANDS: readonly Command[] = [
         run: () => useUiStore.getState().toggleScaleFigure(),
     },
     {
+        id: 'toggle-collision',
+        label: 'Show what you can walk into',
+        group: 'View',
+        icon: BrickWall,
+        keywords: 'collision shapes collide solid physics',
+        checked: () => useUiStore.getState().showCollision,
+        run: () => useUiStore.getState().toggleCollision(),
+    },
+    {
         id: 'toggle-panels',
         label: 'Hide or show panels',
         group: 'View',
@@ -481,6 +521,33 @@ export const COMMANDS: readonly Command[] = [
         icon: Dices,
         keywords: 'randomize variation new seed',
         run: (state) => state.randomizeTree(),
+    },
+    {
+        id: 'show-more',
+        label: 'Show me more',
+        group: 'Prop',
+        icon: LayoutGrid,
+        keywords: 'variations seeds grid compare pick choose versions',
+        unavailable: (state) => (state.scene.assets[0] ? null : 'There is no prop open'),
+        run: () => useUiStore.getState().setVariationsOpen(true),
+    },
+    {
+        id: 'make-it-fit',
+        label: 'Make it fit',
+        group: 'Prop',
+        icon: Shrink,
+        keywords: 'budget faces lighter reduce mobile performance',
+        unavailable: (state) => {
+            const generator = findPropGenerator(state.scene.assets[0]?.generatorId ?? '')
+            const faces = state.faceCounts.wood + state.faceCounts.leaves
+
+            if (!generator?.fitControls?.length) {
+                return 'This kind of prop has to be lowered by hand'
+            }
+
+            return faces > findBudgetTarget(state.budgetTarget).faces ? null : 'This prop already fits its budget'
+        },
+        run: (state) => void state.makeItFit(),
     },
     {
         id: 'use-seed',

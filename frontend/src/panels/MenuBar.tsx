@@ -27,11 +27,11 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'View',
-        items: ['shading', 'detail-level', null, 'frame', 'view-angle', null, 'toggle-stats', 'toggle-scale-figure', null, 'toggle-panels', 'maximize', 'reset-layout', null, 'theme'],
+        items: ['shading', 'detail-level', null, 'frame', 'view-angle', null, 'toggle-stats', 'toggle-scale-figure', 'toggle-collision', null, 'toggle-panels', 'maximize', 'reset-layout', null, 'theme'],
     },
     {
         title: 'Prop',
-        items: ['randomize', 'use-seed', 'copy-seed', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
+        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
     },
     {
         title: 'Help',

@@ -130,6 +130,17 @@ export interface GeneratedComponent {
 }
 
 /**
+ * A control Make it fit may move, and how far.
+ *
+ * The limit is the cheapest it may go, which keeps a tree from going bald. It
+ * can be above the control's value, as a larger leaf size costs less.
+ */
+export interface FitControl {
+    readonly key: string
+    readonly limit: number
+}
+
+/**
  * A generator for a whole tree.
  *
  * It produces the component list, not the geometry. Each component is then
@@ -149,6 +160,8 @@ export interface PropGenerator<P extends object = object> {
     readonly swaysEvenly?: boolean
     /** What to lower when it costs too much, in the words of its own controls. */
     readonly budgetAdvice?: string
+    /** What Make it fit may change, best first. Left out, the prop only gets the advice. */
+    readonly fitControls?: readonly FitControl[]
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>
     generate(parameters: P, context: GenerationContext): readonly GeneratedComponent[]

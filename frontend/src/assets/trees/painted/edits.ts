@@ -13,6 +13,11 @@ export interface LimbEdit {
     readonly offsets?: readonly Vec3[]
     readonly lengthScale?: number
     readonly thicknessScale?: number
+    /**
+     * How far it is turned around its base, in degrees about the world's X, Y
+     * and Z. What grows from it turns with it.
+     */
+    readonly turn?: Vec3
     readonly removed?: boolean
 }
 
@@ -92,7 +97,8 @@ export function applyPartAction(
 
         const limbs = {...edits.limbs}
 
-        if (next === 'clear') {
+        // Undone by hand, such as a turn set back to 0, it is untouched again.
+        if (next === 'clear' || Object.keys(next).length === 0) {
             delete limbs[key]
         } else {
             limbs[key] = next
@@ -110,7 +116,7 @@ export function applyPartAction(
 
         const clumps = {...edits.clumps}
 
-        if (next === 'clear') {
+        if (next === 'clear' || Object.keys(next).length === 0) {
             delete clumps[key]
         } else {
             clumps[key] = next
@@ -149,6 +155,21 @@ function limbAfter(
 
             if (finite(patch.thicknessScale)) {
                 next.thicknessScale = patch.thicknessScale
+            }
+
+            if (Array.isArray(patch.turn) && patch.turn.length === 3 && patch.turn.every(finite)) {
+                // The trunk is the tree: Lean is how it turns.
+                if (key === 't') {
+                    return null
+                }
+
+                const turn = patch.turn as unknown as Vec3
+
+                if (turn.every((angle) => angle === 0)) {
+                    delete next.turn
+                } else {
+                    next.turn = turn
+                }
             }
 
             const base = part.parameters.base as readonly Vec3[] | undefined

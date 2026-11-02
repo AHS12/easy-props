@@ -14,6 +14,7 @@ import {hintFor} from './status-hint'
 export function StatusBar() {
     const status = useEditorStore((state) => state.status)
     const moveTool = useEditorStore((state) => state.moveTool)
+    const turnTool = useEditorStore((state) => state.turnTool)
     const selection = useEditorStore((state) => state.selection)
     const scene = useEditorStore((state) => state.scene)
     const faceCounts = useEditorStore((state) => state.faceCounts)
@@ -23,6 +24,8 @@ export function StatusBar() {
     const setBudgetTarget = useEditorStore((state) => state.setBudgetTarget)
     const batch = useEditorStore((state) => state.batch)
     const openBatch = useEditorStore((state) => state.openBatch)
+    const fitting = useEditorStore((state) => state.fitting)
+    const makeItFit = useEditorStore((state) => state.makeItFit)
     const dirty = useEditorStore(hasUnsavedChanges)
     // A new prop has nothing to lose yet, but it isn't saved anywhere either.
     const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
@@ -30,12 +33,14 @@ export function StatusBar() {
 
     const target = findBudgetTarget(budgetTarget)
     const asset = scene.assets[0]
-    const budget = checkBudget(faceCounts, target, asset ? findPropGenerator(asset.generatorId)?.budgetAdvice : undefined)
+    const generator = asset ? findPropGenerator(asset.generatorId) : undefined
+    const budget = checkBudget(faceCounts, target, generator?.budgetAdvice)
+    const canFit = (generator?.fitControls?.length ?? 0) > 0
 
     return (
         <footer className="statusbar" data-coach="status">
             <span className="statusbar__hint" data-state={status.state} role="status">
-                {hintFor({status, moveTool, selection, scene}, scheme)}
+                {hintFor({status, moveTool, turnTool, selection, scene}, scheme)}
             </span>
             <span className="statusbar__right">
                 {batch && !batch.summary ? (
@@ -48,6 +53,17 @@ export function StatusBar() {
                         <AlertTriangle size={11} aria-hidden="true" />
                         Over budget
                     </span>
+                ) : null}
+                {budget.over && canFit ? (
+                    <button
+                        type="button"
+                        className="statusbar__link"
+                        disabled={fitting}
+                        title="Lowers the controls that cost the most until this prop fits. One step to undo."
+                        onClick={() => void makeItFit()}
+                    >
+                        {fitting ? 'Fitting…' : 'Make it fit'}
+                    </button>
                 ) : null}
                 {asset ? <SeedPanel seed={asset.seed} /> : null}
                 {previewLevel > 0 ? (

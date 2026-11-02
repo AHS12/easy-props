@@ -47,11 +47,14 @@ import {
 import {STYLE_ORDER} from '../assets/style/style-profiles'
 import {batchItems, type BatchChoice} from '../core/export/batch-items'
 import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences} from '../core/export/export-preferences'
+import {describeChanges, makeItFit} from '../core/export/make-it-fit'
 import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
-import type {BudgetTargetId, FaceCounts} from '../core/export/pipeline/budget'
+import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/export/pipeline/budget'
+import {folderNameOf} from '../core/export/pipeline/types'
+import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
-import {openProjectFile, saveProjectFile, writeFilesTo} from '../platform/desktop'
+import {desktopJoin, openProjectFile, saveProjectFile, writeExportFiles, writeFilesTo} from '../platform/desktop'
 import {
     clearDraftText,
     readDraftText,
@@ -191,6 +194,13 @@ export interface EditorStore {
     /** True while the move gizmo is showing. */
     moveTool: boolean
     setMoveTool(on: boolean): void
+    /** True while the turn rings are showing. One tool at a time, so turning it on puts Move away. */
+    turnTool: boolean
+    setTurnTool(on: boolean): void
+    /** Shows a turn without recording history. Used while dragging a ring. */
+    previewTurn(componentId: string, turn: readonly number[]): void
+    /** Records the turn a drag ended with as one undo step. */
+    commitTurn(before: Scene, componentId: string, turn: readonly number[]): void
     /** Shows a move without recording history. Used while dragging. */
     previewPosition(componentId: string, position: readonly [number, number, number]): void
     /** Records the move a drag ended with as one undo step. */
@@ -256,10 +266,14 @@ export interface EditorStore {
     /** The panel for exporting many props. A batch outlives it. */
     batchOpen: boolean
     openBatch(): void
+    /** Versions picked in Show me more, offered at the top of Export many. */
+    batchPicked: BatchChoice | null
+    openBatchWith(choice: BatchChoice): void
     closeBatch(): void
     /** The batch running or just finished, or null. */
     batch: BatchState | null
-    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences): void
+    /** `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch. */
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string): void
     cancelBatch(): void
     clearBatch(): void
     /** Which detail level the viewport is showing. */
@@ -273,6 +287,10 @@ export interface EditorStore {
     setShownFaceCounts(counts: FaceCounts): void
     budgetTarget: BudgetTargetId
     setBudgetTarget(target: BudgetTargetId): void
+    /** True while Make it fit is trying values. */
+    fitting: boolean
+    /** Lowers the costliest controls until the prop fits its budget, as one undo step. */
+    makeItFit(): Promise<void>
 
     /** Every tree in the gallery, newest first. */
     gallery: readonly SavedTree[]
@@ -334,6 +352,8 @@ export function hasUnsavedChanges(
 }
 
 const FIRST_ASSET_ID = 'asset-1'
+/** The longest Make it fit keeps trying, before it settles for what it has. */
+const FIT_TIME_MS = 5000
 
 /** An id that is not already used in the scene. */
 function uniqueComponentId(scene: Scene, base: string): string {
@@ -512,7 +532,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         moveTool: false,
 
-        setMoveTool: (on) => set({moveTool: on}),
+        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false} : {moveTool: false}),
+
+        turnTool: false,
+
+        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
+
+        previewTurn: (componentId, turn) =>
+            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})}),
+
+        commitTurn: (before, componentId, turn) =>
+            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before),
 
         previewPosition: (componentId, position) => {
             const state = get()
@@ -1016,9 +1046,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         notify: (message, folder, action) => set({toast: {message, undoable: false, folder, action}}),
         batchOpen: false,
         openBatch: () => set({batchOpen: true, exportOpen: false}),
+        batchPicked: null,
+        openBatchWith: (batchPicked) => set({batchPicked, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder}) => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder: chosen, folderPerProp}, subfolder = '') => {
+            const inside = folderNameOf(subfolder)
+            const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
 
             if (state.batch && !state.batch.summary) {
@@ -1039,7 +1073,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 settings: {engine, levels, collision, wind, join},
                 budget: state.budgetTarget,
                 signal: controller.signal,
-                write: (files) => writeFilesTo(folder, files),
+                write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),
                 onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
             }).then((summary) => {
                 batchController = null
@@ -1062,6 +1096,51 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         setBudgetTarget: (budgetTarget) => {
             saveBudgetTarget(budgetTarget)
             set({budgetTarget})
+        },
+        fitting: false,
+        makeItFit: async () => {
+            const {scene, style, budgetTarget, fitting} = get()
+
+            if (fitting) {
+                return
+            }
+
+            const budget = findBudgetTarget(budgetTarget).faces
+
+            set({fitting: true})
+            // The button says it's working before the first build blocks the page.
+            await afterPaint()
+
+            try {
+                const result = await makeItFit(scene, getStyleProfile(style), budget, {
+                    deadline: performance.now() + FIT_TIME_MS,
+                })
+
+                // Something else changed the prop meanwhile, and that wins.
+                if (get().scene !== scene) {
+                    return
+                }
+
+                const faces = `${result.faces.toLocaleString()} of ${budget.toLocaleString()} faces`
+
+                if (result.changes.length === 0) {
+                    set({toast: {message: 'Make it fit could not lower anything more. Try a bigger budget.', undoable: false}})
+
+                    return
+                }
+
+                commit('make it fit', () => result.scene)
+                set({
+                    toast: {
+                        message: result.fits
+                            ? `${describeChanges(result.changes)}. Now ${faces}.`
+                            : `${describeChanges(result.changes)}. Got to ${faces}: lower more by hand, or pick a bigger budget.`,
+                        undoable: true,
+                    },
+                })
+            } finally {
+                set({fitting: false})
+            }
         },
 
         undo: () => {

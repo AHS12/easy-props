@@ -8,6 +8,7 @@ import {CommandPalette} from '../panels/CommandPalette'
 import {ConfirmDialog} from '../panels/ConfirmDialog'
 import {Details} from '../panels/Details'
 import {BatchExportDialog} from '../panels/BatchExportDialog'
+import {VariationGrid} from '../panels/VariationGrid'
 import {ExportDialog} from '../panels/ExportDialog'
 import {LeftPanel} from '../panels/LeftPanel'
 import {MenuBar} from '../panels/MenuBar'
@@ -302,6 +303,7 @@ export function App() {
             <SaveDialog />
             <ExportDialog />
             <BatchExportDialog />
+            <VariationGrid />
             <SettingsDialog />
             <ConfirmDialog />
             <WhatsNewDialog />
