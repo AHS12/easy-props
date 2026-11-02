@@ -16,7 +16,9 @@ import {
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
 import type {FaceCounts} from '../../core/export/pipeline/budget'
 import type {Scene} from '../../core/scene/scene-model'
+import type {CollisionShape} from '../../assets/shared/generator-types'
 import {attachCameraControls} from './camera-controls'
+import {createCollisionView} from './collision-shapes'
 import {
     createComponentRenderer,
     type ComponentRenderer,
@@ -52,6 +54,8 @@ export interface ViewportScene {
     /** Draws at this share of the screen's resolution. */
     setRenderScale(scale: number): void
     setScaleFigureVisible(visible: boolean): void
+    /** Draws the shapes a game uses for walking into. An empty list clears them. */
+    setCollisionShapes(shapes: readonly CollisionShape[]): void
     /** The prop's size in metres: width, height, depth. */
     contentSize(): readonly [number, number, number]
     /** Applies a new style profile. The scene is resynced afterwards. */
@@ -260,6 +264,9 @@ export function createViewportScene(
 
     const figure = createScaleFigure()
     scene.add(figure)
+
+    const collision = createCollisionView()
+    scene.add(collision.group)
 
     const horizon = scene.fog.color.clone()
     let shadowsAllowed = true
@@ -472,6 +479,10 @@ export function createViewportScene(
             figure.visible = visible
         },
 
+        setCollisionShapes(shapes) {
+            collision.setShapes(shapes)
+        },
+
         contentSize() {
             const box = new THREE.Box3().setFromObject(components.group)
             const size = box.isEmpty() ? new THREE.Vector3() : box.getSize(new THREE.Vector3())
@@ -525,6 +536,7 @@ export function createViewportScene(
         dispose() {
             controls.dispose()
             components.dispose()
+            collision.dispose()
             sky.dispose()
             meadowSky.dispose()
             scenery?.dispose()

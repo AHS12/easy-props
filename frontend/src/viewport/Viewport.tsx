@@ -1,4 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
+import {getStyleProfile} from '../assets/style/style-profiles'
+import {collisionShapesOf} from '../core/export/collision-view'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {afterPaint} from '../core/export/pipeline/yield'
 import * as THREE from 'three'
@@ -445,6 +447,32 @@ export function Viewport() {
             reframeIfNeeded(store.getState().scene)
         }
 
+        // Worked out after the change, and only the latest is drawn: a slider drag
+        // asks many times, and an older answer can arrive last.
+        let collisionAsked = 0
+        const refreshCollision = () => {
+            const ui = useUiStore.getState()
+            const asked = ++collisionAsked
+
+            if (!ui.showCollision) {
+                viewport.setCollisionShapes([])
+                ui.setCollisionShapeCount(null)
+
+                return
+            }
+
+            const {scene, style} = store.getState()
+
+            void collisionShapesOf(scene, getStyleProfile(style))
+                .catch(() => [])
+                .then((shapes) => {
+                    if (!stopped && asked === collisionAsked) {
+                        viewport.setCollisionShapes(shapes)
+                        useUiStore.getState().setCollisionShapeCount(shapes.length)
+                    }
+                })
+        }
+
         window.addEventListener('pointerdown', onWindowPointerDown, true)
         window.addEventListener('pointerup', onWindowPointerUp, true)
         window.addEventListener('pointercancel', onWindowPointerUp, true)
@@ -459,12 +487,14 @@ export function Viewport() {
                 // The gizmo sits on the part, so it moves with it. A drag
                 // still measures against the axis as it was at the start.
                 refreshGizmo()
+                refreshCollision()
             }
 
             if (state.style !== previous.style) {
                 viewport.setStyle(state.style)
                 viewport.syncScene(state.scene)
                 reportFaces(viewport)
+                refreshCollision()
             }
 
             if (state.previewLevel !== previous.previewLevel) {
@@ -559,6 +589,7 @@ export function Viewport() {
         applySettings()
         viewport.setShadowsAllowed(settingValue('shadows') === true)
         viewport.setScaleFigureVisible(useUiStore.getState().showScaleFigure)
+        refreshCollision()
 
         const unsubscribeSettings = useSettingsStore.subscribe((state, previous) => {
             if (state.values !== previous.values) {
@@ -572,6 +603,10 @@ export function Viewport() {
         const unsubscribeUi = useUiStore.subscribe((state, previous) => {
             if (state.showScaleFigure !== previous.showScaleFigure) {
                 viewport.setScaleFigureVisible(state.showScaleFigure)
+            }
+
+            if (state.showCollision !== previous.showCollision) {
+                refreshCollision()
             }
         })
 

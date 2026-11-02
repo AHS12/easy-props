@@ -4,12 +4,13 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
 import {Tooltip} from '../components/controls'
 import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
+import {loadExportPreferences} from '../core/export/export-preferences'
 import {LEVEL_SHARES} from '../core/export/pipeline/types'
 import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode} from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
@@ -194,6 +195,26 @@ function StatsOverlay() {
     )
 }
 
+/** Only when the shapes on show would mislead: there are none, or Export leaves them out. */
+function CollisionNote() {
+    const count = useUiStore((state) => state.collisionShapeCount)
+    // Read each time, so a change made in Export shows once the view draws again.
+    const exported = loadExportPreferences().collision
+
+    const note =
+        count === 0
+            ? 'Nothing to walk into: this prop has no collision shapes.'
+            : count !== null && !exported
+              ? "Collision is off in Export, so these won't be exported."
+              : null
+
+    return note ? (
+        <p className="viewport-note" role="status">
+            {note}
+        </p>
+    ) : null
+}
+
 export function ViewportOverlay() {
     const shadingMode = useEditorStore((state) => state.shadingMode)
     const setShadingMode = useEditorStore((state) => state.setShadingMode)
@@ -203,6 +224,7 @@ export function ViewportOverlay() {
     const setMoveTool = useEditorStore((state) => state.setMoveTool)
     const showStats = useUiStore((state) => state.showStats)
     const showScaleFigure = useUiStore((state) => state.showScaleFigure)
+    const showCollision = useUiStore((state) => state.showCollision)
     const maximized = useUiStore((state) => state.maximized)
     const editor = useEditorStore()
 
@@ -306,6 +328,9 @@ export function ViewportOverlay() {
                     <ToolButton label="A person for scale" pressed={showScaleFigure} onPress={command('toggle-scale-figure')}>
                         <PersonStanding size={14} aria-hidden="true" />
                     </ToolButton>
+                    <ToolButton label="What you can walk into" pressed={showCollision} onPress={command('toggle-collision')}>
+                        <BrickWall size={14} aria-hidden="true" />
+                    </ToolButton>
                     <ToolButton label={maximized ? 'Restore the panels' : 'Maximize'} keys={shortcutFor('maximize')} pressed={maximized} onPress={command('maximize')}>
                         {maximized ? <Minimize size={14} aria-hidden="true" /> : <Maximize size={14} aria-hidden="true" />}
                     </ToolButton>
@@ -313,6 +338,7 @@ export function ViewportOverlay() {
             </div>
 
             {showStats ? <StatsOverlay /> : null}
+            {showCollision ? <CollisionNote /> : null}
         </>
     )
 }

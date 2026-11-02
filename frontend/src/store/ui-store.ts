@@ -56,6 +56,11 @@ interface UiStore {
     toggleStats(): void
     showScaleFigure: boolean
     toggleScaleFigure(): void
+    showCollision: boolean
+    toggleCollision(): void
+    /** How many shapes the view is showing, or null while they are worked out. */
+    collisionShapeCount: number | null
+    setCollisionShapeCount(count: number | null): void
 
     /** A control the palette is pointing at, flashed by the Details panel. */
     revealedControl: string | null
@@ -95,6 +100,10 @@ export const useUiStore = create<UiStore>((set) => ({
     toggleStats: () => set((state) => ({showStats: !state.showStats})),
     showScaleFigure: false,
     toggleScaleFigure: () => set((state) => ({showScaleFigure: !state.showScaleFigure})),
+    showCollision: false,
+    toggleCollision: () => set((state) => ({showCollision: !state.showCollision})),
+    collisionShapeCount: null,
+    setCollisionShapeCount: (collisionShapeCount) => set({collisionShapeCount}),
 
     revealedControl: null,
     revealControl: (revealedControl) => set({revealedControl}),

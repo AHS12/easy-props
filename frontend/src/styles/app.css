@@ -1673,6 +1673,23 @@ svg.lucide {
     pointer-events: none;
 }
 
+/* Under the tools on the left, clear of the stats on the right. */
+.viewport-note {
+    position: absolute;
+    top: 46px;
+    left: 18px;
+    z-index: 2;
+    max-width: min(320px, calc(100% - 36px));
+    margin: 0;
+    padding: 6px var(--space-2);
+    border: 1px solid var(--overlay-border);
+    border-radius: var(--radius-md);
+    background: var(--overlay-bg);
+    color: var(--overlay-text);
+    font: var(--text-caption);
+    pointer-events: none;
+}
+
 .stats dt {
     color: var(--overlay-muted);
 }

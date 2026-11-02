@@ -7,7 +7,7 @@
 
 import type {LucideIcon} from 'lucide-react'
 import {
-    Box, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
+    Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
@@ -422,6 +422,15 @@ export const COMMANDS: readonly Command[] = [
         keywords: 'size human reference metres',
         checked: () => useUiStore.getState().showScaleFigure,
         run: () => useUiStore.getState().toggleScaleFigure(),
+    },
+    {
+        id: 'toggle-collision',
+        label: 'Show what you can walk into',
+        group: 'View',
+        icon: BrickWall,
+        keywords: 'collision shapes collide solid physics',
+        checked: () => useUiStore.getState().showCollision,
+        run: () => useUiStore.getState().toggleCollision(),
     },
     {
         id: 'toggle-panels',
