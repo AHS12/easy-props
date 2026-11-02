@@ -170,6 +170,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
                         worldSpine: true,
                         lengthScale: limb.lengthScale,
                         thicknessScale: limb.thicknessScale,
+                        turn: limb.turn,
                     },
                     seed,
                     slot: `limb-${limb.key}`,

@@ -17,6 +17,9 @@ import {createPicker, pickNearestAxis, pickNearestHandle, pointerOnAxis, pointer
 import {applySelectionVisuals} from './scene/selection-visuals'
 import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/spine-drag'
 import {createMoveGizmo, type MoveGizmo} from './scene/move-gizmo'
+import {createTurnGizmo, pickNearestRing, pointerAngle, ringAxis, toScreen, type TurnGizmo} from './scene/turn-gizmo'
+import {turnedAbout, turnOf, turnPivotOf} from '../core/scene/turning'
+import type {Vec3} from '../assets/trees/painted/plan'
 import {findComponent} from '../core/scene/scene-model'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
 import type {LoadStep} from './load-steps'
@@ -40,6 +43,23 @@ const UP: Record<CompassAxis, THREE.Vector3> = {
 const WIND_EASING = 3
 
 const isDemoScene =(backdrop: unknown) => backdrop === 'meadow' || backdrop === 'grove'
+
+/** A turn drag: around one axis, measured by the pointer's angle around the base. */
+interface TurnState {
+    readonly componentId: string
+    /** Which ring, for its highlight. */
+    readonly ring: number
+    /** What it turns about: a world axis, or for the view ring, the line to the camera as the drag began. */
+    readonly axis: THREE.Vector3
+    readonly origin: THREE.Vector3
+    readonly centre: {x: number; y: number}
+    /** The pointer's angle at the last move, and how far it has gone round since the start. */
+    lastAngle: number
+    swept: number
+    readonly turn: Vec3
+    readonly before: Scene
+    latest: Vec3 | null
+}
 
 /** How a move drag is pinned to one axis. */
 interface MoveState {
@@ -71,6 +91,7 @@ export function Viewport() {
     const pointerDownRef = useRef<{x: number; y: number} | null>(null)
     const dragRef = useRef<DragState | null>(null)
     const moveRef = useRef<MoveState | null>(null)
+    const turnRef = useRef<TurnState | null>(null)
     const compassRef = useRef<CompassHandle>(null)
     const reportFaces = (viewport: ViewportScene) => {
         const counts = viewport.countFacesByMesh()
@@ -147,6 +168,11 @@ export function Viewport() {
         const gizmo: MoveGizmo = createMoveGizmo()
         viewport.scene.add(gizmo.group)
 
+        const rings: TurnGizmo = createTurnGizmo()
+        viewport.scene.add(rings.group)
+        // The rings hide their back halves with a clipping plane of their own.
+        viewport.renderer.localClippingEnabled = true
+
         const picker = createPicker(viewport.camera, canvas, () => [
             viewport.components.group,
         ])
@@ -167,7 +193,7 @@ export function Viewport() {
             }
 
             // Eases in and out, and calms while a part is dragged, so a handle stays under the pointer.
-            const dragging = dragRef.current !== null || moveRef.current !== null
+            const dragging = dragRef.current !== null || moveRef.current !== null || turnRef.current !== null
             const wanted = windWanted() && !dragging ? Number(settingValue('windStrength')) : 0
             const elapsed = lastDrawn === 0 ? 0 : Math.min((now - lastDrawn) / 1000, 0.1)
 
@@ -179,6 +205,7 @@ export function Viewport() {
             viewport.renderer.render(viewport.scene, viewport.camera)
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
+            rings.update(viewport.camera, viewport.renderer.domElement.clientHeight)
             compassRef.current?.update(viewport.camera)
         }
 
@@ -200,10 +227,16 @@ export function Viewport() {
             handles.visible = true
         }
 
-        /** Puts the move gizmo on the selected part, or hides it. */
+        /** Puts the move gizmo, or the turn rings, on the selected part, or hides them. */
         const refreshGizmo = () => {
             const state = store.getState()
             const selected = state.selection.selectedId
+            const pivot = state.turnTool ? turnPivotOf(state.scene, selected) : null
+
+            // During a drag the rings stay where it started, as the base doesn't move.
+            if (!turnRef.current) {
+                rings.setOrigin(pivot ? new THREE.Vector3(...pivot) : null)
+            }
 
             if (!state.moveTool || !selected) {
                 gizmo.setOrigin(null)
@@ -219,6 +252,31 @@ export function Viewport() {
         }
 
         const onPointerMove = (event: PointerEvent) => {
+            const turning = turnRef.current
+
+            if (turning) {
+                const angle = pointerAngle(
+                    event.clientX,
+                    event.clientY,
+                    turning.centre,
+                    turning.axis,
+                    turning.origin,
+                    viewport.camera,
+                )
+                // Added up step by step, so going round more than half a turn keeps turning.
+                let step = angle - turning.lastAngle
+
+                step -= Math.round(step / (Math.PI * 2)) * Math.PI * 2
+                turning.swept += step
+                turning.lastAngle = angle
+
+                const turn = turnedAbout(turning.turn, turning.axis.toArray(), turning.swept)
+
+                turning.latest = turn
+                store.getState().previewTurn(turning.componentId, turn)
+                return
+            }
+
             const move = moveRef.current
 
             if (move) {
@@ -273,6 +331,10 @@ export function Viewport() {
                 return
             }
 
+            if (store.getState().turnTool) {
+                rings.setHovered(pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, rings.rings()))
+            }
+
             // With the move tool on, the arrow under the pointer lights up,
             // so the user can see what a drag is about to grab.
             if (store.getState().moveTool) {
@@ -298,6 +360,34 @@ export function Viewport() {
             }
 
             const state = store.getState()
+
+            if (state.turnTool && state.selection.selectedId) {
+                const ring = pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, rings.rings())
+                const pivot = ring >= 0 ? turnPivotOf(state.scene, state.selection.selectedId) : null
+
+                if (pivot) {
+                    const origin = new THREE.Vector3(...pivot)
+                    const centre = toScreen(origin, viewport.camera, canvas)
+                    const axis = ringAxis(ring, origin, viewport.camera)
+
+                    rings.setHovered(ring)
+                    turnRef.current = {
+                        componentId: state.selection.selectedId,
+                        ring,
+                        axis,
+                        origin,
+                        centre,
+                        lastAngle: pointerAngle(event.clientX, event.clientY, centre, axis, origin, viewport.camera),
+                        swept: 0,
+                        turn: turnOf(state.scene, state.selection.selectedId),
+                        before: state.scene,
+                        latest: null,
+                    }
+
+                    viewport.controls.enabled = false
+                    return
+                }
+            }
 
             // A move drag comes first: the gizmo is what the pointer is on.
             if (state.moveTool && state.selection.selectedId) {
@@ -381,10 +471,20 @@ export function Viewport() {
             const start = pointerDownRef.current
             const move = moveRef.current
             const drag = dragRef.current
+            const turning = turnRef.current
             pointerDownRef.current = null
             dragRef.current = null
             moveRef.current = null
+            turnRef.current = null
             viewport.controls.enabled = true
+
+            if (turning) {
+                if (turning.latest) {
+                    store.getState().commitTurn(turning.before, turning.componentId, turning.latest)
+                }
+
+                return
+            }
 
             if (move) {
                 if (move.latest) {
@@ -530,7 +630,7 @@ export function Viewport() {
                 refreshGizmo()
             }
 
-            if (state.moveTool !== previous.moveTool) {
+            if (state.moveTool !== previous.moveTool || state.turnTool !== previous.turnTool) {
                 refreshGizmo()
             }
         })
@@ -697,6 +797,7 @@ export function Viewport() {
 
             handles.dispose()
             gizmo.dispose()
+            rings.dispose()
             viewport.dispose()
             canvas.remove()
             sceneRef.current = null

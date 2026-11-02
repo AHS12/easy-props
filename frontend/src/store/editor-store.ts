@@ -194,6 +194,13 @@ export interface EditorStore {
     /** True while the move gizmo is showing. */
     moveTool: boolean
     setMoveTool(on: boolean): void
+    /** True while the turn rings are showing. One tool at a time, so turning it on puts Move away. */
+    turnTool: boolean
+    setTurnTool(on: boolean): void
+    /** Shows a turn without recording history. Used while dragging a ring. */
+    previewTurn(componentId: string, turn: readonly number[]): void
+    /** Records the turn a drag ended with as one undo step. */
+    commitTurn(before: Scene, componentId: string, turn: readonly number[]): void
     /** Shows a move without recording history. Used while dragging. */
     previewPosition(componentId: string, position: readonly [number, number, number]): void
     /** Records the move a drag ended with as one undo step. */
@@ -525,7 +532,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         moveTool: false,
 
-        setMoveTool: (on) => set({moveTool: on}),
+        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false} : {moveTool: false}),
+
+        turnTool: false,
+
+        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
+
+        previewTurn: (componentId, turn) =>
+            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})}),
+
+        commitTurn: (before, componentId, turn) =>
+            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before),
 
         previewPosition: (componentId, position) => {
             const state = get()

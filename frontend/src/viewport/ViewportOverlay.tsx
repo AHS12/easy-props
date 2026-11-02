@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Rotate3d, Sun, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -277,7 +277,7 @@ export function ViewportOverlay() {
     const previewLevel = useEditorStore((state) => state.previewLevel)
     const setPreviewLevel = useEditorStore((state) => state.setPreviewLevel)
     const moveTool = useEditorStore((state) => state.moveTool)
-    const setMoveTool = useEditorStore((state) => state.setMoveTool)
+    const turnTool = useEditorStore((state) => state.turnTool)
     const showStats = useUiStore((state) => state.showStats)
     const showScaleFigure = useUiStore((state) => state.showScaleFigure)
     const showCollision = useUiStore((state) => state.showCollision)
@@ -285,6 +285,7 @@ export function ViewportOverlay() {
     const editor = useEditorStore()
 
     const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
+    const turnReason = findCommand('tool-turn')?.unavailable?.(editor) ?? null
     const ShadingIcon = SHADING_ICONS[shadingMode]
     const backdrop = String(useSetting('backdrop'))
     const command = (id: string) => () => {
@@ -299,7 +300,7 @@ export function ViewportOverlay() {
         <>
             <div className="viewport-tools viewport-tools--left" role="toolbar" aria-label="Tools">
                 <div className="tool-group">
-                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool} onPress={() => setMoveTool(false)}>
+                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool && !turnTool} onPress={command('tool-select')}>
                         <MousePointer2 size={14} aria-hidden="true" />
                     </ToolButton>
                     <ToolButton
@@ -310,6 +311,15 @@ export function ViewportOverlay() {
                         onPress={command('tool-move')}
                     >
                         <Move size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton
+                        label="Turn"
+                        keys={shortcutFor('tool-turn')}
+                        pressed={turnTool}
+                        disabledReason={turnTool ? null : turnReason}
+                        onPress={command('tool-turn')}
+                    >
+                        <Rotate3d size={14} aria-hidden="true" />
                     </ToolButton>
                 </div>
             </div>

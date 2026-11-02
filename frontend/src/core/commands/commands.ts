@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RefreshCw, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
@@ -86,6 +86,20 @@ const whyNotMove = (state: EditorStore) => {
     return part.generatorId === 'painted-limb' || FIXED_PARTS.includes(part.generatorId)
         ? 'Reshape this part with its handles instead'
         : null
+}
+
+const whyNotTurn = (state: EditorStore) => {
+    const part = selectedPart(state)
+
+    if (!part) {
+        return 'Select a part first'
+    }
+
+    if (part.generatorId !== 'painted-limb') {
+        return 'Only branches and roots turn'
+    }
+
+    return part.parameters.key === 't' ? 'This part is the whole prop. Use Lean to tip it' : null
 }
 
 /** What a New command opens on. */
@@ -256,6 +270,8 @@ export const COMMANDS: readonly Command[] = [
             // press would be two surprises.
             if (state.moveTool) {
                 state.setMoveTool(false)
+            } else if (state.turnTool) {
+                state.setTurnTool(false)
             } else {
                 state.deselect()
             }
@@ -319,7 +335,10 @@ export const COMMANDS: readonly Command[] = [
         shortcut: 'Q',
         icon: MousePointer2,
         keywords: 'pointer click',
-        run: (state) => state.setMoveTool(false),
+        run: (state) => {
+            state.setMoveTool(false)
+            state.setTurnTool(false)
+        },
     },
     {
         id: 'tool-move',
@@ -331,6 +350,17 @@ export const COMMANDS: readonly Command[] = [
         relevant: (state) => Boolean(selected(state)),
         unavailable: whyNotMove,
         run: (state) => state.setMoveTool(!state.moveTool),
+    },
+    {
+        id: 'tool-turn',
+        label: 'Turn part',
+        group: 'Tools',
+        shortcut: 'E',
+        icon: Rotate3d,
+        keywords: 'rotate gizmo tilt angle swing rings',
+        relevant: (state) => Boolean(selected(state)),
+        unavailable: whyNotTurn,
+        run: (state) => state.setTurnTool(!state.turnTool),
     },
     {
         id: 'frame',

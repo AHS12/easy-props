@@ -40,7 +40,7 @@ import {TRUNK_TREE_KEYS} from './trunk-controls'
 const WHOLE_PARTS = ['painted-limb', 'painted-bark', 'rock-body']
 
 /** What opens first, so a first look is not thirty sliders. */
-const DEFAULT_OPEN = ['Trunk', 'Leaves', 'Shape', 'Colours', 'Fronds', 'This part', 'Position']
+const DEFAULT_OPEN = ['Trunk', 'Leaves', 'Shape', 'Colours', 'Fronds', 'This part', 'Position', 'Turn']
 
 const FLASH_MS = 1400
 
@@ -445,6 +445,9 @@ export function Details() {
     const isTrunk = component.type === 'trunk' && !painted
     // A painted limb hangs off the tree's plan, and its trunk is the tree.
     const canMove = !isTrunk && !WHOLE_PARTS.includes(component.generatorId)
+    // A painted branch or root turns around its base, taking what grows on it along.
+    const canTurn = component.generatorId === 'painted-limb' && component.parameters.key !== 't'
+    const turn = (Array.isArray(component.parameters.turn) ? component.parameters.turn : [0, 0, 0]) as readonly number[]
     const canRemove = !isTrunk && component.type !== 'trunk' && component.generatorId !== 'painted-bark' && component.generatorId !== 'rock-body'
 
     // The trunk's shape is the tree's shape: its shared controls read and write
@@ -473,7 +476,7 @@ export function Details() {
     }
 
     const sections = sectionsForPart(component.generatorId, component.type)
-    const partTitles = ['This part', 'Position', ...sections.map(({title}) => title)]
+    const partTitles = ['This part', 'Position', 'Turn', ...sections.map(({title}) => title)]
     const title = isFrond ? 'Frond' : describeComponent(component.type)
 
     return (
@@ -531,6 +534,26 @@ export function Details() {
                                     />
                                 ))}
                             </div>
+                        </Group>
+                    )}
+
+                    {!canTurn || filter ? null : (
+                        <Group title="Turn" open={groups.isOpen('Turn')} onToggle={() => groups.toggle('Turn', partTitles)}>
+                            <div className="axes">
+                                {(['X', 'Y', 'Z'] as const).map((axis, index) => (
+                                    <NumberField
+                                        key={axis}
+                                        label={axis}
+                                        value={turn[index] ?? 0}
+                                        onChange={(next) => {
+                                            const angles = [0, 1, 2].map((i) => (i === index ? next : (turn[i] ?? 0)))
+
+                                            updateComponentParameters(component.id, {turn: angles}, 'turn part')
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <p className="group__help">Degrees around its base. Its branches and leaves turn with it.</p>
                         </Group>
                     )}
 

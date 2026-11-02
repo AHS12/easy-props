@@ -14,6 +14,7 @@ import {hintFor} from './status-hint'
 export function StatusBar() {
     const status = useEditorStore((state) => state.status)
     const moveTool = useEditorStore((state) => state.moveTool)
+    const turnTool = useEditorStore((state) => state.turnTool)
     const selection = useEditorStore((state) => state.selection)
     const scene = useEditorStore((state) => state.scene)
     const faceCounts = useEditorStore((state) => state.faceCounts)
@@ -39,7 +40,7 @@ export function StatusBar() {
     return (
         <footer className="statusbar" data-coach="status">
             <span className="statusbar__hint" data-state={status.state} role="status">
-                {hintFor({status, moveTool, selection, scene}, scheme)}
+                {hintFor({status, moveTool, turnTool, selection, scene}, scheme)}
             </span>
             <span className="statusbar__right">
                 {batch && !batch.summary ? (
