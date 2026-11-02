@@ -2,6 +2,41 @@
 
 What's new in each version of easy-props.
 
+## 0.2.5 (November 2, 2026)
+
+**Get a prop back**
+
+- Click the seed in the status bar to type or paste one, or copy the one you're using. Use a
+  seed and Copy seed are in the Prop menu too.
+
+**Safer exports**
+
+- Export now asks before replacing files already in its folder, which your game may be using.
+  Tick Don't ask again if you replace them often, and turn the question back on in Settings.
+- After an export, Show the files opens the folder. Export many has it too, and saving an
+  engine kit now says where it went.
+
+**Smoother to use**
+
+- Starting a new prop no longer says Unsaved before you've changed anything, and asks first if
+  you have unsaved work.
+- The app now opens at the size and place you left it, and shows resize arrows at the window's
+  edges.
+- On the home page, the command palette now suggests what you can do there.
+
+**Updates**
+
+- The app now looks for updates once a week when it opens, and tells you when a new version is
+  out. Before, it only looked when you asked. It never downloads anything by itself, and Check
+  for updates automatically in Settings turns it off.
+
+**Cleaner wood for your game**
+
+- Round canopy and the palms no longer show holes at the ends of their trunks, branches and
+  roots in an engine that draws one side of each face.
+- Tree wood has fewer wasted faces, most of all at the lighter detail levels, and the last few
+  faces that pointed inwards are fixed.
+
 ## 0.2.2 (November 2, 2026)
 
 **Bark that follows the wood**
