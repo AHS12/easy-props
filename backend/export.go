@@ -82,6 +82,21 @@ func (a *App) ExistingFiles(folder string, names []string) ([]string, error) {
 	return found, nil
 }
 
+// ShowFolder opens a folder an export wrote to in the system's file manager. Only
+// a folder that is there can be shown, so a path to a file or to nothing is an error.
+func (a *App) ShowFolder(folder string) error {
+	if err := checkPath(folder); err != nil {
+		return err
+	}
+
+	info, err := os.Stat(folder)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("easy-props: %q is not a folder", folder)
+	}
+
+	return showInFileManager(folder)
+}
+
 // checkFileName refuses anything but a plain file name, so nothing reaches outside its folder.
 func checkFileName(name string) error {
 	if name == "" || name == "." || name == ".." || name != filepath.Base(name) {

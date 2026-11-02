@@ -18,7 +18,9 @@ import {buildExport} from '../core/export/pipeline/package'
 import {ENGINE_LABELS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
 import {sceneExportSource} from '../core/export/scene-source'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
-import {chooseFolder, desktopJoin, existingExportFiles, exportFolderLabel, writeExportFiles, writeFilesTo} from '../platform/desktop'
+import {
+    chooseFolder, desktopJoin, existingExportFiles, exportFolderLabel, isDesktop, showFolder, writeExportFiles, writeFilesTo,
+} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
 import {Dialog, Select, Switch} from '../components/controls'
@@ -51,6 +53,8 @@ export function ExportDialog() {
     const [error, setError] = useState<string | null>(null)
     const [writing, setWriting] = useState(false)
     const nameField = useRef<HTMLInputElement>(null)
+    /** Where the engine kit was just saved, until the dialog closes. */
+    const [kitSaved, setKitSaved] = useState<string | null>(null)
 
     const safeName = exportNameOf(name)
     const {engine, levels, collision, wind, join, folder} = preferences
@@ -59,6 +63,7 @@ export function ExportDialog() {
         if (open) {
             setName(treeName)
             setError(null)
+            setKitSaved(null)
             // Settings may have changed these since the last export.
             setPreferences(loadExportPreferences())
         }
@@ -124,9 +129,13 @@ export function ExportDialog() {
         const chosen = await chooseFolder(folder)
 
         if (chosen) {
+            const kit = desktopJoin(chosen, kitFolder(engine))
+
             try {
-                await writeFilesTo(desktopJoin(chosen, kitFolder(engine)), engineKitFiles(engine))
+                await writeFilesTo(kit, engineKitFiles(engine))
                 setError(null)
+                // Said here, not in a message under the dialog, which can't be clicked while it's open.
+                setKitSaved(kit)
             } catch (failure) {
                 setError(describeFailure(failure))
             }
@@ -138,7 +147,7 @@ export function ExportDialog() {
 
         try {
             await writeExportFiles(chosen, safeName, written)
-            finishExport(`Exported ${written.length} files to ${exportFolderLabel(chosen, safeName)}`)
+            finishExport(`Exported ${written.length} files to ${exportFolderLabel(chosen, safeName)}`, desktopJoin(chosen, safeName))
         } catch (failure) {
             setError(describeFailure(failure))
         } finally {
@@ -298,6 +307,25 @@ export function ExportDialog() {
                         <>
                             <progress max={1} value={progress} aria-label="Updating the files" />
                             <span className="tabular">Updating… {Math.round(progress * 100)}%</span>
+                        </>
+                    ) : kitSaved ? (
+                        <>
+                            <span className="export-status__text" title={kitSaved}>
+                                Saved the {ENGINE_LABELS[engine]} kit to {kitSaved}
+                            </span>
+                            {isDesktop() ? (
+                                <button
+                                    type="button"
+                                    className="text-button"
+                                    onClick={() =>
+                                        showFolder(kitSaved).catch(() =>
+                                            setError("Couldn't open the folder. It may have been moved or removed."),
+                                        )
+                                    }
+                                >
+                                    Show the files
+                                </button>
+                            ) : null}
                         </>
                     ) : null}
                 </div>

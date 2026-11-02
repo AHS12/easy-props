@@ -124,18 +124,32 @@ func (a *App) OpenLibraryFolder() error {
 		return err
 	}
 
-	name := "xdg-open"
+	return showInFileManager(dir)
+}
 
-	switch runtime.GOOS {
-	case "windows":
-		name = "explorer"
-	case "darwin":
-		name = "open"
-	}
+// showInFileManager opens a folder in the system's file manager.
+func showInFileManager(dir string) error {
+	name, arg := fileManagerCommand(dir)
 
 	// Explorer reports failure through its exit code even when it opens the
 	// window, so only a failure to start it means anything.
-	return exec.Command(name, dir).Start()
+	return exec.Command(name, arg).Start()
+}
+
+// fileManagerCommand is what opens dir. The frontend joins folders with "/", and
+// Explorer opens Documents instead of a path it can't read, so the path is cleaned
+// into the system's own form first.
+func fileManagerCommand(dir string) (string, string) {
+	dir = filepath.Clean(dir)
+
+	switch runtime.GOOS {
+	case "windows":
+		return "explorer", dir
+	case "darwin":
+		return "open", dir
+	}
+
+	return "xdg-open", dir
 }
 
 // settingsPath returns the path of the settings file. draftRoot overrides the

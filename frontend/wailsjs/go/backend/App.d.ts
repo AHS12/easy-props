@@ -46,6 +46,8 @@ export function SetLibraryFolder(arg1:string):Promise<void>;
 
 export function SetUnsaved(arg1:boolean):Promise<void>;
 
+export function ShowFolder(arg1:string):Promise<void>;
+
 export function WriteDraft(arg1:Array<number>):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;

@@ -22,6 +22,7 @@ interface WailsApp {
     ChooseFolder(title: string, start: string): Promise<string>
     WriteFiles(folder: string, files: {name: string; contents: number[]}[]): Promise<void>
     ExistingFiles(folder: string, names: string[]): Promise<string[]>
+    ShowFolder(folder: string): Promise<void>
 }
 
 declare global {
@@ -130,6 +131,11 @@ export async function existingExportFiles(folder: string, name: string, names: r
     const app = desktop()
 
     return app ? app.ExistingFiles(`${folder}/${name}`, [...names]) : []
+}
+
+/** Opens a folder in the file manager. A browser has none, so it does nothing. */
+export async function showFolder(folder: string): Promise<void> {
+    await desktop()?.ShowFolder(folder)
 }
 
 /** Writes files straight into a folder, as a batch does. */

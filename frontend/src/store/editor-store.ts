@@ -126,6 +126,8 @@ export interface Toast {
     readonly message: string
     /** Set when the toast offers an undo. */
     readonly undoable: boolean
+    /** Where some files were written, so the toast can take you there. */
+    readonly folder?: string
 }
 
 /** How far a batch has got. It has a summary once it has finished. */
@@ -134,6 +136,8 @@ export interface BatchState {
     readonly total: number
     readonly current: string | null
     readonly summary: BatchSummary | null
+    /** Where the batch writes its files. */
+    readonly folder: string
 }
 
 /** Stops the batch that is running. Not state: nothing draws it. */
@@ -238,8 +242,10 @@ export interface EditorStore {
     exportModel(): void
     exportOpen: boolean
     closeExport(): void
-    /** Closes the export panel and says what it wrote. */
-    finishExport(message: string): void
+    /** Closes the export panel and says what it wrote, and where. */
+    finishExport(message: string, folder?: string): void
+    /** Says something that needs no answer, such as where a kit was saved. */
+    notify(message: string, folder?: string): void
     /** The panel for exporting many props. A batch outlives it. */
     batchOpen: boolean
     openBatch(): void
@@ -999,7 +1005,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         exportModel: () => set({exportOpen: true}),
         exportOpen: false,
         closeExport: () => set({exportOpen: false}),
-        finishExport: (message) => set({exportOpen: false, toast: {message, undoable: false}}),
+        finishExport: (message, folder) => set({exportOpen: false, toast: {message, undoable: false, folder}}),
+        notify: (message, folder) => set({toast: {message, undoable: false, folder}}),
         batchOpen: false,
         openBatch: () => set({batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
@@ -1019,18 +1026,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             })
 
             batchController = controller
-            set({batch: {done: 0, total: items.length, current: null, summary: null}})
+            set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
                 settings: {engine, levels, collision, wind, join},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files) => writeFilesTo(folder, files),
-                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null}}),
+                onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
             }).then((summary) => {
                 batchController = null
                 set({
-                    batch: {done: summary.exported, total: summary.total, current: null, summary},
+                    batch: {done: summary.exported, total: summary.total, current: null, summary, folder},
                     // The panel may be long closed, so the news comes back with it.
                     batchOpen: true,
                 })

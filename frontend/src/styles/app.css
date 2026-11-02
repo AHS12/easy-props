@@ -2120,6 +2120,19 @@ html[data-theme='dark'] .dialog__error {
     font: var(--text-caption);
 }
 
+.export-status__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.export-status .text-button {
+    flex: none;
+    height: 18px;
+    padding-block: 0;
+}
+
 .export-status progress {
     flex: 1;
     height: 6px;
@@ -2597,6 +2610,7 @@ html[data-theme='dark'] .dialog__error {
     color: #fff;
     font: var(--text-label);
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .notice__action:hover {

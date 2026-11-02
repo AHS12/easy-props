@@ -90,6 +90,10 @@ export function SetUnsaved(arg1) {
   return window['go']['backend']['App']['SetUnsaved'](arg1);
 }
 
+export function ShowFolder(arg1) {
+  return window['go']['backend']['App']['ShowFolder'](arg1);
+}
+
 export function WriteDraft(arg1) {
   return window['go']['backend']['App']['WriteDraft'](arg1);
 }
