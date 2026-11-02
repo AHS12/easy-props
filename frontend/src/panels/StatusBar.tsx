@@ -23,6 +23,8 @@ export function StatusBar() {
     const batch = useEditorStore((state) => state.batch)
     const openBatch = useEditorStore((state) => state.openBatch)
     const dirty = useEditorStore(hasUnsavedChanges)
+    // A new prop has nothing to lose yet, but it isn't saved anywhere either.
+    const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
     const scheme = String(useSetting('cameraScheme'))
 
     const target = findBudgetTarget(budgetTarget)
@@ -69,7 +71,7 @@ export function StatusBar() {
                         </option>
                     ))}
                 </select>
-                <span>{dirty ? 'Unsaved' : 'Saved'}</span>
+                <span>{dirty ? 'Unsaved' : neverSaved ? 'Not saved yet' : 'Saved'}</span>
             </span>
         </footer>
     )

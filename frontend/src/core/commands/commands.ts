@@ -109,7 +109,7 @@ const THEMES = [
 ]
 
 /** Runs something that replaces the document, asking first if that loses work. */
-function guardUnsaved(state: EditorStore, action: string, run: () => void) {
+export function guardUnsaved(state: EditorStore, action: string, run: () => void) {
     if (!hasUnsavedChanges(state)) {
         run()
         return
@@ -148,9 +148,7 @@ export const COMMANDS: readonly Command[] = [
             icon: ICONS[id],
             global: true,
             keywords: 'start create prop',
-            run: (state) => {
-                state.startNewProp(FAMILY_STARTERS[id])
-            },
+            run: (state) => guardUnsaved(state, 'Start a new prop', () => state.startNewProp(FAMILY_STARTERS[id])),
         }),
     ),
     {

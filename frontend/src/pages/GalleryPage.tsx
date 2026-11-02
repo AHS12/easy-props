@@ -9,6 +9,7 @@
 import {Box, Brush, Pencil, RotateCcw, Search, Trash2, TreePine, X, type LucideIcon} from 'lucide-react'
 import {useEffect, useMemo, useState} from 'react'
 import {presetGroups, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
+import {guardUnsaved} from '../core/commands/commands'
 import {canUndo} from '../core/history/history'
 import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
@@ -222,6 +223,7 @@ export function GalleryPage() {
     const showEditor = useEditorStore((state) => state.showEditor)
     const treeName = useEditorStore((state) => state.treeName)
     const history = useEditorStore((state) => state.history)
+    const propInHand = useEditorStore((state) => state.propInHand)
 
     const [family, setFamily] = useState<PropFamily>('tree')
     const [search, setSearch] = useState('')
@@ -240,7 +242,7 @@ export function GalleryPage() {
     )
 
     // Only something opened or changed in this session is worth going back to.
-    const inHand = currentTreeId !== null || canUndo(history)
+    const inHand = propInHand || canUndo(history)
 
     return (
         <main className="home">
@@ -365,7 +367,9 @@ export function GalleryPage() {
                                             type="button"
                                             className="preset-card"
                                             title={preset.sub}
-                                            onClick={() => startNewProp(preset.id)}
+                                            onClick={() =>
+                                                guardUnsaved(useEditorStore.getState(), 'Start a new prop', () => startNewProp(preset.id))
+                                            }
                                         >
                                             <PresetThumb presetId={preset.id} />
                                             <span className="preset-card__name">{preset.name}</span>

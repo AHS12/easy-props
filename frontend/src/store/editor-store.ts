@@ -197,8 +197,13 @@ export interface EditorStore {
     /** Switches the viewport between lit, flat, and wireframe. */
     setShadingMode(mode: ShadingMode): void
     applyPreset(presetId: string): void
-    /** Starts a fresh prop from a preset, named after it, and leaves the saved one alone. */
+    /**
+     * Starts a fresh prop from a preset, named after it, and leaves the saved one alone.
+     * It starts clean, with nothing to undo, so ask before calling this over unsaved work.
+     */
     startNewProp(presetId: string): void
+    /** True once a prop has been started or opened in this session, so there is one to go back to. */
+    propInHand: boolean
     /** Brings back a part of a painted tree that was removed. */
     restoreRemovedPart(kind: 'limb' | 'clump', key: string): void
     /** Rerolls the tree's variation while keeping its shape. */
@@ -545,14 +550,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
 
         startNewProp: (presetId) => {
-            get().applyPreset(presetId)
+            const scene = createSceneFromPreset(presetId)
+            const style = get().style
+
+            // Nothing to undo: going back would step into another prop under this one's name.
             set({
+                scene,
+                presetId,
+                page: 'editor',
+                history: EMPTY_HISTORY,
+                savedScene: scene,
+                savedStyle: style,
                 treeName: findPreset(presetId)?.name ?? 'My prop',
                 currentTreeId: null,
                 filePath: null,
+                projectExtras: {},
                 selection: EMPTY_SELECTION,
+                propInHand: true,
             })
         },
+
+        propInHand: false,
 
         restoreRemovedPart: (kind, key) =>
             commit('restore part', (scene, style) => {
@@ -825,6 +843,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     history: EMPTY_HISTORY,
                     draftAvailable: false,
                     page: 'editor',
+                    propInHand: true,
                     toast: {message: 'Picked up where you left off', undoable: false},
                 })
             } catch (error) {
@@ -850,6 +869,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     treeName: project.name,
                     currentTreeId: id,
                     page: 'editor',
+                    propInHand: true,
                     filePath: null,
                     projectExtras: project.extras,
                     selection: EMPTY_SELECTION,
@@ -950,6 +970,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     // A file chosen from disk is not a gallery entry.
                     currentTreeId: null,
                     page: 'editor',
+                    propInHand: true,
                     filePath: opened.path,
                     projectExtras: project.extras,
                     selection: EMPTY_SELECTION,
