@@ -2,6 +2,38 @@
 
 What's new in each version of easy-props.
 
+## 0.3.0 (November 2, 2026)
+
+**Find the one you want**
+
+- Show me more puts nine versions of your prop side by side. Click one to use it, or tick
+  several, or all of them, and export them together.
+
+**See it before your engine does**
+
+- Turn on Wind, beside the sun, to watch your prop sway as it will in your engine, from a calm
+  day to a storm. If your computer asks for less motion, it waits for you to switch it on.
+- Show what you can walk into, in the View menu, draws the simple shapes your game uses for
+  collisions.
+
+**Make it fit your game**
+
+- When a prop has too many faces for its budget, Make it fit lowers the controls that cost the
+  most, says what it changed, and can be undone in one step.
+- In Bark detail, the slider for how fine the trunk and branches are is now called Wood detail.
+
+**Shape it by hand**
+
+- Branches and roots of painted trees can now be turned. Press E or the new Turn button and drag
+  a ring, or type the angles. What grows on a branch turns with it.
+- Fixed: on trees in the older style, such as Round canopy, a part you moved jumped back when you
+  changed a slider.
+
+**Export many**
+
+- Export many now has all of Export's choices. It can also put a batch in a folder of its own,
+  and give each prop its own folder.
+
 ## 0.2.5 (November 2, 2026)
 
 **Get a prop back**

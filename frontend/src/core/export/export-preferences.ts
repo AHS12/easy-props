@@ -7,7 +7,7 @@
 import {BUDGET_TARGETS, DEFAULT_BUDGET_TARGET, type BudgetTargetId} from './pipeline/budget'
 import {ENGINE_LABELS, type EngineId} from './pipeline/types'
 
-export const APP_VERSION = '0.2.5'
+export const APP_VERSION = '0.3.0'
 
 /** What Godot needs told. Its own simplifying deletes leaf cards, and a file cannot turn it off. */
 export const GODOT_IMPORT_NOTE =
