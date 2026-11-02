@@ -109,7 +109,7 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
         {
             target: 'export',
             title: 'Take it to your game',
-            text: 'Export prepares it for Unreal, Godot, Unity or Blender, with lighter versions for far away, collision and wind included. You can see this tour again from Help, Show the tour.',
+            text: 'Export prepares it for Unreal, Godot or Blender, with lighter versions for far away, collision and wind included. You can see this tour again from Help, Show the tour.',
             side: 'below',
         },
     ],

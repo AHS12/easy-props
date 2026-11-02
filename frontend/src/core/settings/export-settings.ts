@@ -28,7 +28,7 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         key: 'engine',
         label: 'Default engine',
         help: 'Which game engine exports are prepared for.',
-        keywords: 'unreal godot unity blender',
+        keywords: 'unreal godot blender',
         options: (Object.keys(ENGINE_LABELS) as EngineId[]).map((id) => ({value: id, label: ENGINE_LABELS[id]})),
         get: () => loadExportPreferences().engine,
         set: (value) => update({engine: value as EngineId}),
