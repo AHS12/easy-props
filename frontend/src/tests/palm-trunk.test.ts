@@ -81,12 +81,12 @@ describe('palm trunk', () => {
         expect(countTriangles(generate())).toBeLessThan(4000)
     })
 
-    it('applies a saved push even though the tool is hidden', () => {
+    it('ignores a push saved by an old development build', () => {
         const pushed = generate({
             pushes: [{point: [0, 2, 0.4], direction: [0, 0, 1], strength: 0.3, radius: 0.6}],
         })
 
-        expect(positions(pushed)).not.toEqual(positions(generate()))
+        expect(positions(pushed)).toEqual(positions(generate()))
     })
 })
 
@@ -189,6 +189,5 @@ describe('palm trunk validation', () => {
         expect(validated.parameters.twist).toBe(30)
         expect(validated.parameters.bend).toBe('straight')
         expect(validated.parameters.controlPoints).toBe(6)
-        expect(validated.parameters.pushes).toEqual([])
     })
 })

@@ -8,17 +8,14 @@
 
 import * as THREE from 'three'
 import {z} from 'zod'
-import type {SurfacePush} from '../../shared/component-types'
 import type {PartGenerator} from '../../shared/generator-types'
 import {
-    applySurfacePushes,
     buildSpineCurve,
     buildSpinePoints,
     buildTaperedTube,
     taperedRadius,
     type SpinePoint,
 } from '../../shared/geometry-utils'
-import {surfacePushSchema} from '../../shared/pushes'
 import {normaliseSpine} from '../../shared/spines'
 import {
     choiceSchema,
@@ -46,8 +43,6 @@ export type PalmTrunkParameters = {
     readonly leanAzimuth: number
     /** How much wobble the seed added on top of the steady lean. */
     readonly leanWobble: number
-    /** Pushes and pulls on the bark, applied to the built mesh. */
-    readonly pushes: readonly SurfacePush[]
 }
 
 const HEIGHT = {
@@ -174,7 +169,6 @@ const palmTrunkSchema = z.object({
     spine: z.array(spinePointSchema).min(2).catch([]),
     leanAzimuth: z.number().catch(0),
     leanWobble: z.number().catch(0),
-    pushes: z.array(surfacePushSchema).catch([]),
 })
 
 /** How far round the trunk the rings sit, between one and zero. */
@@ -204,7 +198,6 @@ export const palmTrunkGenerator: PartGenerator<PalmTrunkParameters> = {
             spine: buildTrunkSpine(BEND.default, HEIGHT.default, 0, 0, controlPoints),
             leanAzimuth: 0,
             leanWobble: 0,
-            pushes: [],
         }
     },
 
@@ -268,10 +261,6 @@ export const palmTrunkGenerator: PartGenerator<PalmTrunkParameters> = {
             capBase: true,
             capTip: true,
         })
-
-        // Pushes move the surface, then the shading follows the new shape.
-        applySurfacePushes(geometry, parameters.pushes)
-
         if (context.style.flatShading) {
             geometry.deleteAttribute('normal')
             geometry.computeVertexNormals()

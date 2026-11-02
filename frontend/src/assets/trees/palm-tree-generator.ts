@@ -265,7 +265,6 @@ export const palmTreeGenerator: PropGenerator<PalmTreeParameters> = {
             bend: parameters.bend,
             controlPoints: PALM_TRUNK_POINTS,
             spine: [],
-            pushes: [],
         }).parameters
 
         const trunkId = 'cmp-trunk-0'

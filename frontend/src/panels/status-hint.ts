@@ -8,13 +8,9 @@ const CAMERA_HINTS: Readonly<Record<string, string>> = {
 }
 
 /** The hint for this moment: what you can do right now. */
-export function hintFor(state: Pick<EditorStore, 'status' | 'shapeTool' | 'moveTool' | 'selection' | 'scene'>, scheme: string): string {
+export function hintFor(state: Pick<EditorStore, 'status' | 'moveTool' | 'selection' | 'scene'>, scheme: string): string {
     if (state.status.message) {
         return state.status.message
-    }
-
-    if (state.shapeTool !== 'off') {
-        return `Drag on a part to ${state.shapeTool} its surface · Esc to stop`
     }
 
     const part = state.selection.selectedId ? findComponent(state.scene, state.selection.selectedId) : undefined

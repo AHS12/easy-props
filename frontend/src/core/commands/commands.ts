@@ -254,9 +254,7 @@ export const COMMANDS: readonly Command[] = [
             // Escape backs out one step at a time: the tool first, then the
             // selection. Disarming the tool and losing the selection in one
             // press would be two surprises.
-            if (state.shapeTool !== 'off') {
-                state.setShapeTool('off')
-            } else if (state.moveTool) {
+            if (state.moveTool) {
                 state.setMoveTool(false)
             } else {
                 state.deselect()

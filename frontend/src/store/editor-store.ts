@@ -15,7 +15,6 @@ import {
     type TimeOfDay,
 } from '../assets/style/lighting'
 import type {SpineLike} from '../assets/shared/spines'
-import type {ShapeTool} from '../assets/shared/pushes'
 import {hashSeed} from '../assets/shared/random'
 import {
     EMPTY_HISTORY,
@@ -42,7 +41,6 @@ import {
     restoreComponentDefault,
     setAssetSeed,
     setComponentPosition as setComponentPositionInScene,
-    setSurfacePushes,
     updateComponentParameters,
     updateTreeParameters,
 } from '../core/scene/scene-ops'
@@ -116,7 +114,7 @@ function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
 }
 import type {LibraryPart} from '../assets/library/library'
 import {findComponentGenerator} from '../assets/component-generators'
-import {describeComponent, type SceneComponent, type SurfacePush} from '../assets/shared/component-types'
+import {describeComponent, type SceneComponent} from '../assets/shared/component-types'
 
 export type EditorStatus = {
     readonly state: 'ready' | 'busy' | 'error'
@@ -177,15 +175,6 @@ export interface EditorStore {
     previewSpine(componentId: string, spine: readonly SpineLike[]): void
     /** Records the move a drag ended with as one undo step. */
     commitSpine(before: Scene, componentId: string, spine: readonly SpineLike[]): void
-    /** Which shape tool is armed: off, push, or pull. */
-    shapeTool: ShapeTool
-    setShapeTool(tool: ShapeTool): void
-    /** Shows a push without recording history. Used while dragging. */
-    previewPushes(componentId: string, pushes: readonly SurfacePush[]): void
-    /** Records the push a drag ended with as one undo step. */
-    commitPushes(before: Scene, componentId: string, pushes: readonly SurfacePush[]): void
-    /** Replaces a part's pushes. Undoable. */
-    setPushes(componentId: string, pushes: readonly SurfacePush[]): void
     /** Moves a part along one axis, in metres. */
     moveComponent(componentId: string, axis: 'x' | 'y' | 'z', value: number): void
     /** True while the move gizmo is showing. */
@@ -494,22 +483,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         commitSpine: (before, componentId, spine) =>
             commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before),
-
-        shapeTool: 'off',
-
-        setShapeTool: (tool) => set({shapeTool: tool}),
-
-        previewPushes: (componentId, pushes) => {
-            const state = get()
-
-            set({scene: setSurfacePushes(state.scene, componentId, pushes)})
-        },
-
-        commitPushes: (before, componentId, pushes) =>
-            commit('push surface', (scene) => setSurfacePushes(scene, componentId, pushes), before),
-
-        setPushes: (componentId, pushes) =>
-            commit('change pushes', (scene) => setSurfacePushes(scene, componentId, pushes)),
 
         moveComponent: (componentId, axis, value) =>
             commit(

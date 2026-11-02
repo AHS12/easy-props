@@ -38,11 +38,11 @@ function frondsOf(components: readonly SceneComponent[]): readonly SceneComponen
 }
 
 /**
- * A part's spine and pushes come back from the schema as fresh arrays, so
- * validation calls them reset even when every value is unchanged. Those two
- * are compared by value instead; everything else has to survive untouched.
+ * A part's spine comes back from the schema as a fresh array, so validation
+ * calls it reset even when every value is unchanged. It is compared by value
+ * instead; everything else has to survive untouched.
  */
-const ARRAY_KEYS = new Set(['spine', 'pushes'])
+const ARRAY_KEYS = new Set(['spine'])
 
 function realIssues(issues: readonly ValidationIssue[]): readonly ValidationIssue[] {
     return issues.filter((issue) => !ARRAY_KEYS.has(issue.key))

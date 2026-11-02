@@ -45,8 +45,8 @@ asks for the line to use.
 **Beginners come first.** Someone who has never opened a 3D tool should be able to use
 every feature without reading anything. If it needs a tutorial, it needs a redesign.
 
-**Plain words in the interface.** People see "Thickness", not "radius", and "Push / Pull",
-not "sculpt". The [terminology table](docs/terminology.md) applies to
+**Plain words in the interface.** People see "Thickness", not "radius", and "Bend",
+not "curvature". The [terminology table](docs/terminology.md) applies to
 every word on screen.
 
 **The same seed gives the same prop.** Generators under `frontend/src/assets` use the
