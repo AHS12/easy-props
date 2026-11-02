@@ -149,7 +149,7 @@ export function buildRootSpine(
 
 export const rootGenerator: PartGenerator<RootParameters> = {
     id: 'root',
-    version: 1,
+    version: 2,
     type: 'root',
     label: 'Root',
     parameters: rootParameterSpecs,

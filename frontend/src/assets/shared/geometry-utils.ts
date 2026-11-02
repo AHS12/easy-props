@@ -170,14 +170,17 @@ export function buildTaperedTube(options: TaperedTubeOptions): THREE.BufferGeome
         normals.push(tangent.x * direction, tangent.y * direction, tangent.z * direction)
         uvs.push(0.5, tip ? 1 : 0)
 
+        // Wound to face out of the tube: each cap edge runs the opposite way to the
+        // side face beside it. The other way round, an engine drawing faces one-sided
+        // shows a hole at each end.
         for (let j = 0; j < radialSegments; j++) {
             const current = (radialSegments + 1) * ringIndex + j
             const next = current + 1
 
             if (tip) {
-                indices.push(centerIndex, current, next)
-            } else {
                 indices.push(centerIndex, next, current)
+            } else {
+                indices.push(centerIndex, current, next)
             }
         }
     }

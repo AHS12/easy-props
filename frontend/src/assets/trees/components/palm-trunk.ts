@@ -178,7 +178,7 @@ function ringProfile(rings: number, t: number): number {
 
 export const palmTrunkGenerator: PartGenerator<PalmTrunkParameters> = {
     id: 'palm-trunk',
-    version: 1,
+    version: 2,
     type: 'trunk',
     label: 'Palm trunk',
     parameters: palmTrunkParameterSpecs,

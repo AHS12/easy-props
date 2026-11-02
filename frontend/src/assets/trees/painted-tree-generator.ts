@@ -9,6 +9,7 @@
 
 import {IDENTITY_TRANSFORM} from '../shared/component-types'
 import type {CollisionShape, GeneratedComponent, PropGenerator} from '../shared/generator-types'
+import {paintedBarkGenerator} from './components/painted-parts'
 import {
     paintedTreeDefaults,
     paintedTreeParameterSpecs,
@@ -100,7 +101,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
             id: 'cmp-bark-0',
             type: 'bark',
             generatorId: 'painted-bark',
-            generatorVersion: 4,
+            generatorVersion: paintedBarkGenerator.version,
             parentId: null,
             transform: IDENTITY_TRANSFORM,
             parameters: {tree: parameters, seed},

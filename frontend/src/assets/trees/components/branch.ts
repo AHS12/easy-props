@@ -165,7 +165,7 @@ export function buildBranchSpine(
 
 export const branchGenerator: PartGenerator<BranchParameters> = {
     id: 'branch',
-    version: 1,
+    version: 2,
     type: 'branch',
     label: 'Branch',
     parameters: branchParameterSpecs,

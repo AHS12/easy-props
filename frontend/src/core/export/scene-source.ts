@@ -21,6 +21,8 @@ import {yieldIfBusy} from './pipeline/yield'
 
 /** How much a part may grow to cover for the parts a lighter level leaves out. */
 const MAX_THINNED_GROWTH = 1.25
+/** The fewest corners simplifying leaves a part of wood. */
+const MIN_SIMPLIFIED_VERTICES = 10
 
 /** Fewer sides and rings, for a generator that only knows its style. */
 function lightenStyle(style: StyleProfile, detail: number): StyleProfile {
@@ -113,7 +115,9 @@ export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion:
                 // outline holds.
                 if (!generator.scalesWithDetail && roleOfPart(part) !== 'foliage' && detail < 1) {
                     const welded = part.geometry.getAttribute('position').count
-                    const simplified = await new SimplifyModifier().modify(part.geometry, Math.floor(welded * (1 - Math.sqrt(detail))))
+                    // Enough is kept that a thin branch stays a branch, and reaches as far.
+                    const removed = Math.min(Math.floor(welded * (1 - Math.sqrt(detail))), Math.max(welded - MIN_SIMPLIFIED_VERTICES, 0))
+                    const simplified = await new SimplifyModifier().modify(part.geometry, removed)
 
                     part.geometry.dispose()
                     placed.push(placeComponent(component, {...part, geometry: simplified}, asset.materials, style, 1))

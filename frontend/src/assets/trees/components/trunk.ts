@@ -206,7 +206,7 @@ export function defaultSpine(count = SPINE_POINT_COUNT): SpinePoint[] {
 
 export const trunkGenerator: PartGenerator<TrunkParameters> = {
     id: 'trunk',
-    version: 1,
+    version: 2,
     type: 'trunk',
     label: 'Trunk',
     parameters: trunkParameterSpecs,
