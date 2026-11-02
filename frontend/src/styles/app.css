@@ -32,6 +32,13 @@ body {
     cursor: default;
 }
 
+/* The desktop window has no frame, so Wails shows its resize arrows by setting the
+   cursor on the root while the pointer is on an edge. Let them through. */
+html[style*='-resize'] body,
+html[style*='-resize'] body * {
+    cursor: inherit !important;
+}
+
 input,
 textarea {
     user-select: text;

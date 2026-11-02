@@ -78,6 +78,10 @@ export function ReadSettings() {
   return window['go']['backend']['App']['ReadSettings']();
 }
 
+export function RememberWindow() {
+  return window['go']['backend']['App']['RememberWindow']();
+}
+
 export function SaveFileDialog(arg1, arg2, arg3) {
   return window['go']['backend']['App']['SaveFileDialog'](arg1, arg2, arg3);
 }
