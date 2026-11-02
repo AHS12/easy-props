@@ -5,7 +5,7 @@
  * the panel is open, so the list and its face counts are what gets written.
  */
 
-import {useEffect, useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {findPropGenerator} from '../assets/prop-generators'
 import {
@@ -18,8 +18,9 @@ import {buildExport} from '../core/export/pipeline/package'
 import {ENGINE_LABELS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
 import {sceneExportSource} from '../core/export/scene-source'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
-import {chooseFolder, desktopJoin, exportFolderLabel, writeExportFiles, writeFilesTo} from '../platform/desktop'
+import {chooseFolder, desktopJoin, existingExportFiles, exportFolderLabel, writeExportFiles, writeFilesTo} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
+import {useUiStore} from '../store/ui-store'
 import {Dialog, Select, Switch} from '../components/controls'
 import {Row} from '../components/PropertyRow'
 
@@ -49,6 +50,7 @@ export function ExportDialog() {
     const [progress, setProgress] = useState(0)
     const [error, setError] = useState<string | null>(null)
     const [writing, setWriting] = useState(false)
+    const nameField = useRef<HTMLInputElement>(null)
 
     const safeName = exportNameOf(name)
     const {engine, levels, collision, wind, join, folder} = preferences
@@ -131,6 +133,19 @@ export function ExportDialog() {
         }
     }
 
+    const writeTo = async (chosen: string, written: readonly ExportFile[]) => {
+        setWriting(true)
+
+        try {
+            await writeExportFiles(chosen, safeName, written)
+            finishExport(`Exported ${written.length} files to ${exportFolderLabel(chosen, safeName)}`)
+        } catch (failure) {
+            setError(describeFailure(failure))
+        } finally {
+            setWriting(false)
+        }
+    }
+
     const write = async () => {
         if (!files) {
             return
@@ -149,8 +164,33 @@ export function ExportDialog() {
                 change({folder: chosen})
             }
 
-            await writeExportFiles(chosen, safeName, files)
-            finishExport(`Exported ${files.length} files to ${exportFolderLabel(chosen, safeName)}`)
+            const existing = preferences.askBeforeReplacing
+                ? await existingExportFiles(chosen, safeName, files.map((file) => file.name))
+                : []
+
+            if (existing.length === 0) {
+                await writeTo(chosen, files)
+                return
+            }
+
+            useUiStore.getState().askConfirm({
+                title: `Replace the files for "${name.trim() || safeName}"?`,
+                text: `This folder already has ${existing.length} of them. Your game may be using these.`,
+                action: 'Replace files',
+                cancel: 'Keep them',
+                danger: true,
+                offerDontAsk: true,
+                run: (dontAskAgain) => {
+                    if (dontAskAgain) {
+                        saveExportPreferences({...loadExportPreferences(), askBeforeReplacing: false})
+                        setPreferences((current) => ({...current, askBeforeReplacing: false}))
+                    }
+
+                    void writeTo(chosen, files)
+                },
+                // A new name is the other way to keep them, so it's one step away.
+                onCancel: () => window.requestAnimationFrame(() => nameField.current?.select()),
+            })
         } catch (failure) {
             setError(describeFailure(failure))
         } finally {
@@ -179,6 +219,7 @@ export function ExportDialog() {
                     {engine === 'godot' ? <p className="dialog__note">{GODOT_IMPORT_NOTE}</p> : null}
                     <Row label="Name">
                         <input
+                            ref={nameField}
                             className="field"
                             aria-label="Name"
                             value={name}

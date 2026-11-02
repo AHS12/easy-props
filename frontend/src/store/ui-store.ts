@@ -20,7 +20,12 @@ export interface ConfirmRequest {
     readonly text: string
     readonly action: string
     readonly danger?: boolean
-    readonly run: () => void
+    /** The cancel button's words, when Cancel doesn't say enough. */
+    readonly cancel?: string
+    /** Shows a Don't ask again tick box, and passes whether it was ticked to run. */
+    readonly offerDontAsk?: boolean
+    readonly run: (dontAskAgain: boolean) => void
+    readonly onCancel?: () => void
 }
 
 interface UiStore {

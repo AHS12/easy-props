@@ -66,6 +66,14 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         set: (value) => update({join: value === true}),
     },
     {
+        key: 'askBeforeReplacing',
+        label: 'Ask before replacing files',
+        help: 'Ask before an export replaces files already in its folder, which your game may be using.',
+        keywords: 'overwrite replace warning existing',
+        get: () => loadExportPreferences().askBeforeReplacing,
+        set: (value) => update({askBeforeReplacing: value === true}),
+    },
+    {
         key: 'budget',
         label: 'Budget target',
         help: 'What a prop is for, which sets the face count the status bar checks it against.',

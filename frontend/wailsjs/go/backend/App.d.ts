@@ -16,6 +16,8 @@ export function DeleteProp(arg1:string):Promise<void>;
 
 export function DownloadUpdate():Promise<void>;
 
+export function ExistingFiles(arg1:string,arg2:Array<string>):Promise<Array<string>>;
+
 export function GetLibraryInfo():Promise<backend.LibraryInfo>;
 
 export function InstallUpdateOnClose():Promise<void>;

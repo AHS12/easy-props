@@ -21,6 +21,7 @@ interface WailsApp {
     WriteFile(path: string, contents: number[]): Promise<void>
     ChooseFolder(title: string, start: string): Promise<string>
     WriteFiles(folder: string, files: {name: string; contents: number[]}[]): Promise<void>
+    ExistingFiles(folder: string, names: string[]): Promise<string[]>
 }
 
 declare global {
@@ -119,6 +120,16 @@ export function writeExportFiles(
     files: readonly {name: string; bytes: Uint8Array}[],
 ): Promise<void> {
     return writeFilesTo(desktop() ? `${folder}/${name}` : folder, files)
+}
+
+/**
+ * Which of an export's files are already in its folder. A browser downloads each
+ * file afresh, so it never replaces one.
+ */
+export async function existingExportFiles(folder: string, name: string, names: readonly string[]): Promise<string[]> {
+    const app = desktop()
+
+    return app ? app.ExistingFiles(`${folder}/${name}`, [...names]) : []
 }
 
 /** Writes files straight into a folder, as a batch does. */

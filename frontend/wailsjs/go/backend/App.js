@@ -30,6 +30,10 @@ export function DownloadUpdate() {
   return window['go']['backend']['App']['DownloadUpdate']();
 }
 
+export function ExistingFiles(arg1, arg2) {
+  return window['go']['backend']['App']['ExistingFiles'](arg1, arg2);
+}
+
 export function GetLibraryInfo() {
   return window['go']['backend']['App']['GetLibraryInfo']();
 }
