@@ -5,21 +5,25 @@
  * produce without importing the editor. The editor imports them back.
  */
 
-export type ComponentType =
-    | 'trunk'
-    | 'branch'
-    | 'root'
-    | 'foliage-cluster'
-    | 'palm-frond'
-    | 'palm-crown'
-    | 'coconut-cluster'
-    | 'bark'
-    | 'rock'
-    | 'grass'
-    | 'bush-core'
-    | 'bush-leaves'
-    | 'plant'
-    | 'cactus'
+/** Every kind of part. Project files check against this, so a new kind opens too. */
+export const COMPONENT_TYPES = [
+    'trunk',
+    'branch',
+    'root',
+    'foliage-cluster',
+    'palm-frond',
+    'palm-crown',
+    'coconut-cluster',
+    'bark',
+    'rock',
+    'grass',
+    'bush-core',
+    'bush-leaves',
+    'plant',
+    'cactus',
+] as const
+
+export type ComponentType = (typeof COMPONENT_TYPES)[number]
 
 export interface Transform {
     readonly position: readonly [number, number, number]

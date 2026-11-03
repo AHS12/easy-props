@@ -43,6 +43,37 @@ export function createSceneFromPreset(presetId: string): Scene {
     }
 }
 
+/**
+ * The preset a prop goes back to on Restore.
+ *
+ * The one its file names, if that still makes the same kind of prop. Files from
+ * before props remembered it get the preset of the same kind whose settings are
+ * closest, so a saved cherry tree finds Cherry, and a rock never turns into a tree.
+ */
+export function presetOfScene(scene: Scene, saved: string | null): string {
+    const asset = scene.assets[0]
+
+    if (!asset) {
+        return DEFAULT_PRESET_ID
+    }
+
+    if (saved && findPreset(saved)?.generatorId === asset.generatorId) {
+        return saved
+    }
+
+    const differences = (parameters: Readonly<Record<string, unknown>>) =>
+        Object.keys({...parameters, ...asset.parameters}).filter(
+            (key) => JSON.stringify(parameters[key]) !== JSON.stringify(asset.parameters[key]),
+        ).length
+
+    const closest = treePresets
+        .filter((preset) => preset.generatorId === asset.generatorId)
+        .map((preset) => ({id: preset.id, score: differences(preset.parameters) - (preset.seed === asset.seed ? 0.5 : 0)}))
+        .sort((a, b) => a.score - b.score)[0]
+
+    return closest?.id ?? DEFAULT_PRESET_ID
+}
+
 export function createInitialScene(): Scene {
     return createSceneFromPreset(DEFAULT_PRESET_ID)
 }
