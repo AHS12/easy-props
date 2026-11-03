@@ -21,6 +21,7 @@ import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {BLOOM_CELL, LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {colourRamp} from '../style/ramp'
+import {FLOWER_ROWS, LEAF_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {BUSH_RAMPS, PETAL_RAMPS, TWIG_RAMP, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
 
 export type BushKind = 'round' | 'spreading' | 'tall' | 'hedge'
@@ -28,7 +29,7 @@ export type BushKind = 'round' | 'spreading' | 'tall' | 'hedge'
 /** Solid hides everything behind it. Open has twigs and sky inside. */
 export type BushInside = 'solid' | 'open'
 
-export interface BushParameters {
+export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
     readonly kind: BushKind
     readonly width: number
     readonly height: number
@@ -42,13 +43,13 @@ export interface BushParameters {
     readonly leafSize: number
     /** How far one lobe's colour strays from the next, 0 to 1. */
     readonly variation: number
-    readonly palette: BushPaletteId
+    readonly palette: BushPaletteId | OwnColours
     readonly inside: BushInside
     /** How thickly it flowers, 0 to 1. */
     readonly flowers: number
     /** Half the width of a flower, in metres. */
     readonly flowerSize: number
-    readonly flowerColour: PetalPaletteId
+    readonly flowerColour: PetalPaletteId | OwnColours
 }
 
 type Vec3 = readonly [number, number, number]
@@ -423,7 +424,7 @@ export function buildBushCore(bush: BushParameters, seed: number, detail: number
     const level = -CORE_INSET * bush.leafSize
     const geometry = shellGeometry(shape, bush, level, coreDetail(detail))
     const position = geometry.getAttribute('position')
-    const paint = colourRamp(BUSH_RAMPS[bush.palette])
+    const paint = colourRamp(rampOf(bush.palette, BUSH_RAMPS, bush, LEAF_ROWS))
     const normals = new Float32Array(position.count * 3)
     const colors = new Float32Array(position.count * 3)
 
@@ -568,7 +569,7 @@ export function buildBushLeaves(bush: BushParameters, seed: number, detail: numb
     const wanted = Math.round(((all.length * FACES_PER_CARD + insideFaces(bush, 1)) * detail - insideFaces(bush, detail)) / FACES_PER_CARD)
     const cards = detail < 1 ? cardsAtDetail(all, Math.max(wanted, MIN_CARDS)) : all
     const growth = Math.min(Math.sqrt(all.length / Math.max(cards.length, 1)), MAX_CARD_GROWTH)
-    const paint = colourRamp(BUSH_RAMPS[bush.palette])
+    const paint = colourRamp(rampOf(bush.palette, BUSH_RAMPS, bush, LEAF_ROWS))
     const margin = bush.leafSize * CARD_MARGIN
     const limitMin = [0, 1, 2].map((axis) => all.reduce((least, card) => Math.min(least, card.point[axis]), Infinity) - margin)
     const limitMax = [0, 1, 2].map((axis) => all.reduce((most, card) => Math.max(most, card.point[axis]), -Infinity) + margin)
@@ -581,7 +582,7 @@ export function buildBushLeaves(bush: BushParameters, seed: number, detail: numb
     const uvs: number[] = []
     const indices: number[] = []
 
-    const petal = colourRamp(PETAL_RAMPS[bush.flowerColour])
+    const petal = colourRamp(rampOf(bush.flowerColour, PETAL_RAMPS, bush, FLOWER_ROWS))
 
     for (const {point, normal, seed: cardSeed, flower, deep} of cards) {
         const random = createSeededRandom(hashSeed(cardSeed, 1))

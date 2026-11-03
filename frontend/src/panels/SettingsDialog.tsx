@@ -7,8 +7,9 @@
 
 import {FolderOpen, Keyboard, RotateCcw, Search, X} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
-import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2} from 'lucide-react'
+import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook} from 'lucide-react'
 import {useEffect, useMemo, useState, type ReactNode} from 'react'
+import {ColourPicker} from '../components/ColourPicker'
 import {Dialog, Keys, Select, Switch} from '../components/controls'
 import {PropertyRow} from '../components/PropertyRow'
 import {COMMANDS, commandForKeys, shortcutFor, shortcutOf} from '../core/commands/commands'
@@ -23,10 +24,12 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
 import {useUpdateStore} from '../store/update-store'
+import {PalettesPage} from './PalettesPage'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
     {id: 'General', icon: Settings2},
     {id: 'Appearance', icon: PaletteIcon},
+    {id: 'Palettes', icon: SwatchBook},
     {id: 'Viewport', icon: Monitor},
     {id: 'Performance', icon: Cpu},
     {id: 'Export', icon: Download},
@@ -86,9 +89,7 @@ function SpecRow({spec}: {spec: SettingSpec}) {
         case 'colour':
             return (
                 <SettingRow label={spec.label} help={spec.help}>
-                    <label className="colour colour--custom" style={{backgroundColor: String(value)}}>
-                        <input type="color" aria-label={spec.label} value={String(value)} onChange={(event) => setValue(key, event.target.value)} />
-                    </label>
+                    <ColourPicker label={spec.label} value={String(value)} onChange={(next) => setValue(key, next)} />
                 </SettingRow>
             )
     }
@@ -508,6 +509,8 @@ export function SettingsDialog() {
                         <KeyboardPage needle="" />
                     ) : page === 'Storage' ? (
                         <StoragePage />
+                    ) : page === 'Palettes' ? (
+                        <PalettesPage />
                     ) : page === 'About' ? (
                         <AboutPage />
                     ) : (

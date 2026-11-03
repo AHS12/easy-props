@@ -16,12 +16,14 @@ import {
     type SettingKey,
     type SettingPage,
     type SettingsFile,
+    type SavedPalette,
     type SettingValue,
 } from '../core/settings/settings-spec'
 import {readSettingsCopy, readSettingsFile, setLibraryFolder, writeSettingsFile} from '../platform/settings'
 
 const WRITE_DELAY_MS = 300
 const RECENT_LIMIT = 5
+const RECENT_COLOURS = 8
 
 export interface SettingsStore extends SettingsFile {
     /** True once the settings on disk have been read, or could not be. */
@@ -43,15 +45,27 @@ export interface SettingsStore extends SettingsFile {
     setLastTreeId(id: string | null): void
     setLibraryFolder(folder: string): void
     setLastUpdateCheck(time: number): void
+    /** Puts a colour first in Recent. */
+    noteColour(colour: string): void
+    setMyColours(colours: readonly string[]): void
+    /** Saves colours under a name. A palette of the same name and set is updated. */
+    savePalette(name: string, set: string, colours: readonly string[]): SavedPalette
+    renamePalette(id: string, name: string): void
+    setPaletteColours(id: string, colours: readonly string[]): void
+    removePalette(id: string): void
 }
 
 let writeTimer: number | undefined
 
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+const newPaletteId = () => `palette-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -130,6 +144,34 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         setLastSeenVersion: (lastSeenVersion) => change({lastSeenVersion}),
         setLastTreeId: (lastTreeId) => change({lastTreeId}),
         setLastUpdateCheck: (lastUpdateCheck) => change({lastUpdateCheck}),
+
+        noteColour: (colour) => {
+            const {recentColours} = get()
+
+            if (recentColours[0] !== colour) {
+                change({recentColours: [colour, ...recentColours.filter((entry) => entry !== colour)].slice(0, RECENT_COLOURS)})
+            }
+        },
+
+        setMyColours: (colours) => change({myColours: [...new Set(colours)]}),
+
+        savePalette: (name, set, colours) => {
+            const {palettes} = get()
+            const same = palettes.find((palette) => palette.set === set && sameName(palette.name, name))
+            const saved: SavedPalette = {id: same?.id ?? newPaletteId(), name: name.trim(), set, colours: [...colours]}
+
+            change({palettes: same ? palettes.map((palette) => (palette.id === same.id ? saved : palette)) : [...palettes, saved]})
+
+            return saved
+        },
+
+        renamePalette: (id, name) =>
+            change({palettes: get().palettes.map((palette) => (palette.id === id ? {...palette, name: name.trim()} : palette))}),
+
+        setPaletteColours: (id, colours) =>
+            change({palettes: get().palettes.map((palette) => (palette.id === id ? {...palette, colours: [...colours]} : palette))}),
+
+        removePalette: (id) => change({palettes: get().palettes.filter((palette) => palette.id !== id)}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})

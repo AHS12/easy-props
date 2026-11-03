@@ -16,6 +16,7 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
+import {FLOWER_ROWS, GRASS_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {GRASS_RAMPS, PETAL_RAMPS, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildGrassMesh, type GrassParameters} from './blade-mesh'
 
@@ -35,31 +36,40 @@ const number = (
     unit?: string,
 ): NumberParameter => ({kind: 'number', group, key, label, help, min, max, step, default: fallback, unit})
 
-const PALETTE: ChoiceParameter<GrassPaletteId> = {
+const PALETTE: ChoiceParameter<GrassPaletteId | OwnColours> = {
     kind: 'choice',
     group: COLOUR,
     key: 'palette',
     label: 'Grass',
     help: 'The colours of a blade, root to tip.',
     default: 'meadow',
-    options: (Object.keys(GRASS_RAMPS) as GrassPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(GRASS_RAMPS) as GrassPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
 
-const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId> = {
+const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId | OwnColours> = {
     kind: 'choice',
     group: COLOUR,
     key: 'flowerColour',
     label: 'Flower colour',
     help: 'The colour of the flowers among the blades.',
     default: 'white',
-    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
+
+const OWN_GRASS = ownColours(PALETTE, GRASS_RAMPS, GRASS_ROWS, 'grass')
+const OWN_FLOWERS = ownColours(FLOWER_COLOUR, PETAL_RAMPS, FLOWER_ROWS, 'flowers')
 
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the patch is.', 0.1, 10, 0.1, 2, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall its tallest blade stands.', 0.05, 3, 0.05, 0.7, 'm')
@@ -76,7 +86,7 @@ const VARIATION = number(COLOUR, 'variation', 'Variation', 'How much one clump d
 
 const FLOWERS = number(COLOUR, 'flowers', 'Flowers', 'How many flowers stand among the blades, in drifts.', 0, 120, 1, 0)
 
-const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, FLOWERS, FLOWER_COLOUR]
+const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, ...OWN_GRASS.specs, FLOWERS, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
 
 export const grassDefaults: GrassParameters = {
     width: WIDTH.default,
@@ -112,6 +122,8 @@ const grassSchema = z.object({
     palette: choiceSchema(PALETTE),
     flowers: numberSchema(FLOWERS),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...OWN_GRASS.schema,
+    ...OWN_FLOWERS.schema,
 })
 
 const validateGrass = (parameters: unknown) => validateParameters<GrassParameters>(grassSchema, parameters, grassDefaults)

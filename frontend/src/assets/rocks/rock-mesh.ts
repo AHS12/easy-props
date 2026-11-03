@@ -13,6 +13,7 @@
 
 import * as THREE from 'three'
 import {colourRamp} from '../style/ramp'
+import {rampOf, STONE_ROWS, type OwnColours} from '../style/own-colours'
 import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import {distanceToChunk, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
 
@@ -25,7 +26,7 @@ export interface RockSurface {
     readonly moss: number
     /** How far one face strays from the next, 0 to 1. */
     readonly variation: number
-    readonly palette: RockPaletteId
+    readonly palette: RockPaletteId | OwnColours
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -113,7 +114,7 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
 function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {
     const size = (plan.width + plan.height + plan.depth) / 3
     const chunks = chunksAtDetail(plan, detail, cutShare)
-    const stone = colourRamp(ROCK_RAMPS[surface.palette])
+    const stone = colourRamp(rampOf(surface.palette, ROCK_RAMPS, surface, STONE_ROWS))
     const moss = colourRamp(MOSS_RAMP)
     const mossAbove = surface.moss > 0 ? 1 - surface.moss * MOSS_REACH : Infinity
     const withRings = detail >= RINGS_FROM && surface.edges > 0

@@ -11,7 +11,7 @@ agree on the term first, or rethink the control.
 | Radius | **Thickness** | |
 | Base radius / top radius | **Thickness** + **Taper** | Taper shown as a segmented choice |
 | Taper | **Taper** | Slider. "How much the trunk narrows toward the top." |
-| Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes |
+| Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes. Inside the colour picker only, the code may be shown as **Colour code** |
 | Shading mode, viewport shading | **View** | Lit / Flat / Wireframe. "Show the triangles" for wireframe |
 | Delete, remove | **Remove** | "Remove this branch" |
 | Curvature | **Bend** | Segmented: Straight / Curved / Very curved |

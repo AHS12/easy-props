@@ -10,12 +10,13 @@
 
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
-import {CACTUS_COLOURS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
+import {CACTUS_ROWS, FLOWER_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
+import {CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
 import {colourRamp} from '../style/ramp'
 
 export type CactusKind = 'column' | 'barrel' | 'paddle'
 
-export interface CactusParameters {
+export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
     readonly kind: CactusKind
     readonly height: number
     /** Across the main stem, or across a pad. */
@@ -31,8 +32,8 @@ export interface CactusParameters {
     /** How thickly the spines grow, 0 to 1. */
     readonly spines: number
     readonly flowers: number
-    readonly palette: CactusPaletteId
-    readonly flowerColour: PetalPaletteId
+    readonly palette: CactusPaletteId | OwnColours
+    readonly flowerColour: PetalPaletteId | OwnColours
 }
 
 type Vec3 = readonly [number, number, number]
@@ -646,10 +647,10 @@ function paintCactus(buffers: Buffers, parameters: CactusParameters): THREE.Buff
 
     const normals = geometry.getAttribute('normal')
     const colours = new Float32Array(buffers.positions.length)
-    const {ramp, spines} = CACTUS_COLOURS[parameters.palette]
-    const skin = colourRamp(ramp)
-    const petal = colourRamp(PETAL_RAMPS[parameters.flowerColour])
-    const spineColour = new THREE.Color(spines)
+    const ramp = rampOf(parameters.palette, CACTUS_RAMPS, parameters, CACTUS_ROWS)
+    const skin = colourRamp(ramp.slice(0, 4))
+    const petal = colourRamp(rampOf(parameters.flowerColour, PETAL_RAMPS, parameters, FLOWER_ROWS))
+    const spineColour = new THREE.Color(ramp[4])
     const colour = new THREE.Color()
     const top = Math.max(parameters.height, 0.01)
 

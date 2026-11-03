@@ -371,6 +371,21 @@ export interface SettingsFile {
     readonly libraryFolder: string
     /** When updates were last looked for successfully, in milliseconds. 0 for never. */
     readonly lastUpdateCheck: number
+    /** Colours picked lately in any colour picker, newest first. */
+    readonly recentColours: readonly string[]
+    /** The user's own palette, shown in every colour picker. */
+    readonly myColours: readonly string[]
+    /** Palettes saved with a name, such as one for each game. */
+    readonly palettes: readonly SavedPalette[]
+}
+
+/** A palette saved with a name, for one set of colours. */
+export interface SavedPalette {
+    readonly id: string
+    readonly name: string
+    /** Which colours it's for: a tree's five, or a rock's stone, and so on. */
+    readonly set: string
+    readonly colours: readonly string[]
 }
 
 export const DEFAULT_SETTINGS: SettingsFile = {
@@ -387,6 +402,9 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     lastTreeId: null,
     libraryFolder: '',
     lastUpdateCheck: 0,
+    recentColours: [],
+    myColours: [],
+    palettes: [],
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -403,6 +421,33 @@ export function validSettingValue(spec: SettingSpec, value: unknown): SettingVal
         case 'colour':
             return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : spec.default
     }
+}
+
+/** Codes in any other form are dropped, so a hand-edited file can't break a picker. */
+const colourList = z
+    .array(z.unknown())
+    .catch([])
+    .transform((codes) => [
+        ...new Set(
+            codes
+                .filter((code): code is string => typeof code === 'string')
+                .map((code) => code.toLowerCase())
+                .filter((code) => /^#[0-9a-f]{6}$/.test(code)),
+        ),
+    ])
+
+const paletteSchema = z.object({
+    id: z.string().min(1),
+    name: z.string().trim().min(1),
+    set: z.string().min(1),
+    colours: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).min(1),
+})
+
+/** One saved palette, or nothing if it's damaged, so one bad entry can't lose the rest. */
+function savedPalette(entry: unknown): SavedPalette[] {
+    const result = paletteSchema.safeParse(entry)
+
+    return result.success ? [{...result.data, colours: result.data.colours.map((colour) => colour.toLowerCase())}] : []
 }
 
 const fileSchema = z.object({
@@ -426,6 +471,9 @@ const fileSchema = z.object({
     lastTreeId: z.string().nullable().catch(null),
     libraryFolder: z.string().catch(''),
     lastUpdateCheck: z.number().catch(0),
+    recentColours: colourList,
+    myColours: colourList,
+    palettes: z.array(z.unknown()).catch([]).transform((entries) => entries.flatMap(savedPalette)),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */
