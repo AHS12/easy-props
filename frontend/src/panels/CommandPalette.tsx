@@ -11,8 +11,7 @@ import type {LucideIcon} from 'lucide-react'
 import {useEffect, useMemo, useRef, useState} from 'react'
 import {Dialog, Keys} from '../components/controls'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
-import {controlsForTree} from '../assets/trees/painted'
-import {findPropGenerator} from '../assets/prop-generators'
+import {findPropGenerator, shownControls} from '../assets/prop-generators'
 import {familyOfPreset, findPreset, PROP_FAMILIES} from '../assets/trees/presets'
 import {COMMANDS, findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
 import {parsePrefix, rankEntries, type PaletteSection} from '../core/commands/palette-search'
@@ -76,7 +75,7 @@ function controlEntries(state: EditorStore): readonly Entry[] {
 
     const specs = findPropGenerator(asset.generatorId)?.parameters ?? treeParameterSpecs
 
-    return controlsForTree(specs, asset.parameters).map((spec): Entry => {
+    return shownControls(asset.generatorId, specs, asset.parameters).map((spec): Entry => {
         const shared = {
             id: `control-${spec.key}`,
             label: spec.label,

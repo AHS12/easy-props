@@ -12,7 +12,7 @@ import {ColourRow} from '../components/ColourRow'
 import {Select} from '../components/controls'
 import {PropertyRow, ResetButton, Row} from '../components/PropertyRow'
 import {findComponentGenerator} from '../assets/component-generators'
-import {findPropGenerator} from '../assets/prop-generators'
+import {findPropGenerator, shownControls} from '../assets/prop-generators'
 import {treeParameterSpecs} from '../assets/trees/branching-tree-generator'
 import {familyOfPreset, PROP_FAMILIES} from '../assets/trees/presets'
 import {BARK_COLOURS, LEAF_COLOURS} from '../assets/style/materials'
@@ -253,8 +253,11 @@ function NumberField({label, value, onChange}: {label: string; value: number; on
 export function Details() {
     const presetId = useEditorStore((state) => state.presetId)
     const family = familyOfPreset(presetId)
-    const familyLabel = PROP_FAMILIES.find(({id}) => id === family)!.label
     const scene = useEditorStore((state) => state.scene)
+    // The Bush tab holds bushes, grass, flowers and cacti, so the panel names which.
+    const familyLabel =
+        (family === 'bush' && scene.assets[0] ? findPropGenerator(scene.assets[0].generatorId)?.label : undefined) ??
+        PROP_FAMILIES.find(({id}) => id === family)!.label
     const selectedId = useEditorStore((state) => state.selection.selectedId)
     const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
     const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)
@@ -287,7 +290,7 @@ export function Details() {
         }
 
         const spec = treeSpecs.find(({key}) => key === revealed)
-        const shownGroup = controlsForTree(treeSpecs, asset?.parameters ?? {}).find(({key}) => key === revealed)?.group
+        const shownGroup = shownControls(asset?.generatorId, treeSpecs, asset?.parameters ?? {}).find(({key}) => key === revealed)?.group
 
         setQuery('')
         groups.forceOpen(shownGroup ?? spec?.group ?? 'Shape')
@@ -343,7 +346,7 @@ export function Details() {
     if (!component) {
         const values = asset?.parameters ?? {}
         const base = presetBase(presetId)
-        const shown = controlsForTree(treeSpecs, values)
+        const shown = shownControls(asset?.generatorId, treeSpecs, values)
         const paints = asset ? findPropGenerator(asset.generatorId)?.paintsOwnColours : false
         const grouped = shown.some((spec) => spec.group)
         const titles = grouped ? [...new Set(shown.map((spec) => spec.group ?? 'Shape'))] : ['Shape']

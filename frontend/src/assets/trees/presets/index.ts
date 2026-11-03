@@ -7,6 +7,7 @@
  */
 
 import {bushDefaults} from '../../bushes/bush-generator'
+import {cactusDefaults} from '../../cacti/cactus-generator'
 import {grassDefaults} from '../../grass/grass-generator'
 import {plantDefaults} from '../../plants/plant-generator'
 import {cutRockDefaults} from '../../rocks/cut-rock-generator'
@@ -35,6 +36,7 @@ export const PRESET_CATEGORIES = [
     'Bushes',
     'Ferns',
     'Grass & flowers',
+    'Cacti',
     'Boulders',
     'Outcrops',
     'Stones',
@@ -57,6 +59,7 @@ const familyOfCategory = (category: PresetCategory | undefined): PropFamily => {
         case 'Bushes':
         case 'Ferns':
         case 'Grass & flowers':
+        case 'Cacti':
             return 'bush'
         case 'Boulders':
         case 'Outcrops':
@@ -114,6 +117,15 @@ const plant = (
     parameters: Readonly<Record<string, number | string>>,
 ): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'plant', parameters: {...plantDefaults, ...parameters}})
 
+/** One cactus: only what differs from the defaults. */
+const cactus = (
+    id: string,
+    name: string,
+    sub: string,
+    seed: number,
+    parameters: Readonly<Record<string, number | string>>,
+): TreePreset => ({id, name, sub, category: 'Cacti', seed, generatorId: 'cactus', parameters: {...cactusDefaults, ...parameters}})
+
 /** One patch of grass: only what differs from the defaults. */
 const grass = (
     id: string,
@@ -164,8 +176,8 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Broadleaf', 'aspen', 'Golden aspen', 'A narrow yellow flame', 304, {...BIRCH_BARK, palette: 'golden', height: 10, spread: 4, trunkRadius: 0.22, forkHeight: 0.4, limbAngle: 62, clumpCount: 13, clumpSize: 0.8, rootCount: 2, flare: 0.1}),
     painted('Broadleaf', 'maple', 'Red maple', 'A round autumn crown', 305, {palette: 'maple', barkTone: 'oak', height: 8, spread: 8, trunkRadius: 0.42, gnarl: 0.4, clumpMerge: 0.55, clumpCount: 12, forkHeight: 0.34, limbAngle: 44}),
     painted('Broadleaf', 'plane', 'Plane tree', 'Patchy bark, big shade', 306, {palette: 'forest', barkTone: 'ash', barkPattern: 'peeling', patternDepth: 0.9, height: 11, spread: 10, trunkRadius: 0.55, ridgeDepth: 0.02, clumpCount: 14, forkHeight: 0.38}),
-    painted('Broadleaf', 'poplar', 'Poplar', 'A tall column', 307, {palette: 'forest', barkTone: 'ash', barkPattern: 'fibrous', height: 14, spread: 2.5, trunkRadius: 0.4, forkHeight: 0.25, limbAngle: 70, limbCount: 6, gnarl: 0.15, clumpCount: 14, clumpSize: 0.75, clumpMerge: 0.6, clumpFlatten: 0, ridgeDepth: 0.03}),
-    painted('Broadleaf', 'acacia', 'Savanna acacia', 'A flat top on dry plains', 308, {palette: 'olive', barkTone: 'oak', height: 7, spread: 13, trunkRadius: 0.32, forkHeight: 0.5, limbAngle: 42, limbCount: 5, gnarl: 0.65, clumpCount: 9, clumpFlatten: 1, clumpMerge: 0.7, clumpSize: 1.05, rootCount: 3, flare: 0.18}),
+    painted('Broadleaf', 'poplar', 'Poplar', 'A tall column', 307, {palette: 'forest', barkTone: 'ash', barkPattern: 'fibrous', crownShape: 'column', height: 14, spread: 6, trunkRadius: 0.4, forkHeight: 0.3, limbAngle: 60, limbCount: 7, gnarl: 0.15, clumpCount: 14, clumpSize: 0.8, clumpMerge: 0.6, clumpFlatten: 0, ridgeDepth: 0.03}),
+    painted('Broadleaf', 'acacia', 'Savanna acacia', 'A flat top on dry plains', 308, {palette: 'olive', barkTone: 'oak', crownShape: 'umbrella', height: 7, spread: 13, trunkRadius: 0.32, forkHeight: 0.5, limbAngle: 42, limbCount: 5, gnarl: 0.65, clumpCount: 9, clumpFlatten: 1, clumpMerge: 0.7, clumpSize: 1.05, rootCount: 3, flare: 0.18}),
     painted('Broadleaf', 'olive', 'Olive', 'Short, twisted and silver', 309, {palette: 'olive', barkTone: 'ash', height: 5.5, spread: 7, trunkRadius: 0.5, corkscrew: 0.75, ridgeDepth: 0.22, ridgeTwist: 1.6, hollow: 0.35, gnarl: 0.9, leafSize: 0.75, clumpCount: 12, forkHeight: 0.3}),
     painted('Broadleaf', 'redwood', 'Giant redwood', 'A huge fibrous trunk', 310, {palette: 'pine', barkTone: 'redwood', barkPattern: 'fibrous', patternDepth: 0.8, height: 18, spread: 7, trunkRadius: 1.1, forkHeight: 0.62, limbAngle: 30, limbCount: 7, gnarl: 0.2, clumpCount: 13, clumpSize: 0.75, flare: 0.55, ridgeDepth: 0.04}),
 
@@ -257,6 +269,12 @@ const foliagePresets: readonly TreePreset[] = [
     grass('flower-meadow', 'Flower meadow', 'Long grass with daisies through it', 397, {blades: 340, flowers: 30}),
     grass('far-meadow', 'Far meadow', 'A light patch for the distance', 398, {blades: 70, clumps: 5, bladeWidth: 0.1, smoothness: 2, dryness: 0.08}),
     bush('low-hedge', 'Low hedge', 'Dense and neat', 386, {kind: 'hedge', width: 5, height: 1.2, depth: 1.1, lobes: 6, lumps: 0.3, leafSize: 0.16, variation: 0.25, palette: 'lush'}),
+    cactus('saguaro', 'Saguaro', 'A tall column with arms', 601, {}),
+    cactus('young-saguaro', 'Young saguaro', 'Before the arms come', 602, {height: 1.8, thickness: 0.3, arms: 0, ribs: 11}),
+    cactus('organ-pipe', 'Organ pipe', 'Stems rising from the ground', 603, {height: 3.2, thickness: 0.22, arms: 5, armHeight: 0.05, ribs: 8, ribDepth: 0.45, spines: 0.5, palette: 'sage'}),
+    cactus('golden-barrel', 'Golden barrel', 'Round, with gold spines', 604, {kind: 'barrel', height: 0.5, thickness: 0.75, ribs: 22, ribDepth: 0.7, spines: 1, palette: 'golden'}),
+    cactus('flowering-barrel', 'Flowering barrel', 'A crown of pink flowers', 605, {kind: 'barrel', height: 0.45, thickness: 0.4, ribs: 16, ribDepth: 0.5, spines: 0.7, flowers: 8, palette: 'blue'}),
+    cactus('prickly-pear', 'Prickly pear', 'Flat pads with yellow flowers', 606, {kind: 'paddle', height: 1.6, thickness: 0.24, pads: 14, spines: 0.5, flowers: 5, flowerColour: 'gold', palette: 'olive'}),
 ]
 
 const rockPresets: readonly TreePreset[] = [

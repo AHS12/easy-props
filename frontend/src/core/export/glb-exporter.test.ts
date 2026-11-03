@@ -34,6 +34,8 @@ const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     'dead-oak': 0.03,
     burnt: 0.035,
     'round-canopy': 0.07,
+    // A column crown is mostly side branches hidden in its leaves, and the lightest level drops them.
+    poplar: 0.01,
 }
 
 interface Accessor {

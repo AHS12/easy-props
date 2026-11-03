@@ -223,6 +223,18 @@ export const GRASS_RAMPS: Readonly<Record<GrassPaletteId, readonly string[]>> = 
     frost: ['#4e7a78', '#84ae9e', '#b8d2bc', '#ecf4e4'],
 }
 
+export type CactusPaletteId = 'desert' | 'sage' | 'olive' | 'golden' | 'blue' | 'purple'
+
+/** A cactus, shadow to highlight, and the colour of its spines. */
+export const CACTUS_COLOURS: Readonly<Record<CactusPaletteId, {readonly ramp: readonly string[]; readonly spines: string}>> = {
+    desert: {ramp: ['#173a24', '#2f6a3a', '#5e9a4c', '#a8cf78'], spines: '#f2ead0'},
+    sage: {ramp: ['#24403a', '#4a7562', '#80a888', '#c4dcb4'], spines: '#f6f0dc'},
+    olive: {ramp: ['#2c3414', '#56662a', '#8c9a44', '#cdd28a'], spines: '#efe0b4'},
+    golden: {ramp: ['#24401a', '#4c7a2a', '#86ac3c', '#c8dc74'], spines: '#f6c84a'},
+    blue: {ramp: ['#1c3644', '#3f6a78', '#76a2a8', '#bcd8d2'], spines: '#f4eedc'},
+    purple: {ramp: ['#2e2440', '#58466e', '#8c74a0', '#c8b4d4'], spines: '#f2e4d0'},
+}
+
 /** A clump gone pale, root to tip. */
 export const DRY_RAMP: readonly string[] = ['#7c8a2a', '#b2b048', '#d8cf78', '#f0e8ac']
 

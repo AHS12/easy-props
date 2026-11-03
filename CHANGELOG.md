@@ -2,6 +2,30 @@
 
 What's new in each version of easy-props.
 
+## 0.3.2 (November 3, 2026)
+
+**Cacti**
+
+- A new kind of prop: cacti. Grow a tall column with arms, a round barrel, or flat pads that
+  grow from each other, then set its ridges, spines and flowers, in one of six cactus colours.
+- Six new ones to start from, under Cacti on the Bush tab: Saguaro, Young saguaro, Organ pipe,
+  Golden barrel, Flowering barrel and Prickly pear.
+
+**Shape your trees**
+
+- Branching trees have a Crown shape: Round, Wide, Umbrella, Column, Cone or Teardrop. The other
+  branch controls still adjust it, and Natural keeps a tree just as it was.
+- Poplar now grows as a full column, and Savanna acacia gets a flatter top.
+
+**Fixed**
+
+- Where a branch thins out, it no longer shows a notch, a dark streak or a hard line across it.
+- A twig no longer starts thicker than the branch it grows from, so its open end no longer
+  shows through the branch.
+- Fruit no longer grows and shrinks in the wind, in the view or in your engine. It swings with
+  its branch.
+- On the Bush tab, Details now says what you're making: bush, grass, flowers or cactus.
+
 ## 0.3.0 (November 2, 2026)
 
 **Find the one you want**

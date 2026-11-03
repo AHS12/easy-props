@@ -20,10 +20,13 @@ export function createWindUniforms(): WindUniforms {
 }
 
 export const WIND_VERTEX = /* glsl */ `
+    attribute float rigid;
     varying vec3 vPlaced;
     varying vec2 vUv;
+    varying float vRigid;
 
     void main() {
+        vRigid = rigid;
         #ifdef HAS_UV
         vUv = uv;
         #else
@@ -44,13 +47,14 @@ export const WIND_FRAGMENT = /* glsl */ `
     uniform float foliage;
     varying vec3 vPlaced;
     varying vec2 vUv;
+    varying float vRigid;
 
     void main() {
         if (cutOff > 0.0 && texture2D(cutOut, vUv).a < cutOff) discard;
         vec3 at = vPlaced - pivot;
         float outward = clamp(length(at.xz) / reach, 0.0, 1.0);
         float sway = pow(clamp(at.y / height, 0.0, 1.0), 1.5) * (0.6 + 0.4 * outward);
-        float flutter = foliage * (0.5 + 0.5 * outward);
+        float flutter = foliage * (0.5 + 0.5 * outward) * (1.0 - vRigid);
         gl_FragColor = vec4(sway, flutter, 0.15, 1.0);
         #include <colorspace_fragment>
     }

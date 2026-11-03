@@ -8,7 +8,7 @@
 
 import * as THREE from 'three'
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import {roleOfPart} from '../../../assets/shared/generator-types'
+import {RIGID_ATTRIBUTE, roleOfPart} from '../../../assets/shared/generator-types'
 import {tidyWood} from './tidy'
 import type {PlacedPart, Vec3} from './types'
 import {windAttribute, type WindExtent} from './wind'
@@ -176,7 +176,7 @@ function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent): THREE.B
     }
 
     if (wind) {
-        geometry.setAttribute('uv1', windAttribute(geometry, placed, pivot, wind))
+        geometry.setAttribute('uv1', windAttribute(geometry, placed, pivot, wind, source.getAttribute(RIGID_ATTRIBUTE)))
     }
 
     if (source !== part.geometry) {

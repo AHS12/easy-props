@@ -43,13 +43,32 @@ const CREASE_DARKNESS = 0.6
 /** How late along a thin limb its tip's ink sets in. Above 1 keeps most of it the colour of the wood. */
 const INK_CURVE = 2
 
-/** How many sides a tube gets, by its radius where it starts. */
-function sidesFor(radius: number, level: number, detail: number): number {
+/** How far inside the sculpted wood a tube runs before it comes out, against its own radius. */
+const TUBE_TUCK = 0.8
+/**
+ * The thickest a tube may start, against the wood it grows out of. Thin wood keeps
+ * a least thickness, so a twig can be as thick as its branch, and its open end
+ * would show through the branch's side, all the more where that has few sides.
+ */
+const BASE_IN_HOST = 0.5
+/** How far either side of a join the sculpted wood is shaded fully, then partly, as a plain limb, against the radius. */
+const JOIN_SHADE_FULL = 1
+const JOIN_SHADE_REACH = 1.8
+
+/**
+ * How many sides a tube gets, by its radius where it starts.
+ *
+ * A tube that carries on from sculpted wood keeps as many sides as the round wood
+ * needs, or its corners poke through the wood in stripes where the two meet.
+ */
+function sidesFor(radius: number, level: number, detail: number, fromSculpted: boolean): number {
     if (level === 3) {
         return 3
     }
 
-    return Math.max(level === 0 && radius > 0.15 ? 5 : 3, Math.round((radius > 0.1 ? 8 : radius > 0.04 ? 6 : 4) * detail))
+    const sides = Math.round((radius > 0.1 ? 8 : radius > 0.04 ? 6 : 4) * detail)
+
+    return Math.max(level === 0 && radius > 0.15 ? 5 : 3, fromSculpted ? Math.round(8 * Math.min(detail, 1)) : 0, sides)
 }
 
 function tangentAt(limb: Limb, ring: number): Vec3 {
@@ -363,17 +382,154 @@ function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: numb
     }
 }
 
-/** Sweeps the thin end of a limb, from `startRing` to a sharp tip. */
+/** How thick the wood a limb grows out of is where it leaves, or no limit for the trunk and roots. */
+function hostRadius(limb: Limb, limbs: readonly Limb[]): number {
+    if (limb.level === 0) {
+        return Infinity
+    }
+
+    const [x, y, z] = limb.points[0]
+    let nearest = Infinity
+    let radius = Infinity
+
+    for (const other of limbs) {
+        if (other.level >= limb.level) {
+            continue
+        }
+
+        for (let index = 0; index < other.points.length; index++) {
+            const [px, py, pz] = other.points[index]
+            const distance = Math.hypot(px - x, py - y, pz - z)
+
+            if (distance < nearest) {
+                nearest = distance
+                radius = other.radii[index]
+            }
+        }
+    }
+
+    return radius
+}
+
+/**
+ * Shades sculpted wood near where a limb turns into a tube as the plain limb it is.
+ *
+ * Sculpted wood ends in a rounded cap inside the tube, and the cap's light tilts
+ * forward along the limb, so without this the join shows as a bright ring.
+ */
+function shadeJoins(buffers: MeshBuffers, limbs: readonly Limb[], isSculpted: BarkContext['isSculpted']): void {
+    const joins: {centre: Vec3; axis: Vec3; radius: number}[] = []
+
+    for (const limb of limbs) {
+        let start = 0
+
+        while (start < limb.points.length - 1 && isSculpted(limb, start)) {
+            start++
+        }
+
+        if (start > 0 && start < limb.points.length - 1) {
+            joins.push({centre: limb.points[start], axis: tangentAt(limb, start), radius: limb.radii[start]})
+        }
+    }
+
+    const {positions, normals, indices} = buffers
+    const before = normals.slice()
+
+    for (let vertex = 0; vertex < positions.length / 3; vertex++) {
+        const x = positions[vertex * 3]
+        const y = positions[vertex * 3 + 1]
+        const z = positions[vertex * 3 + 2]
+
+        for (const {centre, axis, radius} of joins) {
+            const dx = x - centre[0]
+            const dy = y - centre[1]
+            const dz = z - centre[2]
+            const along = dx * axis[0] + dy * axis[1] + dz * axis[2]
+            const reach = radius * JOIN_SHADE_REACH
+
+            if (Math.abs(along) > reach) {
+                continue
+            }
+
+            const ox = dx - axis[0] * along
+            const oy = dy - axis[1] * along
+            const oz = dz - axis[2] * along
+            const out = Math.hypot(ox, oy, oz)
+
+            // Only the limb's own surface, not a trunk or branch it meets.
+            if (out < 1e-6 || out > radius * 1.5) {
+                continue
+            }
+
+            const near = Math.min(1, (reach - Math.abs(along)) / (reach - radius * JOIN_SHADE_FULL))
+            // The very end of the cap faces along the limb, hidden inside the tube. Turning
+            // its light sideways would leave its faces lit from behind, so it is left alone.
+            const sideways = (normals[vertex * 3] * ox + normals[vertex * 3 + 1] * oy + normals[vertex * 3 + 2] * oz) / out
+            const weight = near * near * (3 - 2 * near) * Math.min(1, Math.max(0, (sideways - 0.6) / 0.3))
+            const nx = normals[vertex * 3] + (ox / out - normals[vertex * 3]) * weight
+            const ny = normals[vertex * 3 + 1] + (oy / out - normals[vertex * 3 + 1]) * weight
+            const nz = normals[vertex * 3 + 2] + (oz / out - normals[vertex * 3 + 2]) * weight
+            const length = Math.hypot(nx, ny, nz) || 1
+
+            normals[vertex * 3] = nx / length
+            normals[vertex * 3 + 1] = ny / length
+            normals[vertex * 3 + 2] = nz / length
+        }
+    }
+
+    // On deeply carved wood a few steep faces would end up lit from behind: those keep
+    // their own light, which only matters on the end of the cap hidden in the tube.
+    for (let pass = 0; pass < 3; pass++) {
+        let restored = false
+
+        for (let at = 0; at < indices.length; at += 3) {
+            const corners = [indices[at], indices[at + 1], indices[at + 2]]
+
+            if (corners.every((corner) => normals[corner * 3] === before[corner * 3] && normals[corner * 3 + 1] === before[corner * 3 + 1] && normals[corner * 3 + 2] === before[corner * 3 + 2])) {
+                continue
+            }
+
+            const [a, b, c] = corners.map((corner) => [positions[corner * 3], positions[corner * 3 + 1], positions[corner * 3 + 2]] as Vec3)
+            const face = cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]])
+            const lit = (from: readonly number[]) =>
+                corners.reduce((sum, corner) => sum + face[0] * from[corner * 3] + face[1] * from[corner * 3 + 1] + face[2] * from[corner * 3 + 2], 0)
+
+            if (lit(normals) < 0 && lit(before) >= 0) {
+                for (const corner of corners) {
+                    normals[corner * 3] = before[corner * 3]
+                    normals[corner * 3 + 1] = before[corner * 3 + 1]
+                    normals[corner * 3 + 2] = before[corner * 3 + 2]
+                }
+
+                restored = true
+            }
+        }
+
+        if (!restored) {
+            break
+        }
+    }
+}
+
+/**
+ * Sweeps the thin end of a limb, from `startRing` to a sharp tip.
+ *
+ * Rings before `emergeRing` lie inside sculpted wood. They are drawn smaller, so the
+ * tube comes out of the wood where it ends instead of lying on its surface, where
+ * the two would flicker against each other.
+ */
 function sweep(
     limb: Limb,
     startRing: number,
+    emergeRing: number,
+    baseLimit: number,
     detail: number,
     field: WoodField,
     paintVertex: (x: number, y: number, z: number, n: Vec3, along: number) => void,
     buffers: MeshBuffers,
 ): void {
     const first = buffers.positions.length / 3
-    const sides = sidesFor(limb.radii[startRing], limb.level, detail)
+    const sides = sidesFor(limb.radii[startRing], limb.level, detail, emergeRing > 0)
     // A lighter level takes every second or third ring, always keeping the tip.
     const stride = limb.level === 0 ? 1 : detail < 0.15 ? 3 : detail < 0.5 ? 2 : 1
     const rings: number[] = []
@@ -403,7 +559,8 @@ function sweep(
 
         const binormal = cross(tangent, frame)
         const centre = limb.points[at]
-        const radius = ring === ringCount - 1 ? 0 : limb.radii[at]
+        const radius =
+            ring === ringCount - 1 ? 0 : at === 0 ? Math.min(limb.radii[0], baseLimit) : limb.radii[at] * (at < emergeRing ? TUBE_TUCK : 1)
 
         for (let side = 0; side < sides; side++) {
             const angle = (side / sides) * Math.PI * 2
@@ -514,6 +671,7 @@ export function assembleBark(
 
     // Nothing is left out below the ground, so the wood is whole however high a prop is placed.
     joinChunks(cells, chunks, buffers, -Infinity)
+    shadeJoins(buffers, plan.limbs, isSculpted)
 
     // Thin wood goes dark as it thins, so the tips read as ink.
     for (const limb of plan.limbs) {
@@ -547,6 +705,8 @@ export function assembleBark(
         sweep(
             limb,
             Math.max(start - 1, 0),
+            start,
+            start === 0 ? hostRadius(limb, plan.limbs) * BASE_IN_HOST : Infinity,
             detail,
             field,
             (x, y, z, n, along) => {

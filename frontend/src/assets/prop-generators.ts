@@ -7,14 +7,17 @@
 
 import type {SceneComponent} from './shared/component-types'
 import type {PropGenerator} from './shared/generator-types'
+import type {ParameterSpec} from './shared/parameters'
 import {createSeededRandom} from './shared/random'
 import type {StyleProfile} from './style/style-profiles'
 import {bushGenerator} from './bushes/bush-generator'
+import {cactusGenerator} from './cacti/cactus-generator'
 import {cutRockGenerator} from './rocks/cut-rock-generator'
 import {grassGenerator} from './grass/grass-generator'
 import {plantGenerator} from './plants/plant-generator'
 import {rockGenerator} from './rocks/rock-generator'
 import {branchingTreeGenerator} from './trees/branching-tree-generator'
+import {controlsForTree} from './trees/painted'
 import {paintedTreeGenerator} from './trees/painted-tree-generator'
 import {palmTreeGenerator} from './trees/palm-tree-generator'
 
@@ -27,10 +30,22 @@ export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [grassGenerator.id]: grassGenerator,
     [bushGenerator.id]: bushGenerator,
     [plantGenerator.id]: plantGenerator,
+    [cactusGenerator.id]: cactusGenerator,
 }
 
 export function findPropGenerator(id: string): PropGenerator | undefined {
     return propGenerators[id]
+}
+
+/** The controls that do something on this prop, under the names they go by on it. */
+export function shownControls(
+    generatorId: string | undefined,
+    specs: readonly ParameterSpec[],
+    values: Readonly<Record<string, unknown>>,
+): readonly ParameterSpec[] {
+    const generator = generatorId ? findPropGenerator(generatorId) : undefined
+
+    return generator?.shownControls?.(values) ?? controlsForTree(specs, values)
 }
 
 /**
