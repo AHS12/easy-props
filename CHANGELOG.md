@@ -2,6 +2,32 @@
 
 What's new in each version of easy-props.
 
+## 0.3.5 (November 3, 2026)
+
+**Your colours**
+
+- A new colour picker, the same in every colour row and in Settings. Drag for any colour, or type
+  or paste a colour code such as #4e7d3e, and copy one back out. You can also paste a code
+  straight onto a colour row without opening it.
+- Recent shows the last colours you picked, and My colours keeps a row of your own. Paste a
+  whole list of codes from a palette website to add them all at once.
+- Rocks, bushes, grass, flowers and cacti now have My own colours too, at the end of each colour
+  list. It starts from the colours that were showing, so nothing jumps.
+
+**Palettes for your game**
+
+- Save a set of colours as a palette with a name, such as one for each game you make. Then pick
+  it from the Palette menu of any other prop of that kind, and it comes out in the same colours.
+  The menu has a search, so you can find it by name.
+- See and change your palettes in Settings, under Palettes: rename them, change any colour,
+  duplicate one, start a new one, or remove it.
+
+**Fixed**
+
+- Restore to preset on a saved prop went back to an old-style tree. It now goes back to the
+  preset the prop came from.
+- A saved rock, bush, grass, flower or cactus couldn't be opened again. It now opens.
+
 ## 0.3.3 (November 3, 2026)
 
 **Far away**
