@@ -2,6 +2,20 @@
 
 What's new in each version of easy-props.
 
+## 0.3.3 (November 3, 2026)
+
+**Far away**
+
+- Export can now write a far-away card for trees, bushes and tall cacti: a flat picture of the
+  prop, only 8 faces, for your engine to show once the prop is far off. A forest of thousands of
+  trees then costs almost nothing in the distance. It's on by default, and you can turn it off
+  in Export, Export many and Settings.
+- The card works in any engine and in Blender with nothing to set up, and sways with the wind
+  like the prop does. It looks flat from straight above, so it suits games where the camera
+  stays near the ground.
+- Pick Far away in the detail level menu to see the card in the view before it reaches your
+  game, from any side and in the wind.
+
 ## 0.3.2 (November 3, 2026)
 
 **Cacti**
