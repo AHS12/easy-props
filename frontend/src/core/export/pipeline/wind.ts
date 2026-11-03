@@ -77,12 +77,18 @@ export function measureWindExtent(parts: readonly PlacedPart[], pivot: Vec3): Wi
     return {height: Math.max(height, 1e-3), reach: Math.max(reach, 1e-3)}
 }
 
-/** Both values for every vertex of a part already placed in the prop's space. */
+/**
+ * Both values for every vertex of a part already placed in the prop's space.
+ *
+ * `rigid` marks points that sway but never flutter, such as fruit, which would
+ * otherwise swell and shrink as its surface moved in and out.
+ */
 export function windAttribute(
     geometry: THREE.BufferGeometry,
     placed: PlacedPart,
     pivot: Vec3,
     extent: WindExtent,
+    rigid?: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
 ): THREE.BufferAttribute {
     const position = geometry.getAttribute('position')
     const role = roleOfPart(placed.part)
@@ -98,7 +104,7 @@ export function windAttribute(
         )
 
         values[i * 2] = sway
-        values[i * 2 + 1] = flutter
+        values[i * 2 + 1] = rigid ? flutter * (1 - rigid.getX(i)) : flutter
     }
 
     return new THREE.BufferAttribute(values, 2)

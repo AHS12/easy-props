@@ -367,7 +367,7 @@ export function buildClump(
         addCards(lobe, count, 0.84, 1.03, 1, 0, true)
     }
 
-    const buffers = {positions, normals, colors, uvs, indices}
+    const buffers = {positions, normals, colors, uvs, indices, rigid: [] as number[]}
 
     if (tree.strands > 0) {
         addStrands(buffers, clump, tree, detail, share)

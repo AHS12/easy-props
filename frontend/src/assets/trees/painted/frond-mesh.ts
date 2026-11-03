@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three'
+import {RIGID_ATTRIBUTE} from '../../shared/generator-types'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {FRUIT_COLOURS, resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, type Clump, type TreePlan, type Vec3} from './plan'
@@ -34,11 +35,13 @@ export interface LeafBuffers {
     readonly colors: number[]
     readonly uvs: number[]
     readonly indices: number[]
+    /** Where fruit starts and ends among the vertices, in pairs: it sways whole. */
+    readonly rigid: number[]
 }
 
-export const emptyLeafBuffers = (): LeafBuffers => ({positions: [], normals: [], colors: [], uvs: [], indices: []})
+export const emptyLeafBuffers = (): LeafBuffers => ({positions: [], normals: [], colors: [], uvs: [], indices: [], rigid: []})
 
-export function leafGeometry({positions, normals, colors, uvs, indices}: LeafBuffers): THREE.BufferGeometry {
+export function leafGeometry({positions, normals, colors, uvs, indices, rigid}: LeafBuffers): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry()
 
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
@@ -46,6 +49,17 @@ export function leafGeometry({positions, normals, colors, uvs, indices}: LeafBuf
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
     geometry.setIndex(indices)
+
+    if (rigid.length > 0) {
+        const marks = new Float32Array(positions.length / 3)
+
+        for (let pair = 0; pair < rigid.length; pair += 2) {
+            marks.fill(1, rigid[pair], rigid[pair + 1])
+        }
+
+        geometry.setAttribute(RIGID_ATTRIBUTE, new THREE.BufferAttribute(marks, 1))
+    }
+
     geometry.computeBoundingSphere()
 
     return geometry
@@ -371,6 +385,8 @@ export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number,
             buffers.indices.push(a, c, b, a, d, c)
         }
     }
+
+    buffers.rigid.push(first, buffers.positions.length / 3)
 }
 
 /** How big a fruit is on a tree this tall. */

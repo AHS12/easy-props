@@ -15,6 +15,12 @@ import type {RandomSource} from './random'
 
 export type MaterialKind = 'bark' | 'bark-light' | 'leaves' | 'leaves-dark' | 'coconut' | 'painted'
 
+/**
+ * A point marked 1 in this attribute sways with the rest but never flutters, as a
+ * fruit swings whole rather than swelling and shrinking with its leaves.
+ */
+export const RIGID_ATTRIBUTE = 'rigid'
+
 /** What a part is made of, which decides how an export treats it. */
 export type PartRole = 'solid' | 'foliage' | 'thin'
 
@@ -160,6 +166,11 @@ export interface PropGenerator<P extends object = object> {
     readonly swaysEvenly?: boolean
     /** What to lower when it costs too much, in the words of its own controls. */
     readonly budgetAdvice?: string
+    /**
+     * The controls that do something with these values, as a kind of prop that
+     * reuses one generator hides what it has no use for. Left out, all of them.
+     */
+    shownControls?(values: Readonly<Record<string, unknown>>): readonly ParameterSpec[]
     /** What Make it fit may change, best first. Left out, the prop only gets the advice. */
     readonly fitControls?: readonly FitControl[]
     createDefaultParameters(): P

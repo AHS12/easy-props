@@ -31,7 +31,8 @@ export const LIVE_WIND_VERTEX = /* glsl */ `
         vec3 windAt = windWorld.xyz - windPivot;
         float windOut = clamp(length(windAt.xz) / windReach, 0.0, 1.0);
         float windSway = pow(clamp(windAt.y / windHeight, 0.0, 1.0), 1.5) * (0.6 + 0.4 * windOut);
-        float windFlutter = WIND_FOLIAGE * (0.5 + 0.5 * windOut);
+        // Fruit is marked rigid: it swings whole, where fluttering would swell it.
+        float windFlutter = WIND_FOLIAGE * (0.5 + 0.5 * windOut) * (1.0 - rigid);
         float windPhase = windPivot.x * 0.37 + windPivot.z * 0.53;
         float windWave = sin(windTime * ${float(WIND_MOTION.swaySpeed)} + windPhase)
             + 0.4 * sin(windTime * ${float(WIND_MOTION.swaySpeed * 2.3)} + windPhase);
@@ -44,6 +45,7 @@ export const LIVE_WIND_VERTEX = /* glsl */ `
 `
 
 const HEADER = /* glsl */ `
+    attribute float rigid;
     uniform vec3 windPivot;
     uniform float windHeight;
     uniform float windReach;

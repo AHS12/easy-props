@@ -94,6 +94,32 @@ describe('wind data', () => {
         }
     }, 60_000)
 
+    it('lets fruit sway whole, never fluttering, so it keeps its size', async () => {
+        const unfluttered = async (preset: string) => {
+            const files = await buildExport(sceneExportSource(createSceneFromPreset(preset), getStyleProfile('low-poly'), 'test'), {
+                name: 'tree',
+                engine: 'plain',
+                levels: 1,
+                collision: false,
+                wind: true,
+            })
+            const glb = readGlb(files.find((file) => file.name.endsWith('.glb'))!.bytes)
+            const leaves = glb.json.meshes.find((_, index) => index === glb.json.meshes.length - 1)!
+            const values = floats(glb, leaves.primitives[0].attributes.TEXCOORD_1, 2)
+            let still = 0
+
+            for (let at = 1; at < values.length; at += 2) {
+                still += values[at] === 0 ? 1 : 0
+            }
+
+            return still
+        }
+
+        // Leaves always flutter some, so only the fruit has none.
+        expect(await unfluttered('apple')).toBeGreaterThan(0)
+        expect(await unfluttered('spring-tree')).toBe(0)
+    }, 60_000)
+
     it('stays out of the file when switched off', async () => {
         const [file] = (await exportOak(false, 1)).filter((candidate) => candidate.name.endsWith('.glb'))
 
