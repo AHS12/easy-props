@@ -8,12 +8,13 @@
 
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
+import {FLOWER_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {FLOWER_CENTRE, PETAL_RAMPS, STEM_RAMP, type PetalPaletteId} from '../style/palettes'
 import {colourRamp} from '../style/ramp'
 
 export type PlantKind = 'daisy' | 'cup' | 'spike' | 'plume'
 
-export interface PlantParameters {
+export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_ROWS>> {
     readonly kind: PlantKind
     readonly width: number
     readonly height: number
@@ -24,7 +25,7 @@ export interface PlantParameters {
     readonly headSize: number
     /** Leaves at the foot of each stem. */
     readonly leaves: number
-    readonly palette: PetalPaletteId
+    readonly palette: PetalPaletteId | OwnColours
 }
 
 type Vec3 = readonly [number, number, number]
@@ -326,7 +327,7 @@ export function buildPlantMesh(plant: PlantParameters, seed: number, detail: num
     const all = planStems(plant, seed)
     const stems = detail < 1 ? stemsAtDetail(all, Math.round(all.length * detail)) : all
     const growth = Math.min(Math.sqrt(all.length / stems.length), MAX_HEAD_GROWTH)
-    const petal = colourRamp(PETAL_RAMPS[plant.palette])
+    const petal = colourRamp(rampOf(plant.palette, PETAL_RAMPS, plant, FLOWER_ROWS))
     const green = colourRamp(STEM_RAMP)
     const buffers: PlantBuffers = {positions: [], normals: [], colors: [], indices: []}
     const head = plant.headSize * growth

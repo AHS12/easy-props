@@ -38,7 +38,29 @@ export interface ChoiceParameter<T extends string = string> {
     readonly default: T
 }
 
-export type ParameterSpec = NumberParameter | ChoiceParameter
+/**
+ * One of a choice's own colours. It's shown, and used, only while that choice is on
+ * My own colours, so a prop saved without it comes out as before.
+ */
+export interface ColourParameter {
+    readonly kind: 'colour'
+    readonly key: string
+    readonly label: string
+    readonly help?: string
+    /** The heading it sits under in the inspector. */
+    readonly group?: string
+    readonly default: string
+    /** The choice it belongs to. */
+    readonly ownOf: string
+    /** Which colours these are, so a palette saved for them fits every prop that has them. */
+    readonly set: string
+    /** This colour in each named option of that choice, which is where it starts. */
+    readonly named: Readonly<Record<string, string>>
+    /** The named options' colours, as swatches to pick from. */
+    readonly swatches: readonly {readonly name: string; readonly value: string}[]
+}
+
+export type ParameterSpec = NumberParameter | ChoiceParameter | ColourParameter
 
 export interface ValidationIssue {
     readonly key: string
@@ -77,6 +99,14 @@ export function choiceSchema<T extends string>(spec: ChoiceParameter<T>): z.ZodT
         .string({error: `${spec.label} must be one of the offered choices`})
         .catch(spec.default)
         .transform((value) => (allowed.has(value) ? (value as T) : spec.default))
+}
+
+/** A colour as `#rrggbb`. Anything else takes the default. */
+export function colourSchema(spec: ColourParameter): z.ZodType<string> {
+    return z
+        .string()
+        .catch(spec.default)
+        .transform((value) => (/^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : spec.default))
 }
 
 /**

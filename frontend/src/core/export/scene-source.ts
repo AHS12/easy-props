@@ -150,6 +150,10 @@ export function sceneExportSource(scene: Scene, style: StyleProfile, appVersion:
             return (treeGenerator?.pivot?.(treeParameters(), asset.seed) as Vec3 | undefined) ?? [0, 0, 0]
         },
 
+        farAway() {
+            return asset !== undefined && treeGenerator?.farAway?.(treeParameters()) === true
+        },
+
         sways() {
             return treeGenerator?.still !== true
         },

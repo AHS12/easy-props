@@ -11,13 +11,13 @@ import {
     Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
-import {findPropGenerator} from '../../assets/prop-generators'
+import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
 import {findBudgetTarget} from '../export/pipeline/budget'
-import {LEVEL_SHARES} from '../export/pipeline/types'
+import {FAR_LEVEL, LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
 import {useUiStore} from '../../store/ui-store'
@@ -217,7 +217,7 @@ export const COMMANDS: readonly Command[] = [
         group: 'File',
         shortcut: 'Ctrl+E',
         icon: Download,
-        keywords: 'glb gltf blender unreal godot download lod collision wind engine',
+        keywords: 'glb gltf blender unreal godot download lod collision wind engine billboard impostor far',
         run: (state) => state.exportModel(),
     },
     {
@@ -406,17 +406,29 @@ export const COMMANDS: readonly Command[] = [
         label: 'Detail level',
         group: 'View',
         icon: Grid2x2,
-        keywords: 'lod poly triangles faces low',
-        children: () =>
-            LEVEL_SHARES.map(
+        keywords: 'lod poly triangles faces low billboard impostor far',
+        children: (state) => [
+            ...LEVEL_SHARES.map(
                 (_, level): Command => ({
                     id: `detail-${level}`,
                     label: `Level ${level} (LOD${level})`,
                     group: 'View',
-                    checked: (state) => state.previewLevel === level,
-                    run: (state) => state.setPreviewLevel(level),
+                    checked: (current) => current.previewLevel === level,
+                    run: (current) => current.setPreviewLevel(level),
                 }),
             ),
+            ...(offersFarAway(state.scene.assets[0]?.generatorId, state.scene.assets[0]?.parameters)
+                ? [
+                    {
+                        id: 'detail-far',
+                        label: 'Far away',
+                        group: 'View',
+                        checked: (current: EditorStore) => current.previewLevel === FAR_LEVEL,
+                        run: (current: EditorStore) => current.setPreviewLevel(FAR_LEVEL),
+                    },
+                ]
+                : []),
+        ],
         run: () => undefined,
     },
     {

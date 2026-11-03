@@ -69,7 +69,7 @@ function halved({data, width, height}: {data: Uint8Array; width: number; height:
  * would do this itself but cannot read a DataTexture: a negative `normalScale.y`, set
  * beside this, tells it the work is done.
  */
-function reliefForFile(relief: THREE.Texture, full: boolean): THREE.Texture {
+export function reliefForFile(relief: THREE.Texture, full: boolean): THREE.Texture {
     const store = full ? fileReliefs : smallFileReliefs
     const cached = store.get(relief)
 

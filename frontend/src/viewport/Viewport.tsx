@@ -1,7 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {collisionShapesOf} from '../core/export/collision-view'
-import {LEVEL_SHARES} from '../core/export/pipeline/types'
+import {farCardOf} from '../core/export/far-view'
+import {FAR_LEVEL, LEVEL_SHARES} from '../core/export/pipeline/types'
 import {afterPaint} from '../core/export/pipeline/yield'
 import * as THREE from 'three'
 import type {SpineLike} from '../assets/shared/spines'
@@ -585,6 +586,35 @@ export function Viewport() {
                 })
         }
 
+        // The card is drawn on demand and kept until the prop changes.
+        let farAsked = 0
+        const refreshFar = () => {
+            const asked = ++farAsked
+            const {scene, style, previewLevel} = store.getState()
+
+            if (previewLevel !== FAR_LEVEL) {
+                viewport.setStandIn(null)
+                return
+            }
+
+            void farCardOf(scene, getStyleProfile(style))
+                .catch(() => null)
+                .then((card) => {
+                    if (stopped || asked !== farAsked) {
+                        card?.geometry.dispose()
+                        card?.material.dispose()
+                        return
+                    }
+
+                    viewport.setStandIn(card)
+
+                    // A prop that offers none, or a computer that can't draw one, shows the prop itself.
+                    if (!card) {
+                        store.getState().setPreviewLevel(0)
+                    }
+                })
+        }
+
         window.addEventListener('pointerdown', onWindowPointerDown, true)
         window.addEventListener('pointerup', onWindowPointerUp, true)
         window.addEventListener('pointercancel', onWindowPointerUp, true)
@@ -600,6 +630,7 @@ export function Viewport() {
                 // still measures against the axis as it was at the start.
                 refreshGizmo()
                 refreshCollision()
+                refreshFar()
             }
 
             if (state.style !== previous.style) {
@@ -607,12 +638,15 @@ export function Viewport() {
                 viewport.syncScene(state.scene)
                 reportFaces(viewport)
                 refreshCollision()
+                refreshFar()
             }
 
             if (state.previewLevel !== previous.previewLevel) {
-                viewport.setDetail(LEVEL_SHARES[state.previewLevel])
+                // The card is drawn from full detail, which is what stays behind it.
+                viewport.setDetail(LEVEL_SHARES[state.previewLevel] ?? 1)
                 viewport.syncScene(state.scene)
                 reportFaces(viewport)
+                refreshFar()
             }
 
             if (state.lighting !== previous.lighting) {

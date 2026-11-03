@@ -13,7 +13,8 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
-import {CACTUS_COLOURS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
+import {CACTUS_ROWS, FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
+import {CACTUS_COLOURS, CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildCactusMesh, type CactusKind, type CactusParameters} from './cactus-mesh'
 
 const SHAPE = 'Shape'
@@ -49,25 +50,28 @@ const KIND: ChoiceParameter<CactusKind> = {
 
 const capitalised = (value: string) => value[0].toUpperCase() + value.slice(1)
 
-const PALETTE: ChoiceParameter<CactusPaletteId> = {
+const PALETTE: ChoiceParameter<CactusPaletteId | OwnColours> = {
     kind: 'choice',
     group: COLOURS,
     key: 'palette',
     label: 'Colour',
     help: 'The green of the cactus and the colour of its spines.',
     default: 'desert',
-    options: (Object.keys(CACTUS_COLOURS) as CactusPaletteId[]).map((value) => ({value, label: capitalised(value)})),
+    options: [...(Object.keys(CACTUS_COLOURS) as CactusPaletteId[]).map((value) => ({value, label: capitalised(value)})), OWN_COLOURS_OPTION],
 }
 
-const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId> = {
+const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId | OwnColours> = {
     kind: 'choice',
     group: FLOWERS,
     key: 'flowerColour',
     label: 'Flower colour',
     help: 'The colour of the flowers.',
     default: 'pink',
-    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({value, label: capitalised(value)})),
+    options: [...(Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({value, label: capitalised(value)})), OWN_COLOURS_OPTION],
 }
+
+const OWN_CACTUS = ownColours(PALETTE, CACTUS_RAMPS, CACTUS_ROWS, 'cactus')
+const OWN_FLOWERS = ownColours(FLOWER_COLOUR, PETAL_RAMPS, FLOWER_ROWS, 'flowers')
 
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall the cactus stands.', 0.1, 14, 0.05, 4, 'm')
 const THICKNESS = number(SHAPE, 'thickness', 'Thickness', 'How thick the main stem is. On paddles, how wide each pad is.', 0.04, 1.6, 0.01, 0.42, 'm')
@@ -80,7 +84,7 @@ const RIB_DEPTH = number(SURFACE, 'ribDepth', 'Ridge depth', 'How deep the valle
 const SPINES = number(SURFACE, 'spines', 'Spines', 'How thickly spines grow. 0 leaves it smooth.', 0, 1, 0.05, 0.6)
 const FLOWER_COUNT = number(FLOWERS, 'flowers', 'Flowers', 'How many flowers open on top.', 0, 16, 1, 0, 'count')
 
-const specs: readonly ParameterSpec[] = [KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, PALETTE]
+const specs: readonly ParameterSpec[] = [KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, ...OWN_FLOWERS.specs, PALETTE, ...OWN_CACTUS.specs]
 
 /** Controls a kind has no use for. */
 const HIDDEN_BY_KIND: Readonly<Record<CactusKind, readonly string[]>> = {
@@ -121,6 +125,8 @@ const cactusSchema = z.object({
     flowers: whole(FLOWER_COUNT),
     palette: choiceSchema(PALETTE),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...OWN_CACTUS.schema,
+    ...OWN_FLOWERS.schema,
 })
 
 const validateCactus = (parameters: unknown) =>
@@ -173,6 +179,8 @@ export const cactusGenerator: PropGenerator<CactusParameters> = {
     id: 'cactus',
     version: 1,
     label: 'Cactus',
+    // Short barrels and pads are rarely seen from far off.
+    farAway: (parameters) => parameters.kind === 'column',
     parameters: specs,
     paintsOwnColours: true,
     still: true,

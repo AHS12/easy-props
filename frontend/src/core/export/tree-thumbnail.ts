@@ -72,7 +72,7 @@ let sharedRenderer: THREE.WebGLRenderer | null = null
  * gives up is usually the viewport's. The parts panel already learned this;
  * the gallery follows the same rule.
  */
-function getRenderer(): THREE.WebGLRenderer | null {
+export function getRenderer(): THREE.WebGLRenderer | null {
     if (sharedRenderer) {
         return sharedRenderer
     }

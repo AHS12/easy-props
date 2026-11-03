@@ -17,6 +17,7 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
+import {FLOWER_ROWS, LEAF_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {BUSH_RAMPS, PETAL_RAMPS, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildBushCore, buildBushLeaves, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
 
@@ -64,31 +65,40 @@ const INSIDE: ChoiceParameter<BushInside> = {
     ],
 }
 
-const PALETTE: ChoiceParameter<BushPaletteId> = {
+const PALETTE: ChoiceParameter<BushPaletteId | OwnColours> = {
     kind: 'choice',
     group: LEAVES,
     key: 'palette',
     label: 'Leaves',
     help: 'The colours of the leaves, shadow to highlight.',
     default: 'summer',
-    options: (Object.keys(BUSH_RAMPS) as BushPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(BUSH_RAMPS) as BushPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
 
-const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId> = {
+const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId | OwnColours> = {
     kind: 'choice',
     group: FLOWERS_GROUP,
     key: 'flowerColour',
     label: 'Flower colour',
     help: 'The colour of its flowers.',
     default: 'pink',
-    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
+
+const OWN_LEAVES = ownColours(PALETTE, BUSH_RAMPS, LEAF_ROWS, 'bush-leaves')
+const OWN_FLOWERS = ownColours(FLOWER_COLOUR, PETAL_RAMPS, FLOWER_ROWS, 'flowers')
 
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the bush is.', 0.2, 12, 0.1, 3, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall it stands.', 0.2, 8, 0.1, 2, 'm')
@@ -102,7 +112,7 @@ const VARIATION = number(LEAVES, 'variation', 'Variation', 'How much one mass di
 const FLOWERS = number(FLOWERS_GROUP, 'flowers', 'Flowers', 'How thickly it flowers. They gather in drifts on its upper part.', 0, 1, 0.05, 0)
 const FLOWER_SIZE = number(FLOWERS_GROUP, 'flowerSize', 'Flower size', 'How large each flower is.', 0.02, 0.3, 0.01, 0.1, 'm')
 
-const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR]
+const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
 
 export const bushDefaults: BushParameters = {
     kind: KIND.default,
@@ -136,6 +146,8 @@ const bushSchema = z.object({
     flowers: numberSchema(FLOWERS),
     flowerSize: numberSchema(FLOWER_SIZE),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...OWN_LEAVES.schema,
+    ...OWN_FLOWERS.schema,
 })
 
 const validateBush = (parameters: unknown) => validateParameters<BushParameters>(bushSchema, parameters, bushDefaults)
@@ -211,6 +223,7 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     id: 'bush',
     version: 1,
     label: 'Bush',
+    farAway: () => true,
     parameters: specs,
     paintsOwnColours: true,
     budgetAdvice: 'Lower Fullness or raise Leaf size.',

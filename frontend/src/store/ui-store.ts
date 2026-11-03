@@ -9,6 +9,7 @@ import {settingValue, useSettingsStore} from './settings-store'
 export type SettingsPageId =
     | 'General'
     | 'Appearance'
+    | 'Palettes'
     | 'Viewport'
     | 'Performance'
     | 'Export'

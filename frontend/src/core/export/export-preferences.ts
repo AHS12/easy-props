@@ -7,7 +7,7 @@
 import {BUDGET_TARGETS, DEFAULT_BUDGET_TARGET, type BudgetTargetId} from './pipeline/budget'
 import {ENGINE_LABELS, type EngineId} from './pipeline/types'
 
-export const APP_VERSION = '0.3.2'
+export const APP_VERSION = '0.3.5'
 
 /** What Godot needs told. Its own simplifying deletes leaf cards, and a file cannot turn it off. */
 export const GODOT_IMPORT_NOTE =
@@ -22,6 +22,8 @@ export interface ExportPreferences {
     readonly collision: boolean
     readonly wind: boolean
     readonly join: boolean
+    /** A far-away card, for the props that offer one. */
+    readonly far: boolean
     readonly folder: string
     /** Off once someone ticks Don't ask again, since replacing is the usual case while tuning a prop. */
     readonly askBeforeReplacing: boolean
@@ -35,6 +37,7 @@ const DEFAULTS: ExportPreferences = {
     collision: true,
     wind: true,
     join: false,
+    far: true,
     folder: '',
     askBeforeReplacing: true,
     folderPerProp: false,
@@ -50,6 +53,7 @@ export function loadExportPreferences(): ExportPreferences {
             collision: typeof raw.collision === 'boolean' ? raw.collision : DEFAULTS.collision,
             wind: typeof raw.wind === 'boolean' ? raw.wind : DEFAULTS.wind,
             join: typeof raw.join === 'boolean' ? raw.join : DEFAULTS.join,
+            far: typeof raw.far === 'boolean' ? raw.far : DEFAULTS.far,
             folder: typeof raw.folder === 'string' ? raw.folder : DEFAULTS.folder,
             askBeforeReplacing: typeof raw.askBeforeReplacing === 'boolean' ? raw.askBeforeReplacing : DEFAULTS.askBeforeReplacing,
             folderPerProp: typeof raw.folderPerProp === 'boolean' ? raw.folderPerProp : DEFAULTS.folderPerProp,

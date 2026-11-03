@@ -12,6 +12,7 @@
  */
 
 import {z} from 'zod'
+import {COMPONENT_TYPES} from '../../assets/shared/component-types'
 import type {Scene} from '../scene/scene-model'
 
 export const CURRENT_SCHEMA_VERSION = 2
@@ -24,6 +25,8 @@ export interface LoadedProject {
     readonly name: string
     /** Which style profile the tree was made in. */
     readonly style: string
+    /** The preset it was started from, when the file says. Files before 0.3.5 don't. */
+    readonly presetId: string | null
     /**
      * Keys this build does not know about.
      *
@@ -50,16 +53,7 @@ const transformSchema = z.object({
 
 const componentSchema = z.object({
     id: z.string().min(1),
-    type: z.enum([
-        'trunk',
-        'branch',
-        'root',
-        'foliage-cluster',
-        'palm-frond',
-        'palm-crown',
-        'coconut-cluster',
-        'bark',
-    ]),
+    type: z.enum(COMPONENT_TYPES),
     generatorId: z.string().min(1),
     generatorVersion: z.number().int(),
     parentId: z.string().nullable(),
@@ -99,6 +93,7 @@ const documentSchema = z.looseObject({
     // Optional because the first gallery-less build wrote files without it.
     name: z.string().min(1).optional(),
     style: z.string().min(1),
+    preset: z.string().min(1).optional().catch(undefined),
     scene: sceneSchema,
 })
 
@@ -109,6 +104,7 @@ const KNOWN_KEYS = new Set([
     'modifiedAt',
     'name',
     'style',
+    'preset',
     'scene',
 ])
 
@@ -252,6 +248,7 @@ export function parseProject(text: string): LoadedProject {
         scene: parsed.scene as unknown as Scene,
         name: parsed.name ?? DEFAULT_NAME,
         style: parsed.style,
+        presetId: parsed.preset ?? null,
         extras,
     }
 }
@@ -262,6 +259,8 @@ export interface SaveInput {
     readonly name?: string
     /** The style profile the tree is made in. */
     readonly style: string
+    /** The preset it was started from, which Restore goes back to. */
+    readonly presetId?: string
     readonly extras?: Readonly<Record<string, unknown>>
     /** Overridable so tests do not depend on the clock. */
     readonly now?: Date
@@ -282,6 +281,7 @@ export function serializeProject(input: SaveInput): string {
         modifiedAt: now,
         name: input.name ?? DEFAULT_NAME,
         style: input.style,
+        ...(input.presetId ? {preset: input.presetId} : {}),
         scene: input.scene,
     }
 

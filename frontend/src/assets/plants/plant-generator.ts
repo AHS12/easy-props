@@ -13,6 +13,7 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
+import {FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {PETAL_RAMPS, type PetalPaletteId} from '../style/palettes'
 import {buildPlantMesh, type PlantKind, type PlantParameters} from './plant-mesh'
 
@@ -46,18 +47,23 @@ const KIND: ChoiceParameter<PlantKind> = {
     ],
 }
 
-const PALETTE: ChoiceParameter<PetalPaletteId> = {
+const PALETTE: ChoiceParameter<PetalPaletteId | OwnColours> = {
     kind: 'choice',
     group: FLOWER,
     key: 'palette',
     label: 'Colour',
     help: 'The colours of the flower, deep to light.',
     default: 'white',
-    options: (Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(PETAL_RAMPS) as PetalPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
+
+const OWN_FLOWERS = ownColours(PALETTE, PETAL_RAMPS, FLOWER_ROWS, 'flowers')
 
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the clump is.', 0.05, 6, 0.05, 0.8, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall its tallest stem stands.', 0.05, 4, 0.05, 0.5, 'm')
@@ -66,7 +72,7 @@ const LEAN = number(SHAPE, 'lean', 'Lean', 'How far the stems bend over.', 0, 1,
 const LEAVES = number(SHAPE, 'leaves', 'Leaves', 'Leaves at the foot of each stem.', 0, 6, 1, 2)
 const HEAD_SIZE = number(FLOWER, 'headSize', 'Flower size', 'Across a flower, or how long a spike or plume is.', 0.01, 1, 0.01, 0.07, 'm')
 
-const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE]
+const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs]
 
 export const plantDefaults: PlantParameters = {
     kind: KIND.default,
@@ -88,6 +94,7 @@ const plantSchema = z.object({
     headSize: numberSchema(HEAD_SIZE),
     leaves: numberSchema(LEAVES),
     palette: choiceSchema(PALETTE),
+    ...OWN_FLOWERS.schema,
 })
 
 const validatePlant = (parameters: unknown) => validateParameters<PlantParameters>(plantSchema, parameters, plantDefaults)

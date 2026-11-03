@@ -171,6 +171,11 @@ export interface PropGenerator<P extends object = object> {
      * reuses one generator hides what it has no use for. Left out, all of them.
      */
     shownControls?(values: Readonly<Record<string, unknown>>): readonly ParameterSpec[]
+    /**
+     * Whether export offers a far-away card for it: props that grow upwards and
+     * are seen from far off. Left out, none.
+     */
+    farAway?(parameters: P): boolean
     /** What Make it fit may change, best first. Left out, the prop only gets the advice. */
     readonly fitControls?: readonly FitControl[]
     createDefaultParameters(): P

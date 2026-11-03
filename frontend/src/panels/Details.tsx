@@ -9,6 +9,7 @@
 import {ChevronRight, Dices, LayoutGrid, Search, Trash2, X} from 'lucide-react'
 import {createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ColourRow} from '../components/ColourRow'
+import {PaletteMenu} from '../components/PaletteMenu'
 import {Select} from '../components/controls'
 import {PropertyRow, ResetButton, Row} from '../components/PropertyRow'
 import {findComponentGenerator} from '../assets/component-generators'
@@ -34,6 +35,7 @@ import {findComponent} from '../core/scene/scene-model'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
+import {ownColoursPatch, paletteChoiceFor} from './palette-choice'
 import {TRUNK_TREE_KEYS} from './trunk-controls'
 
 /** Parts that stand for the whole prop, or hang off its plan, so they stay where they are. */
@@ -64,16 +66,24 @@ function presetBase(presetId: string): Readonly<Record<string, unknown>> {
     return base
 }
 
+/** What a colour choice needs to offer palettes: every control, and a way to set several at once. */
+interface PaletteSupport {
+    readonly specs: readonly ParameterSpec[]
+    onPatch(patch: Readonly<Record<string, string>>, label: string): void
+}
+
 function ParameterControls({
     specs,
     values,
     base,
+    palettes,
     onChange,
 }: {
     specs: readonly ParameterSpec[]
     values: Readonly<Record<string, unknown>>
     /** What Reset returns to. Otherwise each spec's default. */
     base?: Readonly<Record<string, unknown>>
+    palettes?: PaletteSupport
     onChange(key: string, value: number | string): void
 }) {
     const filter = useContext(FilterContext)
@@ -104,10 +114,40 @@ function ParameterControls({
                         )
                     }
 
+                    if (spec.kind === 'colour') {
+                        const raw = values[spec.key]
+
+                        return (
+                            <ColourRow
+                                key={spec.key}
+                                controlKey={spec.key}
+                                label={spec.label}
+                                value={typeof raw === 'string' ? raw : spec.default}
+                                presets={spec.swatches}
+                                onChange={(next) => onChange(spec.key, next)}
+                            />
+                        )
+                    }
+
                     const raw = values[spec.key]
                     const value = typeof raw === 'string' ? raw : spec.default
                     const from = base?.[spec.key]
                     const resetTo = typeof from === 'string' ? from : spec.default
+                    const choice = palettes ? paletteChoiceFor(spec, palettes.specs, values) : null
+
+                    if (choice && palettes) {
+                        return (
+                            <Row key={spec.key} label={spec.label} help={spec.help} controlKey={spec.key}>
+                                <PaletteMenu
+                                    choice={choice}
+                                    ownAllowed={spec.options.some((option) => option.value === 'custom')}
+                                    onPick={(next) => onChange(spec.key, next)}
+                                    onUseColours={(palette) => palettes.onPatch(ownColoursPatch(choice, palette.colours), 'use palette')}
+                                />
+                                <ResetButton label={spec.label} visible={value !== resetTo} onReset={() => onChange(spec.key, resetTo)} />
+                            </Row>
+                        )
+                    }
 
                     return (
                         <Row key={spec.key} label={spec.label} help={spec.help} controlKey={spec.key}>
@@ -353,6 +393,7 @@ export function Details() {
         const allTitles = paints ? titles : [...titles, 'Colours']
         const onChange = (key: string, value: number | string) => updateTreeParameters({[key]: value}, `change ${key}`)
         const onColours = (patch: Readonly<Record<string, string>>) => updateTreeParameters(patch, 'change colours')
+        const palettes: PaletteSupport = {specs: treeSpecs, onPatch: updateTreeParameters}
 
         const groupEmpty = (title: string) =>
             filter !== '' &&
@@ -396,6 +437,7 @@ export function Details() {
                                     specs={shown.filter((spec) => (spec.group ?? 'Shape') === title)}
                                     values={values}
                                     base={base}
+                                    palettes={palettes}
                                     onChange={onChange}
                                 />
                                 {title === 'Colours' ? (
@@ -576,6 +618,7 @@ export function Details() {
                                 specs={controlsForTree(section.specs, asset?.parameters ?? {})}
                                 values={asset?.parameters ?? {}}
                                 base={presetBase(presetId)}
+                                palettes={{specs: treeSpecs, onPatch: updateTreeParameters}}
                                 onChange={(key, value) => updateTreeParameters({[key]: value}, `change ${key}`)}
                             />
                             <PaletteColours

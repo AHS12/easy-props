@@ -17,9 +17,10 @@ import * as THREE from 'three'
 import {addDaisy, addStrip, stemPath} from '../plants/plant-mesh'
 import {createSeededRandom, hashSeed, randomRange} from '../shared/random'
 import {colourRamp} from '../style/ramp'
+import {FLOWER_ROWS, GRASS_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {DRY_RAMP, GRASS_RAMPS, PETAL_RAMPS, STEM_RAMP, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 
-export interface GrassParameters {
+export interface GrassParameters extends Partial<OwnColourValues<typeof GRASS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
     readonly width: number
     readonly height: number
     readonly blades: number
@@ -40,10 +41,10 @@ export interface GrassParameters {
     readonly dryness: number
     /** How far one clump's colour strays from the next, 0 to 1. */
     readonly variation: number
-    readonly palette: GrassPaletteId
+    readonly palette: GrassPaletteId | OwnColours
     /** Flowers standing among the blades, in drifts. */
     readonly flowers: number
-    readonly flowerColour: PetalPaletteId
+    readonly flowerColour: PetalPaletteId | OwnColours
 }
 
 interface Clump {
@@ -186,7 +187,7 @@ function bladesAtDetail(blades: readonly Blade[], count: number): readonly Blade
 /** A flower belongs to a drift, so only those falling near one of a few centres stand. */
 function addFlowers(buffers: {positions: number[]; normals: number[]; colors: number[]; indices: number[]}, grass: GrassParameters, seed: number, detail: number) {
     const count = Math.round(grass.flowers * detail)
-    const petal = colourRamp(PETAL_RAMPS[grass.flowerColour])
+    const petal = colourRamp(rampOf(grass.flowerColour, PETAL_RAMPS, grass, FLOWER_ROWS))
     const stem = colourRamp(STEM_RAMP)
     const radius = grass.width / 2
     const drift = createSeededRandom(hashSeed(seed, SEED_FLOWER))
@@ -217,7 +218,7 @@ export function buildGrassMesh(grass: GrassParameters, seed: number, detail: num
     const wanted = Math.round((all.length * detail * (4 * fullPieces - 2)) / (4 * pieces - 2))
     const blades = wanted < all.length ? bladesAtDetail(all, wanted) : all
     const widening = Math.min(Math.sqrt(all.length / blades.length), MAX_WIDENING)
-    const lush = colourRamp(GRASS_RAMPS[grass.palette])
+    const lush = colourRamp(rampOf(grass.palette, GRASS_RAMPS, grass, GRASS_ROWS))
     const dry = colourRamp(DRY_RAMP)
     const radius = Math.max(grass.width / 2, 1e-3)
 

@@ -219,6 +219,7 @@ export const palmTreeGenerator: PropGenerator<PalmTreeParameters> = {
     id: 'palm-tree',
     version: 1,
     label: 'Palm',
+    farAway: () => true,
     parameters: palmTreeParameterSpecs,
 
     createDefaultParameters(): PalmTreeParameters {

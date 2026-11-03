@@ -9,10 +9,10 @@ import {
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
 import {Switch, Tooltip} from '../components/controls'
-import {findPropGenerator} from '../assets/prop-generators'
+import {findPropGenerator, offersFarAway} from '../assets/prop-generators'
 import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
 import {loadExportPreferences} from '../core/export/export-preferences'
-import {LEVEL_SHARES} from '../core/export/pipeline/types'
+import {FAR_LEVEL, LEVEL_SHARES} from '../core/export/pipeline/types'
 import {SHADING_MODES, SHADING_MODE_HELP, SHADING_MODE_LABELS, type ShadingMode} from '../assets/style/shading'
 import {TIME_OF_DAY, TIME_OF_DAY_LABELS, type TimeOfDay} from '../assets/style/lighting'
 import {useEditorStore} from '../store/editor-store'
@@ -283,6 +283,7 @@ export function ViewportOverlay() {
     const showCollision = useUiStore((state) => state.showCollision)
     const maximized = useUiStore((state) => state.maximized)
     const editor = useEditorStore()
+    const offersFar = offersFarAway(editor.scene.assets[0]?.generatorId, editor.scene.assets[0]?.parameters)
 
     const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
     const turnReason = findCommand('tool-turn')?.unavailable?.(editor) ?? null
@@ -343,20 +344,31 @@ export function ViewportOverlay() {
                         }))}
                     />
                     <ToolMenu
-                        label={`Detail level ${previewLevel}`}
+                        label={previewLevel === FAR_LEVEL ? 'Detail level: far away' : `Detail level ${previewLevel}`}
                         trigger={
                             <>
                                 <Layers size={14} aria-hidden="true" />
-                                <span>LOD{previewLevel}</span>
+                                <span>{previewLevel === FAR_LEVEL ? 'Far' : `LOD${previewLevel}`}</span>
                             </>
                         }
-                        items={LEVEL_SHARES.map((share, level) => ({
-                            id: String(level),
-                            label: `Level ${level} (LOD${level})`,
-                            help: level === 0 ? 'Full detail, seen up close' : `About ${Math.round(share * 100)}% of the faces, for further away`,
-                            checked: level === previewLevel,
-                            run: () => setPreviewLevel(level),
-                        }))}
+                        items={[
+                            ...LEVEL_SHARES.map((share, level) => ({
+                                id: String(level),
+                                label: `Level ${level} (LOD${level})`,
+                                help: level === 0 ? 'Full detail, seen up close' : `About ${Math.round(share * 100)}% of the faces, for further away`,
+                                checked: level === previewLevel,
+                                run: () => setPreviewLevel(level),
+                            })),
+                            ...(offersFar
+                                ? [{
+                                    id: 'far',
+                                    label: 'Far away',
+                                    help: 'The far-away card: a flat picture, 8 faces. It looks flat from above.',
+                                    checked: previewLevel === FAR_LEVEL,
+                                    run: () => setPreviewLevel(FAR_LEVEL),
+                                }]
+                                : []),
+                        ]}
                     />
                 </div>
                 <div className="tool-group">

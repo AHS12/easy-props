@@ -32,7 +32,7 @@ import {
     selectionAnnouncement,
     type SelectionState,
 } from '../core/selection/selection'
-import {createInitialScene, createSceneFromPreset, DEFAULT_PRESET_ID} from '../core/scene/initial-scene'
+import {createInitialScene, createSceneFromPreset, DEFAULT_PRESET_ID, presetOfScene} from '../core/scene/initial-scene'
 import {
     addComponent,
     copyComponent as copyComponentInScene,
@@ -419,6 +419,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             scene: state.scene,
             name,
             style: state.style,
+            presetId: state.presetId,
             extras: state.projectExtras,
         })
 
@@ -767,7 +768,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     style: state.style,
                     presetId: state.presetId,
                 }),
-                toast: {message: 'Tree restored', undoable: true},
+                toast: {message: 'Back to the preset', undoable: true},
             })
         },
 
@@ -854,6 +855,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     scene: state.scene,
                     name: state.treeName,
                     style: state.style,
+                    presetId: state.presetId,
                     extras: state.projectExtras,
                 })
 
@@ -894,6 +896,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                         ? treeId
                         : null,
                     projectExtras: project.extras,
+                    presetId: presetOfScene(project.scene, project.presetId),
                     selection: EMPTY_SELECTION,
                     history: EMPTY_HISTORY,
                     draftAvailable: false,
@@ -927,6 +930,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     propInHand: true,
                     filePath: null,
                     projectExtras: project.extras,
+                    presetId: presetOfScene(project.scene, project.presetId),
                     selection: EMPTY_SELECTION,
                     history: EMPTY_HISTORY,
                     toast: {message: `Opened "${project.name}"`, undoable: false},
@@ -951,6 +955,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     scene: project.scene,
                     name: chosen,
                     style: project.style,
+                    presetId: project.presetId ?? undefined,
                     extras: project.extras,
                 })
 
@@ -991,6 +996,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 scene: state.scene,
                 name: state.treeName,
                 style: state.style,
+                presetId: state.presetId,
                 extras: state.projectExtras,
             })
 
@@ -1028,6 +1034,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     propInHand: true,
                     filePath: opened.path,
                     projectExtras: project.extras,
+                    presetId: presetOfScene(project.scene, project.presetId),
                     selection: EMPTY_SELECTION,
                     history: EMPTY_HISTORY,
                     toast: {message: `Opened ${fileNameOf(opened.path)}`, undoable: false},
@@ -1050,7 +1057,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatchWith: (batchPicked) => set({batchPicked, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, folder: chosen, folderPerProp}, subfolder = '') => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, folder: chosen, folderPerProp}, subfolder = '') => {
             const inside = folderNameOf(subfolder)
             const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
@@ -1070,7 +1077,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind, join},
+                settings: {engine, levels, collision, wind, join, far},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),

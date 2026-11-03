@@ -11,7 +11,7 @@ agree on the term first, or rethink the control.
 | Radius | **Thickness** | |
 | Base radius / top radius | **Thickness** + **Taper** | Taper shown as a segmented choice |
 | Taper | **Taper** | Slider. "How much the trunk narrows toward the top." |
-| Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes |
+| Material, texture, shader | **Colour** | Named swatches — "Warm brown", "Autumn orange" — not hex codes. Inside the colour picker only, the code may be shown as **Colour code** |
 | Shading mode, viewport shading | **View** | Lit / Flat / Wireframe. "Show the triangles" for wireframe |
 | Delete, remove | **Remove** | "Remove this branch" |
 | Curvature | **Bend** | Segmented: Straight / Curved / Very curved |
@@ -32,6 +32,7 @@ agree on the term first, or rethink the control.
 | Shader, material graph | **Material** | Fixed presets only in MVP |
 | Seed | **Seed** | Plus **Surprise me** for a new one. Shown as a whole number you can type, paste or copy |
 | LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. |
+| Billboard, impostor | **Far-away card** | A flat picture of a prop, shown in its place far off. "Far away" in the detail level menu. |
 | Pivot | *(never shown)* | |
 | Collision, collision shapes | **What you can walk into** | In the view. Export keeps **Collision**, where people look for the word |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |

@@ -5,6 +5,7 @@
 
 import {AlertTriangle} from 'lucide-react'
 import {findPropGenerator} from '../assets/prop-generators'
+import {FAR_FACES, FAR_LEVEL} from '../core/export/pipeline/types'
 import {BUDGET_TARGETS, checkBudget, findBudgetTarget, type BudgetTargetId} from '../core/export/pipeline/budget'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
 import {useSetting} from '../store/settings-store'
@@ -68,7 +69,9 @@ export function StatusBar() {
                 {asset ? <SeedPanel seed={asset.seed} /> : null}
                 {previewLevel > 0 ? (
                     <span className="tabular" title="Faces in the detail level on screen">
-                        LOD{previewLevel}: {(shownFaceCounts.wood + shownFaceCounts.leaves).toLocaleString()} faces
+                        {previewLevel === FAR_LEVEL
+                            ? `Far away: ${FAR_FACES} faces`
+                            : `LOD${previewLevel}: ${(shownFaceCounts.wood + shownFaceCounts.leaves).toLocaleString()} faces`}
                     </span>
                 ) : null}
                 <span className="tabular" data-over={budget.over} title="Faces at full detail, against this budget">

@@ -52,7 +52,16 @@ export interface ComponentRenderer {
     all(): readonly RenderedComponent[]
     /** Moves the prop in the wind: 0 holds it still. A prop that never moves ignores this. */
     setWind(strength: number, seconds: number): void
+    /** Shows a far-away card in place of the prop, or the prop again with null. Takes over the card. */
+    setStandIn(card: StandIn | null): void
     dispose(): void
+}
+
+/** A flat stand-in for the whole prop, standing on its pivot. */
+export interface StandIn {
+    readonly geometry: THREE.BufferGeometry
+    readonly material: THREE.MeshStandardMaterial
+    readonly pivot: readonly [number, number, number]
 }
 
 /** The colour a material kind is painted with, given the tree's colours. */
@@ -260,6 +269,29 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
     let measuredScene: Scene | null = null
     let shownScene: Scene | null = null
     let still = false
+    let standIn: THREE.Mesh | null = null
+
+    const showParts = () => {
+        for (const component of rendered.values()) {
+            component.group.visible = standIn === null
+        }
+    }
+
+    const removeStandIn = () => {
+        if (!standIn) {
+            return
+        }
+
+        const material = standIn.material as THREE.MeshStandardMaterial
+
+        standIn.removeFromParent()
+        standIn.geometry.dispose()
+        material.map?.dispose()
+        material.normalMap?.dispose()
+        material.dispose()
+        standIn.customDepthMaterial?.dispose()
+        standIn = null
+    }
 
     const measureFor = (scene: Scene) => {
         const asset = scene.assets[0]
@@ -390,6 +422,8 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
         if (shading === 'wind' || liveWind.strength.value > 0) {
             measureFor(scene)
         }
+
+        showParts()
     }
 
     /**
@@ -510,7 +544,30 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
             liveWind.time.value = seconds
         },
 
+        setStandIn(card) {
+            removeStandIn()
+
+            if (card) {
+                const mesh = new THREE.Mesh(card.geometry, card.material)
+
+                // It sways as the wood does, and never flutters, as in the file.
+                addLiveWind(card.material, windUniforms, liveWind, false)
+                mesh.customDepthMaterial = createLiveWindDepthMaterial(windUniforms, liveWind, false, card.material.map, card.material.alphaTest)
+                mesh.position.set(...card.pivot)
+                mesh.castShadow = true
+                mesh.receiveShadow = true
+                mesh.name = 'far_away_card'
+                mesh.userData.isHelper = true
+                standIn = mesh
+                group.add(mesh)
+            }
+
+            showParts()
+        },
+
         dispose() {
+            removeStandIn()
+
             for (const component of rendered.values()) {
                 disposeComponent(component)
             }

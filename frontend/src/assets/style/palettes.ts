@@ -235,6 +235,11 @@ export const CACTUS_COLOURS: Readonly<Record<CactusPaletteId, {readonly ramp: re
     purple: {ramp: ['#2e2440', '#58466e', '#8c74a0', '#c8b4d4'], spines: '#f2e4d0'},
 }
 
+/** A cactus's colours in one list, shadow to highlight and then its spines. */
+export const CACTUS_RAMPS = Object.fromEntries(
+    Object.entries(CACTUS_COLOURS).map(([id, {ramp, spines}]) => [id, [...ramp, spines]]),
+) as unknown as Readonly<Record<CactusPaletteId, readonly string[]>>
+
 /** A clump gone pale, root to tip. */
 export const DRY_RAMP: readonly string[] = ['#7c8a2a', '#b2b048', '#d8cf78', '#f0e8ac']
 

@@ -16,6 +16,7 @@ import {
     type NumberParameter,
     type ParameterSpec,
 } from '../shared/parameters'
+import {OWN_COLOURS_OPTION, STONE_ROWS, ownColours, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import {buildRockMesh} from './rock-mesh'
 import {facesOfChunk, planRock, type RockKind} from './rock-plan'
@@ -50,18 +51,23 @@ const KIND: ChoiceParameter<RockKind> = {
     ],
 }
 
-const PALETTE: ChoiceParameter<RockPaletteId> = {
+const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
     kind: 'choice',
     group: SURFACE,
     key: 'palette',
     label: 'Stone',
     help: 'The colours of the stone, shadow to highlight.',
     default: 'lavender',
-    options: (Object.keys(ROCK_RAMPS) as RockPaletteId[]).map((value) => ({
-        value,
-        label: value[0].toUpperCase() + value.slice(1),
-    })),
+    options: [
+        ...(Object.keys(ROCK_RAMPS) as RockPaletteId[]).map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+        })),
+        OWN_COLOURS_OPTION,
+    ],
 }
+
+const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the rock is.', 0.2, 40, 0.1, 3, 'm')
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall the rock stands.', 0.1, 40, 0.1, 2, 'm')
@@ -74,9 +80,9 @@ const BEND = number(SURFACE, 'bend', 'Bend', 'How far the flat faces bend, so th
 const MOSS = number(SURFACE, 'moss', 'Moss', 'Green caps on whatever faces the sky.', 0, 1, 0.05, 0.5)
 const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, MOSS, VARIATION, PALETTE]
+const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, MOSS, VARIATION, PALETTE, ...STONE.specs]
 
-export interface CutRockParameters {
+export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly kind: RockKind
     readonly width: number
     readonly height: number
@@ -88,7 +94,7 @@ export interface CutRockParameters {
     readonly bend: number
     readonly moss: number
     readonly variation: number
-    readonly palette: RockPaletteId
+    readonly palette: RockPaletteId | OwnColours
 }
 
 export const cutRockDefaults: CutRockParameters = {
@@ -119,6 +125,7 @@ const cutRockSchema = z.object({
     moss: numberSchema(MOSS),
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
+    ...STONE.schema,
 })
 
 const validateCutRock = (parameters: unknown) => validateParameters<CutRockParameters>(cutRockSchema, parameters, cutRockDefaults)
