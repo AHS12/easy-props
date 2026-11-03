@@ -26,6 +26,7 @@ export type FruitKind = 'coconut' | 'apple' | 'orange' | 'lemon' | 'plum'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
+export type CrownShape = 'natural' | 'round' | 'wide' | 'umbrella' | 'column' | 'cone' | 'teardrop'
 const number = (
     group: string,
     key: string,
@@ -105,6 +106,24 @@ const FORM = {
     ],
     default: 'crown',
 } as const satisfies ChoiceParameter<TreeForm>
+
+const CROWN_SHAPE = {
+    kind: 'choice',
+    group: BRANCHES,
+    key: 'crownShape',
+    label: 'Crown shape',
+    help: 'The outline the branches grow to fill. The other branch controls still adjust it.',
+    options: [
+        {value: 'natural', label: 'Natural'},
+        {value: 'round', label: 'Round'},
+        {value: 'wide', label: 'Wide'},
+        {value: 'umbrella', label: 'Umbrella'},
+        {value: 'column', label: 'Column'},
+        {value: 'cone', label: 'Cone'},
+        {value: 'teardrop', label: 'Teardrop'},
+    ],
+    default: 'natural',
+} as const satisfies ChoiceParameter<CrownShape>
 
 const FROND_STYLE = {
     kind: 'choice',
@@ -213,6 +232,7 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.flare,
     NUMBERS.rootCount,
     NUMBERS.rootLength,
+    CROWN_SHAPE,
     NUMBERS.limbCount,
     NUMBERS.forkHeight,
     NUMBERS.spread,
@@ -252,6 +272,7 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
 const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
     crown: ['stem', 'frondStyle'],
     palm: [
+        'crownShape',
         'limbCount',
         'forkHeight',
         'spread',
@@ -264,7 +285,7 @@ const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
         'strands',
         'strandLength',
     ],
-    conifer: ['stem', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
+    conifer: ['stem', 'crownShape', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
 }
 
 /** What a shared control means on a form that reuses it for something else. */
@@ -378,6 +399,7 @@ export type PaintedTreeParameters = {
 } & Palette & {
         readonly palette: PaletteId
         readonly form: TreeForm
+        readonly crownShape: CrownShape
         readonly frondStyle: FrondStyle
         readonly fruitKind: FruitKind
         readonly barkPattern: BarkPattern
@@ -414,6 +436,7 @@ const paintedTreeSchema = z.object({
     ),
     palette: choiceSchema(PALETTE),
     form: choiceSchema(FORM),
+    crownShape: choiceSchema(CROWN_SHAPE),
     frondStyle: choiceSchema(FROND_STYLE),
     fruitKind: choiceSchema(FRUIT_KIND),
     barkPattern: choiceSchema(BARK_PATTERN),
@@ -432,6 +455,7 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
     }),
     palette: PALETTE.default,
     form: FORM.default,
+    crownShape: CROWN_SHAPE.default,
     frondStyle: FROND_STYLE.default,
     fruitKind: FRUIT_KIND.default,
     barkPattern: BARK_PATTERN.default,

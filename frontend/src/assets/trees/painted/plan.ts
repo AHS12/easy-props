@@ -12,7 +12,7 @@
 
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {parseEdits, type ClumpEdit, type PaintedEdits} from './edits'
-import type {PaintedTreeParameters} from './parameters'
+import type {CrownShape, PaintedTreeParameters} from './parameters'
 
 export type Vec3 = readonly [number, number, number]
 
@@ -296,6 +296,101 @@ const TOP_OF_PALM_TRUNK = 0.86
 const TOP_OF_CONIFER_TRUNK = 0.97
 const CONIFER_SPOKES = 3
 
+/**
+ * The outline a crown shape fits the branches inside.
+ *
+ * `outline` is how far out the wood may reach against how far it naturally
+ * would, by height up the crown: 0 where the branches begin, 1 at the top.
+ * `angle` is how steeply each heavy limb climbs, in degrees before its own
+ * randomness, by `share`: 0 for the lowest limb, 1 for the highest.
+ */
+interface CrownRule {
+    readonly outline: (height: number) => number
+    readonly angle: (limbAngle: number, share: number) => number
+    /** Scales how long each heavy limb is, by the same share. */
+    readonly reach?: (share: number) => number
+    /**
+     * How far up Height the trunk carries on as a leader, with the heavy limbs
+     * spread along it from Fork height. Left out, they bunch where it forks.
+     */
+    readonly leader?: number
+    /** Scales Fork height, so a tall crown has room to show its shape. */
+    readonly fork?: number
+    /** Scales how squashed the clumps are. */
+    readonly flatten?: number
+}
+
+const naturalAngle = (a: number, s: number) => a * (0.28 + s * 1.44)
+
+const CROWN_RULES: Readonly<Record<CrownShape, CrownRule>> = {
+    natural: {outline: () => 1, angle: naturalAngle},
+    round: {outline: (h) => 0.55 + 0.6 * Math.sin(Math.PI * Math.min(h * 1.15, 1)), angle: (a, s) => a * (0.5 + s)},
+    wide: {outline: (h) => 1.35 - 0.15 * h, angle: (a, s) => a * (0.2 + s * 0.8), flatten: 0.85},
+    // Limbs climb together like a vase, and the top runs out flat.
+    umbrella: {outline: (h) => 0.5 + 0.95 * h ** 1.2, angle: (a) => Math.min(a * 0.9 + 22, 70), flatten: 0.7},
+    column: {outline: () => 0.42, angle: (a, s) => Math.min(55 + a * 0.4 + s * 10, 82), leader: 0.64, fork: 0.55},
+    cone: {outline: (h) => 1.6 - 1.4 * h, angle: (a, s) => a * (0.3 + s * 0.9), reach: (s) => 1.15 - 0.8 * s, leader: 0.66, fork: 0.5},
+    // Widest a third of the way up, drawn in to a point at the top.
+    teardrop: {
+        outline: (h) => (h < 0.3 ? 1 + h : 1.3 - 1.05 * ((h - 0.3) / 0.7)),
+        angle: (a, s) => a * (0.4 + s * 1.1),
+        reach: (s) => 1.1 - 0.65 * s,
+        leader: 0.58,
+        fork: 0.65,
+    },
+}
+
+/** The rules for a tree's crown shape. Palms, conifers and anything unknown grow naturally. */
+const crownRule = (tree: PaintedTreeParameters) =>
+    (tree.form === 'crown' && CROWN_RULES[tree.crownShape]) || CROWN_RULES.natural
+
+/** How high the big branches begin, in metres. */
+const forkOf = (tree: PaintedTreeParameters) => tree.height * tree.forkHeight * (crownRule(tree).fork ?? 1)
+
+const averageOutline = (rule: CrownRule) => {
+    let sum = 0
+
+    for (let step = 0; step <= 8; step++) {
+        sum += rule.outline(step / 8)
+    }
+
+    return sum / 9
+}
+
+/** How far out the crown's outline lets wood reach at a height, against a natural crown. */
+function outlineAt(tree: PaintedTreeParameters, y: number): number {
+    const fork = forkOf(tree)
+    const up = (y - fork) / Math.max(tree.height - fork, 0.01)
+
+    return Math.max(crownRule(tree).outline(Math.min(Math.max(up, 0), 1)), 0.05)
+}
+
+/**
+ * Pulls a heavy limb and everything on it in or out to the crown's outline.
+ *
+ * Measured from where the limb leaves the trunk, so it stays on the trunk. A
+ * child starts on its parent as already pulled, so `place` first works out
+ * where that start was before, then moves the child's whole path from there.
+ */
+function outlineFrom(anchor: Vec3, scaleAt: (y: number) => number) {
+    const pull = (point: Vec3): Vec3 => {
+        const scale = scaleAt(point[1])
+
+        return [anchor[0] + (point[0] - anchor[0]) * scale, point[1], anchor[2] + (point[2] - anchor[2]) * scale]
+    }
+    const unpull = (point: Vec3): Vec3 => {
+        const scale = scaleAt(point[1])
+
+        return [anchor[0] + (point[0] - anchor[0]) / scale, point[1], anchor[2] + (point[2] - anchor[2]) / scale]
+    }
+
+    return (start: Vec3) => {
+        const before = unpull(start)
+
+        return (point: Vec3): Vec3 => pull(add(before, [point[0] - start[0], point[1] - start[1], point[2] - start[2]]))
+    }
+}
+
 interface Tier {
     readonly index: number
     readonly y: number
@@ -345,14 +440,16 @@ function growWood(
     edits: PaintedEdits,
 ): Limb[] {
     const random = createSeededRandom(hashSeed(seed, 11))
-    const {height, spread, trunkRadius, forkHeight, limbCount, gnarl} = tree
+    const {height, spread, trunkRadius, limbCount, gnarl} = tree
     const limbs: Limb[] = []
-    const forkY = height * forkHeight
+    const forkY = forkOf(tree)
     const leanAzimuth = random() * Math.PI * 2
     const lean = tree.lean * randomRange(random, 0.8, 1.2)
     const azimuthStart = random() * Math.PI * 2
     const turns = 1.25
     const windRadius = tree.corkscrew * trunkRadius * 1.1
+    const crown = crownRule(tree)
+    const leaderLength = crown.leader === undefined ? forkY * 1.22 : Math.max(height * crown.leader, forkY * 1.22)
 
     const fit = (start: Vec3) => (point: Vec3): Vec3 => [
         point[0],
@@ -370,7 +467,7 @@ function growWood(
             direction: normalize([Math.cos(leanAzimuth) * lean, 1, Math.sin(leanAzimuth) * lean]),
             length,
             baseRadius: trunkRadius,
-            tipRadius: trunkRadius * (tree.form === 'conifer' ? 0.05 : 0.6),
+            tipRadius: trunkRadius * (tree.form === 'conifer' ? 0.05 : crown.leader === undefined ? 0.6 : 0.3),
             level: 0,
             steps: 16,
             wander: tree.trunkBend * 0.8,
@@ -399,7 +496,7 @@ function growWood(
     const target = height * (tree.form === 'palm' ? TOP_OF_PALM_TRUNK * tree.stem : TOP_OF_CONIFER_TRUNK)
     const trunk =
         tree.form === 'crown'
-            ? growTrunk(forkY * 1.22, edits)
+            ? growTrunk(leaderLength, edits)
             : growTrunk((target * target) / Math.max(tipOf(growTrunk(target, NO_EDITS))[1], 0.1), edits)
 
     limbs.push(trunk)
@@ -493,7 +590,13 @@ function growWood(
         return limbs
     }
 
-    // Heavy limbs: low ones reach out, high ones climb.
+    // Heavy limbs: low ones reach out, high ones climb, unless the crown's shape says otherwise.
+    const scaleAt = (y: number) => outlineAt(tree, y)
+    // A natural crown skips the outline, so it is exactly what it always was.
+    const natural = crown === CROWN_RULES.natural
+    // Where along the trunk the lowest limb leaves: Fork height on a leader.
+    const lowestSeat = crown.leader === undefined ? 0.66 : forkY / leaderLength
+
     for (let index = 0; index < limbCount; index++) {
         const key = `l${index}`
 
@@ -503,9 +606,21 @@ function growWood(
 
         const own = createSeededRandom(hashSeed(seed, hashKey(key), 1))
         const share = limbCount === 1 ? 0.5 : index / (limbCount - 1)
-        const leaving = along(trunk, 0.66 + share * 0.34)
+        const leaving = along(trunk, lowestSeat + share * (1 - lowestSeat))
         const azimuth = azimuthStart + index * GOLDEN_ANGLE + randomRange(own, -0.3, 0.3)
-        const elevation = (tree.limbAngle * (0.28 + share * 1.44) + randomRange(own, -6, 6)) * DEGREES
+        const elevation = (crown.angle(tree.limbAngle, share) + randomRange(own, -6, 6)) * DEGREES
+        const outlined = natural ? null : outlineFrom(leaving.point, scaleAt)
+        const fitted = (start: Vec3) => {
+            const stretched = fit(start)
+
+            if (!outlined) {
+                return stretched
+            }
+
+            const place = outlined(start)
+
+            return (point: Vec3) => place(stretched(point))
+        }
         const heavy = growLimb(
             limbs.length,
             key,
@@ -517,7 +632,7 @@ function growWood(
                     Math.sin(azimuth) * Math.cos(elevation),
                 ]),
                 length:
-                    (spread * 0.5 * randomRange(own, 0.82, 1.05)) /
+                    (spread * 0.5 * randomRange(own, 0.82, 1.05) * (crown.reach?.(share) ?? 1)) /
                     Math.max(Math.cos(elevation), 0.55),
                 baseRadius: leaving.radius * randomRange(own, 0.62, 0.74),
                 tipRadius: 0.018,
@@ -527,7 +642,7 @@ function growWood(
                 rise: 0.4 - tree.droop * 1.5,
                 taperPower: 1.55,
                 controlTs: [0.34, 0.67, 1],
-                shape: fit(leaving.point),
+                shape: fitted(leaving.point),
             },
             seed,
             edits,
@@ -569,7 +684,7 @@ function growWood(
                     rise: 0.45 - tree.droop * 1.2,
                     taperPower: 1.3,
                     controlTs: [0.5, 1],
-                    shape: fit(from.point),
+                    shape: fitted(from.point),
                 },
                 seed,
                 edits,
@@ -605,6 +720,7 @@ function growWood(
                             rise: 0.2,
                             taperPower: 1,
                             controlTs: [1],
+                            shape: outlined ? outlined(leaving.point) : undefined,
                         },
                         seed,
                         edits,
@@ -683,6 +799,7 @@ function placeClumps(
     const tips = new Map(limbs.filter((limb) => limb.level === 2).map((limb) => [limb.key, tipOf(limb)]))
     const baseRadius = (tree.spread * 0.17 + tree.height * 0.03) * tree.clumpSize
     const countScale = Math.sqrt(11 / Math.max(tree.clumpCount, 1))
+    const crown = crownRule(tree)
     const placed: {seat: Seat; point: Vec3}[] = []
 
     for (const seat of seats) {
@@ -714,6 +831,9 @@ function placeClumps(
             (1 + tree.clumpMerge * 0.35) *
             (0.72 + 0.16 * Math.min(seat.keys.length, 3)) *
             randomRange(random, 0.85, 1.15) *
+            // Clumps follow the outline too, so a cone ends in a point. Against the
+            // shape's own average, so a column's clumps stay full.
+            (crown === CROWN_RULES.natural ? 1 : Math.min(Math.max(Math.sqrt(outlineAt(tree, point[1]) / averageOutline(crown)), 0.6), 1.25)) *
             (edit.sizeScale ?? 1)
         // Merging pulls clumps together, and flatter clumps sit lower.
         const pull = tree.clumpMerge * 0.32
@@ -730,7 +850,7 @@ function placeClumps(
             centre: add(base, offset),
             radius,
             flatten:
-                Math.min(Math.max((1 - tree.clumpFlatten * 0.75) * randomRange(random, 0.92, 1.08) * (edit.flattenScale ?? 1), 0.25), 1.4),
+                Math.min(Math.max((1 - tree.clumpFlatten * 0.75) * randomRange(random, 0.92, 1.08) * (crown.flatten ?? 1) * (edit.flattenScale ?? 1), 0.25), 1.4),
             seed: Math.floor(random() * 2147483647),
             edit,
             kind: 'mass',
@@ -843,10 +963,14 @@ function crownTop(limbs: readonly Limb[], seats: readonly Seat[], tree: PaintedT
 function fitToHeight(tree: PaintedTreeParameters, seed: number): {stretch: number; seats: Seat[]} {
     const first = growWood(tree, seed, 1, NO_EDITS)
     const seats = tree.clumpCount === 0 ? [] : groupTips(first, tree.clumpCount)
-    const pivot = tree.height * tree.forkHeight
+    const pivot = forkOf(tree)
     let stretch = 1
 
-    for (let pass = 0; pass < 4; pass++) {
+    // A shaped crown takes longer to settle, most of all on a leader, whose trunk does not stretch.
+    // A natural one keeps its four passes, so it stays exactly as it was.
+    const passes = crownRule(tree) === CROWN_RULES.natural ? 4 : 10
+
+    for (let pass = 0; pass < passes; pass++) {
         const limbs = pass === 0 ? first : growWood(tree, seed, stretch, NO_EDITS)
         const top = crownTop(limbs, seats, tree, seed)
 
