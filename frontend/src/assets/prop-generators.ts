@@ -37,6 +37,13 @@ export function findPropGenerator(id: string): PropGenerator | undefined {
     return propGenerators[id]
 }
 
+/** Whether export offers a far-away card for this prop, as it's set now. */
+export function offersFarAway(generatorId: string | undefined, parameters: unknown): boolean {
+    const generator = generatorId ? findPropGenerator(generatorId) : undefined
+
+    return generator?.farAway?.(generator.validate(parameters).parameters) === true
+}
+
 /** The controls that do something on this prop, under the names they go by on it. */
 export function shownControls(
     generatorId: string | undefined,

@@ -305,6 +305,9 @@ export function BatchExportDialog() {
                                 options={LEVEL_CHOICES.map((count) => ({value: String(count), label: String(count)}))}
                             />
                         </Row>
+                        <Row label="Far-away card" help="A flat picture of each tree, bush and tall cactus, for far away. It looks flat from above.">
+                            <Switch label="Far-away card" value={preferences.far} onChange={(next) => change({far: next})} />
+                        </Row>
                         <Row label="Collision" help="Simple shapes for the trunk and heavy branches, for walking into.">
                             <Switch label="Collision" value={preferences.collision} onChange={(next) => change({collision: next})} />
                         </Row>

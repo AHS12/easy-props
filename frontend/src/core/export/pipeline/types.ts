@@ -27,6 +27,8 @@ export interface ExportSource {
     collision(): readonly CollisionShape[]
     /** Where the base of the prop meets the ground. */
     pivot(): Vec3
+    /** Whether this prop offers a far-away card. Trees and bushes do. */
+    farAway?(): boolean
     /** Whether this prop moves in the wind. A rock does not. */
     sways(): boolean
     /** True when every part of it moves about alike. */
@@ -54,6 +56,8 @@ export interface ExportSettings {
     readonly wind: boolean
     /** Writes the prop as one object, each material still its own part of it. */
     readonly join?: boolean
+    /** Asks for a far-away card. A prop that offers none gets none regardless. */
+    readonly far?: boolean
 }
 
 export interface ExportFile {
@@ -65,6 +69,12 @@ export interface ExportFile {
 
 /** The share of LOD0's faces each detail level aims for. */
 export const LEVEL_SHARES: readonly number[] = [1, 0.4, 0.12]
+
+/** Faces in a far-away card: two cards, two sides each, two triangles a side. */
+export const FAR_FACES = 8
+
+/** The view's detail level that shows the far-away card, after the real levels. */
+export const FAR_LEVEL = LEVEL_SHARES.length
 
 /** Makes a prop's name safe to be a file: `Old Oak #1` becomes `old_oak_1`. */
 /**

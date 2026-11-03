@@ -209,6 +209,7 @@ export const branchingTreeGenerator: PropGenerator<TreeParameters> = {
     id: 'branching-tree',
     version: 1,
     label: 'Broadleaf tree',
+    farAway: () => true,
     parameters: treeParameterSpecs,
 
     createDefaultParameters(): TreeParameters {

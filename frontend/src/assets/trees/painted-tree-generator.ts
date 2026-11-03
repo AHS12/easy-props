@@ -71,6 +71,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     id: 'painted-tree',
     version: 4,
     label: 'Painted tree',
+    farAway: () => true,
     parameters: paintedTreeParameterSpecs,
     paintsOwnColours: true,
     budgetAdvice: 'Lower Leaf density or Wood detail.',

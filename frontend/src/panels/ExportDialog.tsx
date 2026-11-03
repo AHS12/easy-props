@@ -7,7 +7,7 @@
 
 import {useEffect, useRef, useState} from 'react'
 import {getStyleProfile} from '../assets/style/style-profiles'
-import {findPropGenerator} from '../assets/prop-generators'
+import {findPropGenerator, offersFarAway} from '../assets/prop-generators'
 import {
     APP_VERSION,
     GODOT_IMPORT_NOTE,
@@ -57,7 +57,9 @@ export function ExportDialog() {
     const [kitSaved, setKitSaved] = useState<string | null>(null)
 
     const safeName = exportNameOf(name)
-    const {engine, levels, collision, wind, join, folder} = preferences
+    const {engine, levels, collision, wind, join, far, folder} = preferences
+    const generator = findPropGenerator(scene.assets[0]?.generatorId ?? '')
+    const offersFar = offersFarAway(scene.assets[0]?.generatorId, scene.assets[0]?.parameters)
 
     useEffect(() => {
         if (open) {
@@ -90,7 +92,7 @@ export function ExportDialog() {
         const timer = window.setTimeout(() => {
             buildExport(
                 sceneExportSource(scene, getStyleProfile(style), APP_VERSION),
-                {name: safeName, engine, levels, collision, wind, join},
+                {name: safeName, engine, levels, collision, wind, join, far},
                 (done, total) => current && setProgress(done / total),
             )
                 .then(
@@ -104,7 +106,7 @@ export function ExportDialog() {
             current = false
             window.clearTimeout(timer)
         }
-    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join])
+    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join, far])
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -246,10 +248,15 @@ export function ExportDialog() {
                             options={LEVEL_CHOICES.map((count) => ({value: String(count), label: String(count)}))}
                         />
                     </Row>
+                    {offersFar ? (
+                        <Row label="Far-away card" help="A flat picture of the prop for far away. It costs almost nothing to draw, but looks flat from above.">
+                            <Switch label="Far-away card" value={far} onChange={(next) => change({far: next})} />
+                        </Row>
+                    ) : null}
                     <Row label="Collision" help="Simple shapes for the trunk and heavy branches, for walking into.">
                         <Switch label="Collision" value={collision} onChange={(next) => change({collision: next})} />
                     </Row>
-                    {findPropGenerator(scene.assets[0]?.generatorId ?? '')?.still ? null : (
+                    {generator?.still ? null : (
                         <Row label="Wind data" help="Stores how each part may move, for the wind materials in your engine.">
                             <Switch label="Wind data" value={wind} onChange={(next) => change({wind: next})} />
                         </Row>

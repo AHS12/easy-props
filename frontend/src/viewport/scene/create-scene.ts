@@ -23,6 +23,7 @@ import {
     createComponentRenderer,
     type ComponentRenderer,
     type ShadingMode,
+    type StandIn,
 } from './component-renderer'
 import {VIEWPORT_COLORS} from './materials'
 import {createMeadowScenery, type MeadowScenery} from './meadow-scenery'
@@ -68,6 +69,8 @@ export interface ViewportScene {
     countFacesByMesh(): FaceCounts
     /** Shows a share of the full detail. The scene is resynced afterwards. */
     setDetail(detail: number): void
+    /** Shows a far-away card in place of the prop, or the prop again with null. */
+    setStandIn(card: StandIn | null): void
     resize(): void
     dispose(): void
 }
@@ -524,6 +527,10 @@ export function createViewportScene(
 
         setDetail(next) {
             detail = next
+        },
+
+        setStandIn(card) {
+            components.setStandIn(card)
         },
 
         resize() {

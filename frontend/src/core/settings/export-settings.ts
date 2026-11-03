@@ -58,6 +58,14 @@ export const EXPORT_SETTINGS: readonly ExportSetting[] = [
         set: (value) => update({wind: value === true}),
     },
     {
+        key: 'far',
+        label: 'Far-away card',
+        help: 'Also write a flat picture of each tree and bush, for showing far away.',
+        keywords: 'billboard impostor far distance',
+        get: () => loadExportPreferences().far,
+        set: (value) => update({far: value === true}),
+    },
+    {
         key: 'join',
         label: 'Join parts',
         help: 'Makes wood and leaves one object, for placing many at once.',

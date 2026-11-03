@@ -32,6 +32,7 @@ agree on the term first, or rethink the control.
 | Shader, material graph | **Material** | Fixed presets only in MVP |
 | Seed | **Seed** | Plus **Surprise me** for a new one. Shown as a whole number you can type, paste or copy |
 | LOD | **Detail levels** | "Detail levels (LOD)" in export and settings, where people look for the word. |
+| Billboard, impostor | **Far-away card** | A flat picture of a prop, shown in its place far off. "Far away" in the detail level menu. |
 | Pivot | *(never shown)* | |
 | Collision, collision shapes | **What you can walk into** | In the view. Export keeps **Collision**, where people look for the word |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |

@@ -173,6 +173,8 @@ export const cactusGenerator: PropGenerator<CactusParameters> = {
     id: 'cactus',
     version: 1,
     label: 'Cactus',
+    // Short barrels and pads are rarely seen from far off.
+    farAway: (parameters) => parameters.kind === 'column',
     parameters: specs,
     paintsOwnColours: true,
     still: true,

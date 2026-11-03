@@ -211,6 +211,7 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     id: 'bush',
     version: 1,
     label: 'Bush',
+    farAway: () => true,
     parameters: specs,
     paintsOwnColours: true,
     budgetAdvice: 'Lower Fullness or raise Leaf size.',

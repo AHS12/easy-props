@@ -7,6 +7,7 @@
 
 import * as THREE from 'three'
 import {collisionNodeName, collisionShapes, prismGeometry} from './collision'
+import {buildFarCard, farCardMesh, FAR_FACES, type FarCard} from './far'
 import {joinMeshes, mergeParts} from './merge'
 import {EVEN_REACH, measureWindExtent, type WindExtent} from './wind'
 import {yieldIfBusy} from './yield'
@@ -29,6 +30,8 @@ function disposeParts(parts: readonly {part: {geometry: THREE.BufferGeometry}}[]
     }
 }
 
+const round = (metres: number) => Math.round(metres * 1000) / 1000
+
 /** Every file of an export, without writing any of them. */
 export async function buildExport(
     source: ExportSource,
@@ -40,9 +43,11 @@ export async function buildExport(
     const pivot = source.pivot()
     const files: ExportFile[] = []
     const faceCounts: Record<string, number> = {}
-    const total = levels + (settings.collision ? 1 : 0)
+    const far = settings.far === true && source.farAway?.() === true
+    const total = levels + (settings.collision ? 1 : 0) + (far ? 1 : 0)
     const hasWind = settings.wind && source.sways()
     let extent: WindExtent | undefined
+    let card: FarCard | null = null
     let done = 0
 
     for (let level = 0; level < levels; level++) {
@@ -68,6 +73,23 @@ export async function buildExport(
 
         // Only the full level is seen up close, where a small relief shows its pixels.
         const merged = mergeParts(parts, name, pivot, extent, level === 0)
+
+        // Drawn from what ships at full detail, before joining lets go of it.
+        if (level === 0 && far) {
+            card = await buildFarCard(merged, name, extent)
+
+            if (card) {
+                faceCounts.far = FAR_FACES
+                files.push({name: `${name}_far.glb`, bytes: new Uint8Array(await writeGLB([farCardMesh(card, name)], `${name}_far`)), faces: FAR_FACES})
+                card.material.map?.dispose()
+                card.material.normalMap?.dispose()
+                card.material.dispose()
+            }
+
+            done++
+            onProgress?.(done, total)
+        }
+
         const meshes = settings.join ? joinMeshes(merged, name) : merged
         const inlineShapes = settings.join && engine === 'unreal' && meshes.length > 0
         let shapeNodes: NamedMesh[] = []
@@ -110,6 +132,13 @@ export async function buildExport(
         engine,
         faces: faceCounts,
         wind: extent ?? null,
+        far: card
+            ? {
+                width: round(card.frame.reach * 2),
+                height: round(card.frame.top - card.frame.bottom),
+                pictureSize: card.pictures.size,
+            }
+            : null,
         ...source.describe(),
     }
 
