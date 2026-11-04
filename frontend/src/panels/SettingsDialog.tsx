@@ -7,7 +7,7 @@
 
 import {FolderOpen, Keyboard, RotateCcw, Search, X} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
-import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook, Trash2} from 'lucide-react'
+import {ArchiveRestore, Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook, Trash2} from 'lucide-react'
 import {useEffect, useMemo, useState, type ReactNode} from 'react'
 import {ColourPicker} from '../components/ColourPicker'
 import {Dialog, Keys, Select, Switch} from '../components/controls'
@@ -25,6 +25,8 @@ import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
 import {useUpdateStore} from '../store/update-store'
 import {RemovedProps} from '../pages/RemovedProps'
+import {canBackUp} from '../platform/backup'
+import {useBackupStore} from '../store/backup-store'
 import {PalettesPage} from './PalettesPage'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
@@ -36,6 +38,7 @@ const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[]
     {id: 'Export', icon: Download},
     {id: 'Keyboard', icon: Keyboard},
     {id: 'Storage', icon: HardDrive},
+    {id: 'Backup', icon: ArchiveRestore},
     {id: 'Recently removed', icon: Trash2},
     {id: 'About', icon: Info},
 ]
@@ -343,6 +346,51 @@ function StoragePage() {
     )
 }
 
+/** Backing up to a file and restoring from one. Folder and cloud backups come later. */
+function BackupPage() {
+    const phase = useBackupStore((state) => state.phase)
+    const progress = useBackupStore((state) => state.progress)
+    const backUp = useBackupStore((state) => state.backUp)
+    const openRestore = useBackupStore((state) => state.openRestore)
+    const stop = useBackupStore((state) => state.stop)
+    const busy = phase !== 'idle'
+
+    if (!canBackUp()) {
+        return <p className="settings__intro">Backups need the desktop app.</p>
+    }
+
+    return (
+        <>
+            <p className="settings__intro">
+                A backup is one .zip file holding every saved prop, its picture and your palettes. Keep it on a USB stick or in a
+                synced folder, and bring your props back on any computer.
+            </p>
+            <SettingRow label="Back up to a file" help="Saves a .zip of your props wherever you choose. Exported files aren't included, since they can be made again.">
+                <button type="button" className="button" disabled={busy} onClick={() => void backUp()}>
+                    Back up to a file…
+                </button>
+            </SettingRow>
+            <SettingRow label="Restore from a backup" help="Shows what's in a backup first. Nothing replaces a prop you have.">
+                <button type="button" className="button" disabled={busy} onClick={() => void openRestore()}>
+                    Restore from a backup…
+                </button>
+            </SettingRow>
+            {busy ? (
+                <div className="backup-progress" role="status">
+                    <span className="setting__help">
+                        {phase === 'backing-up' ? 'Backing up' : phase === 'opening' ? 'Opening the backup' : 'Restoring'}
+                        {progress ? `, ${progress.done} of ${progress.total} files` : '…'}
+                    </span>
+                    <progress className="dialog__progress" max={progress?.total ?? 1} value={progress?.done ?? 0} aria-label="Files done" />
+                    <button type="button" className="button" onClick={stop}>
+                        Stop
+                    </button>
+                </div>
+            ) : null}
+        </>
+    )
+}
+
 const GITHUB_URL = 'https://github.com/AHS12/easy-props'
 
 function UpdateRow() {
@@ -526,6 +574,8 @@ export function SettingsDialog() {
                         <KeyboardPage needle="" />
                     ) : page === 'Storage' ? (
                         <StoragePage />
+                    ) : page === 'Backup' ? (
+                        <BackupPage />
                     ) : page === 'Recently removed' ? (
                         hasDesktopStorage() ? (
                             <RemovedProps layout="rows" />

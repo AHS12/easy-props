@@ -3603,3 +3603,40 @@ html[data-theme='dark'] .dialog__error {
 .removed-props__row .removed-props__actions .button {
     flex: none;
 }
+
+/* A backup or restore under way, on the Backup settings page. */
+.backup-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+}
+
+.backup-progress .dialog__progress {
+    flex: 1;
+}
+
+/* The restore window: groups of props from the backup, ticked to bring in. */
+.restore__groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: min(60vh, 560px);
+    overflow-y: auto;
+}
+
+.restore__grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+
+.restore__grid .restore__tick {
+    display: grid;
+    pointer-events: none;
+}
+
+.home__empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}

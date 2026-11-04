@@ -54,6 +54,8 @@ export interface SettingsStore extends SettingsFile {
     renamePalette(id: string, name: string): void
     setPaletteColours(id: string, colours: readonly string[]): void
     removePalette(id: string): void
+    /** Replaces every saved palette, as a restore does after merging. */
+    setPalettes(palettes: readonly SavedPalette[]): void
     setPropsSort(sort: PropSort): void
 }
 
@@ -176,6 +178,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         removePalette: (id) => change({palettes: get().palettes.filter((palette) => palette.id !== id)}),
 
         setPropsSort: (propsSort) => change({propsSort}),
+
+        setPalettes: (palettes) => change({palettes: [...palettes]}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})

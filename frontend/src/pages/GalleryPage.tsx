@@ -6,13 +6,15 @@
  * breath: what have I got, and where do I start.
  */
 
-import {ChevronRight, Pencil, RotateCcw, Trash2} from 'lucide-react'
+import {ArchiveRestore, ChevronRight, Pencil, RotateCcw, Trash2} from 'lucide-react'
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {presetGroups, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
 import {guardUnsaved} from '../core/commands/commands'
 import {canUndo} from '../core/history/history'
 import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
+import {canBackUp} from '../platform/backup'
+import {useBackupStore} from '../store/backup-store'
 import {useEditorStore} from '../store/editor-store'
 import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
 import {PropPicture} from './prop-tile'
@@ -238,7 +240,15 @@ export function GalleryPage() {
                             Looking for your props…
                         </p>
                     ) : gallery.length === 0 ? (
-                        <p className="dialog__hint">Props you save show up here.</p>
+                        <div className="home__empty">
+                            <p className="dialog__hint">Props you save show up here.</p>
+                            {canBackUp() ? (
+                                <button type="button" className="button" onClick={() => void useBackupStore.getState().openRestore()}>
+                                    <ArchiveRestore size={13} aria-hidden="true" />
+                                    Bring back props from a backup
+                                </button>
+                            ) : null}
+                        </div>
                     ) : (
                         <div ref={recentList}>
                             <ul className="tile-grid">

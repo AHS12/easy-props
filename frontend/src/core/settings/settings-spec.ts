@@ -448,7 +448,7 @@ const paletteSchema = z.object({
 })
 
 /** One saved palette, or nothing if it's damaged, so one bad entry can't lose the rest. */
-function savedPalette(entry: unknown): SavedPalette[] {
+export function savedPalette(entry: unknown): SavedPalette[] {
     const result = paletteSchema.safeParse(entry)
 
     return result.success ? [{...result.data, colours: result.data.colours.map((colour) => colour.toLowerCase())}] : []

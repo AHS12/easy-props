@@ -1,5 +1,19 @@
 export namespace backend {
 	
+	export class BackupSummary {
+	    props: number;
+	    bytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BackupSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.props = source["props"];
+	        this.bytes = source["bytes"];
+	    }
+	}
 	export class ExportFile {
 	    name: string;
 	    contents: number[];
@@ -14,6 +28,63 @@ export namespace backend {
 	        this.contents = source["contents"];
 	    }
 	}
+	export class HeldProp {
+	    id: string;
+	    savedAt: string;
+	    size: number;
+	    hasPicture: boolean;
+	    status: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HeldProp(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.savedAt = source["savedAt"];
+	        this.size = source["size"];
+	        this.hasPicture = source["hasPicture"];
+	        this.status = source["status"];
+	    }
+	}
+	export class HeldBackup {
+	    app: string;
+	    madeAt: string;
+	    props: HeldProp[];
+	    palettes: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HeldBackup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.app = source["app"];
+	        this.madeAt = source["madeAt"];
+	        this.props = this.convertValues(source["props"], HeldProp);
+	        this.palettes = source["palettes"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class LibraryInfo {
 	    folder: string;
 	    props: number;
@@ -66,6 +137,22 @@ export namespace backend {
 	        this.removedAt = source["removedAt"];
 	        this.size = source["size"];
 	        this.hasPicture = source["hasPicture"];
+	    }
+	}
+	export class RestoreChoice {
+	    id: string;
+	    copyId: string;
+	    copyContents: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RestoreChoice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.copyId = source["copyId"];
+	        this.copyContents = source["copyContents"];
 	    }
 	}
 	export class UpdateInfo {

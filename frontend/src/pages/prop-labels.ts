@@ -41,7 +41,7 @@ export function savedLabel(savedAt: string, now: Date = new Date()): string {
     return new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short'}).format(saved)
 }
 
-export function displayName(tree: SavedTree): string {
+export function displayName(tree: Pick<SavedTree, 'name'>): string {
     const name = typeof tree.name === 'string' ? tree.name.trim() : ''
 
     return name === '' ? 'Untitled prop' : name

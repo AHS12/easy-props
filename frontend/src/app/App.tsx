@@ -8,6 +8,8 @@ import {CommandPalette} from '../panels/CommandPalette'
 import {ConfirmDialog} from '../panels/ConfirmDialog'
 import {Details} from '../panels/Details'
 import {BatchExportDialog} from '../panels/BatchExportDialog'
+import {RestoreDialog} from '../panels/RestoreDialog'
+import {clearHolding} from '../platform/backup'
 import {VariationGrid} from '../panels/VariationGrid'
 import {ExportDialog} from '../panels/ExportDialog'
 import {LeftPanel} from '../panels/LeftPanel'
@@ -225,6 +227,8 @@ export function App() {
 
                 // Only now does Go know which folder the props are in.
                 void forgetOldRemovedTrees().catch(() => undefined)
+                // Whatever a restore left unpacked when the app last closed.
+                void clearHolding().catch(() => undefined)
 
                 if (values.startOn === 'last' && lastTreeId) {
                     void useEditorStore.getState().openTree(lastTreeId)
@@ -308,6 +312,7 @@ export function App() {
             <SaveDialog />
             <ExportDialog />
             <BatchExportDialog />
+            <RestoreDialog />
             <VariationGrid />
             <SettingsDialog />
             <ConfirmDialog />

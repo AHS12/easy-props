@@ -15,6 +15,7 @@ export type SettingsPageId =
     | 'Export'
     | 'Keyboard'
     | 'Storage'
+    | 'Backup'
     | 'Recently removed'
     | 'About'
 

@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    ArchiveRestore, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
@@ -20,6 +20,8 @@ import {findBudgetTarget} from '../export/pipeline/budget'
 import {FAR_LEVEL, LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
+import {canBackUp} from '../../platform/backup'
+import {useBackupStore} from '../../store/backup-store'
 import {useUiStore} from '../../store/ui-store'
 import {useUpdateStore} from '../../store/update-store'
 import {canCheckForUpdates} from '../../platform/update'
@@ -176,6 +178,26 @@ export const COMMANDS: readonly Command[] = [
         global: true,
         keywords: 'my props gallery library saved open recent all browse',
         run: (state) => state.showProps(),
+    },
+    {
+        id: 'back-up',
+        label: 'Back up to a file…',
+        group: 'File',
+        icon: ArchiveRestore,
+        global: true,
+        keywords: 'backup save zip copy safe keep all props palettes another computer',
+        unavailable: () => (canBackUp() ? null : 'Backups need the desktop app.'),
+        run: () => void useBackupStore.getState().backUp(),
+    },
+    {
+        id: 'restore-backup',
+        label: 'Restore from a backup…',
+        group: 'File',
+        icon: ArchiveRestore,
+        global: true,
+        keywords: 'restore backup zip bring back load import another computer',
+        unavailable: () => (canBackUp() ? null : 'Backups need the desktop app.'),
+        run: () => void useBackupStore.getState().openRestore(),
     },
     {
         id: 'recently-removed',

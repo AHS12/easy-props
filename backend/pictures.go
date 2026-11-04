@@ -13,22 +13,32 @@ import (
 	"strings"
 )
 
-// picturePath is where the picture of a saved prop, or of one in the bin, lives.
-func (a *App) picturePath(id string, inBin bool) (string, error) {
-	if !inBin {
-		return a.treePath(id, treePNGSuffix)
-	}
-
+// picturePath is where the picture of a saved prop lives, or of one in the bin
+// or the holding folder when place names it.
+func (a *App) picturePath(id string, place string) (string, error) {
 	if err := checkTreeID(id); err != nil {
 		return "", err
 	}
 
-	bin, err := a.binDir()
+	var (
+		folder string
+		err    error
+	)
+
+	switch place {
+	case binFolderName:
+		folder, err = a.binDir()
+	case holdingFolderName:
+		folder, err = a.holdingDir()
+	default:
+		return a.treePath(id, treePNGSuffix)
+	}
+
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(bin, id+treePNGSuffix), nil
+	return filepath.Join(folder, id+treePNGSuffix), nil
 }
 
 // picturePathPrefix is where the pictures are served from. The embedded
@@ -47,8 +57,15 @@ func PictureHandler(a *App) http.Handler {
 		}
 
 		name, ok := strings.CutPrefix(request.URL.Path, picturePathPrefix)
-		// Props in the bin keep their pictures, so the bin can show them too.
-		name, inBin := strings.CutPrefix(name, binFolderName+"/")
+		// Props in the bin and in a backup being restored keep their pictures,
+		// so those screens can show them too.
+		place := ""
+		for _, folder := range []string{binFolderName, holdingFolderName} {
+			if rest, found := strings.CutPrefix(name, folder+"/"); found {
+				place, name = folder, rest
+			}
+		}
+
 		id, isPicture := strings.CutSuffix(name, treePNGSuffix)
 
 		if !ok || !isPicture {
@@ -56,7 +73,7 @@ func PictureHandler(a *App) http.Handler {
 			return
 		}
 
-		path, err := a.picturePath(id, inBin)
+		path, err := a.picturePath(id, place)
 		if err != nil {
 			http.NotFound(writer, request)
 			return
