@@ -74,6 +74,10 @@ export function ReadPropThumbnail(arg1) {
   return window['go']['backend']['App']['ReadPropThumbnail'](arg1);
 }
 
+export function ReadPropsIndex() {
+  return window['go']['backend']['App']['ReadPropsIndex']();
+}
+
 export function ReadSettings() {
   return window['go']['backend']['App']['ReadSettings']();
 }
@@ -98,6 +102,10 @@ export function ShowFolder(arg1) {
   return window['go']['backend']['App']['ShowFolder'](arg1);
 }
 
+export function ShowProp(arg1) {
+  return window['go']['backend']['App']['ShowProp'](arg1);
+}
+
 export function WriteDraft(arg1) {
   return window['go']['backend']['App']['WriteDraft'](arg1);
 }
@@ -112,6 +120,14 @@ export function WriteFiles(arg1, arg2) {
 
 export function WriteProp(arg1, arg2, arg3) {
   return window['go']['backend']['App']['WriteProp'](arg1, arg2, arg3);
+}
+
+export function WritePropPicture(arg1, arg2) {
+  return window['go']['backend']['App']['WritePropPicture'](arg1, arg2);
+}
+
+export function WritePropsIndex(arg1) {
+  return window['go']['backend']['App']['WritePropsIndex'](arg1);
 }
 
 export function WriteSettings(arg1) {

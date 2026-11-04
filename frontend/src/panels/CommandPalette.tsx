@@ -17,7 +17,7 @@ import {COMMANDS, findCommand, runCommand, shortcutFor, type Command} from '../c
 import {parsePrefix, rankEntries, type PaletteSection} from '../core/commands/palette-search'
 import {EXPORT_SETTINGS} from '../core/settings/export-settings'
 import {SETTING_SPECS} from '../core/settings/settings-spec'
-import {useEditorStore, type EditorStore} from '../store/editor-store'
+import {isHomePage, useEditorStore, type EditorStore} from '../store/editor-store'
 import {settingValue, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 
@@ -184,7 +184,7 @@ function settingEntries(): readonly Entry[] {
 }
 
 function allEntries(state: EditorStore): readonly Entry[] {
-    const onHome = state.page === 'gallery'
+    const onHome = isHomePage(state.page)
     const actions = COMMANDS.filter((command) => command.group !== 'Presets' && !HIDDEN.has(command.id))
         .filter((command) => !onHome || command.global)
         .map((command) => commandEntry(command, state, 'Actions'))
@@ -216,7 +216,7 @@ function allEntries(state: EditorStore): readonly Entry[] {
 
 /** What an empty palette offers. */
 function startingEntries(state: EditorStore): readonly Entry[] {
-    const onHome = state.page === 'gallery'
+    const onHome = isHomePage(state.page)
     const usable = (command: Command) => !onHome || command.global
     const relevant = COMMANDS.filter((command) => usable(command) && command.relevant?.(state)).map((command) =>
         commandEntry(command, state, 'For this selection'),

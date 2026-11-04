@@ -41,9 +41,27 @@ function savePresetPictures(): Plugin {
     }
 }
 
+/**
+ * Pictures of saved props are served by Go. Under `wails dev`, Wails asks Vite first
+ * and only falls back to Go on a 404, but Vite answers every unknown address with
+ * the app's page, so this says plainly that it has no such file.
+ */
+function leavePropPicturesToGo(): Plugin {
+    return {
+        name: 'leave-prop-pictures-to-go',
+        apply: 'serve',
+        configureServer(server) {
+            server.middlewares.use('/your-props/', (_request, response) => {
+                response.statusCode = 404
+                response.end()
+            })
+        },
+    }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react(), tailwind(), savePresetPictures()],
+    plugins: [react(), tailwind(), savePresetPictures(), leavePropPicturesToGo()],
     css: {
         postcss: {
             plugins: [

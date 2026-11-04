@@ -34,6 +34,7 @@ export namespace backend {
 	    id: string;
 	    savedAt: string;
 	    size: number;
+	    hasPicture: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new PropFile(source);
@@ -44,6 +45,7 @@ export namespace backend {
 	        this.id = source["id"];
 	        this.savedAt = source["savedAt"];
 	        this.size = source["size"];
+	        this.hasPicture = source["hasPicture"];
 	    }
 	}
 	export class UpdateInfo {

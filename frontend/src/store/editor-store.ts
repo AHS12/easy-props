@@ -64,8 +64,11 @@ import {
     deleteTree,
     listTrees,
     newTreeId,
+    pictureAddress,
     readTree,
+    showTreeFile,
     writeTree,
+    writeTreePicture,
     type SavedTree,
 } from '../platform/library'
 import {findAttachment} from '../core/scene/attachment'
@@ -98,6 +101,18 @@ function describeFailure(
 
     return `Could not ${action} the file. ${detail}`
 }
+
+/** Which screen is showing. Home and Your props show no prop, so editing commands sleep there. */
+export type Page = 'gallery' | 'props' | 'editor'
+
+/** True on the pages without a prop on screen. */
+export const isHomePage = (page: Page): boolean => page !== 'editor'
+
+/** Pictures of saved props are drawn at this size, so the Your props panel can show them large. */
+const PICTURE_SIZE = 512
+
+/** True while missing pictures are being drawn, so two runs never overlap. */
+let drawingPictures = false
 
 /** A name that is not already in the gallery. "Oak" becomes "Oak 2". */
 function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
@@ -296,9 +311,18 @@ export interface EditorStore {
     gallery: readonly SavedTree[]
     galleryLoading: boolean
     /** Which screen is showing. The app opens on the gallery. */
-    page: 'gallery' | 'editor'
+    page: Page
     showGallery(): void
+    /** The page listing every saved prop. */
+    showProps(): void
     showEditor(): void
+    /** The prop picked on Your props, whose details show beside the list. */
+    pickedPropId: string | null
+    pickProp(id: string | null): void
+    /** Draws pictures for saved props that have none, one at a time, while a page of props is open. */
+    drawMissingPictures(): Promise<void>
+    /** Shows a saved prop's file in the system's file manager. */
+    showPropFile(id: string): Promise<void>
     /** The gallery entry this session belongs to, once it has one. */
     currentTreeId: string | null
     treeName: string
@@ -428,6 +452,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             // list, a gallery of trees is a gallery.
             const thumbnail = await renderTreeThumbnail(state.scene, {
                 style: getStyleProfile(state.style),
+                size: PICTURE_SIZE,
             })
 
             await writeTree(id as string, text, thumbnail)
@@ -780,7 +805,61 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         galleryLoading: false,
         page: 'gallery',
         showGallery: () => set({page: 'gallery'}),
+        showProps: () => set({page: 'props'}),
         showEditor: () => set({page: 'editor'}),
+        pickedPropId: null,
+        pickProp: (id) => set({pickedPropId: id}),
+
+        drawMissingPictures: async () => {
+            if (drawingPictures) {
+                return
+            }
+
+            drawingPictures = true
+
+            try {
+                for (const prop of get().gallery.filter((entry) => entry.thumbnail === null && entry.kind !== null)) {
+                    // Leaving for the editor stops it, so drawing never competes with editing.
+                    if (!isHomePage(get().page)) {
+                        return
+                    }
+
+                    await afterPaint()
+
+                    try {
+                        const project = parseProject(await readTree(prop.id))
+                        const picture = await renderTreeThumbnail(project.scene, {
+                            style: getStyleProfile(asStyleId(project.style)),
+                            size: PICTURE_SIZE,
+                        })
+
+                        if (!picture) {
+                            continue
+                        }
+
+                        await writeTreePicture(prop.id, picture)
+
+                        set({
+                            gallery: get().gallery.map((entry) =>
+                                entry.id === prop.id ? {...entry, thumbnail: pictureAddress(entry.id, entry.savedAt)} : entry,
+                            ),
+                        })
+                    } catch {
+                        // A prop that can't be drawn keeps its icon; the rest still get theirs.
+                    }
+                }
+            } finally {
+                drawingPictures = false
+            }
+        },
+
+        showPropFile: async (id) => {
+            try {
+                await showTreeFile(id)
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'read'), undoable: false}})
+            }
+        },
         currentTreeId: null,
         treeName: 'My tree',
 
@@ -977,11 +1056,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             const state = get()
 
             try {
+                const name = state.gallery.find((tree) => tree.id === id)?.name
+
                 await deleteTree(id)
 
                 set({
                     currentTreeId: state.currentTreeId === id ? null : state.currentTreeId,
-                    toast: {message: 'Tree deleted', undoable: false},
+                    pickedPropId: state.pickedPropId === id ? null : state.pickedPropId,
+                    toast: {message: name ? `Removed "${name}"` : 'Prop removed', undoable: false},
                 })
 
                 await get().refreshGallery()

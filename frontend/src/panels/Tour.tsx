@@ -174,7 +174,9 @@ function TourRun({page, onDone}: {page: TourPage; onDone(): void}) {
 export function Tour() {
     const open = useUiStore((state) => state.tourOpen)
     const setOpen = useUiStore((state) => state.setTourOpen)
-    const page = useEditorStore((state) => state.page)
+    // Your props has no tour of its own; it's reached from Home, whose tour points the way.
+    const page = useEditorStore((state) => (state.page === 'props' ? 'gallery' : state.page))
+    const onProps = useEditorStore((state) => state.page === 'props')
     const loaded = useSettingsStore((state) => state.loaded)
     const seen = useSettingsStore((state) => (page === 'editor' ? state.tourSeen : state.galleryTourSeen))
     const shownFor = useRef(page)
@@ -209,5 +211,5 @@ export function Tour() {
     }
 
     // Keyed by page, so a tour always starts from its own first step.
-    return open ? <TourRun key={page} page={page} onDone={finish} /> : null
+    return open && !onProps ? <TourRun key={page} page={page} onDone={finish} /> : null
 }

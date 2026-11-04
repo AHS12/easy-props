@@ -12,14 +12,14 @@ import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
 import {APP_VERSION} from '../core/export/export-preferences'
 import {closeWindow, hasInsetTitleBar, hasWindowControls, minimiseWindow, toggleMaximiseWindow, windowIsMaximised} from '../platform/window'
-import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
+import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
 
 /** A menu is command ids, with null for a divider. */
 const MENUS: readonly {readonly title: string; readonly items: readonly (string | null)[]}[] = [
     {
         title: 'File',
-        items: ['new-tree', 'new-rock', 'new-bush', null, 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'batch-export', null, 'settings'],
+        items: ['new-tree', 'new-rock', 'new-bush', null, 'home', 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'batch-export', null, 'settings'],
     },
     {
         title: 'Edit',
@@ -78,7 +78,7 @@ function MenuEntries({items, onDone}: {items: readonly (string | null)[]; onDone
                 const command = id ? findCommand(id) : undefined
 
                 // The home page has no prop on screen to act on.
-                const off = command && ((state.page === 'gallery' && !command.global) || command.unavailable?.(state))
+                const off = command && ((isHomePage(state.page) && !command.global) || command.unavailable?.(state))
 
                 return off ? [command.id] : []
             })}

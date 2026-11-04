@@ -485,6 +485,22 @@ export function findPreset(id: string): TreePreset | undefined {
 export const familyOfPreset = (id: string | null | undefined): PropFamily =>
     familyOfCategory(id ? findPreset(id)?.category : undefined)
 
+const GENERATOR_FAMILIES: Readonly<Record<string, PropFamily>> = {
+    'cut-rock': 'rock',
+    rock: 'rock',
+    bush: 'bush',
+    plant: 'bush',
+    grass: 'bush',
+    cactus: 'bush',
+}
+
+/**
+ * The tab a prop belongs under, from its preset when it names one, and otherwise
+ * from the generator that made it, as files saved before 0.3.5 name no preset.
+ */
+export const familyOfProp = (presetId: string | null | undefined, generatorId: string | null | undefined): PropFamily =>
+    presetId && findPreset(presetId) ? familyOfPreset(presetId) : (GENERATOR_FAMILIES[generatorId ?? ''] ?? 'tree')
+
 /** The presets under their headings, the three first trees leading the list. */
 export const presetGroups: readonly {title: string; family: PropFamily; presets: readonly TreePreset[]}[] = [
     {title: 'Favourites', family: 'tree', presets: treePresets.slice(1, 4)},

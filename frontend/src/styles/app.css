@@ -3330,3 +3330,156 @@ html[data-theme='dark'] .dialog__error {
 .tool-coach {
     display: inline-flex;
 }
+
+/* Your props: a grid to find one, and a panel beside it about the picked one. */
+.props-page__inner {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-6) var(--space-9);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.props-page__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.props-page__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.props-page__search {
+    width: 260px;
+}
+
+.props-page__sort {
+    width: 150px;
+    margin-left: auto;
+}
+
+.kind-tab__count {
+    color: var(--text-tertiary);
+}
+
+.props-page__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+    gap: var(--space-5);
+}
+
+.props-page__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.props-page__grid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.prop-tile[data-picked='true'] {
+    border-color: var(--selection);
+    box-shadow: 0 0 0 1px var(--selection);
+}
+
+.props-page__details {
+    position: sticky;
+    top: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+}
+
+.props-page__preview {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #2a2c2f;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.props-page__preview img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.props-page__name {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font: var(--text-h2);
+    overflow-wrap: anywhere;
+}
+
+.props-page__rename {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.props-page__facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px var(--space-3);
+    margin: 0;
+    font: var(--text-label);
+}
+
+.props-page__facts dt {
+    color: var(--text-tertiary);
+}
+
+.props-page__facts dd {
+    margin: 0;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.props-page__actions,
+.props-page__confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.props-page__main-actions,
+.props-page__more-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.props-page__main-actions .button {
+    flex: 1;
+}
+
+/* Narrow windows put the panel under the grid instead of squeezing both. */
+@media (max-width: 900px) {
+    .props-page__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .props-page__details {
+        position: static;
+    }
+
+    .props-page__preview {
+        max-width: 240px;
+    }
+}

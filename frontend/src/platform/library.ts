@@ -1,15 +1,18 @@
 /**
  * The gallery's files, from the frontend's side.
  *
- * A tree in the gallery is one project file in a folder the app owns, plus a
+ * A prop in the gallery is one project file in a folder the app owns, plus a
  * PNG beside it. Go lists and moves the files; this module turns that into
- * something a panel can draw.
+ * something a page can draw.
  *
- * Reading a tree's name is the only parsing here, and it is deliberately
- * shallow: a gallery with one unreadable file should still list the rest.
+ * Pictures aren't read here at all. Go serves them at an address of their own,
+ * so a page only loads the ones on screen. What each file holds comes from the
+ * index of saved props, and only files that changed since are read again.
  */
 
-import {pngDataUrlFromBinding, textFromBinding} from './bytes'
+import {summarizeProp, type PropSummary} from '../core/library/prop-summary'
+import {parsePropsIndex, refreshPropsIndex, serializePropsIndex} from '../core/library/props-index'
+import {textFromBinding} from './bytes'
 
 const BINDINGS = (): LibraryBindings | undefined =>
     typeof window === 'undefined'
@@ -20,23 +23,28 @@ interface PropFile {
     id: string
     savedAt: string
     size: number
+    hasPicture: boolean
 }
 
 interface LibraryBindings {
     ListProps(): Promise<PropFile[] | null>
     ReadProp(id: string): Promise<unknown>
-    ReadPropThumbnail(id: string): Promise<unknown>
     WriteProp(id: string, contents: number[], thumbnail: number[]): Promise<void>
+    WritePropPicture(id: string, picture: number[]): Promise<void>
     DeleteProp(id: string): Promise<void>
+    ShowProp(id: string): Promise<void>
+    ReadPropsIndex(): Promise<unknown>
+    WritePropsIndex(contents: number[]): Promise<void>
 }
 
-/** One tree as the gallery shows it. */
-export interface SavedTree {
+/** One saved prop as the pages show it. */
+export interface SavedTree extends PropSummary {
     readonly id: string
-    readonly name: string
     /** ISO timestamp of the last save. */
     readonly savedAt: string
-    /** A PNG data URL, or null when the preview could not be drawn. */
+    /** Bytes on disk. */
+    readonly size: number
+    /** Where its picture is served, or null when it has none yet. */
     readonly thumbnail: string | null
 }
 
@@ -63,22 +71,19 @@ function dataUrlToBytes(dataUrl: string): number[] {
     return bytes
 }
 
-/** The name inside a project file, without validating the whole document. */
-function nameOf(text: string): string {
+/** The address Go serves a prop's picture at. The time saved keeps an old copy from showing. */
+export const pictureAddress = (id: string, savedAt: string): string =>
+    `/your-props/${encodeURIComponent(id)}.png?v=${encodeURIComponent(savedAt)}`
+
+async function readIndex(bindings: LibraryBindings): Promise<string | null> {
     try {
-        const parsed = JSON.parse(text)
-
-        if (parsed && typeof parsed.name === 'string' && parsed.name.trim()) {
-            return parsed.name
-        }
+        return textFromBinding(await bindings.ReadPropsIndex())
     } catch {
-        // A broken file still belongs in the list, marked as unreadable.
+        return null
     }
-
-    return 'Unreadable tree'
 }
 
-/** Every saved tree, newest first. */
+/** Every saved prop, newest first. */
 export async function listTrees(): Promise<SavedTree[]> {
     const bindings = BINDINGS()
 
@@ -86,23 +91,24 @@ export async function listTrees(): Promise<SavedTree[]> {
         return []
     }
 
-    const files = (await bindings.ListProps()) ?? []
+    const [files, indexText] = await Promise.all([bindings.ListProps().then((list) => list ?? []), readIndex(bindings)])
 
-    return Promise.all(
-        files.map(async (file) => {
-            const [text, thumbnail] = await Promise.all([
-                bindings.ReadProp(file.id).then(textFromBinding),
-                bindings.ReadPropThumbnail(file.id).catch(() => null),
-            ])
-
-            return {
-                id: file.id,
-                name: nameOf(text),
-                savedAt: file.savedAt,
-                thumbnail: pngDataUrlFromBinding(thumbnail),
-            }
-        }),
+    const {index, summaries, changed} = await refreshPropsIndex(parsePropsIndex(indexText), files, async (id) =>
+        summarizeProp(textFromBinding(await bindings.ReadProp(id))),
     )
+
+    if (changed) {
+        // Losing the index only costs reading the files again next time.
+        void bindings.WritePropsIndex([...new TextEncoder().encode(serializePropsIndex(index))]).catch(() => undefined)
+    }
+
+    return files.map((file) => ({
+        ...(summaries.get(file.id) as PropSummary),
+        id: file.id,
+        savedAt: file.savedAt,
+        size: file.size,
+        thumbnail: file.hasPicture ? pictureAddress(file.id, file.savedAt) : null,
+    }))
 }
 
 /** A tree's project text, ready for `parseProject`. */
@@ -133,6 +139,28 @@ export async function writeTree(
         [...new TextEncoder().encode(text)],
         thumbnail ? dataUrlToBytes(thumbnail) : [],
     )
+}
+
+/** Writes only a prop's picture, so it keeps its place in Last changed. */
+export async function writeTreePicture(id: string, picture: string): Promise<void> {
+    const bindings = BINDINGS()
+
+    if (!bindings) {
+        throw new LibraryUnavailableError()
+    }
+
+    await bindings.WritePropPicture(id, dataUrlToBytes(picture))
+}
+
+/** Shows the prop's file in the system's file manager. */
+export async function showTreeFile(id: string): Promise<void> {
+    const bindings = BINDINGS()
+
+    if (!bindings) {
+        throw new LibraryUnavailableError()
+    }
+
+    await bindings.ShowProp(id)
 }
 
 export async function deleteTree(id: string): Promise<void> {

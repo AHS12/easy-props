@@ -26,6 +26,10 @@ const settingsFileName = "settings.json"
 // real preferences with a file that says nothing.
 var errEmptySettings = errors.New("easy-props: refusing to write empty settings")
 
+// propsIndexFileName names the interface's index of saved props, kept beside the
+// settings. It is a shortcut the interface can rebuild, never the truth.
+const propsIndexFileName = "your-props-index.json"
+
 // LibraryInfo describes the library folder for the Storage settings page.
 type LibraryInfo struct {
 	Folder string `json:"folder"`
@@ -56,6 +60,36 @@ func (a *App) WriteSettings(contents []byte) error {
 // error: it returns nil, nil, and the frontend starts from its defaults.
 func (a *App) ReadSettings() ([]byte, error) {
 	path, err := a.settingsPath()
+	if err != nil {
+		return nil, err
+	}
+
+	contents, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+
+	return contents, err
+}
+
+// WritePropsIndex stores the interface's index of saved props.
+func (a *App) WritePropsIndex(contents []byte) error {
+	path, err := a.propsIndexPath()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("easy-props: cannot create the settings folder %q: %w", filepath.Dir(path), err)
+	}
+
+	return writeFileAtomic(path, contents)
+}
+
+// ReadPropsIndex returns the index of saved props. A missing one is not an
+// error: it returns nil, nil, and the interface builds it again.
+func (a *App) ReadPropsIndex() ([]byte, error) {
+	path, err := a.propsIndexPath()
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +186,31 @@ func fileManagerCommand(dir string) (string, string) {
 	return "xdg-open", dir
 }
 
+// revealInFileManager opens the folder holding path with the file picked out.
+// Where the system can't pick a file, the folder alone is opened.
+func revealInFileManager(path string) error {
+	path = filepath.Clean(path)
+	name, args := revealCommand(path)
+	command := exec.Command(name, args...)
+	quoteForExplorer(command, path)
+
+	return command.Start()
+}
+
+// revealCommand is what shows path picked out in its folder.
+func revealCommand(path string) (string, []string) {
+	path = filepath.Clean(path)
+
+	switch runtime.GOOS {
+	case "windows":
+		return "explorer", []string{"/select," + path}
+	case "darwin":
+		return "open", []string{"-R", path}
+	}
+
+	return "xdg-open", []string{filepath.Dir(path)}
+}
+
 // settingsPath returns the path of the settings file. draftRoot overrides the
 // folder in tests, as it does for the draft.
 func (a *App) settingsPath() (string, error) {
@@ -165,4 +224,14 @@ func (a *App) settingsPath() (string, error) {
 	}
 
 	return filepath.Join(folder, settingsFileName), nil
+}
+
+// propsIndexPath returns the path of the index, beside the settings.
+func (a *App) propsIndexPath() (string, error) {
+	settings, err := a.settingsPath()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(filepath.Dir(settings), propsIndexFileName), nil
 }

@@ -7,6 +7,7 @@
  */
 
 import {z} from 'zod'
+import type {PropSort} from '../library/prop-summary'
 
 export type SettingPage = 'General' | 'Appearance' | 'Viewport' | 'Performance' | 'Export'
 
@@ -377,6 +378,8 @@ export interface SettingsFile {
     readonly myColours: readonly string[]
     /** Palettes saved with a name, such as one for each game. */
     readonly palettes: readonly SavedPalette[]
+    /** How Your props is sorted. */
+    readonly propsSort: PropSort
 }
 
 /** A palette saved with a name, for one set of colours. */
@@ -405,6 +408,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     recentColours: [],
     myColours: [],
     palettes: [],
+    propsSort: 'changed',
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -474,6 +478,7 @@ const fileSchema = z.object({
     recentColours: colourList,
     myColours: colourList,
     palettes: z.array(z.unknown()).catch([]).transform((entries) => entries.flatMap(savedPalette)),
+    propsSort: z.enum(['changed', 'name', 'made']).catch('changed'),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */

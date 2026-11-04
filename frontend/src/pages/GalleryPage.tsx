@@ -6,62 +6,19 @@
  * breath: what have I got, and where do I start.
  */
 
-import {Box, Brush, Pencil, RotateCcw, Search, Trash2, TreePine, X, type LucideIcon} from 'lucide-react'
-import {useEffect, useMemo, useState} from 'react'
+import {ChevronRight, Pencil, RotateCcw, Trash2} from 'lucide-react'
+import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {presetGroups, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
 import {guardUnsaved} from '../core/commands/commands'
 import {canUndo} from '../core/history/history'
 import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
 import {useEditorStore} from '../store/editor-store'
+import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
+import {PropPicture} from './prop-tile'
 
-const FAMILY_ICONS: Readonly<Record<PropFamily, LucideIcon>> = {tree: TreePine, rock: Box, bush: Brush}
-
-const MINUTE = 60_000
-const HOUR = 60 * MINUTE
-const DAY = 24 * HOUR
-
-/** Whole calendar days between two moments, so a DST change is still one day. */
-function calendarDaysBetween(from: Date, to: Date): number {
-    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate())
-    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate())
-
-    return Math.round((end.getTime() - start.getTime()) / DAY)
-}
-
-/** How long ago a tree was saved, in the fewest words that are still true. */
-function savedLabel(savedAt: string, now: Date = new Date()): string {
-    const saved = new Date(savedAt)
-    const elapsed = now.getTime() - saved.getTime()
-
-    if (Number.isNaN(elapsed) || elapsed < MINUTE) {
-        return 'just now'
-    }
-
-    const minutes = Math.floor(elapsed / MINUTE)
-
-    if (minutes < 60) {
-        return `${minutes} min ago`
-    }
-
-    const hours = Math.floor(elapsed / HOUR)
-
-    if (hours < 24) {
-        return hours === 1 ? '1 hour ago' : `${hours} hours ago`
-    }
-
-    if (calendarDaysBetween(saved, now) === 1) {
-        return 'yesterday'
-    }
-
-    return new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short'}).format(saved)
-}
-
-function displayName(tree: SavedTree): string {
-    const name = typeof tree.name === 'string' ? tree.name.trim() : ''
-
-    return name === '' ? 'Untitled tree' : name
-}
+/** Home shows the latest saves in one row; Your props has the rest. */
+const RECENT_MOST = 8
 
 interface CardProps {
     tree: SavedTree
@@ -74,7 +31,7 @@ interface CardProps {
     onRename(name: string): void
 }
 
-/** One saved tree. The body opens it; delete is a sibling, not a nested button. */
+/** One saved prop. The body opens it; the actions are siblings, not nested buttons. */
 function TreeCard({
     tree,
     current,
@@ -141,7 +98,7 @@ function TreeCard({
                 <div
                     className="prop-tile__panel"
                     role="group"
-                    aria-label={`Delete ${name}?`}
+                    aria-label={`Remove ${name}?`}
                     onKeyDown={(event) => {
                         if (event.key === 'Escape') {
                             event.preventDefault()
@@ -149,14 +106,14 @@ function TreeCard({
                         }
                     }}
                 >
-                    <p className="prop-tile__question">Delete “{name}”?</p>
-                    <p className="dialog__hint">This cannot be undone.</p>
+                    <p className="prop-tile__question">Remove “{name}”?</p>
+                    <p className="dialog__hint">It can't be brought back.</p>
                     <div className="prop-tile__choices">
                         <button type="button" className="button" autoFocus onClick={onCancel}>
                             Keep it
                         </button>
                         <button type="button" className="button button--danger" onClick={onDelete}>
-                            Delete
+                            Remove
                         </button>
                     </div>
                 </div>
@@ -168,11 +125,7 @@ function TreeCard({
         <li className="prop-tile" data-current={current}>
             <button type="button" className="prop-tile__open" title={name} onClick={onOpen}>
                 <span className="prop-tile__thumb">
-                    {tree.thumbnail ? (
-                        <img src={tree.thumbnail} alt="" draggable={false} />
-                    ) : (
-                        <TreePine size={30} aria-hidden="true" />
-                    )}
+                    <PropPicture tree={tree} />
                 </span>
                 <span className="prop-tile__name">{name}</span>
                 <span className="prop-tile__meta">
@@ -196,8 +149,8 @@ function TreeCard({
                 <button
                     type="button"
                     className="icon-button icon-button--overlay"
-                    aria-label={`Delete ${name}`}
-                    title="Delete"
+                    aria-label={`Remove ${name}`}
+                    title="Remove"
                     onClick={onAskDelete}
                 >
                     <Trash2 size={12} aria-hidden="true" />
@@ -221,25 +174,53 @@ export function GalleryPage() {
     const renameTree = useEditorStore((state) => state.renameTree)
     const removeTree = useEditorStore((state) => state.removeTree)
     const showEditor = useEditorStore((state) => state.showEditor)
+    const showProps = useEditorStore((state) => state.showProps)
     const treeName = useEditorStore((state) => state.treeName)
     const history = useEditorStore((state) => state.history)
     const propInHand = useEditorStore((state) => state.propInHand)
 
     const [family, setFamily] = useState<PropFamily>('tree')
-    const [search, setSearch] = useState('')
     const [confirmingId, setConfirmingId] = useState<string | null>(null)
+    const [perRow, setPerRow] = useState(RECENT_MOST)
+    const recentList = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         void refreshGallery()
         void refreshDraft()
     }, [refreshGallery, refreshDraft])
 
-    const needle = search.trim().toLowerCase()
+    const hasProps = gallery.length > 0
 
-    const visible = useMemo(
-        () => (needle === '' ? gallery : gallery.filter((tree) => displayName(tree).toLowerCase().includes(needle))),
-        [gallery, needle],
-    )
+    // One row of the latest saves, as many as fit across, so Home stays a start page.
+    useLayoutEffect(() => {
+        const list = recentList.current
+
+        if (!list) {
+            return
+        }
+
+        // The grid fills the row with as many columns as fit, whether or not there
+        // are tiles for them, so its column count is the answer at any interface scale.
+        const measure = () => {
+            const grid = list.querySelector('.tile-grid')
+            const across = grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length : RECENT_MOST
+
+            setPerRow(Math.max(1, Math.min(RECENT_MOST, across)))
+        }
+
+        measure()
+        const observer = new ResizeObserver(measure)
+        observer.observe(list)
+
+        return () => observer.disconnect()
+    }, [hasProps])
+
+    const recent = gallery.slice(0, perRow)
+
+    // Drawn now, so pictures are ready by the time someone opens Your props.
+    useEffect(() => {
+        void useEditorStore.getState().drawMissingPictures()
+    }, [gallery])
 
     // Only something opened or changed in this session is worth going back to.
     const inHand = propInHand || canUndo(history)
@@ -277,38 +258,27 @@ export function GalleryPage() {
                     </section>
                 ) : null}
 
-                {gallery.length > 0 || galleryLoading ? (
-                    <section className="home__section" aria-label="Recent props" data-coach="gallery-recent">
-                        <div className="home__section-head">
-                            <h2 className="home__section-title">Recent props</h2>
-                            {gallery.length > 6 ? (
-                                <div className="filter home__filter">
-                                    <Search size={13} aria-hidden="true" className="filter__icon" />
-                                    <input
-                                        className="filter__input"
-                                        placeholder="Search your props"
-                                        aria-label="Search your props"
-                                        value={search}
-                                        onChange={(event) => setSearch(event.target.value)}
-                                    />
-                                    {search ? (
-                                        <button type="button" className="filter__clear" aria-label="Clear search" onClick={() => setSearch('')}>
-                                            <X size={12} aria-hidden="true" />
-                                        </button>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                        </div>
+                <section className="home__section" aria-label="Recent props" data-coach="gallery-recent">
+                    <div className="home__section-head">
+                        <h2 className="home__section-title">Recent props</h2>
+                        {gallery.length > 0 ? (
+                            <button type="button" className="button" onClick={showProps}>
+                                All your props ({gallery.length})
+                                <ChevronRight size={13} aria-hidden="true" />
+                            </button>
+                        ) : null}
+                    </div>
 
-                        {galleryLoading && gallery.length === 0 ? (
-                            <p className="dialog__hint" role="status">
-                                Looking for your props…
-                            </p>
-                        ) : visible.length === 0 ? (
-                            <p className="dialog__hint">No prop by that name. Try a shorter word.</p>
-                        ) : (
+                    {galleryLoading && gallery.length === 0 ? (
+                        <p className="dialog__hint" role="status">
+                            Looking for your props…
+                        </p>
+                    ) : gallery.length === 0 ? (
+                        <p className="dialog__hint">Props you save show up here.</p>
+                    ) : (
+                        <div ref={recentList}>
                             <ul className="tile-grid">
-                                {visible.map((tree) => (
+                                {recent.map((tree) => (
                                     <TreeCard
                                         key={tree.id}
                                         tree={tree}
@@ -325,9 +295,9 @@ export function GalleryPage() {
                                     />
                                 ))}
                             </ul>
-                        )}
-                    </section>
-                ) : null}
+                        </div>
+                    )}
+                </section>
 
                 <section className="home__section" aria-label="Start a new prop">
                     <div className="home__section-head">

@@ -1,0 +1,429 @@
+/**
+ * Every saved prop, in the manner of a file browser with a preview: a grid to
+ * find one, and a panel beside it saying what it is, with what can be done to
+ * it without opening it.
+ */
+
+import {ArrowLeft, Download, FolderOpen, Pencil, Search, Trash2, X} from 'lucide-react'
+import {useEffect, useMemo, useRef, useState, type KeyboardEvent} from 'react'
+import {PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
+import {Select} from '../components/controls'
+import {groupByTime, matchesSearch, sortProps, type PropSort} from '../core/library/prop-summary'
+import type {SavedTree} from '../platform/library'
+import {useEditorStore} from '../store/editor-store'
+import {useSettingsStore} from '../store/settings-store'
+import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
+import {PropPicture} from './prop-tile'
+
+const SORTS: readonly {value: PropSort; label: string}[] = [
+    {value: 'changed', label: 'Last changed'},
+    {value: 'name', label: 'Name'},
+    {value: 'made', label: 'Date made'},
+]
+
+type KindFilter = PropFamily | 'all'
+
+/** A key pressed in the grid asking the panel to rename or remove. `at` makes each press new. */
+interface PanelRequest {
+    readonly action: 'rename' | 'remove'
+    readonly at: number
+}
+
+const dateLabel = (iso: string | null): string | null => {
+    const date = iso ? new Date(iso) : null
+
+    return date && !Number.isNaN(date.getTime())
+        ? new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short', year: 'numeric'}).format(date)
+        : null
+}
+
+const sizeLabel = (bytes: number): string =>
+    bytes < 1024 ? `${bytes} bytes` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+
+/** The family's label, as on the kind tabs. */
+const kindLabel = (kind: PropFamily | null): string | null => PROP_FAMILIES.find(({id}) => id === kind)?.label ?? null
+
+/** How many tiles sit across the grid, so Up and Down move by a row. */
+function columnsOf(grid: HTMLElement | null): number {
+    if (!grid) {
+        return 1
+    }
+
+    return Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length)
+}
+
+function Details({tree, editing, request}: {tree: SavedTree; editing: boolean; request: PanelRequest | null}) {
+    const openTree = useEditorStore((state) => state.openTree)
+    const renameTree = useEditorStore((state) => state.renameTree)
+    const removeTree = useEditorStore((state) => state.removeTree)
+    const showPropFile = useEditorStore((state) => state.showPropFile)
+    const openBatchWith = useEditorStore((state) => state.openBatchWith)
+
+    const name = displayName(tree)
+    const [renaming, setRenaming] = useState(false)
+    const [draft, setDraft] = useState(name)
+    const [confirming, setConfirming] = useState(false)
+
+    // Picking another prop puts the panel back as it was.
+    useEffect(() => {
+        setRenaming(false)
+        setConfirming(false)
+    }, [tree.id])
+
+    useEffect(() => {
+        if (request?.action === 'rename') {
+            setDraft(name)
+            setRenaming(true)
+        } else if (request?.action === 'remove') {
+            setConfirming(true)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per request.
+    }, [request])
+
+    const commitRename = () => {
+        setRenaming(false)
+
+        if (draft.trim() !== '' && draft.trim() !== name) {
+            void renameTree(tree.id, draft.trim())
+        }
+    }
+
+    const kind = kindLabel(tree.kind)
+    const made = dateLabel(tree.createdAt)
+    const readable = tree.kind !== null
+
+    return (
+        <aside className="props-page__details" aria-label={`About ${name}`}>
+            <div className="props-page__preview">
+                <PropPicture tree={tree} iconSize={48} />
+            </div>
+
+            {renaming ? (
+                <div className="props-page__rename">
+                    <label className="dialog__label" htmlFor="props-rename">
+                        New name
+                    </label>
+                    <input
+                        className="field"
+                        id="props-rename"
+                        value={draft}
+                        maxLength={60}
+                        autoFocus
+                        onFocus={(event) => event.currentTarget.select()}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault()
+                                commitRename()
+                            } else if (event.key === 'Escape') {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                setRenaming(false)
+                            }
+                        }}
+                    />
+                    <div className="prop-tile__choices">
+                        <button type="button" className="button" onClick={() => setRenaming(false)}>
+                            Cancel
+                        </button>
+                        <button type="button" className="button button--primary" onClick={commitRename}>
+                            Rename
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <h2 className="props-page__name">
+                    {name}
+                    {editing ? <span className="prop-tile__badge">Editing</span> : null}
+                </h2>
+            )}
+
+            <dl className="props-page__facts">
+                {kind ? (
+                    <>
+                        <dt>Kind</dt>
+                        <dd>{tree.presetName ? `${kind}, from ${tree.presetName}` : kind}</dd>
+                    </>
+                ) : null}
+                {made ? (
+                    <>
+                        <dt>Made</dt>
+                        <dd>{made}</dd>
+                    </>
+                ) : null}
+                <dt>Changed</dt>
+                <dd>{savedLabel(tree.savedAt)}</dd>
+                {tree.seed !== null ? (
+                    <>
+                        <dt>Seed</dt>
+                        <dd className="tabular">{tree.seed}</dd>
+                    </>
+                ) : null}
+                <dt>Size</dt>
+                <dd>{sizeLabel(tree.size)}</dd>
+            </dl>
+
+            {readable ? null : (
+                <p className="dialog__hint">This file can't be read. It may be damaged, or from a newer easy-props.</p>
+            )}
+
+            {confirming ? (
+                <div className="props-page__confirm" role="group" aria-label={`Remove ${name}?`}>
+                    <p className="prop-tile__question">Remove “{name}”?</p>
+                    <p className="dialog__hint">It can't be brought back.</p>
+                    <div className="prop-tile__choices">
+                        <button type="button" className="button" autoFocus onClick={() => setConfirming(false)}>
+                            Keep it
+                        </button>
+                        <button type="button" className="button button--danger" onClick={() => void removeTree(tree.id)}>
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="props-page__actions">
+                    <div className="props-page__main-actions">
+                        <button type="button" className="button button--primary" disabled={!readable} onClick={() => void openTree(tree.id)}>
+                            Open
+                        </button>
+                        <button
+                            type="button"
+                            className="button"
+                            disabled={!readable}
+                            title="Export this prop without opening it"
+                            onClick={() => openBatchWith({kind: 'saved', id: tree.id, name})}
+                        >
+                            <Download size={13} aria-hidden="true" />
+                            Export…
+                        </button>
+                    </div>
+                    <div className="props-page__more-actions">
+                        <button
+                            type="button"
+                            className="button"
+                            onClick={() => {
+                                setDraft(name)
+                                setRenaming(true)
+                            }}
+                        >
+                            <Pencil size={13} aria-hidden="true" />
+                            Rename
+                        </button>
+                        <button type="button" className="button" onClick={() => void showPropFile(tree.id)}>
+                            <FolderOpen size={13} aria-hidden="true" />
+                            Show in folder
+                        </button>
+                        <button type="button" className="button" onClick={() => setConfirming(true)}>
+                            <Trash2 size={13} aria-hidden="true" />
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            )}
+        </aside>
+    )
+}
+
+export function YourPropsPage() {
+    const gallery = useEditorStore((state) => state.gallery)
+    const galleryLoading = useEditorStore((state) => state.galleryLoading)
+    const refreshGallery = useEditorStore((state) => state.refreshGallery)
+    const currentTreeId = useEditorStore((state) => state.currentTreeId)
+    const pickedPropId = useEditorStore((state) => state.pickedPropId)
+    const pickProp = useEditorStore((state) => state.pickProp)
+    const openTree = useEditorStore((state) => state.openTree)
+    const showGallery = useEditorStore((state) => state.showGallery)
+    const sort = useSettingsStore((state) => state.propsSort)
+    const setSort = useSettingsStore((state) => state.setPropsSort)
+
+    const [search, setSearch] = useState('')
+    const [kind, setKind] = useState<KindFilter>('all')
+    const [request, setRequest] = useState<PanelRequest | null>(null)
+    const searchField = useRef<HTMLInputElement>(null)
+    const grid = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        void refreshGallery()
+    }, [refreshGallery])
+
+    useEffect(() => {
+        void useEditorStore.getState().drawMissingPictures()
+    }, [gallery])
+
+    const counts = useMemo(() => {
+        const found: Record<KindFilter, number> = {all: gallery.length, tree: 0, rock: 0, bush: 0}
+
+        for (const tree of gallery) {
+            if (tree.kind) {
+                found[tree.kind] += 1
+            }
+        }
+
+        return found
+    }, [gallery])
+
+    const visible = useMemo(
+        () =>
+            sortProps(
+                gallery
+                    .filter((tree) => kind === 'all' || tree.kind === kind)
+                    .map((tree) => ({...tree, name: displayName(tree)}))
+                    .filter((tree) => matchesSearch(tree, search)),
+                sort,
+            ),
+        [gallery, kind, search, sort],
+    )
+
+    const groups = useMemo(
+        () => (sort === 'changed' ? groupByTime(visible, new Date()) : [{group: null, props: visible}]),
+        [visible, sort],
+    )
+
+    // The panel always says something: the picked prop while it's listed, or the first one.
+    const picked = visible.find((tree) => tree.id === pickedPropId) ?? visible[0] ?? null
+
+    const focusTile = (id: string) => {
+        pickProp(id)
+        grid.current?.querySelector<HTMLElement>(`[data-prop-id="${CSS.escape(id)}"]`)?.focus()
+    }
+
+    const onGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (!picked || event.target instanceof HTMLInputElement) {
+            return
+        }
+
+        const index = visible.findIndex((tree) => tree.id === picked.id)
+        const across = columnsOf(grid.current?.querySelector('.tile-grid') ?? null)
+        const moves: Record<string, number> = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -across, ArrowDown: across}
+
+        if (event.key in moves) {
+            event.preventDefault()
+            const next = visible[Math.min(visible.length - 1, Math.max(0, index + moves[event.key]))]
+
+            if (next) {
+                focusTile(next.id)
+            }
+        } else if (event.key === 'Enter' && picked.kind !== null) {
+            event.preventDefault()
+            void openTree(picked.id)
+        } else if (event.key === 'F2' || event.key === 'Delete') {
+            event.preventDefault()
+            setRequest({action: event.key === 'F2' ? 'rename' : 'remove', at: event.timeStamp})
+        } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            // Typing anywhere in the grid starts a search, as in a file browser.
+            searchField.current?.focus()
+        }
+    }
+
+    return (
+        <main className="home props-page">
+            <div className="props-page__inner">
+                <header className="props-page__head">
+                    <button type="button" className="icon-button" aria-label="Back to Home" title="Home" onClick={showGallery}>
+                        <ArrowLeft size={15} aria-hidden="true" />
+                    </button>
+                    <h1 className="home__title">Your props</h1>
+                </header>
+
+                <div className="props-page__toolbar">
+                    <div className="filter props-page__search">
+                        <Search size={13} aria-hidden="true" className="filter__icon" />
+                        <input
+                            ref={searchField}
+                            className="filter__input"
+                            placeholder="Search your props"
+                            aria-label="Search your props"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Escape' && search) {
+                                    event.stopPropagation()
+                                    setSearch('')
+                                }
+                            }}
+                        />
+                        {search ? (
+                            <button type="button" className="filter__clear" aria-label="Clear search" onClick={() => setSearch('')}>
+                                <X size={12} aria-hidden="true" />
+                            </button>
+                        ) : null}
+                    </div>
+
+                    <div className="kind-tabs" role="tablist" aria-label="Kind of prop">
+                        {(['all', ...PROP_FAMILIES.map(({id}) => id)] as const).map((id) => {
+                            const Icon = id === 'all' ? null : FAMILY_ICONS[id]
+
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    role="tab"
+                                    className="kind-tab"
+                                    aria-selected={kind === id}
+                                    onClick={() => setKind(id)}
+                                >
+                                    {Icon ? <Icon size={14} aria-hidden="true" /> : null}
+                                    {id === 'all' ? 'All' : kindLabel(id)}
+                                    <span className="kind-tab__count tabular">{counts[id]}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    <div className="props-page__sort">
+                        <Select label="Sort your props" value={sort} options={SORTS} onChange={setSort} />
+                    </div>
+                </div>
+
+                <div className="props-page__body">
+                    <div className="props-page__list" ref={grid} onKeyDown={onGridKey}>
+                        {galleryLoading && gallery.length === 0 ? (
+                            <p className="dialog__hint" role="status">
+                                Looking for your props…
+                            </p>
+                        ) : gallery.length === 0 ? (
+                            <p className="dialog__hint">Props you save show up here.</p>
+                        ) : visible.length === 0 ? (
+                            <p className="dialog__hint">
+                                {search ? 'No prop by that name. Try a shorter word.' : 'None of your props are of this kind yet.'}
+                            </p>
+                        ) : (
+                            groups.map(({group, props}) => (
+                                <section key={group ?? 'all'} aria-label={group ?? 'Your props'}>
+                                    {group ? <h2 className="settings__group">{group}</h2> : null}
+                                    <ul className="tile-grid props-page__grid">
+                                        {props.map((tree) => (
+                                            <li key={tree.id} className="prop-tile" data-current={tree.id === currentTreeId} data-picked={tree.id === picked?.id}>
+                                                <button
+                                                    type="button"
+                                                    className="prop-tile__open"
+                                                    data-prop-id={tree.id}
+                                                    title={tree.name}
+                                                    aria-pressed={tree.id === picked?.id}
+                                                    tabIndex={tree.id === picked?.id ? 0 : -1}
+                                                    onClick={() => pickProp(tree.id)}
+                                                    onDoubleClick={() => (tree.kind !== null ? void openTree(tree.id) : undefined)}
+                                                >
+                                                    <span className="prop-tile__thumb">
+                                                        <PropPicture tree={tree} />
+                                                    </span>
+                                                    <span className="prop-tile__name">{tree.name}</span>
+                                                    <span className="prop-tile__meta">
+                                                        {savedLabel(tree.savedAt)}
+                                                        {tree.id === currentTreeId ? <span className="prop-tile__badge">Editing</span> : null}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ))
+                        )}
+                    </div>
+
+                    {picked ? <Details tree={picked} editing={picked.id === currentTreeId} request={request} /> : null}
+                </div>
+            </div>
+        </main>
+    )
+}

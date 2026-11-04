@@ -38,6 +38,8 @@ export function ReadProp(arg1:string):Promise<Array<number>>;
 
 export function ReadPropThumbnail(arg1:string):Promise<Array<number>>;
 
+export function ReadPropsIndex():Promise<Array<number>>;
+
 export function ReadSettings():Promise<Array<number>>;
 
 export function RememberWindow():Promise<number|number>;
@@ -50,6 +52,8 @@ export function SetUnsaved(arg1:boolean):Promise<void>;
 
 export function ShowFolder(arg1:string):Promise<void>;
 
+export function ShowProp(arg1:string):Promise<void>;
+
 export function WriteDraft(arg1:Array<number>):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;
@@ -57,5 +61,9 @@ export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;
 export function WriteFiles(arg1:string,arg2:Array<backend.ExportFile>):Promise<void>;
 
 export function WriteProp(arg1:string,arg2:Array<number>,arg3:Array<number>):Promise<void>;
+
+export function WritePropPicture(arg1:string,arg2:Array<number>):Promise<void>;
+
+export function WritePropsIndex(arg1:Array<number>):Promise<void>;
 
 export function WriteSettings(arg1:Array<number>):Promise<void>;

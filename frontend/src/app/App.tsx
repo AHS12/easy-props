@@ -19,7 +19,8 @@ import {Toast} from '../panels/Toast'
 import {Tour} from '../panels/Tour'
 import {WhatsNewDialog} from '../panels/WhatsNewDialog'
 import {GalleryPage} from '../pages/GalleryPage'
-import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
+import {YourPropsPage} from '../pages/YourPropsPage'
+import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
 import {onCloseRequested} from '../platform/close-guard'
 import {cancelUpdateInstall} from '../platform/update'
@@ -185,7 +186,7 @@ export function App() {
             // shortcut uses those, so anything that reaches here is ours.
 
             // The home page has no prop on screen, so only some commands mean anything there.
-            if (editor.page === 'gallery' && !command.global) {
+            if (isHomePage(editor.page) && !command.global) {
                 return
             }
 
@@ -296,8 +297,8 @@ export function App() {
 
     return (
         <div className="app-shell">
-            <MenuBar home={page === 'gallery'} />
-            {page === 'gallery' ? <GalleryPage /> : <Editor />}
+            <MenuBar home={isHomePage(page)} />
+            {page === 'gallery' ? <GalleryPage /> : page === 'props' ? <YourPropsPage /> : <Editor />}
             <Tour />
             <Toast />
             <SaveDialog />

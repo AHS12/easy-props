@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
@@ -169,12 +169,21 @@ export const COMMANDS: readonly Command[] = [
     ),
     {
         id: 'gallery',
-        label: 'My props',
+        label: 'Your props',
         group: 'File',
         shortcut: 'Ctrl+G',
+        icon: Library,
+        global: true,
+        keywords: 'my props gallery library saved open recent all browse',
+        run: (state) => state.showProps(),
+    },
+    {
+        id: 'home',
+        label: 'Home',
+        group: 'File',
         icon: Home,
         global: true,
-        keywords: 'home gallery library start saved open recent props',
+        keywords: 'start page welcome begin',
         run: (state) => state.showGallery(),
     },
     {
