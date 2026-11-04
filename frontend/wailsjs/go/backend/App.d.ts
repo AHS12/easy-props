@@ -24,6 +24,8 @@ export function DownloadUpdate():Promise<void>;
 
 export function ExistingFiles(arg1:string,arg2:Array<string>):Promise<Array<string>>;
 
+export function FolderExists(arg1:string):Promise<boolean>;
+
 export function ForgetOldRemovedProps():Promise<void>;
 
 export function ForgetRemovedProp(arg1:string):Promise<void>;
@@ -31,6 +33,8 @@ export function ForgetRemovedProp(arg1:string):Promise<void>;
 export function GetLibraryInfo():Promise<backend.LibraryInfo>;
 
 export function InstallUpdateOnClose():Promise<void>;
+
+export function LibraryFingerprint():Promise<string>;
 
 export function LibraryFolder():Promise<string>;
 
@@ -43,6 +47,8 @@ export function OpenBackupFile(arg1:string):Promise<backend.HeldBackup>;
 export function OpenFileDialog(arg1:string,arg2:Array<string>):Promise<string>;
 
 export function OpenLibraryFolder():Promise<void>;
+
+export function PruneFolderBackups(arg1:string,arg2:number):Promise<number>;
 
 export function PutBackProp(arg1:string):Promise<void>;
 
@@ -69,6 +75,8 @@ export function RemoveProp(arg1:string):Promise<void>;
 export function RestoreFromHolding(arg1:Array<backend.RestoreChoice>):Promise<number>;
 
 export function SaveFileDialog(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
+
+export function SetBackupDue(arg1:boolean):Promise<void>;
 
 export function SetLibraryFolder(arg1:string):Promise<void>;
 

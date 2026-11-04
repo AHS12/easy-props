@@ -380,7 +380,24 @@ export interface SettingsFile {
     readonly palettes: readonly SavedPalette[]
     /** How Your props is sorted. */
     readonly propsSort: PropSort
+    readonly folderBackup: FolderBackupSettings
 }
+
+/** Backing up to a folder by itself, once a day when something changed. */
+export interface FolderBackupSettings {
+    /** Where the dated backups go. Empty when it's off. */
+    readonly folder: string
+    /** How many of the app's own backups to keep there. */
+    readonly keep: number
+    /** The local day of the last backup there, as 2026-11-04. */
+    readonly lastDay: string
+    /** What the props and palettes were at the last backup, to tell whether anything changed. */
+    readonly lastFingerprint: string
+    /** When the last backup there was made, as an ISO time. */
+    readonly lastAt: string
+}
+
+export const DEFAULT_FOLDER_BACKUP: FolderBackupSettings = {folder: '', keep: 10, lastDay: '', lastFingerprint: '', lastAt: ''}
 
 /** A palette saved with a name, for one set of colours. */
 export interface SavedPalette {
@@ -409,6 +426,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     myColours: [],
     palettes: [],
     propsSort: 'changed',
+    folderBackup: DEFAULT_FOLDER_BACKUP,
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -479,6 +497,15 @@ const fileSchema = z.object({
     myColours: colourList,
     palettes: z.array(z.unknown()).catch([]).transform((entries) => entries.flatMap(savedPalette)),
     propsSort: z.enum(['changed', 'name', 'made']).catch('changed'),
+    folderBackup: z
+        .object({
+            folder: z.string().catch(''),
+            keep: z.number().int().min(1).max(100).catch(10),
+            lastDay: z.string().catch(''),
+            lastFingerprint: z.string().catch(''),
+            lastAt: z.string().catch(''),
+        })
+        .catch(DEFAULT_FOLDER_BACKUP),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */

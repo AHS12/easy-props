@@ -346,7 +346,76 @@ function StoragePage() {
     )
 }
 
-/** Backing up to a file and restoring from one. Folder and cloud backups come later. */
+const KEEP_CHOICES = ['5', '10', '20', '30'].map((value) => ({value, label: `The last ${value}`}))
+
+/** When the last folder backup was made, in the fewest words that are still true. */
+function lastBackupLabel(iso: string): string {
+    const at = new Date(iso)
+
+    if (!iso || Number.isNaN(at.getTime())) {
+        return 'None yet. The first is made as soon as there is something to back up.'
+    }
+
+    const time = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(at)
+    const sameDay = at.toDateString() === new Date().toDateString()
+
+    return sameDay
+        ? `Today at ${time}.`
+        : `${new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short'}).format(at)} at ${time}.`
+}
+
+/** Backing up to a folder by itself, once a day when something changed. */
+function FolderBackupRows() {
+    const backup = useSettingsStore((state) => state.folderBackup)
+    const setFolderBackup = useSettingsStore((state) => state.setFolderBackup)
+    const problem = useBackupStore((state) => state.folderProblem)
+    const chooseFolder = useBackupStore((state) => state.chooseFolder)
+    const turnOff = useBackupStore((state) => state.turnOffFolderBackup)
+    const busy = useBackupStore((state) => state.phase !== 'idle')
+
+    return (
+        <>
+            <h3 className="settings__group">Back up by itself</h3>
+            <SettingRow
+                label="Back up to a folder"
+                help={
+                    backup.folder ||
+                    'Once a day, when something changed, a dated backup goes in a folder you choose, such as a synced folder or an external drive.'
+                }
+            >
+                {backup.folder ? (
+                    <button type="button" className="text-button" onClick={turnOff}>
+                        Turn off
+                    </button>
+                ) : null}
+                <button type="button" className="button" disabled={busy} onClick={() => void chooseFolder()}>
+                    {backup.folder ? 'Change…' : 'Choose a folder…'}
+                </button>
+            </SettingRow>
+            {backup.folder ? (
+                <>
+                    <SettingRow label="Backups to keep" help="Older ones the app made are removed. Nothing else in the folder is touched.">
+                        <Select<string>
+                            label="Backups to keep"
+                            value={String(backup.keep)}
+                            options={KEEP_CHOICES}
+                            onChange={(value) => setFolderBackup({keep: Number(value)})}
+                        />
+                    </SettingRow>
+                    <SettingRow label="Last backup there" help={problem ?? lastBackupLabel(backup.lastAt)}>
+                        {problem ? <span className="setting__warning">Not backed up</span> : null}
+                    </SettingRow>
+                    <p className="settings__intro">
+                        It backs up a minute after you save, when the app starts, and when it closes. Nothing runs while the app is
+                        closed, and nothing needs to: props only change while it's open.
+                    </p>
+                </>
+            ) : null}
+        </>
+    )
+}
+
+/** Backing up to a file and restoring from one, and to a folder by itself. Cloud backup comes later. */
 function BackupPage() {
     const phase = useBackupStore((state) => state.phase)
     const progress = useBackupStore((state) => state.progress)
@@ -375,6 +444,7 @@ function BackupPage() {
                     Restore from a backup…
                 </button>
             </SettingRow>
+            <FolderBackupRows />
             {busy ? (
                 <div className="backup-progress" role="status">
                     <span className="setting__help">

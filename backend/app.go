@@ -53,6 +53,10 @@ type App struct {
 	// again. It is set by ConfirmClose and read by BeforeClose.
 	allowClose bool
 
+	// backupDue records that an automatic backup may be due, so a close goes
+	// through the interface, which runs it first. It is set by SetBackupDue.
+	backupDue bool
+
 	// updateAPI, updateRoot and appFolder override where updates are looked for,
 	// downloaded and installed, and startInstaller overrides how one is started.
 	// All are empty in the running app; tests set them.
@@ -113,6 +117,16 @@ func (a *App) SetUnsaved(unsaved bool) {
 	a.unsaved = unsaved
 }
 
+// SetBackupDue tells the close guard whether an automatic backup may be due.
+// While it is, closing asks the interface first, as unsaved work does, and the
+// interface backs up before calling ConfirmClose.
+func (a *App) SetBackupDue(due bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.backupDue = due
+}
+
 // hasUnsavedChanges reports what SetUnsaved last stored.
 func (a *App) hasUnsavedChanges() bool {
 	a.mu.Lock()
@@ -136,12 +150,12 @@ func (a *App) BeforeClose(context.Context) bool {
 	// released: emitting an event wakes the interface, whose answer comes back
 	// through ConfirmClose and needs the same mutex.
 	a.mu.Lock()
-	unsaved, allowed, ctx := a.unsaved, a.allowClose, a.ctx
+	unsaved, due, allowed, ctx := a.unsaved, a.backupDue, a.allowClose, a.ctx
 	a.mu.Unlock()
 
 	// Wails reads this return value as "prevent the close", not "allow it". No
 	// context means Startup never ran, so there is no interface to ask.
-	if !unsaved || allowed || ctx == nil {
+	if (!unsaved && !due) || allowed || ctx == nil {
 		// This close goes ahead, through the update installer's restart too.
 		a.saveWindow(ctx)
 		return false

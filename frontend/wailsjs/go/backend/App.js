@@ -46,6 +46,10 @@ export function ExistingFiles(arg1, arg2) {
   return window['go']['backend']['App']['ExistingFiles'](arg1, arg2);
 }
 
+export function FolderExists(arg1) {
+  return window['go']['backend']['App']['FolderExists'](arg1);
+}
+
 export function ForgetOldRemovedProps() {
   return window['go']['backend']['App']['ForgetOldRemovedProps']();
 }
@@ -60,6 +64,10 @@ export function GetLibraryInfo() {
 
 export function InstallUpdateOnClose() {
   return window['go']['backend']['App']['InstallUpdateOnClose']();
+}
+
+export function LibraryFingerprint() {
+  return window['go']['backend']['App']['LibraryFingerprint']();
 }
 
 export function LibraryFolder() {
@@ -84,6 +92,10 @@ export function OpenFileDialog(arg1, arg2) {
 
 export function OpenLibraryFolder() {
   return window['go']['backend']['App']['OpenLibraryFolder']();
+}
+
+export function PruneFolderBackups(arg1, arg2) {
+  return window['go']['backend']['App']['PruneFolderBackups'](arg1, arg2);
 }
 
 export function PutBackProp(arg1) {
@@ -136,6 +148,10 @@ export function RestoreFromHolding(arg1) {
 
 export function SaveFileDialog(arg1, arg2, arg3) {
   return window['go']['backend']['App']['SaveFileDialog'](arg1, arg2, arg3);
+}
+
+export function SetBackupDue(arg1) {
+  return window['go']['backend']['App']['SetBackupDue'](arg1);
 }
 
 export function SetLibraryFolder(arg1) {

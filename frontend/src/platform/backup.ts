@@ -20,6 +20,11 @@ interface BackupBindings {
     RestoreFromHolding(choices: RestoreChoice[]): Promise<number>
     ClearHolding(): Promise<void>
     StopBackup(): Promise<void>
+    LibraryFingerprint(): Promise<string>
+    FolderExists(folder: string): Promise<boolean>
+    PruneFolderBackups(folder: string, keep: number): Promise<number>
+    SetBackupDue(due: boolean): Promise<void>
+    ChooseFolder(title: string, start: string): Promise<string>
 }
 
 interface HeldBackupFile {
@@ -112,6 +117,25 @@ export const restoreFromHolding = (choices: RestoreChoice[]): Promise<number> =>
 /** Clears what a restore unpacked. Nothing to do in a browser. */
 export async function clearHolding(): Promise<void> {
     await bindings()?.ClearHolding()
+}
+
+/** Sums up the saved props without reading them, to tell whether anything changed. */
+export const libraryFingerprint = (): Promise<string> => backupBindings().LibraryFingerprint()
+
+/** Whether a folder is there now, such as a drive that may be unplugged. */
+export const folderExists = (folder: string): Promise<boolean> => backupBindings().FolderExists(folder)
+
+/** Keeps the newest of the app's own backups in a folder, and never touches anything else. */
+export const pruneFolderBackups = (folder: string, keep: number): Promise<number> => backupBindings().PruneFolderBackups(folder, keep)
+
+/** Tells the close guard a backup may be due, so closing comes to us first. */
+export async function setBackupDue(due: boolean): Promise<void> {
+    await bindings()?.SetBackupDue(due)
+}
+
+/** Asks for the folder automatic backups go to. Null when the person cancels. */
+export async function chooseBackupFolder(start: string): Promise<string | null> {
+    return (await backupBindings().ChooseFolder('Back up to this folder', start)) || null
 }
 
 export const stopBackup = async (): Promise<void> => bindings()?.StopBackup()

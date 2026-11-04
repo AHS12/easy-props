@@ -3640,3 +3640,9 @@ html[data-theme='dark'] .dialog__error {
     align-items: center;
     gap: var(--space-3);
 }
+
+.setting__warning {
+    color: var(--danger);
+    font: var(--text-label);
+    font-weight: 600;
+}

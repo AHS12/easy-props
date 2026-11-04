@@ -7,18 +7,34 @@
  */
 
 import {create} from 'zustand'
+import {
+    AUTO_BACKUP_DELAY_MS,
+    CLOSE_WAIT_MS,
+    folderBackupDue,
+    localDay,
+    mayBeDue,
+    palettesFingerprint,
+    pathInFolder,
+} from '../core/backup/auto'
 import {APP_VERSION} from '../core/export/export-preferences'
 import {summarizeProp, type PropSummary} from '../core/library/prop-summary'
 import {mergePalettes, planRestore} from '../core/library/restore-plan'
 import {
     backUpToFile,
+    backupFileName,
+    canBackUp,
+    chooseBackupFolder,
     chooseBackupSource,
     chooseBackupTarget,
     clearHolding,
+    folderExists,
+    libraryFingerprint,
     onBackupProgress,
     openBackupFile,
     readHeldProp,
+    pruneFolderBackups,
     restoreFromHolding,
+    setBackupDue,
     stopBackup,
     type HeldBackup,
     type HeldProp,
@@ -50,7 +66,22 @@ export interface BackupStore {
     restore(ticked: ReadonlySet<string>): Promise<void>
     cancelRestore(): Promise<void>
     stop(): void
+
+    /** What went wrong with the last folder backup, or null when all's well. */
+    readonly folderProblem: string | null
+    /** Writes today's backup to the folder, if one is due. Says what happened. */
+    runFolderBackup(): Promise<FolderBackupResult>
+    /** Waits a minute after the last change, then backs up if it's due. */
+    scheduleFolderBackup(): void
+    /** Tells the close guard whether closing should come to us first. */
+    refreshBackupDue(): void
+    /** Backs up if due before the window closes, giving up after ten seconds. */
+    backUpBeforeClosing(): Promise<void>
+    chooseFolder(): Promise<void>
+    turnOffFolderBackup(): void
 }
+
+export type FolderBackupResult = 'written' | 'not-due' | 'missing' | 'failed'
 
 export const NEWER_BACKUP = 'This backup was made by a newer easy-props. Update the app, then try again.'
 export const NOT_A_BACKUP = "That file isn't an easy-props backup. Pick a .zip made with Back up to a file."
@@ -83,6 +114,15 @@ const folderOf = (path: string): string => path.slice(0, Math.max(path.lastIndex
 const propsLabel = (count: number) => (count === 1 ? '1 prop' : `${count} props`)
 
 const newPaletteId = () => `palette-${newTreeId()}`
+
+/** The minute's wait after a change, restarted by every change. */
+let folderBackupTimer: ReturnType<typeof setTimeout> | undefined
+
+/** A missing folder is said once a session, not on every save. */
+let toldFolderMissing = false
+
+export const folderMissing = (folder: string) =>
+    `Couldn't back up to ${folder}: the folder isn't there. Plug the drive in, or choose another folder in Settings, Backup.`
 
 export const useBackupStore = create<BackupStore>((set, get) => {
     /** Runs one long job, showing its progress, and always ends idle. */
@@ -210,5 +250,99 @@ export const useBackupStore = create<BackupStore>((set, get) => {
         },
 
         stop: () => void stopBackup(),
+
+        folderProblem: null,
+
+        runFolderBackup: async () => {
+            const settings = useSettingsStore.getState()
+            const backup = settings.folderBackup
+            const today = localDay(new Date())
+
+            // A backup or restore under way already has the files; this one waits for the next chance.
+            if (!canBackUp() || !mayBeDue(backup, today) || get().phase !== 'idle') {
+                return 'not-due'
+            }
+
+            try {
+                const fingerprint = `${await libraryFingerprint()}:${palettesFingerprint(settings.palettes)}`
+
+                if (!folderBackupDue(backup, fingerprint, today)) {
+                    return 'not-due'
+                }
+
+                if (!(await folderExists(backup.folder))) {
+                    const problem = folderMissing(backup.folder)
+
+                    set({folderProblem: problem})
+
+                    if (!toldFolderMissing) {
+                        toldFolderMissing = true
+                        notify(problem)
+                    }
+
+                    return 'missing'
+                }
+
+                await underWay('backing-up', () =>
+                    backUpToFile(pathInFolder(backup.folder, backupFileName()), JSON.stringify(settings.palettes), APP_VERSION),
+                )
+                await pruneFolderBackups(backup.folder, backup.keep).catch(() => 0)
+
+                useSettingsStore.getState().setFolderBackup({lastDay: today, lastFingerprint: fingerprint, lastAt: new Date().toISOString()})
+                set({folderProblem: null})
+                get().refreshBackupDue()
+
+                return 'written'
+            } catch (error) {
+                set({folderProblem: describeBackupFailure(error, 'back up')})
+
+                return 'failed'
+            }
+        },
+
+        scheduleFolderBackup: () => {
+            if (!useSettingsStore.getState().folderBackup.folder) {
+                return
+            }
+
+            // The day may have turned since the last check, with the app left open.
+            get().refreshBackupDue()
+
+            clearTimeout(folderBackupTimer)
+            folderBackupTimer = setTimeout(() => void get().runFolderBackup(), AUTO_BACKUP_DELAY_MS)
+        },
+
+        refreshBackupDue: () => {
+            void setBackupDue(mayBeDue(useSettingsStore.getState().folderBackup, localDay(new Date()))).catch(() => undefined)
+        },
+
+        backUpBeforeClosing: async () => {
+            clearTimeout(folderBackupTimer)
+
+            await Promise.race([get().runFolderBackup(), new Promise((resolve) => setTimeout(resolve, CLOSE_WAIT_MS))])
+        },
+
+        chooseFolder: async () => {
+            const settings = useSettingsStore.getState()
+            const folder = await chooseBackupFolder(settings.folderBackup.folder)
+
+            if (!folder) {
+                return
+            }
+
+            // A new folder starts afresh, so its first backup is made straight away.
+            settings.setFolderBackup({folder, lastDay: '', lastFingerprint: '', lastAt: ''})
+            toldFolderMissing = false
+            set({folderProblem: null})
+            get().refreshBackupDue()
+            await get().runFolderBackup()
+        },
+
+        turnOffFolderBackup: () => {
+            clearTimeout(folderBackupTimer)
+            useSettingsStore.getState().setFolderBackup({folder: ''})
+            set({folderProblem: null})
+            get().refreshBackupDue()
+        },
     }
 })

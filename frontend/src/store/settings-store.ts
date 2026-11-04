@@ -16,6 +16,7 @@ import {
     type SettingKey,
     type SettingPage,
     type SettingsFile,
+    type FolderBackupSettings,
     type SavedPalette,
     type SettingValue,
 } from '../core/settings/settings-spec'
@@ -56,6 +57,7 @@ export interface SettingsStore extends SettingsFile {
     removePalette(id: string): void
     /** Replaces every saved palette, as a restore does after merging. */
     setPalettes(palettes: readonly SavedPalette[]): void
+    setFolderBackup(patch: Partial<FolderBackupSettings>): void
     setPropsSort(sort: PropSort): void
 }
 
@@ -67,9 +69,9 @@ const newPaletteId = () => `palette-${Date.now().toString(36)}-${Math.random().t
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -180,6 +182,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         setPropsSort: (propsSort) => change({propsSort}),
 
         setPalettes: (palettes) => change({palettes: [...palettes]}),
+
+        setFolderBackup: (patch) => change({folderBackup: {...get().folderBackup, ...patch}}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})
