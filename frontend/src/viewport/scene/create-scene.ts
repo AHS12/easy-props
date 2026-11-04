@@ -400,8 +400,8 @@ export function createViewportScene(
 
         setShadingMode(mode) {
             shading = mode
-            // The shadow belongs to the finished look only.
-            shadowsWanted = mode === 'lit'
+            // The shadow belongs to the finished looks only.
+            shadowsWanted = mode === 'lit' || mode === 'cartoon'
             renderer.shadowMap.enabled = shadowsWanted && shadowsAllowed
             renderer.shadowMap.needsUpdate = true
         },

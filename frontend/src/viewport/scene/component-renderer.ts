@@ -21,11 +21,13 @@ import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import type {Scene, SceneMaterials} from '../../core/scene/scene-model'
 import {VIEWPORT_COLORS} from './materials'
+import {addInk, createCartoonMaterial, createInkGeometry, createInkMaterial, takesInk} from './cartoon'
 
 export {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode}
 
 export interface ComponentMaterials {
     readonly lit: THREE.MeshStandardMaterial
+    readonly cartoon: THREE.MeshToonMaterial
     readonly flat: THREE.MeshBasicMaterial
     readonly wire: THREE.MeshBasicMaterial
     readonly wind: THREE.ShaderMaterial
@@ -36,6 +38,8 @@ export interface RenderedComponent {
     readonly group: THREE.Group
     readonly mesh: THREE.Mesh
     readonly outline: THREE.Mesh
+    /** The Cartoon view's dark edge, or null for a part that goes without. */
+    readonly ink: THREE.Mesh | null
     readonly materials: ComponentMaterials
     readonly materialKind: MaterialKind
     /** What this part should look like, which a mesh on its way may not show yet. */
@@ -136,6 +140,7 @@ function buildComponent(
     const color = new THREE.Color(materialColor(part.material, materials))
 
     const lit = createPartMaterial(part, color, style.flatShading)
+    const cartoon = createCartoonMaterial(part, color, style.flatShading)
 
     const isProxy = part.surface?.proxy === true
 
@@ -155,7 +160,7 @@ function buildComponent(
 
     const foliage = roleOfPart(part) === 'foliage'
 
-    for (const material of [lit, flat, wire]) {
+    for (const material of [lit, cartoon, flat, wire]) {
         addLiveWind(material, windUniforms, liveWind, foliage)
     }
 
@@ -199,10 +204,26 @@ function buildComponent(
     outline.visible = false
     outline.userData.isHelper = true
 
+    let ink: THREE.Mesh | null = null
+
+    if (takesInk(part)) {
+        const inkMaterial = createInkMaterial()
+
+        addLiveWind(inkMaterial, windUniforms, liveWind, foliage)
+        addInk(inkMaterial)
+        ink = new THREE.Mesh(part.geometry, inkMaterial)
+        ink.name = `${component.type}_${component.id}_ink`
+        ink.visible = false
+        ink.userData.isHelper = true
+    }
+
     const group = new THREE.Group()
     group.name = component.id
     group.add(mesh)
     group.add(outline)
+    if (ink) {
+        group.add(ink)
+    }
 
     group.position.set(...component.transform.position)
     group.rotation.set(...component.transform.rotation)
@@ -213,7 +234,8 @@ function buildComponent(
         group,
         mesh,
         outline,
-        materials: {lit, flat, wire, wind},
+        ink,
+        materials: {lit, cartoon, flat, wire, wind},
         materialKind: part.material,
         signature,
         styleId: style.id,
@@ -223,16 +245,17 @@ function buildComponent(
 /** Keeps a part's materials showing the texture of a mesh swapped in under them. */
 function reprint(component: RenderedComponent, part: GeneratedPart | undefined): void {
     const map = part?.surface?.map ?? null
-    const {lit, flat} = component.materials
+    const {lit, cartoon, flat} = component.materials
     const depth = component.mesh.customDepthMaterial as THREE.MeshDepthMaterial
 
-    for (const material of [lit, flat, component.outline.material as THREE.MeshBasicMaterial, depth]) {
+    for (const material of [lit, cartoon, flat, component.outline.material as THREE.MeshBasicMaterial, depth]) {
         // Gaining or losing a texture changes the shader, not just a value.
         material.needsUpdate = !material.map !== !map
         material.map = map
     }
 
     lit.normalMap = part?.surface?.normalMap ?? null
+    cartoon.normalMap = lit.normalMap
 }
 
 /** A style id that also says which detail level is showing. Full detail is just the style. */
@@ -306,20 +329,41 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
         component.mesh.material =
             shading === 'lit'
                 ? component.materials.lit
-                : shading === 'flat'
-                  ? component.materials.flat
-                  : shading === 'wind'
-                    ? component.materials.wind
-                    : component.materials.wire
+                : shading === 'cartoon'
+                  ? component.materials.cartoon
+                  : shading === 'flat'
+                    ? component.materials.flat
+                    : shading === 'wind'
+                      ? component.materials.wind
+                      : component.materials.wire
 
-        // Shadows only belong to the finished look.
-        component.mesh.castShadow = shading === 'lit' && component.mesh.visible
-        component.mesh.receiveShadow = shading === 'lit' && component.mesh.userData.receivesShadow
+        // Shadows only belong to the finished looks.
+        const finished = shading === 'lit' || shading === 'cartoon'
+        component.mesh.castShadow = finished && component.mesh.visible
+        component.mesh.receiveShadow = finished && component.mesh.userData.receivesShadow
+
+        if (component.ink) {
+            component.ink.visible = shading === 'cartoon' && component.mesh.visible
+
+            // Measuring takes a moment, so only a part showing its edge pays for it.
+            if (component.ink.visible && component.ink.userData.measured !== component.mesh.geometry) {
+                if (component.ink.userData.measured) {
+                    component.ink.geometry.dispose()
+                }
+                component.ink.geometry = createInkGeometry(component.mesh.geometry)
+                component.ink.userData.measured = component.mesh.geometry
+            }
+        }
     }
 
     const disposeComponent = (component: RenderedComponent) => {
         component.mesh.geometry.dispose()
         component.materials.lit.dispose()
+        component.materials.cartoon.dispose()
+        ;(component.ink?.material as THREE.Material | undefined)?.dispose()
+        if (component.ink?.userData.measured) {
+            component.ink.geometry.dispose()
+        }
         component.materials.flat.dispose()
         component.materials.wire.dispose()
         component.materials.wind.dispose()
@@ -388,6 +432,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                     materialColor(existing.materialKind, asset.materials),
                 )
                 existing.materials.lit.color.copy(color)
+                existing.materials.cartoon.color.copy(color)
                 existing.materials.flat.color.copy(color)
                 applyShading(existing)
                 continue

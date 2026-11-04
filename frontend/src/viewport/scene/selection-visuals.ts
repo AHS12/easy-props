@@ -20,16 +20,16 @@ export function applySelectionVisuals(viewport: ViewportScene, selection: Select
 
         component.outline.visible = isSelected
 
-        const material = component.materials.lit
-
-        if (isSelected || isHovered) {
-            material.emissive.set(VIEWPORT_COLORS.selection)
-            material.emissiveIntensity = isSelected
-                ? SELECTED_EMISSIVE_INTENSITY
-                : HOVERED_EMISSIVE_INTENSITY
-        } else {
-            material.emissive.set('#000000')
-            material.emissiveIntensity = 0
+        for (const material of [component.materials.lit, component.materials.cartoon]) {
+            if (isSelected || isHovered) {
+                material.emissive.set(VIEWPORT_COLORS.selection)
+                material.emissiveIntensity = isSelected
+                    ? SELECTED_EMISSIVE_INTENSITY
+                    : HOVERED_EMISSIVE_INTENSITY
+            } else {
+                material.emissive.set('#000000')
+                material.emissiveIntensity = 0
+            }
         }
     }
 }
