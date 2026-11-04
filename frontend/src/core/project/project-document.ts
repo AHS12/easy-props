@@ -242,6 +242,9 @@ export function parseProject(text: string): LoadedProject {
         }
     }
 
+    // Carried with the extras so saving it again keeps when it was first made.
+    extras.createdAt = parsed.createdAt
+
     return {
         // The envelope is checked above; parameters belong to the generators,
         // which validate them when they build.

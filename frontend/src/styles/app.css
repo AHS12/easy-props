@@ -3483,3 +3483,123 @@ html[data-theme='dark'] .dialog__error {
         max-width: 240px;
     }
 }
+
+/* A tick in the tile's corner: shown on hover, and on every tile once any is ticked. */
+.prop-tile__tick {
+    position: absolute;
+    top: var(--space-1);
+    left: var(--space-1);
+    width: 20px;
+    height: 20px;
+    display: none;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-raised);
+    color: var(--text-primary);
+}
+
+.prop-tile:hover .prop-tile__tick,
+.props-page__list:has(.prop-tile[data-ticked='true']) .prop-tile__tick {
+    display: grid;
+}
+
+.prop-tile[data-ticked='true'] {
+    border-color: var(--selection);
+    box-shadow: 0 0 0 1px var(--selection);
+}
+
+.prop-tile[data-ticked='true'] .prop-tile__tick {
+    border-color: var(--selection);
+    background: var(--selection);
+    color: var(--text-on-accent);
+}
+
+.props-page__bin-link {
+    align-self: flex-start;
+}
+
+.props-page__bin {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Recently removed, as tiles on Your props and as rows in Settings. */
+.removed-props {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.removed-props__all {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.removed-props__actions {
+    flex-wrap: wrap;
+}
+
+.removed-props[data-layout='tiles'] .removed-props__actions,
+.removed-props[data-layout='tiles'] .removed-props__question {
+    padding: var(--space-2);
+}
+
+.removed-props__question {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.removed-props__rows {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.removed-props__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.removed-props__thumb {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #2a2c2f;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.removed-props__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.removed-props__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.removed-props__row .removed-props__actions,
+.removed-props__row .removed-props__question {
+    flex: none;
+}
+
+.removed-props__row .removed-props__actions .button {
+    flex: none;
+}

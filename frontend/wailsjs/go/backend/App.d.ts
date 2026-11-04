@@ -12,11 +12,17 @@ export function ClearDraft():Promise<void>;
 
 export function ConfirmClose():Promise<void>;
 
+export function CopyPropPicture(arg1:string,arg2:string):Promise<void>;
+
 export function DeleteProp(arg1:string):Promise<void>;
 
 export function DownloadUpdate():Promise<void>;
 
 export function ExistingFiles(arg1:string,arg2:Array<string>):Promise<Array<string>>;
+
+export function ForgetOldRemovedProps():Promise<void>;
+
+export function ForgetRemovedProp(arg1:string):Promise<void>;
 
 export function GetLibraryInfo():Promise<backend.LibraryInfo>;
 
@@ -26,9 +32,13 @@ export function LibraryFolder():Promise<string>;
 
 export function ListProps():Promise<Array<backend.PropFile>>;
 
+export function ListRemovedProps():Promise<Array<backend.RemovedProp>>;
+
 export function OpenFileDialog(arg1:string,arg2:Array<string>):Promise<string>;
 
 export function OpenLibraryFolder():Promise<void>;
+
+export function PutBackProp(arg1:string):Promise<void>;
 
 export function ReadDraft():Promise<Array<number>>;
 
@@ -40,9 +50,13 @@ export function ReadPropThumbnail(arg1:string):Promise<Array<number>>;
 
 export function ReadPropsIndex():Promise<Array<number>>;
 
+export function ReadRemovedProp(arg1:string):Promise<Array<number>>;
+
 export function ReadSettings():Promise<Array<number>>;
 
 export function RememberWindow():Promise<number|number>;
+
+export function RemoveProp(arg1:string):Promise<void>;
 
 export function SaveFileDialog(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
 

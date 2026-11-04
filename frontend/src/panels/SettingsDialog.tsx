@@ -7,7 +7,7 @@
 
 import {FolderOpen, Keyboard, RotateCcw, Search, X} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
-import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook} from 'lucide-react'
+import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook, Trash2} from 'lucide-react'
 import {useEffect, useMemo, useState, type ReactNode} from 'react'
 import {ColourPicker} from '../components/ColourPicker'
 import {Dialog, Keys, Select, Switch} from '../components/controls'
@@ -24,6 +24,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
 import {useUpdateStore} from '../store/update-store'
+import {RemovedProps} from '../pages/RemovedProps'
 import {PalettesPage} from './PalettesPage'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
@@ -35,6 +36,7 @@ const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[]
     {id: 'Export', icon: Download},
     {id: 'Keyboard', icon: Keyboard},
     {id: 'Storage', icon: HardDrive},
+    {id: 'Recently removed', icon: Trash2},
     {id: 'About', icon: Info},
 ]
 
@@ -268,11 +270,18 @@ function StoragePage() {
     const setLibraryFolder = useSettingsStore((state) => state.setLibraryFolder)
     const custom = useSettingsStore((state) => state.libraryFolder)
     const refreshGallery = useEditorStore((state) => state.refreshGallery)
+    const removed = useEditorStore((state) => state.removedProps.length)
+    const refreshRemoved = useEditorStore((state) => state.refreshRemoved)
+    const openSettings = useUiStore((state) => state.openSettings)
     const [info, setInfo] = useState<LibraryInfo | null>(null)
 
     const reload = () => void libraryInfo().then(setInfo, () => setInfo(null))
 
     useEffect(reload, [custom])
+
+    useEffect(() => {
+        void refreshRemoved()
+    }, [custom, refreshRemoved])
 
     return (
         <>
@@ -286,7 +295,7 @@ function StoragePage() {
                     </SettingRow>
                     <SettingRow
                         label="Change folder"
-                        help="New saves go to the new folder, and My props lists what is there. Props in the old folder stay where they are."
+                        help="New saves go to the new folder, and Your props lists what is there. Props in the old folder stay where they are."
                     >
                         {custom ? (
                             <button
@@ -317,6 +326,14 @@ function StoragePage() {
                     </SettingRow>
                     <SettingRow label="Space used" help={info ? `${info.props} ${info.props === 1 ? 'prop' : 'props'}, with their pictures.` : undefined}>
                         <span className="tabular setting__value">{info ? formatBytes(info.bytes) : '…'}</span>
+                    </SettingRow>
+                    <SettingRow
+                        label="Recently removed"
+                        help={removed === 0 ? 'Nothing removed lately.' : `${removed} ${removed === 1 ? 'prop' : 'props'}, kept for 30 days in case you want them back.`}
+                    >
+                        <button type="button" className="button" onClick={() => openSettings('Recently removed')}>
+                            Show
+                        </button>
                     </SettingRow>
                 </>
             ) : (
@@ -509,6 +526,12 @@ export function SettingsDialog() {
                         <KeyboardPage needle="" />
                     ) : page === 'Storage' ? (
                         <StoragePage />
+                    ) : page === 'Recently removed' ? (
+                        hasDesktopStorage() ? (
+                            <RemovedProps layout="rows" />
+                        ) : (
+                            <p className="settings__intro">Removed props are kept only in the desktop app.</p>
+                        )
                     ) : page === 'Palettes' ? (
                         <PalettesPage />
                     ) : page === 'About' ? (

@@ -35,6 +35,21 @@ interface LibraryBindings {
     ShowProp(id: string): Promise<void>
     ReadPropsIndex(): Promise<unknown>
     WritePropsIndex(contents: number[]): Promise<void>
+    RemoveProp(id: string): Promise<void>
+    PutBackProp(id: string): Promise<void>
+    ForgetRemovedProp(id: string): Promise<void>
+    ForgetOldRemovedProps(): Promise<void>
+    ListRemovedProps(): Promise<RemovedFile[] | null>
+    ReadRemovedProp(id: string): Promise<unknown>
+    CopyPropPicture(from: string, to: string): Promise<void>
+}
+
+interface RemovedFile {
+    id: string
+    savedAt: string
+    removedAt: string
+    size: number
+    hasPicture: boolean
 }
 
 /** One saved prop as the pages show it. */
@@ -46,6 +61,12 @@ export interface SavedTree extends PropSummary {
     readonly size: number
     /** Where its picture is served, or null when it has none yet. */
     readonly thumbnail: string | null
+}
+
+/** A prop in the bin, waiting to be put back or forgotten. */
+export interface RemovedTree extends SavedTree {
+    /** ISO timestamp of when it was removed. */
+    readonly removedAt: string
 }
 
 export class LibraryUnavailableError extends Error {
@@ -110,6 +131,56 @@ export async function listTrees(): Promise<SavedTree[]> {
         thumbnail: file.hasPicture ? pictureAddress(file.id, file.savedAt) : null,
     }))
 }
+
+/** The props in the bin, most recently removed first. */
+export async function listRemovedTrees(): Promise<RemovedTree[]> {
+    const bindings = BINDINGS()
+
+    if (!bindings) {
+        return []
+    }
+
+    const files = (await bindings.ListRemovedProps()) ?? []
+
+    // The bin is small and seldom opened, so it's read whole, without an index.
+    return Promise.all(
+        files.map(async (file) => ({
+            ...summarizeProp(await bindings.ReadRemovedProp(file.id).then(textFromBinding, () => '')),
+            id: file.id,
+            savedAt: file.savedAt,
+            removedAt: file.removedAt,
+            size: file.size,
+            thumbnail: file.hasPicture ? removedPictureAddress(file.id, file.removedAt) : null,
+        })),
+    )
+}
+
+const removedPictureAddress = (id: string, removedAt: string): string =>
+    `/your-props/removed/${encodeURIComponent(id)}.png?v=${encodeURIComponent(removedAt)}`
+
+function libraryBindings(): LibraryBindings {
+    const bindings = BINDINGS()
+
+    if (!bindings) {
+        throw new LibraryUnavailableError()
+    }
+
+    return bindings
+}
+
+/** Moves a prop and its picture to the bin, where it can be put back. */
+export const removeTreeToBin = (id: string): Promise<void> => libraryBindings().RemoveProp(id)
+
+export const putBackTree = (id: string): Promise<void> => libraryBindings().PutBackProp(id)
+
+export const forgetRemovedTree = (id: string): Promise<void> => libraryBindings().ForgetRemovedProp(id)
+
+/** Empties the bin of props removed more than 30 days ago. Nothing to do in a browser. */
+export async function forgetOldRemovedTrees(): Promise<void> {
+    await BINDINGS()?.ForgetOldRemovedProps()
+}
+
+export const copyTreePicture = (from: string, to: string): Promise<void> => libraryBindings().CopyPropPicture(from, to)
 
 /** A tree's project text, ready for `parseProject`. */
 export async function readTree(id: string): Promise<string> {

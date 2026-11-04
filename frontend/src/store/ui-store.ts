@@ -15,6 +15,7 @@ export type SettingsPageId =
     | 'Export'
     | 'Keyboard'
     | 'Storage'
+    | 'Recently removed'
     | 'About'
 
 export interface ConfirmRequest {

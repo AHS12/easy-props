@@ -48,6 +48,26 @@ export namespace backend {
 	        this.hasPicture = source["hasPicture"];
 	    }
 	}
+	export class RemovedProp {
+	    id: string;
+	    savedAt: string;
+	    removedAt: string;
+	    size: number;
+	    hasPicture: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RemovedProp(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.savedAt = source["savedAt"];
+	        this.removedAt = source["removedAt"];
+	        this.size = source["size"];
+	        this.hasPicture = source["hasPicture"];
+	    }
+	}
 	export class UpdateInfo {
 	    available: boolean;
 	    version: string;

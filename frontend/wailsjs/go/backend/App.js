@@ -22,6 +22,10 @@ export function ConfirmClose() {
   return window['go']['backend']['App']['ConfirmClose']();
 }
 
+export function CopyPropPicture(arg1, arg2) {
+  return window['go']['backend']['App']['CopyPropPicture'](arg1, arg2);
+}
+
 export function DeleteProp(arg1) {
   return window['go']['backend']['App']['DeleteProp'](arg1);
 }
@@ -32,6 +36,14 @@ export function DownloadUpdate() {
 
 export function ExistingFiles(arg1, arg2) {
   return window['go']['backend']['App']['ExistingFiles'](arg1, arg2);
+}
+
+export function ForgetOldRemovedProps() {
+  return window['go']['backend']['App']['ForgetOldRemovedProps']();
+}
+
+export function ForgetRemovedProp(arg1) {
+  return window['go']['backend']['App']['ForgetRemovedProp'](arg1);
 }
 
 export function GetLibraryInfo() {
@@ -50,12 +62,20 @@ export function ListProps() {
   return window['go']['backend']['App']['ListProps']();
 }
 
+export function ListRemovedProps() {
+  return window['go']['backend']['App']['ListRemovedProps']();
+}
+
 export function OpenFileDialog(arg1, arg2) {
   return window['go']['backend']['App']['OpenFileDialog'](arg1, arg2);
 }
 
 export function OpenLibraryFolder() {
   return window['go']['backend']['App']['OpenLibraryFolder']();
+}
+
+export function PutBackProp(arg1) {
+  return window['go']['backend']['App']['PutBackProp'](arg1);
 }
 
 export function ReadDraft() {
@@ -78,12 +98,20 @@ export function ReadPropsIndex() {
   return window['go']['backend']['App']['ReadPropsIndex']();
 }
 
+export function ReadRemovedProp(arg1) {
+  return window['go']['backend']['App']['ReadRemovedProp'](arg1);
+}
+
 export function ReadSettings() {
   return window['go']['backend']['App']['ReadSettings']();
 }
 
 export function RememberWindow() {
   return window['go']['backend']['App']['RememberWindow']();
+}
+
+export function RemoveProp(arg1) {
+  return window['go']['backend']['App']['RemoveProp'](arg1);
 }
 
 export function SaveFileDialog(arg1, arg2, arg3) {

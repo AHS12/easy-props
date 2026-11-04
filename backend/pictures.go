@@ -9,8 +9,27 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
+
+// picturePath is where the picture of a saved prop, or of one in the bin, lives.
+func (a *App) picturePath(id string, inBin bool) (string, error) {
+	if !inBin {
+		return a.treePath(id, treePNGSuffix)
+	}
+
+	if err := checkTreeID(id); err != nil {
+		return "", err
+	}
+
+	bin, err := a.binDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(bin, id+treePNGSuffix), nil
+}
 
 // picturePathPrefix is where the pictures are served from. The embedded
 // interface has no folder of this name, so Wails passes these requests on.
@@ -28,6 +47,8 @@ func PictureHandler(a *App) http.Handler {
 		}
 
 		name, ok := strings.CutPrefix(request.URL.Path, picturePathPrefix)
+		// Props in the bin keep their pictures, so the bin can show them too.
+		name, inBin := strings.CutPrefix(name, binFolderName+"/")
 		id, isPicture := strings.CutSuffix(name, treePNGSuffix)
 
 		if !ok || !isPicture {
@@ -35,7 +56,7 @@ func PictureHandler(a *App) http.Handler {
 			return
 		}
 
-		path, err := a.treePath(id, treePNGSuffix)
+		path, err := a.picturePath(id, inBin)
 		if err != nil {
 			http.NotFound(writer, request)
 			return

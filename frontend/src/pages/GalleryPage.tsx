@@ -23,11 +23,8 @@ const RECENT_MOST = 8
 interface CardProps {
     tree: SavedTree
     current: boolean
-    confirming: boolean
     onOpen(): void
-    onAskDelete(): void
-    onDelete(): void
-    onCancel(): void
+    onRemove(): void
     onRename(name: string): void
 }
 
@@ -35,11 +32,8 @@ interface CardProps {
 function TreeCard({
     tree,
     current,
-    confirming,
     onOpen,
-    onAskDelete,
-    onDelete,
-    onCancel,
+    onRemove,
     onRename,
 }: CardProps) {
     const name = displayName(tree)
@@ -92,35 +86,6 @@ function TreeCard({
         )
     }
 
-    if (confirming) {
-        return (
-            <li className="prop-tile prop-tile--confirm">
-                <div
-                    className="prop-tile__panel"
-                    role="group"
-                    aria-label={`Remove ${name}?`}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Escape') {
-                            event.preventDefault()
-                            onCancel()
-                        }
-                    }}
-                >
-                    <p className="prop-tile__question">Remove “{name}”?</p>
-                    <p className="dialog__hint">It can't be brought back.</p>
-                    <div className="prop-tile__choices">
-                        <button type="button" className="button" autoFocus onClick={onCancel}>
-                            Keep it
-                        </button>
-                        <button type="button" className="button button--danger" onClick={onDelete}>
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </li>
-        )
-    }
-
     return (
         <li className="prop-tile" data-current={current}>
             <button type="button" className="prop-tile__open" title={name} onClick={onOpen}>
@@ -151,7 +116,7 @@ function TreeCard({
                     className="icon-button icon-button--overlay"
                     aria-label={`Remove ${name}`}
                     title="Remove"
-                    onClick={onAskDelete}
+                    onClick={onRemove}
                 >
                     <Trash2 size={12} aria-hidden="true" />
                 </button>
@@ -180,7 +145,6 @@ export function GalleryPage() {
     const propInHand = useEditorStore((state) => state.propInHand)
 
     const [family, setFamily] = useState<PropFamily>('tree')
-    const [confirmingId, setConfirmingId] = useState<string | null>(null)
     const [perRow, setPerRow] = useState(RECENT_MOST)
     const recentList = useRef<HTMLDivElement>(null)
 
@@ -283,14 +247,8 @@ export function GalleryPage() {
                                         key={tree.id}
                                         tree={tree}
                                         current={tree.id === currentTreeId}
-                                        confirming={tree.id === confirmingId}
                                         onOpen={() => void openTree(tree.id)}
-                                        onAskDelete={() => setConfirmingId(tree.id)}
-                                        onDelete={() => {
-                                            setConfirmingId(null)
-                                            void removeTree(tree.id)
-                                        }}
-                                        onCancel={() => setConfirmingId(null)}
+                                        onRemove={() => void removeTree(tree.id)}
                                         onRename={(name) => void renameTree(tree.id, name)}
                                     />
                                 ))}

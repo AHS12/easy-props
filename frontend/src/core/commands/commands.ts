@@ -178,6 +178,15 @@ export const COMMANDS: readonly Command[] = [
         run: (state) => state.showProps(),
     },
     {
+        id: 'recently-removed',
+        label: 'Recently removed',
+        group: 'File',
+        icon: Trash2,
+        global: true,
+        keywords: 'bin trash recycle deleted removed restore put back undelete empty',
+        run: () => useUiStore.getState().openSettings('Recently removed'),
+    },
+    {
         id: 'home',
         label: 'Home',
         group: 'File',

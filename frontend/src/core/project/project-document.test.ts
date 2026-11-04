@@ -79,6 +79,16 @@ describe('the project file', () => {
         expect(saved.generator).toBe('easy-props')
     })
 
+    it('keeps when it was made through opening and saving again', () => {
+        const loaded = parseProject(document({createdAt: '2025-05-05T05:00:00.000Z'}))
+        const saved = JSON.parse(
+            serializeProject({scene: loaded.scene, style: loaded.style, extras: loaded.extras, now: new Date('2026-11-04T09:00:00.000Z')}),
+        )
+
+        expect(saved.createdAt).toBe('2025-05-05T05:00:00.000Z')
+        expect(saved.modifiedAt).toBe('2026-11-04T09:00:00.000Z')
+    })
+
     it('writes back keys it does not understand', () => {
         const text = serializeProject({
             scene,

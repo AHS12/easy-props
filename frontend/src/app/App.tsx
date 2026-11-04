@@ -20,6 +20,7 @@ import {Tour} from '../panels/Tour'
 import {WhatsNewDialog} from '../panels/WhatsNewDialog'
 import {GalleryPage} from '../pages/GalleryPage'
 import {YourPropsPage} from '../pages/YourPropsPage'
+import {forgetOldRemovedTrees} from '../platform/library'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
 import {onCloseRequested} from '../platform/close-guard'
@@ -221,6 +222,9 @@ export function App() {
                 setBarkThreads(threads === 'auto' ? null : Number(threads))
 
                 const {values, lastTreeId} = useSettingsStore.getState()
+
+                // Only now does Go know which folder the props are in.
+                void forgetOldRemovedTrees().catch(() => undefined)
 
                 if (values.startOn === 'last' && lastTreeId) {
                     void useEditorStore.getState().openTree(lastTreeId)
