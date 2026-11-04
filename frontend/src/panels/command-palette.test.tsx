@@ -1,4 +1,4 @@
-import {cleanup, render, screen} from '@testing-library/react'
+import {cleanup, fireEvent, render, screen} from '@testing-library/react'
 import {afterEach, beforeAll, describe, expect, it} from 'vitest'
 import {useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
@@ -32,5 +32,22 @@ describe('the empty palette', () => {
         render(<CommandPalette />)
 
         expect(screen.getByRole('option', {name: /Export/})).toBeInTheDocument()
+    })
+})
+
+describe('finding the bin', () => {
+    it('finds Recently removed by "bin", and opens it in Settings', () => {
+        useEditorStore.setState({page: 'gallery'})
+        useUiStore.setState({paletteOpen: true})
+        render(<CommandPalette />)
+
+        fireEvent.change(screen.getByRole('combobox'), {target: {value: 'bin'}})
+
+        expect(screen.getAllByRole('option')[0].textContent).toContain('Recently removed')
+
+        fireEvent.click(screen.getByRole('option', {name: /Recently removed/}))
+
+        expect(useUiStore.getState().settingsPage).toBe('Recently removed')
+        useUiStore.getState().closeSettings()
     })
 })

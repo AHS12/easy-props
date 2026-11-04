@@ -69,6 +69,7 @@ export function BatchExportDialog() {
     const [kitSaved, setKitSaved] = useState<string | null>(null)
     const [kitError, setKitError] = useState<string | null>(null)
     const picked = useEditorStore((state) => state.batchPicked)
+    const savedIds = useEditorStore((state) => state.batchSavedIds)
 
     useEffect(() => {
         if (open) {
@@ -78,6 +79,13 @@ export function BatchExportDialog() {
             setKitError(null)
         }
     }, [open, refreshGallery])
+
+    // Props ticked on Your props are exactly what's wanted, so nothing else stays ticked.
+    useEffect(() => {
+        if (savedIds.length > 0) {
+            setChosen(new Set(savedIds.map((id) => `saved:${id}`)))
+        }
+    }, [savedIds])
 
     // Versions just picked are what the person came here for.
     useEffect(() => {

@@ -16,9 +16,12 @@ import {
     type SettingKey,
     type SettingPage,
     type SettingsFile,
+    type CloudBackupSettings,
+    type FolderBackupSettings,
     type SavedPalette,
     type SettingValue,
 } from '../core/settings/settings-spec'
+import type {PropSort} from '../core/library/prop-summary'
 import {readSettingsCopy, readSettingsFile, setLibraryFolder, writeSettingsFile} from '../platform/settings'
 
 const WRITE_DELAY_MS = 300
@@ -53,6 +56,11 @@ export interface SettingsStore extends SettingsFile {
     renamePalette(id: string, name: string): void
     setPaletteColours(id: string, colours: readonly string[]): void
     removePalette(id: string): void
+    /** Replaces every saved palette, as a restore does after merging. */
+    setPalettes(palettes: readonly SavedPalette[]): void
+    setFolderBackup(patch: Partial<FolderBackupSettings>): void
+    setCloudBackup(patch: Partial<CloudBackupSettings>): void
+    setPropsSort(sort: PropSort): void
 }
 
 let writeTimer: number | undefined
@@ -63,9 +71,9 @@ const newPaletteId = () => `palette-${Date.now().toString(36)}-${Math.random().t
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup, cloudBackup} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup, cloudBackup}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -172,6 +180,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
             change({palettes: get().palettes.map((palette) => (palette.id === id ? {...palette, colours: [...colours]} : palette))}),
 
         removePalette: (id) => change({palettes: get().palettes.filter((palette) => palette.id !== id)}),
+
+        setPropsSort: (propsSort) => change({propsSort}),
+
+        setPalettes: (palettes) => change({palettes: [...palettes]}),
+
+        setFolderBackup: (patch) => change({folderBackup: {...get().folderBackup, ...patch}}),
+
+        setCloudBackup: (patch) => change({cloudBackup: {...get().cloudBackup, ...patch}}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})

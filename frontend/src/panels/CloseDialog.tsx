@@ -3,14 +3,15 @@
  */
 
 import {Dialog} from '../components/controls'
-import {confirmClose} from '../platform/close-guard'
 
 interface CloseDialogProps {
     /** Dismisses the question and lets the user carry on. */
     onStay(): void
+    /** Goes ahead with the close, backing up first if a backup is due. */
+    onClose(): void
 }
 
-export function CloseDialog({onStay}: CloseDialogProps) {
+export function CloseDialog({onStay, onClose}: CloseDialogProps) {
     return (
         <Dialog open onClose={onStay} title="Close easy-props?">
             <p className="dialog__hint">
@@ -23,7 +24,7 @@ export function CloseDialog({onStay}: CloseDialogProps) {
                 <button type="button" className="button" autoFocus onClick={onStay}>
                     Keep editing
                 </button>
-                <button type="button" className="button button--primary" onClick={() => void confirmClose()}>
+                <button type="button" className="button button--primary" onClick={onClose}>
                     Close
                 </button>
             </div>

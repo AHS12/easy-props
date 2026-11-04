@@ -57,7 +57,7 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
         {
             target: 'gallery-recent',
             title: 'Your saved props',
-            text: 'Everything you save appears here. Click one to carry on with it. Rest the pointer on one to rename or delete it.',
+            text: 'What you saved last appears here. Click one to carry on with it. All your props has every one, with its details.',
             side: 'below',
             optional: true,
         },

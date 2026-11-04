@@ -8,6 +8,10 @@ import {CommandPalette} from '../panels/CommandPalette'
 import {ConfirmDialog} from '../panels/ConfirmDialog'
 import {Details} from '../panels/Details'
 import {BatchExportDialog} from '../panels/BatchExportDialog'
+import {ClosingDialog} from '../panels/ClosingDialog'
+import {CloudSetupDialog} from '../panels/CloudSetupDialog'
+import {RestoreDialog} from '../panels/RestoreDialog'
+import {clearHolding} from '../platform/backup'
 import {VariationGrid} from '../panels/VariationGrid'
 import {ExportDialog} from '../panels/ExportDialog'
 import {LeftPanel} from '../panels/LeftPanel'
@@ -19,9 +23,12 @@ import {Toast} from '../panels/Toast'
 import {Tour} from '../panels/Tour'
 import {WhatsNewDialog} from '../panels/WhatsNewDialog'
 import {GalleryPage} from '../pages/GalleryPage'
-import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
+import {YourPropsPage} from '../pages/YourPropsPage'
+import {forgetOldRemovedTrees} from '../platform/library'
+import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
-import {onCloseRequested} from '../platform/close-guard'
+import {confirmClose, onCloseRequested} from '../platform/close-guard'
+import {useBackupStore} from '../store/backup-store'
 import {cancelUpdateInstall} from '../platform/update'
 import {settingNumber, settingValue, uiScale, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
@@ -31,6 +38,9 @@ import {Viewport} from '../viewport/Viewport'
 const ROOT_FONT_PX = 16
 /** How long after start the weekly update check waits. */
 const UPDATE_CHECK_DELAY_MS = 5000
+
+/** A few seconds after start, so the first screen settles before any backup reads the disk. */
+const STARTUP_BACKUP_DELAY_MS = 3000
 
 /** Applies what the document element carries: theme, scale and motion. */
 function applyAppearance() {
@@ -145,9 +155,31 @@ export function App() {
     const page = useEditorStore((state) => state.page)
     const [closeRequested, setCloseRequested] = useState(false)
 
-    // The shell cancels the close when work is unsaved and tells us; the
-    // question is ours to ask, in our own voice.
-    useEffect(() => onCloseRequested(() => setCloseRequested(true)), [])
+    // The shell cancels the close when work is unsaved, or a backup may be due,
+    // and tells us. The question is ours to ask, in our own voice; with nothing
+    // unsaved there's no question, only the backup.
+    const [closing, setClosing] = useState(false)
+
+    const closeAfterBackup = () => {
+        setCloseRequested(false)
+        setClosing(true)
+        void useBackupStore
+            .getState()
+            .backUpBeforeClosing()
+            .finally(() => void confirmClose())
+    }
+
+    useEffect(
+        () =>
+            onCloseRequested(() => {
+                if (hasUnsavedChanges(useEditorStore.getState())) {
+                    setCloseRequested(true)
+                } else {
+                    closeAfterBackup()
+                }
+            }),
+        [],
+    )
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -185,7 +217,7 @@ export function App() {
             // shortcut uses those, so anything that reaches here is ours.
 
             // The home page has no prop on screen, so only some commands mean anything there.
-            if (editor.page === 'gallery' && !command.global) {
+            if (isHomePage(editor.page) && !command.global) {
                 return
             }
 
@@ -207,6 +239,7 @@ export function App() {
         })
         const unwatch = watchSystemTheme(applyAppearance)
         let updateTimer: number | undefined
+        let backupTimer: number | undefined
 
         // Settings from the file win over the copy the first paint used.
         void useSettingsStore
@@ -221,18 +254,47 @@ export function App() {
 
                 const {values, lastTreeId} = useSettingsStore.getState()
 
+                // Only now does Go know which folder the props are in.
+                void forgetOldRemovedTrees().catch(() => undefined)
+                // Whatever a restore left unpacked when the app last closed.
+                void clearHolding().catch(() => undefined)
+
                 if (values.startOn === 'last' && lastTreeId) {
                     void useEditorStore.getState().openTree(lastTreeId)
                 }
 
                 // After the first screen has settled, so it never slows the start.
                 updateTimer = window.setTimeout(() => checkForUpdatesIfDue(), UPDATE_CHECK_DELAY_MS)
+
+                // Catches changes from a session that closed before its backup ran.
+                void useBackupStore.getState().refreshBackupDue()
+                backupTimer = window.setTimeout(() => void useBackupStore.getState().runAutoBackups(), STARTUP_BACKUP_DELAY_MS)
             })
 
         return () => {
             unsubscribe()
             unwatch()
             window.clearTimeout(updateTimer)
+            window.clearTimeout(backupTimer)
+        }
+    }, [])
+
+    // A save, rename, removal or palette change: back up a minute after the last one.
+    useEffect(() => {
+        const unwatchProps = useEditorStore.subscribe((state, previous) => {
+            if (state.gallery !== previous.gallery) {
+                useBackupStore.getState().scheduleBackups()
+            }
+        })
+        const unwatchPalettes = useSettingsStore.subscribe((state, previous) => {
+            if (state.palettes !== previous.palettes) {
+                useBackupStore.getState().scheduleBackups()
+            }
+        })
+
+        return () => {
+            unwatchProps()
+            unwatchPalettes()
         }
     }, [])
 
@@ -296,13 +358,15 @@ export function App() {
 
     return (
         <div className="app-shell">
-            <MenuBar home={page === 'gallery'} />
-            {page === 'gallery' ? <GalleryPage /> : <Editor />}
+            <MenuBar home={isHomePage(page)} />
+            {page === 'gallery' ? <GalleryPage /> : page === 'props' ? <YourPropsPage /> : <Editor />}
             <Tour />
             <Toast />
             <SaveDialog />
             <ExportDialog />
             <BatchExportDialog />
+            <RestoreDialog />
+            <CloudSetupDialog />
             <VariationGrid />
             <SettingsDialog />
             <ConfirmDialog />
@@ -313,8 +377,10 @@ export function App() {
                         setCloseRequested(false)
                         void cancelUpdateInstall()
                     }}
+                    onClose={closeAfterBackup}
                 />
             ) : null}
+            {closing ? <ClosingDialog /> : null}
             <CommandPalette />
             <div className="visually-hidden" role="status" aria-live="polite">
                 {announcement}

@@ -61,11 +61,19 @@ import {
     writeDraftText,
 } from '../platform/draft'
 import {
-    deleteTree,
+    copyTreePicture,
+    forgetRemovedTree,
+    listRemovedTrees,
     listTrees,
     newTreeId,
+    pictureAddress,
+    putBackTree,
     readTree,
+    removeTreeToBin,
+    showTreeFile,
     writeTree,
+    writeTreePicture,
+    type RemovedTree,
     type SavedTree,
 } from '../platform/library'
 import {findAttachment} from '../core/scene/attachment'
@@ -98,6 +106,28 @@ function describeFailure(
 
     return `Could not ${action} the file. ${detail}`
 }
+
+/** Which screen is showing. Home and Your props show no prop, so editing commands sleep there. */
+export type Page = 'gallery' | 'props' | 'editor'
+
+/** True on the pages without a prop on screen. */
+export const isHomePage = (page: Page): boolean => page !== 'editor'
+
+/** Pictures of saved props are drawn at this size, so the Your props panel can show them large. */
+const PICTURE_SIZE = 512
+
+/** True while missing pictures are being drawn, so two runs never overlap. */
+let drawingPictures = false
+
+/** Count listings of saved props and of the bin, so one that finishes late can't replace a newer one. */
+let galleryListings = 0
+let removedListings = 0
+
+/** The open prop's id, while it sits in the bin, so putting it back reconnects the editor to it. */
+let openPropInBin: string | null = null
+
+/** "Old oak", or "3 props". */
+const propsLabel = (names: readonly string[]): string => (names.length === 1 ? `"${names[0]}"` : `${names.length} props`)
 
 /** A name that is not already in the gallery. "Oak" becomes "Oak 2". */
 function copyNameOf(base: string, gallery: readonly SavedTree[]): string {
@@ -269,6 +299,9 @@ export interface EditorStore {
     /** Versions picked in Show me more, offered at the top of Export many. */
     batchPicked: BatchChoice | null
     openBatchWith(choice: BatchChoice): void
+    /** Saved props to tick when Export many opens, as from Your props. */
+    batchSavedIds: readonly string[]
+    openBatchWithSaved(ids: readonly string[]): void
     closeBatch(): void
     /** The batch running or just finished, or null. */
     batch: BatchState | null
@@ -296,9 +329,18 @@ export interface EditorStore {
     gallery: readonly SavedTree[]
     galleryLoading: boolean
     /** Which screen is showing. The app opens on the gallery. */
-    page: 'gallery' | 'editor'
+    page: Page
     showGallery(): void
+    /** The page listing every saved prop. */
+    showProps(): void
     showEditor(): void
+    /** The prop picked on Your props, whose details show beside the list. */
+    pickedPropId: string | null
+    pickProp(id: string | null): void
+    /** Draws pictures for saved props that have none, one at a time, while a page of props is open. */
+    drawMissingPictures(): Promise<void>
+    /** Shows a saved prop's file in the system's file manager. */
+    showPropFile(id: string): Promise<void>
     /** The gallery entry this session belongs to, once it has one. */
     currentTreeId: string | null
     treeName: string
@@ -314,7 +356,20 @@ export interface EditorStore {
     openTree(id: string): Promise<void>
     /** Gives a saved tree a new name, leaving everything else and its preview. */
     renameTree(id: string, name: string): Promise<void>
+    /** Moves a saved prop to the bin, with Undo in the message. */
     removeTree(id: string): Promise<void>
+    removeTrees(ids: readonly string[]): Promise<void>
+    /** Moves props back from the bin. */
+    putBackTrees(ids: readonly string[]): Promise<void>
+    /** Removes a prop in the bin for good. */
+    forgetTree(id: string): Promise<void>
+    /** Empties the bin. */
+    forgetAllRemoved(): Promise<void>
+    /** Saves a copy of a saved prop without opening it, and picks the copy. */
+    copyTree(id: string): Promise<void>
+    /** The props in the bin, most recently removed first. */
+    removedProps: readonly RemovedTree[]
+    refreshRemoved(): Promise<void>
 
     /**
      * The document as it was last written.
@@ -428,6 +483,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             // list, a gallery of trees is a gallery.
             const thumbnail = await renderTreeThumbnail(state.scene, {
                 style: getStyleProfile(state.style),
+                size: PICTURE_SIZE,
             })
 
             await writeTree(id as string, text, thumbnail)
@@ -780,22 +836,84 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         galleryLoading: false,
         page: 'gallery',
         showGallery: () => set({page: 'gallery'}),
+        showProps: () => set({page: 'props'}),
         showEditor: () => set({page: 'editor'}),
+        pickedPropId: null,
+        pickProp: (id) => set({pickedPropId: id}),
+
+        drawMissingPictures: async () => {
+            if (drawingPictures) {
+                return
+            }
+
+            drawingPictures = true
+
+            try {
+                for (const prop of get().gallery.filter((entry) => entry.thumbnail === null && entry.kind !== null)) {
+                    // Leaving for the editor stops it, so drawing never competes with editing.
+                    if (!isHomePage(get().page)) {
+                        return
+                    }
+
+                    await afterPaint()
+
+                    try {
+                        const project = parseProject(await readTree(prop.id))
+                        const picture = await renderTreeThumbnail(project.scene, {
+                            style: getStyleProfile(asStyleId(project.style)),
+                            size: PICTURE_SIZE,
+                        })
+
+                        if (!picture) {
+                            continue
+                        }
+
+                        await writeTreePicture(prop.id, picture)
+
+                        set({
+                            gallery: get().gallery.map((entry) =>
+                                entry.id === prop.id ? {...entry, thumbnail: pictureAddress(entry.id, entry.savedAt)} : entry,
+                            ),
+                        })
+                    } catch {
+                        // A prop that can't be drawn keeps its icon; the rest still get theirs.
+                    }
+                }
+            } finally {
+                drawingPictures = false
+            }
+        },
+
+        showPropFile: async (id) => {
+            try {
+                await showTreeFile(id)
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'read'), undoable: false}})
+            }
+        },
         currentTreeId: null,
         treeName: 'My tree',
 
         setTreeName: (name) => set({treeName: name}),
 
         refreshGallery: async () => {
+            const asked = ++galleryListings
+
             set({galleryLoading: true})
 
             try {
-                set({gallery: await listTrees(), galleryLoading: false})
+                const gallery = await listTrees()
+
+                if (asked === galleryListings) {
+                    set({gallery, galleryLoading: false})
+                }
             } catch (error) {
-                set({
-                    galleryLoading: false,
-                    toast: {message: describeFailure(error, 'read'), undoable: false},
-                })
+                if (asked === galleryListings) {
+                    set({
+                        galleryLoading: false,
+                        toast: {message: describeFailure(error, 'read'), undoable: false},
+                    })
+                }
             }
         },
 
@@ -973,20 +1091,144 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
         },
 
-        removeTree: async (id) => {
+        removeTree: (id) => get().removeTrees([id]),
+
+        removeTrees: async (ids) => {
             const state = get()
+            const names = ids.map((id) => state.gallery.find((tree) => tree.id === id)?.name ?? 'Untitled prop')
+            const removed: string[] = []
 
             try {
-                await deleteTree(id)
-
-                set({
-                    currentTreeId: state.currentTreeId === id ? null : state.currentTreeId,
-                    toast: {message: 'Tree deleted', undoable: false},
-                })
-
-                await get().refreshGallery()
+                for (const id of ids) {
+                    await removeTreeToBin(id)
+                    removed.push(id)
+                }
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'delete'), undoable: false}})
+            }
+
+            if (removed.length === 0) {
+                return
+            }
+
+            if (state.currentTreeId !== null && removed.includes(state.currentTreeId)) {
+                openPropInBin = state.currentTreeId
+            }
+
+            set({
+                currentTreeId: state.currentTreeId !== null && removed.includes(state.currentTreeId) ? null : state.currentTreeId,
+                pickedPropId: state.pickedPropId !== null && removed.includes(state.pickedPropId) ? null : state.pickedPropId,
+                ...(removed.length === ids.length
+                    ? {
+                          toast: {
+                              message: `Removed ${propsLabel(names)}`,
+                              undoable: false,
+                              action: {label: 'Undo', run: () => void get().putBackTrees(removed)},
+                          },
+                      }
+                    : {}),
+            })
+
+            await Promise.all([get().refreshGallery(), get().refreshRemoved()])
+        },
+
+        putBackTrees: async (ids) => {
+            try {
+                for (const id of ids) {
+                    await putBackTree(id)
+
+                    if (openPropInBin === id && get().currentTreeId === null) {
+                        set({currentTreeId: id})
+                        openPropInBin = null
+                    }
+                }
+
+                const names = ids.map((id) => get().removedProps.find((tree) => tree.id === id)?.name ?? 'Untitled prop')
+
+                // Picked again, so Undo leaves the panel where it was before the removal.
+                set({pickedPropId: ids[0], toast: {message: `Put back ${propsLabel(names)}`, undoable: false}})
+            } catch {
+                set({
+                    toast: {
+                        message: "Couldn't put that prop back. A saved prop may already use its place, or its file was moved.",
+                        undoable: false,
+                    },
+                })
+            }
+
+            await Promise.all([get().refreshGallery(), get().refreshRemoved()])
+        },
+
+        forgetTree: async (id) => {
+            try {
+                await forgetRemovedTree(id)
+                await get().refreshRemoved()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'delete'), undoable: false}})
+            }
+        },
+
+        copyTree: async (id) => {
+            try {
+                const project = parseProject(await readTree(id))
+                const name = copyNameOf(`${project.name} copy`, get().gallery)
+                const copyId = newTreeId()
+                // A copy is a new prop, made now, so it doesn't keep the original's date.
+                const extras = {...project.extras}
+                delete extras.createdAt
+
+                await writeTree(
+                    copyId,
+                    serializeProject({
+                        scene: project.scene,
+                        name,
+                        style: project.style,
+                        presetId: project.presetId ?? undefined,
+                        extras,
+                    }),
+                    null,
+                )
+                await copyTreePicture(id, copyId)
+
+                set({pickedPropId: copyId, toast: {message: `Copied as "${name}"`, undoable: false}})
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+        },
+
+        forgetAllRemoved: async () => {
+            const count = get().removedProps.length
+
+            try {
+                for (const tree of get().removedProps) {
+                    await forgetRemovedTree(tree.id)
+                }
+
+                set({toast: {message: count === 1 ? 'Emptied the bin' : `Emptied the bin of ${count} props`, undoable: false}})
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'delete'), undoable: false}})
+            }
+
+            await get().refreshRemoved()
+        },
+
+        removedProps: [],
+
+        refreshRemoved: async () => {
+            // Only the newest listing counts: an older one finishing late would show what's gone.
+            const asked = ++removedListings
+
+            try {
+                const removedProps = await listRemovedTrees()
+
+                if (asked === removedListings) {
+                    set({removedProps})
+                }
+            } catch {
+                if (asked === removedListings) {
+                    set({removedProps: []})
+                }
             }
         },
 
@@ -1055,6 +1297,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatch: () => set({batchOpen: true, exportOpen: false}),
         batchPicked: null,
         openBatchWith: (batchPicked) => set({batchPicked, batchOpen: true, exportOpen: false}),
+        batchSavedIds: [],
+        openBatchWithSaved: (batchSavedIds) => set({batchSavedIds, batchPicked: null, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
         startBatch: (choices, variations, {engine, levels, collision, wind, join, far, folder: chosen, folderPerProp}, subfolder = '') => {

@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
@@ -20,6 +20,8 @@ import {findBudgetTarget} from '../export/pipeline/budget'
 import {FAR_LEVEL, LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
 import {settingValue, useSettingsStore} from '../../store/settings-store'
+import {canBackUp} from '../../platform/backup'
+import {useBackupStore} from '../../store/backup-store'
 import {useUiStore} from '../../store/ui-store'
 import {useUpdateStore} from '../../store/update-store'
 import {canCheckForUpdates} from '../../platform/update'
@@ -169,12 +171,72 @@ export const COMMANDS: readonly Command[] = [
     ),
     {
         id: 'gallery',
-        label: 'My props',
+        label: 'Your props',
         group: 'File',
         shortcut: 'Ctrl+G',
+        icon: Library,
+        global: true,
+        keywords: 'my props gallery library saved open recent all browse',
+        run: (state) => state.showProps(),
+    },
+    {
+        id: 'back-up',
+        label: 'Back up to a file…',
+        group: 'File',
+        icon: ArchiveRestore,
+        global: true,
+        keywords: 'backup save zip copy safe keep all props palettes another computer',
+        unavailable: () => (canBackUp() ? null : 'Backups need the desktop app.'),
+        run: () => void useBackupStore.getState().backUp(),
+    },
+    {
+        id: 'restore-backup',
+        label: 'Restore from a backup…',
+        group: 'File',
+        icon: ArchiveRestore,
+        global: true,
+        keywords: 'restore backup zip bring back load import another computer',
+        unavailable: () => (canBackUp() ? null : 'Backups need the desktop app.'),
+        run: () => void useBackupStore.getState().openRestore(),
+    },
+    {
+        id: 'back-up-cloud',
+        label: 'Back up to the cloud now',
+        group: 'File',
+        icon: CloudUpload,
+        global: true,
+        keywords: 'backup cloud s3 r2 b2 bucket upload sync',
+        unavailable: () =>
+            !canBackUp() ? 'Backups need the desktop app.' : useSettingsStore.getState().cloudBackup.service ? null : 'Set up cloud backup in Settings, Backup first.',
+        run: () => void useBackupStore.getState().backUpToCloudNow(),
+    },
+    {
+        id: 'restore-cloud',
+        label: 'Restore from the cloud…',
+        group: 'File',
+        icon: CloudDownload,
+        global: true,
+        keywords: 'restore cloud s3 r2 b2 bucket download bring back another computer',
+        unavailable: () =>
+            !canBackUp() ? 'Backups need the desktop app.' : useSettingsStore.getState().cloudBackup.service ? null : 'Set up cloud backup in Settings, Backup first.',
+        run: () => void useBackupStore.getState().openCloudRestore(),
+    },
+    {
+        id: 'recently-removed',
+        label: 'Recently removed',
+        group: 'File',
+        icon: Trash2,
+        global: true,
+        keywords: 'bin trash recycle deleted removed restore put back undelete empty',
+        run: () => useUiStore.getState().openSettings('Recently removed'),
+    },
+    {
+        id: 'home',
+        label: 'Home',
+        group: 'File',
         icon: Home,
         global: true,
-        keywords: 'home gallery library start saved open recent props',
+        keywords: 'start page welcome begin',
         run: (state) => state.showGallery(),
     },
     {

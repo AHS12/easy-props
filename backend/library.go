@@ -24,9 +24,10 @@ import (
 // description of a file, not of a tree: the size is the size on disk and the
 // timestamp is the file's modification time.
 type PropFile struct {
-	ID      string `json:"id"`
-	SavedAt string `json:"savedAt"` // RFC3339 of the file's modification time
-	Size    int64  `json:"size"`
+	ID         string `json:"id"`
+	SavedAt    string `json:"savedAt"` // RFC3339 of the file's modification time
+	Size       int64  `json:"size"`
+	HasPicture bool   `json:"hasPicture"`
 }
 
 const (
@@ -73,6 +74,15 @@ func (a *App) ListProps() ([]PropFile, error) {
 		modTime time.Time
 	}
 
+	// Knowing which pictures exist from the listing saves reading any of them
+	// just to find out they are missing.
+	pictures := make(map[string]bool)
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), treePNGSuffix) {
+			pictures[strings.TrimSuffix(entry.Name(), treePNGSuffix)] = true
+		}
+	}
+
 	foundTrees := make([]found, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), treeJSONSuffix) {
@@ -90,11 +100,13 @@ func (a *App) ListProps() ([]PropFile, error) {
 			return nil, fmt.Errorf("easy-props: cannot inspect %q: %w", entry.Name(), err)
 		}
 
+		id := strings.TrimSuffix(entry.Name(), treeJSONSuffix)
 		foundTrees = append(foundTrees, found{
 			tree: PropFile{
-				ID:      strings.TrimSuffix(entry.Name(), treeJSONSuffix),
-				SavedAt: info.ModTime().UTC().Format(time.RFC3339),
-				Size:    info.Size(),
+				ID:         id,
+				SavedAt:    info.ModTime().UTC().Format(time.RFC3339),
+				Size:       info.Size(),
+				HasPicture: pictures[id],
 			},
 			modTime: info.ModTime(),
 		})
@@ -154,6 +166,36 @@ func (a *App) WriteProp(id string, contents []byte, thumbnail []byte) error {
 	}
 
 	return writeFileAtomic(preview, thumbnail)
+}
+
+// WritePropPicture writes only the picture of the prop named by id. The prop
+// file is left alone, so drawing a missing picture doesn't change when the prop
+// was last saved, or its place in the list.
+func (a *App) WritePropPicture(id string, picture []byte) error {
+	if len(picture) == 0 {
+		return fmt.Errorf("easy-props: refusing to write an empty picture for %q", id)
+	}
+
+	path, err := a.treePath(id, treePNGSuffix)
+	if err != nil {
+		return err
+	}
+
+	return writeFileAtomic(path, picture)
+}
+
+// ShowProp shows the prop's file, picked out, in the system's file manager.
+func (a *App) ShowProp(id string) error {
+	path, err := a.treePath(id, treeJSONSuffix)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("easy-props: cannot show %q: %w", id, err)
+	}
+
+	return revealInFileManager(path)
 }
 
 // DeleteProp removes the tree file named by id and its preview. A preview that

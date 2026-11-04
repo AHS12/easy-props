@@ -31,6 +31,8 @@ func main() {
 		MinHeight: backend.MinWindowHeight,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+			// Pictures of saved props come from disk, not from the build.
+			Handler: backend.PictureHandler(app),
 		},
 		// The menu bar is the title bar, as in other modern desktop editors. A Mac
 		// keeps its own window buttons, drawn over the bar by the inset title bar.

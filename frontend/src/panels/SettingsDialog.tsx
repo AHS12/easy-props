@@ -7,7 +7,7 @@
 
 import {FolderOpen, Keyboard, RotateCcw, Search, X} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
-import {Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook} from 'lucide-react'
+import {ArchiveRestore, Cpu, Download, HardDrive, Info, Monitor, Palette as PaletteIcon, Settings2, SwatchBook, Trash2} from 'lucide-react'
 import {useEffect, useMemo, useState, type ReactNode} from 'react'
 import {ColourPicker} from '../components/ColourPicker'
 import {Dialog, Keys, Select, Switch} from '../components/controls'
@@ -24,6 +24,10 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
 import {useUpdateStore} from '../store/update-store'
+import {RemovedProps} from '../pages/RemovedProps'
+import {findCloudService} from '../core/backup/cloud-services'
+import {canBackUp} from '../platform/backup'
+import {useBackupAttention, useBackupStore} from '../store/backup-store'
 import {PalettesPage} from './PalettesPage'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
@@ -35,6 +39,8 @@ const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[]
     {id: 'Export', icon: Download},
     {id: 'Keyboard', icon: Keyboard},
     {id: 'Storage', icon: HardDrive},
+    {id: 'Backup', icon: ArchiveRestore},
+    {id: 'Recently removed', icon: Trash2},
     {id: 'About', icon: Info},
 ]
 
@@ -268,11 +274,18 @@ function StoragePage() {
     const setLibraryFolder = useSettingsStore((state) => state.setLibraryFolder)
     const custom = useSettingsStore((state) => state.libraryFolder)
     const refreshGallery = useEditorStore((state) => state.refreshGallery)
+    const removed = useEditorStore((state) => state.removedProps.length)
+    const refreshRemoved = useEditorStore((state) => state.refreshRemoved)
+    const openSettings = useUiStore((state) => state.openSettings)
     const [info, setInfo] = useState<LibraryInfo | null>(null)
 
     const reload = () => void libraryInfo().then(setInfo, () => setInfo(null))
 
     useEffect(reload, [custom])
+
+    useEffect(() => {
+        void refreshRemoved()
+    }, [custom, refreshRemoved])
 
     return (
         <>
@@ -286,7 +299,7 @@ function StoragePage() {
                     </SettingRow>
                     <SettingRow
                         label="Change folder"
-                        help="New saves go to the new folder, and My props lists what is there. Props in the old folder stay where they are."
+                        help="New saves go to the new folder, and Your props lists what is there. Props in the old folder stay where they are."
                     >
                         {custom ? (
                             <button
@@ -318,10 +331,191 @@ function StoragePage() {
                     <SettingRow label="Space used" help={info ? `${info.props} ${info.props === 1 ? 'prop' : 'props'}, with their pictures.` : undefined}>
                         <span className="tabular setting__value">{info ? formatBytes(info.bytes) : '…'}</span>
                     </SettingRow>
+                    <SettingRow
+                        label="Recently removed"
+                        help={removed === 0 ? 'Nothing removed lately.' : `${removed} ${removed === 1 ? 'prop' : 'props'}, kept for 30 days in case you want them back.`}
+                    >
+                        <button type="button" className="button" onClick={() => openSettings('Recently removed')}>
+                            Show
+                        </button>
+                    </SettingRow>
                 </>
             ) : (
                 <p className="settings__intro">Running in a browser, props are kept in this browser's storage.</p>
             )}
+        </>
+    )
+}
+
+const KEEP_CHOICES = ['5', '10', '20', '30'].map((value) => ({value, label: `The last ${value}`}))
+
+/** When the last folder backup was made, in the fewest words that are still true. */
+function lastBackupLabel(iso: string): string {
+    const at = new Date(iso)
+
+    if (!iso || Number.isNaN(at.getTime())) {
+        return 'None yet. The first is made as soon as there is something to back up.'
+    }
+
+    const time = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(at)
+    const sameDay = at.toDateString() === new Date().toDateString()
+
+    return sameDay
+        ? `Today at ${time}.`
+        : `${new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short'}).format(at)} at ${time}.`
+}
+
+/** Backing up to a folder by itself, once a day when something changed. */
+function FolderBackupRows() {
+    const backup = useSettingsStore((state) => state.folderBackup)
+    const setFolderBackup = useSettingsStore((state) => state.setFolderBackup)
+    const problem = useBackupStore((state) => state.folderProblem)
+    const chooseFolder = useBackupStore((state) => state.chooseFolder)
+    const turnOff = useBackupStore((state) => state.turnOffFolderBackup)
+    const busy = useBackupStore((state) => state.phase !== 'idle')
+
+    return (
+        <>
+            <h3 className="settings__group">Back up by itself</h3>
+            <SettingRow
+                label="Back up to a folder"
+                help={
+                    backup.folder ||
+                    'Once a day, when something changed, a dated backup goes in a folder you choose, such as a synced folder or an external drive.'
+                }
+            >
+                {backup.folder ? (
+                    <button type="button" className="text-button" onClick={turnOff}>
+                        Turn off
+                    </button>
+                ) : null}
+                <button type="button" className="button" disabled={busy} onClick={() => void chooseFolder()}>
+                    {backup.folder ? 'Change…' : 'Choose a folder…'}
+                </button>
+            </SettingRow>
+            {backup.folder ? (
+                <>
+                    <SettingRow label="Backups to keep" help="Older ones the app made are removed. Nothing else in the folder is touched.">
+                        <Select<string>
+                            label="Backups to keep"
+                            value={String(backup.keep)}
+                            options={KEEP_CHOICES}
+                            onChange={(value) => setFolderBackup({keep: Number(value)})}
+                        />
+                    </SettingRow>
+                    <SettingRow label="Last backup there" help={problem ?? lastBackupLabel(backup.lastAt)}>
+                        {problem ? <span className="setting__warning">Not backed up</span> : null}
+                    </SettingRow>
+                    <p className="settings__intro">
+                        It backs up a minute after you save, when the app starts, and when it closes. Nothing runs while the app is
+                        closed, and nothing needs to: props only change while it's open.
+                    </p>
+                </>
+            ) : null}
+        </>
+    )
+}
+
+/** Backing up to storage the person already has, over the S3 API. */
+function CloudBackupRows() {
+    const cloud = useSettingsStore((state) => state.cloudBackup)
+    const problem = useBackupStore((state) => state.cloudProblem)
+    const busy = useBackupStore((state) => state.phase !== 'idle')
+    const openCloudSetup = useBackupStore((state) => state.openCloudSetup)
+    const backUpToCloudNow = useBackupStore((state) => state.backUpToCloudNow)
+    const openCloudRestore = useBackupStore((state) => state.openCloudRestore)
+    const turnOffCloud = useBackupStore((state) => state.turnOffCloud)
+    const setCloudAuto = useBackupStore((state) => state.setCloudAuto)
+    const service = findCloudService(cloud.service)
+
+    return (
+        <>
+            <h3 className="settings__group">Cloud backup</h3>
+            {service ? (
+                <>
+                    <SettingRow label={service.label} help={`${cloud.bucket}/${cloud.folder ? `${cloud.folder}/` : ''}`}>
+                        <button type="button" className="text-button" onClick={() => void turnOffCloud()}>
+                            Turn off
+                        </button>
+                        <button type="button" className="button" disabled={busy} onClick={openCloudSetup}>
+                            Change…
+                        </button>
+                    </SettingRow>
+                    <SettingRow label="Last backed up" help={problem ?? (cloud.lastAt ? lastBackupLabel(cloud.lastAt) : 'Not yet.')}>
+                        {problem ? <span className="setting__warning">Not backed up</span> : null}
+                        <button type="button" className="button" disabled={busy} onClick={() => void backUpToCloudNow()}>
+                            Back up now
+                        </button>
+                    </SettingRow>
+                    <SettingRow
+                        label="Back up automatically"
+                        help="A minute after you save, when the app starts, and when it closes. Only what changed goes up, and nothing when nothing did."
+                    >
+                        <Switch label="Back up automatically" value={cloud.auto} onChange={setCloudAuto} />
+                    </SettingRow>
+                    <SettingRow label="Restore from the cloud" help="Shows what's in the cloud backup first, including props removed since. Nothing replaces a prop you have.">
+                        <button type="button" className="button" disabled={busy} onClick={() => void openCloudRestore()}>
+                            Restore from the cloud…
+                        </button>
+                    </SettingRow>
+                </>
+            ) : (
+                <SettingRow
+                    label="Back up to the cloud"
+                    help="To storage you already have: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, or any storage that speaks the S3 API. Only what changed goes up."
+                >
+                    <button type="button" className="button" disabled={busy} onClick={openCloudSetup}>
+                        Set up…
+                    </button>
+                </SettingRow>
+            )}
+        </>
+    )
+}
+
+/** Backing up to a file, to a folder by itself, and to the cloud; and restoring from each. */
+function BackupPage() {
+    const phase = useBackupStore((state) => state.phase)
+    const progress = useBackupStore((state) => state.progress)
+    const backUp = useBackupStore((state) => state.backUp)
+    const openRestore = useBackupStore((state) => state.openRestore)
+    const stop = useBackupStore((state) => state.stop)
+    const busy = phase !== 'idle'
+
+    if (!canBackUp()) {
+        return <p className="settings__intro">Backups need the desktop app.</p>
+    }
+
+    return (
+        <>
+            <p className="settings__intro">
+                A backup is one .zip file holding every saved prop, its picture and your palettes. Keep it on a USB stick or in a
+                synced folder, and bring your props back on any computer.
+            </p>
+            <SettingRow label="Back up to a file" help="Saves a .zip of your props wherever you choose. Exported files aren't included, since they can be made again.">
+                <button type="button" className="button" disabled={busy} onClick={() => void backUp()}>
+                    Back up to a file…
+                </button>
+            </SettingRow>
+            <SettingRow label="Restore from a backup" help="Shows what's in a backup first. Nothing replaces a prop you have.">
+                <button type="button" className="button" disabled={busy} onClick={() => void openRestore()}>
+                    Restore from a backup…
+                </button>
+            </SettingRow>
+            <FolderBackupRows />
+            <CloudBackupRows />
+            {busy ? (
+                <div className="backup-progress" role="status">
+                    <span className="setting__help">
+                        {phase === 'backing-up' ? 'Backing up' : phase === 'opening' ? 'Opening the backup' : 'Restoring'}
+                        {progress ? `, ${progress.done} of ${progress.total} files` : '…'}
+                    </span>
+                    <progress className="dialog__progress" max={progress?.total ?? 1} value={progress?.done ?? 0} aria-label="Files done" />
+                    <button type="button" className="button" onClick={stop}>
+                        Stop
+                    </button>
+                </div>
+            ) : null}
         </>
     )
 }
@@ -427,6 +621,7 @@ export function SettingsDialog() {
     const closeSettings = useUiStore((state) => state.closeSettings)
     const openSettings = useUiStore((state) => state.openSettings)
     const resetPage = useSettingsStore((state) => state.resetPage)
+    const attention = useBackupAttention()
     const [query, setQuery] = useState('')
     const needle = query.trim().toLowerCase()
 
@@ -477,6 +672,7 @@ export function SettingsDialog() {
                     >
                         <Icon size={14} aria-hidden="true" />
                         {id}
+                        {id === 'Backup' && attention ? <span className="attention-dot" role="img" aria-label="Needs attention" title={attention} /> : null}
                     </button>
                 ))}
             </nav>
@@ -509,6 +705,14 @@ export function SettingsDialog() {
                         <KeyboardPage needle="" />
                     ) : page === 'Storage' ? (
                         <StoragePage />
+                    ) : page === 'Backup' ? (
+                        <BackupPage />
+                    ) : page === 'Recently removed' ? (
+                        hasDesktopStorage() ? (
+                            <RemovedProps layout="rows" />
+                        ) : (
+                            <p className="settings__intro">Removed props are kept only in the desktop app.</p>
+                        )
                     ) : page === 'Palettes' ? (
                         <PalettesPage />
                     ) : page === 'About' ? (

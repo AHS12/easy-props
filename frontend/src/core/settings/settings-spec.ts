@@ -7,6 +7,7 @@
  */
 
 import {z} from 'zod'
+import type {PropSort} from '../library/prop-summary'
 
 export type SettingPage = 'General' | 'Appearance' | 'Viewport' | 'Performance' | 'Export'
 
@@ -377,7 +378,64 @@ export interface SettingsFile {
     readonly myColours: readonly string[]
     /** Palettes saved with a name, such as one for each game. */
     readonly palettes: readonly SavedPalette[]
+    /** How Your props is sorted. */
+    readonly propsSort: PropSort
+    readonly folderBackup: FolderBackupSettings
+    readonly cloudBackup: CloudBackupSettings
 }
+
+/**
+ * Where cloud backups go. None of it is secret: the keys are in the system's
+ * keychain, never here, since this file is also copied into the browser's storage.
+ */
+export interface CloudBackupSettings {
+    /** The service picked in the setup, or empty when cloud backup isn't set up. */
+    readonly service: string
+    readonly endpoint: string
+    readonly region: string
+    readonly bucket: string
+    /** Where in the bucket the backup lives. */
+    readonly folder: string
+    /** The bucket in the path rather than the address, as every service but Amazon gets. */
+    readonly pathStyle: boolean
+    /** When the last backup to the cloud finished, as an ISO time. */
+    readonly lastAt: string
+    /** Back up by itself, a minute after a change, at start and at close. */
+    readonly auto: boolean
+    /** What the props and palettes were at the last cloud backup, to tell whether anything changed. */
+    readonly lastFingerprint: string
+    /** When automatic backups started failing, as an ISO time, or empty while they work. */
+    readonly failingSince: string
+}
+
+export const DEFAULT_CLOUD_BACKUP: CloudBackupSettings = {
+    service: '',
+    endpoint: '',
+    region: '',
+    bucket: '',
+    folder: 'easy-props',
+    pathStyle: true,
+    lastAt: '',
+    auto: true,
+    lastFingerprint: '',
+    failingSince: '',
+}
+
+/** Backing up to a folder by itself, once a day when something changed. */
+export interface FolderBackupSettings {
+    /** Where the dated backups go. Empty when it's off. */
+    readonly folder: string
+    /** How many of the app's own backups to keep there. */
+    readonly keep: number
+    /** The local day of the last backup there, as 2026-11-04. */
+    readonly lastDay: string
+    /** What the props and palettes were at the last backup, to tell whether anything changed. */
+    readonly lastFingerprint: string
+    /** When the last backup there was made, as an ISO time. */
+    readonly lastAt: string
+}
+
+export const DEFAULT_FOLDER_BACKUP: FolderBackupSettings = {folder: '', keep: 10, lastDay: '', lastFingerprint: '', lastAt: ''}
 
 /** A palette saved with a name, for one set of colours. */
 export interface SavedPalette {
@@ -405,6 +463,9 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     recentColours: [],
     myColours: [],
     palettes: [],
+    propsSort: 'changed',
+    folderBackup: DEFAULT_FOLDER_BACKUP,
+    cloudBackup: DEFAULT_CLOUD_BACKUP,
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -444,7 +505,7 @@ const paletteSchema = z.object({
 })
 
 /** One saved palette, or nothing if it's damaged, so one bad entry can't lose the rest. */
-function savedPalette(entry: unknown): SavedPalette[] {
+export function savedPalette(entry: unknown): SavedPalette[] {
     const result = paletteSchema.safeParse(entry)
 
     return result.success ? [{...result.data, colours: result.data.colours.map((colour) => colour.toLowerCase())}] : []
@@ -474,6 +535,30 @@ const fileSchema = z.object({
     recentColours: colourList,
     myColours: colourList,
     palettes: z.array(z.unknown()).catch([]).transform((entries) => entries.flatMap(savedPalette)),
+    propsSort: z.enum(['changed', 'name', 'made']).catch('changed'),
+    folderBackup: z
+        .object({
+            folder: z.string().catch(''),
+            keep: z.number().int().min(1).max(100).catch(10),
+            lastDay: z.string().catch(''),
+            lastFingerprint: z.string().catch(''),
+            lastAt: z.string().catch(''),
+        })
+        .catch(DEFAULT_FOLDER_BACKUP),
+    cloudBackup: z
+        .object({
+            service: z.string().catch(''),
+            endpoint: z.string().catch(''),
+            region: z.string().catch(''),
+            bucket: z.string().catch(''),
+            folder: z.string().catch('easy-props'),
+            pathStyle: z.boolean().catch(true),
+            lastAt: z.string().catch(''),
+            auto: z.boolean().catch(true),
+            lastFingerprint: z.string().catch(''),
+            failingSince: z.string().catch(''),
+        })
+        .catch(DEFAULT_CLOUD_BACKUP),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */
