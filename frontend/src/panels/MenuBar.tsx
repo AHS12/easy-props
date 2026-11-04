@@ -12,6 +12,7 @@ import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
 import {APP_VERSION} from '../core/export/export-preferences'
 import {closeWindow, hasInsetTitleBar, hasWindowControls, minimiseWindow, toggleMaximiseWindow, windowIsMaximised} from '../platform/window'
+import {useBackupAttention} from '../store/backup-store'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
 
@@ -41,6 +42,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
 
 function ItemBody({command, children}: {command: Command; children?: boolean}) {
     const state = useEditorStore.getState()
+    const attention = useBackupAttention()
     const Icon = command.icon
     const keys = shortcutFor(command.id)
     const reason = command.unavailable?.(state)
@@ -52,6 +54,9 @@ function ItemBody({command, children}: {command: Command; children?: boolean}) {
             </span>
             <span className="menu-item__label" title={reason ?? undefined}>
                 {command.label}
+                {command.id === 'settings' && attention ? (
+                    <span className="attention-dot" role="img" aria-label="A backup needs attention" title={attention} />
+                ) : null}
             </span>
             {keys ? <Keys keys={keys} /> : null}
             {children ? <ChevronRight className="menu-item__more" size={13} aria-hidden="true" /> : null}
@@ -135,6 +140,7 @@ function MenuEntries({items, onDone}: {items: readonly (string | null)[]; onDone
 
 function Menus() {
     const [open, setOpen] = useState<string | null>(null)
+    const attention = useBackupAttention()
 
     return (
         <nav className="menus" aria-label="Menu">
@@ -151,6 +157,9 @@ function Menus() {
                         onHoverStart={() => setOpen((current) => (current && current !== title ? title : current))}
                     >
                         {title}
+                        {title === 'File' && attention ? (
+                            <span className="attention-dot" role="img" aria-label="A backup needs attention" title={attention} />
+                        ) : null}
                     </Dropdown.Trigger>
                     <Dropdown.Popover className="menu-popover" placement="bottom start" offset={2} isNonModal>
                         <MenuEntries items={items} onDone={() => setOpen(null)} />

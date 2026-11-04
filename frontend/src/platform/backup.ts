@@ -31,7 +31,11 @@ interface BackupBindings {
     CheckCloudBackup(target: CloudTarget): Promise<void>
     BackUpToCloud(target: CloudTarget, palettes: number[], appVersion: string): Promise<CloudSummary>
     OpenCloudBackup(target: CloudTarget): Promise<HeldBackupFile>
+    CloudPropStatus(target: CloudTarget, id: string): Promise<string>
 }
+
+/** Whether a prop is in the cloud backup as it is now. */
+export type CloudPropStatus = 'backed-up' | 'changed' | 'not-yet'
 
 /** Where cloud backups go: the settings, without the keys. */
 export interface CloudTarget {
@@ -147,6 +151,13 @@ export async function savedCloudKeys(): Promise<{saved: boolean; accessKey: stri
 }
 
 export const forgetCloudKeys = async (): Promise<void> => bindings()?.ForgetCloudKeys()
+
+/** Asks Go, without any connection, whether one prop is backed up to the cloud as it is now. */
+export async function cloudPropStatus(target: CloudTarget, id: string): Promise<CloudPropStatus> {
+    const status = await backupBindings().CloudPropStatus(target, id)
+
+    return status === 'backed-up' || status === 'changed' ? status : 'not-yet'
+}
 
 export const checkCloudBackup = (target: CloudTarget): Promise<void> => backupBindings().CheckCloudBackup(target)
 

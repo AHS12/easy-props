@@ -13,6 +13,8 @@ import {PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
 import {Select} from '../components/controls'
 import {groupByTime, matchesSearch, sortProps, type PropSort} from '../core/library/prop-summary'
 import type {SavedTree} from '../platform/library'
+import {cloudPropStatus, type CloudPropStatus} from '../platform/backup'
+import {cloudTargetOf} from '../store/backup-store'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
@@ -46,6 +48,43 @@ const sizeLabel = (bytes: number): string =>
 /** The family's label, as on the kind tabs. */
 const kindLabel = (kind: PropFamily | null): string | null => PROP_FAMILIES.find(({id}) => id === kind)?.label ?? null
 
+const BACKUP_LABELS: Readonly<Record<CloudPropStatus, string>> = {
+    'backed-up': 'Backed up to the cloud',
+    changed: 'Changed since the last backup',
+    'not-yet': 'Not backed up yet',
+}
+
+/**
+ * Whether the prop is in the cloud backup as it is now, or null when there's no
+ * cloud backup to ask about. Asked again when the prop is saved or a backup ends.
+ */
+function useCloudPropStatus(tree: SavedTree): CloudPropStatus | null {
+    const cloud = useSettingsStore((state) => state.cloudBackup)
+    const [status, setStatus] = useState<CloudPropStatus | null>(null)
+    const readable = tree.kind !== null
+
+    useEffect(() => {
+        let current = true
+
+        if (!cloud.service || !readable) {
+            setStatus(null)
+            return
+        }
+
+        void cloudPropStatus(cloudTargetOf(cloud), tree.id).then(
+            (next) => current && setStatus(next),
+            () => current && setStatus(null),
+        )
+
+        return () => {
+            current = false
+        }
+        // The target, the prop's save and the last backup are what can change the answer.
+    }, [cloud, tree.id, tree.savedAt, readable])
+
+    return status
+}
+
 /** How many tiles sit across the grid, so Up and Down move by a row. */
 function columnsOf(grid: Element | null): number {
     if (!grid) {
@@ -64,6 +103,7 @@ function Details({tree, editing, request}: {tree: SavedTree; editing: boolean; r
     const openBatchWithSaved = useEditorStore((state) => state.openBatchWithSaved)
 
     const name = displayName(tree)
+    const backup = useCloudPropStatus(tree)
     const [renaming, setRenaming] = useState(false)
     const [draft, setDraft] = useState(name)
 
@@ -161,6 +201,12 @@ function Details({tree, editing, request}: {tree: SavedTree; editing: boolean; r
                 ) : null}
                 <dt>Size</dt>
                 <dd>{sizeLabel(tree.size)}</dd>
+                {backup ? (
+                    <>
+                        <dt>Backup</dt>
+                        <dd data-backup={backup}>{BACKUP_LABELS[backup]}</dd>
+                    </>
+                ) : null}
             </dl>
 
             {readable ? null : (

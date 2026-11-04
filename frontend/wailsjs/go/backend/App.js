@@ -38,6 +38,10 @@ export function CloudKeys() {
   return window['go']['backend']['App']['CloudKeys']();
 }
 
+export function CloudPropStatus(arg1, arg2) {
+  return window['go']['backend']['App']['CloudPropStatus'](arg1, arg2);
+}
+
 export function ConfirmClose() {
   return window['go']['backend']['App']['ConfirmClose']();
 }

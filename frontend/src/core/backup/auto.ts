@@ -7,7 +7,7 @@
  * most one dated backup a day, and only when something changed since the last.
  */
 
-import type {FolderBackupSettings, SavedPalette} from '../settings/settings-spec'
+import type {CloudBackupSettings, FolderBackupSettings, SavedPalette} from '../settings/settings-spec'
 
 /** A run of quick saves restarts the wait, so it becomes one backup. */
 export const AUTO_BACKUP_DELAY_MS = 60_000
@@ -33,6 +33,28 @@ export function mayBeDue(settings: FolderBackupSettings, today: string): boolean
 /** True when today's folder backup hasn't been written and something changed since the last. */
 export function folderBackupDue(settings: FolderBackupSettings, fingerprint: string, today: string): boolean {
     return mayBeDue(settings, today) && fingerprint !== settings.lastFingerprint
+}
+
+/**
+ * True when cloud backup is set up and runs by itself. Unlike a folder, the
+ * cloud has no once-a-day limit: only changed files go up, so it's cheap.
+ */
+export function cloudMayBeDue(settings: CloudBackupSettings): boolean {
+    return settings.service !== '' && settings.auto
+}
+
+/** True when something changed since the last cloud backup. */
+export function cloudBackupDue(settings: CloudBackupSettings, fingerprint: string): boolean {
+    return cloudMayBeDue(settings) && fingerprint !== settings.lastFingerprint
+}
+
+/** Failing this long, a backup says so once, instead of quietly trying again. */
+export const FAILING_TOO_LONG_MS = 24 * 60 * 60 * 1000
+
+export function failingTooLong(failingSince: string, now: Date): boolean {
+    const since = Date.parse(failingSince)
+
+    return !Number.isNaN(since) && now.getTime() - since >= FAILING_TOO_LONG_MS
 }
 
 /** A short, stable sum of the palettes, so changing one counts as a change worth backing up. */

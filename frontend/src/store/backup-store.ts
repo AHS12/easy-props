@@ -10,6 +10,9 @@ import {create} from 'zustand'
 import {
     AUTO_BACKUP_DELAY_MS,
     CLOSE_WAIT_MS,
+    cloudBackupDue,
+    cloudMayBeDue,
+    failingTooLong,
     folderBackupDue,
     localDay,
     mayBeDue,
@@ -49,6 +52,7 @@ import {newTreeId} from '../platform/library'
 import {useEditorStore} from './editor-store'
 import type {CloudBackupSettings} from '../core/settings/settings-spec'
 import {useSettingsStore} from './settings-store'
+import {useUiStore} from './ui-store'
 
 export type BackupPhase = 'idle' | 'backing-up' | 'opening' | 'restoring'
 
@@ -78,10 +82,14 @@ export interface BackupStore {
     readonly folderProblem: string | null
     /** Writes today's backup to the folder, if one is due. Says what happened. */
     runFolderBackup(): Promise<FolderBackupResult>
-    /** Waits a minute after the last change, then backs up if it's due. */
-    scheduleFolderBackup(): void
+    /** Waits a minute after the last change, then makes whichever backups are due. */
+    scheduleBackups(): void
+    /** Makes whichever automatic backups are due now: the folder's, then the cloud's. */
+    runAutoBackups(): Promise<void>
+    /** Backs up to the cloud by itself, if it's on and something changed. Quiet unless it keeps failing. */
+    runCloudBackup(): Promise<'written' | 'not-due' | 'failed'>
     /** Tells the close guard whether closing should come to us first. */
-    refreshBackupDue(): void
+    refreshBackupDue(): Promise<void>
     /** Backs up if due before the window closes, giving up after ten seconds. */
     backUpBeforeClosing(): Promise<void>
     chooseFolder(): Promise<void>
@@ -105,6 +113,7 @@ export interface BackupStore {
     openCloudRestore(): Promise<void>
     /** Stops backing up to the cloud and removes the keys from the keychain. Nothing in the bucket is touched. */
     turnOffCloud(): Promise<void>
+    setCloudAuto(auto: boolean): void
 }
 
 export type FolderBackupResult = 'written' | 'not-due' | 'missing' | 'failed'
@@ -181,6 +190,19 @@ const propsLabel = (count: number) => (count === 1 ? '1 prop' : `${count} props`
 
 const newPaletteId = () => `palette-${newTreeId()}`
 
+/**
+ * A backup that needs the person: a missing folder straight away, and the
+ * cloud once it has failed for a day. Null while all's well. It puts a dot on
+ * Settings, so nobody has to open it to find out.
+ */
+export function useBackupAttention(): string | null {
+    const folderProblem = useBackupStore((state) => state.folderProblem)
+    const cloudProblem = useBackupStore((state) => state.cloudProblem)
+    const failingSince = useSettingsStore((state) => state.cloudBackup.failingSince)
+
+    return folderProblem ?? (cloudProblem && failingTooLong(failingSince, new Date()) ? cloudProblem : null)
+}
+
 /** Where cloud backups go, from the settings: everything but when it last ran. */
 export function cloudTargetOf(cloud: CloudBackupSettings): CloudTarget {
     return {
@@ -208,7 +230,15 @@ export function cloudSummaryMessage(summary: {props: number; changedElsewhere: n
 }
 
 /** The minute's wait after a change, restarted by every change. */
-let folderBackupTimer: ReturnType<typeof setTimeout> | undefined
+let backupTimer: ReturnType<typeof setTimeout> | undefined
+
+/** A cloud backup failing for a day is said once a session, not after every save. */
+let toldCloudFailing = false
+
+/** What the saved props and palettes are now, to tell whether anything changed since a backup. */
+async function currentFingerprint(): Promise<string> {
+    return `${await libraryFingerprint()}:${palettesFingerprint(useSettingsStore.getState().palettes)}`
+}
 
 /** A missing folder is said once a session, not on every save. */
 let toldFolderMissing = false
@@ -359,7 +389,7 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             }
 
             try {
-                const fingerprint = `${await libraryFingerprint()}:${palettesFingerprint(settings.palettes)}`
+                const fingerprint = await currentFingerprint()
 
                 if (!folderBackupDue(backup, fingerprint, today)) {
                     return 'not-due'
@@ -385,7 +415,7 @@ export const useBackupStore = create<BackupStore>((set, get) => {
 
                 useSettingsStore.getState().setFolderBackup({lastDay: today, lastFingerprint: fingerprint, lastAt: new Date().toISOString()})
                 set({folderProblem: null})
-                get().refreshBackupDue()
+                void get().refreshBackupDue()
 
                 return 'written'
             } catch (error) {
@@ -395,26 +425,90 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             }
         },
 
-        scheduleFolderBackup: () => {
-            if (!useSettingsStore.getState().folderBackup.folder) {
+        scheduleBackups: () => {
+            const {folderBackup, cloudBackup} = useSettingsStore.getState()
+
+            if (!folderBackup.folder && !cloudMayBeDue(cloudBackup)) {
                 return
             }
 
             // The day may have turned since the last check, with the app left open.
-            get().refreshBackupDue()
+            void get().refreshBackupDue()
 
-            clearTimeout(folderBackupTimer)
-            folderBackupTimer = setTimeout(() => void get().runFolderBackup(), AUTO_BACKUP_DELAY_MS)
+            clearTimeout(backupTimer)
+            backupTimer = setTimeout(() => void get().runAutoBackups(), AUTO_BACKUP_DELAY_MS)
         },
 
-        refreshBackupDue: () => {
-            void setBackupDue(mayBeDue(useSettingsStore.getState().folderBackup, localDay(new Date()))).catch(() => undefined)
+        runAutoBackups: async () => {
+            await get().runFolderBackup()
+            await get().runCloudBackup()
+        },
+
+        runCloudBackup: async () => {
+            const cloud = useSettingsStore.getState().cloudBackup
+
+            if (!canBackUp() || !cloudMayBeDue(cloud) || get().phase !== 'idle') {
+                return 'not-due'
+            }
+
+            const target = cloudTargetOf(cloud)
+
+            try {
+                // Asking Go what changed costs nothing; asking the bucket costs a connection.
+                const fingerprint = await currentFingerprint()
+
+                if (!cloudBackupDue(cloud, fingerprint)) {
+                    return 'not-due'
+                }
+
+                await underWay('backing-up', () =>
+                    backUpToCloud(target, JSON.stringify(useSettingsStore.getState().palettes), APP_VERSION),
+                )
+
+                useSettingsStore.getState().setCloudBackup({lastAt: new Date().toISOString(), lastFingerprint: fingerprint, failingSince: ''})
+                toldCloudFailing = false
+                set({cloudProblem: null})
+                void get().refreshBackupDue()
+
+                return 'written'
+            } catch (error) {
+                const message = describeCloudFailure(error, target) ?? describeBackupFailure(error, 'back up')
+                const failingSince = useSettingsStore.getState().cloudBackup.failingSince || new Date().toISOString()
+
+                useSettingsStore.getState().setCloudBackup({failingSince})
+                set({cloudProblem: message})
+
+                // A dropped connection fixes itself; only a day of failures is worth interrupting for.
+                if (failingTooLong(failingSince, new Date()) && !toldCloudFailing) {
+                    toldCloudFailing = true
+                    useEditorStore.getState().notify(`Cloud backup hasn't worked for a day. ${message}`, undefined, {
+                        label: 'Open backup settings',
+                        run: () => useUiStore.getState().openSettings('Backup'),
+                    })
+                }
+
+                return 'failed'
+            }
+        },
+
+        refreshBackupDue: async () => {
+            const {folderBackup, cloudBackup} = useSettingsStore.getState()
+            let due = mayBeDue(folderBackup, localDay(new Date()))
+
+            if (!due && cloudMayBeDue(cloudBackup)) {
+                due = await currentFingerprint().then(
+                    (fingerprint) => cloudBackupDue(cloudBackup, fingerprint),
+                    () => false,
+                )
+            }
+
+            await setBackupDue(due).catch(() => undefined)
         },
 
         backUpBeforeClosing: async () => {
-            clearTimeout(folderBackupTimer)
+            clearTimeout(backupTimer)
 
-            await Promise.race([get().runFolderBackup(), new Promise((resolve) => setTimeout(resolve, CLOSE_WAIT_MS))])
+            await Promise.race([get().runAutoBackups(), new Promise((resolve) => setTimeout(resolve, CLOSE_WAIT_MS))])
         },
 
         chooseFolder: async () => {
@@ -429,7 +523,7 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             settings.setFolderBackup({folder, lastDay: '', lastFingerprint: '', lastAt: ''})
             toldFolderMissing = false
             set({folderProblem: null})
-            get().refreshBackupDue()
+            void get().refreshBackupDue()
             await get().runFolderBackup()
         },
 
@@ -452,8 +546,10 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             const settings = useSettingsStore.getState()
             const moved = targetOf(settings.cloudBackup) !== JSON.stringify(target)
 
-            settings.setCloudBackup({...target, ...(moved ? {lastAt: ''} : {})})
+            // A new place has none of this computer's props yet, so the first backup there runs straight away.
+            settings.setCloudBackup({...target, ...(moved ? {lastAt: '', lastFingerprint: '', failingSince: ''} : {})})
             set({cloudSetupOpen: false, cloudProblem: null})
+            void get().runCloudBackup()
         },
 
         cloudProblem: null,
@@ -468,11 +564,15 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             const target = cloudTargetOf(cloud)
 
             try {
+                // Asked for on purpose, so it goes ahead even if what changed can't be told.
+                const fingerprint = await currentFingerprint().catch(() => '')
                 const palettes = JSON.stringify(useSettingsStore.getState().palettes)
                 const summary = await underWay('backing-up', () => backUpToCloud(target, palettes, APP_VERSION))
 
-                useSettingsStore.getState().setCloudBackup({lastAt: new Date().toISOString()})
+                useSettingsStore.getState().setCloudBackup({lastAt: new Date().toISOString(), lastFingerprint: fingerprint, failingSince: ''})
+                toldCloudFailing = false
                 set({cloudProblem: null})
+                void get().refreshBackupDue()
                 notify(cloudSummaryMessage(summary))
             } catch (error) {
                 const message = describeCloudFailure(error, target) ?? describeBackupFailure(error, 'back up')
@@ -500,16 +600,25 @@ export const useBackupStore = create<BackupStore>((set, get) => {
         },
 
         turnOffCloud: async () => {
-            useSettingsStore.getState().setCloudBackup({service: '', lastAt: ''})
+            useSettingsStore.getState().setCloudBackup({service: '', lastAt: '', lastFingerprint: '', failingSince: ''})
             set({cloudProblem: null})
+            void get().refreshBackupDue()
             await forgetCloudKeys().catch(() => undefined)
         },
 
         turnOffFolderBackup: () => {
-            clearTimeout(folderBackupTimer)
             useSettingsStore.getState().setFolderBackup({folder: ''})
             set({folderProblem: null})
-            get().refreshBackupDue()
+            void get().refreshBackupDue()
+        },
+
+        setCloudAuto: (auto) => {
+            useSettingsStore.getState().setCloudBackup({auto})
+            void get().refreshBackupDue()
+
+            if (auto) {
+                void get().runCloudBackup()
+            }
         },
     }
 })

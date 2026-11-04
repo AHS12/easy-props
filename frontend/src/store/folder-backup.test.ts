@@ -84,7 +84,7 @@ describe('backing up to a folder by itself', () => {
         vi.useFakeTimers()
 
         for (let save = 0; save < 5; save++) {
-            useBackupStore.getState().scheduleFolderBackup()
+            useBackupStore.getState().scheduleBackups()
             await vi.advanceTimersByTimeAsync(20_000)
         }
 

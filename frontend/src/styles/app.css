@@ -3699,3 +3699,19 @@ html[data-theme='dark'] .dialog__error {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* A backup needs the person: on the File menu, its Settings item, and the Backup page. */
+.attention-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 5px;
+    border-radius: 50%;
+    background: var(--danger);
+    vertical-align: middle;
+}
+
+.props-page__facts dd[data-backup='changed'],
+.props-page__facts dd[data-backup='not-yet'] {
+    color: var(--text-secondary);
+}

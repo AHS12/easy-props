@@ -267,8 +267,8 @@ export function App() {
                 updateTimer = window.setTimeout(() => checkForUpdatesIfDue(), UPDATE_CHECK_DELAY_MS)
 
                 // Catches changes from a session that closed before its backup ran.
-                useBackupStore.getState().refreshBackupDue()
-                backupTimer = window.setTimeout(() => void useBackupStore.getState().runFolderBackup(), STARTUP_BACKUP_DELAY_MS)
+                void useBackupStore.getState().refreshBackupDue()
+                backupTimer = window.setTimeout(() => void useBackupStore.getState().runAutoBackups(), STARTUP_BACKUP_DELAY_MS)
             })
 
         return () => {
@@ -283,12 +283,12 @@ export function App() {
     useEffect(() => {
         const unwatchProps = useEditorStore.subscribe((state, previous) => {
             if (state.gallery !== previous.gallery) {
-                useBackupStore.getState().scheduleFolderBackup()
+                useBackupStore.getState().scheduleBackups()
             }
         })
         const unwatchPalettes = useSettingsStore.subscribe((state, previous) => {
             if (state.palettes !== previous.palettes) {
-                useBackupStore.getState().scheduleFolderBackup()
+                useBackupStore.getState().scheduleBackups()
             }
         })
 

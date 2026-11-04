@@ -1,7 +1,9 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Toast} from '../panels/Toast'
+import {DEFAULT_CLOUD_BACKUP} from '../core/settings/settings-spec'
 import {useEditorStore} from '../store/editor-store'
+import {useSettingsStore} from '../store/settings-store'
 import {YourPropsPage} from './YourPropsPage'
 
 const documentOf = (name: string, generatorId: string, seed: number) =>
@@ -290,5 +292,31 @@ describe('ticking several props', () => {
         })
 
         expect(screen.queryByRole('complementary', {name: /ticked/})).toBeNull()
+    })
+})
+
+describe('the backup line in the panel', () => {
+    it('says whether the picked prop is backed up to the cloud', async () => {
+        const status = vi.fn(async (_target: unknown, id: string) => (id === 'oak' ? 'backed-up' : 'changed'))
+        window.go = {backend: {App: {...app, CloudPropStatus: status} as never}}
+        useSettingsStore.setState({cloudBackup: {...DEFAULT_CLOUD_BACKUP, service: 'r2', endpoint: 'abc.r2.cloudflarestorage.com', bucket: 'b'}})
+
+        await showPage()
+
+        const details = screen.getByRole('complementary', {name: 'About Old oak'})
+
+        await waitFor(() => expect(within(details).getByText('Backed up to the cloud')).toBeInTheDocument())
+
+        fireEvent.click(tile('Fern'))
+
+        await waitFor(() => expect(screen.getByText('Changed since the last backup')).toBeInTheDocument())
+    })
+
+    it('says nothing about backups when there is no cloud backup', async () => {
+        useSettingsStore.setState({cloudBackup: DEFAULT_CLOUD_BACKUP})
+
+        await showPage()
+
+        expect(screen.queryByText('Backup')).toBeNull()
     })
 })

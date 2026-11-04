@@ -18,6 +18,8 @@ beforeEach(() => {
             keys = {saved: true, accessKey}
         }),
         ForgetCloudKeys: vi.fn(async () => undefined),
+        LibraryFingerprint: vi.fn(async () => 'props'),
+        SetBackupDue: vi.fn(async () => undefined),
         CheckCloudBackup: vi.fn(async () => undefined),
         BackUpToCloud: vi.fn(async () => ({props: 23, uploaded: 2, changedElsewhere: 0, removed: 0})),
         OpenCloudBackup: vi.fn(async () => ({

@@ -20,6 +20,8 @@ export function ClearHolding():Promise<void>;
 
 export function CloudKeys():Promise<backend.CloudKeysInfo>;
 
+export function CloudPropStatus(arg1:backend.CloudTarget,arg2:string):Promise<string>;
+
 export function ConfirmClose():Promise<void>;
 
 export function CopyPropPicture(arg1:string,arg2:string):Promise<void>;

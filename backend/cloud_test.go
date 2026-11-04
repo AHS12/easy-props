@@ -642,3 +642,46 @@ func TestAnUnreachableStorageSaysSo(t *testing.T) {
 		t.Fatalf("ping = %v, want errCloudUnreachable", err)
 	}
 }
+
+func TestAPropSaysWhetherItIsBackedUp(t *testing.T) {
+	bucket := newFakeBucket()
+	app := newCloudApp(t, bucket)
+	savedAtTime(t, app, "oak", time.Now())
+
+	status := func() string {
+		t.Helper()
+
+		got, err := app.CloudPropStatus(testTarget, "oak")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return got
+	}
+
+	if got := status(); got != "not-yet" {
+		t.Fatalf("before any backup: %q", got)
+	}
+
+	backUp(t, app)
+
+	if got := status(); got != "backed-up" {
+		t.Fatalf("after a backup: %q", got)
+	}
+
+	if err := app.WriteProp("oak", []byte(`{"name":"oak, changed"}`), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := status(); got != "changed" {
+		t.Fatalf("after saving again: %q", got)
+	}
+
+	// Another bucket knows nothing of it.
+	other := testTarget
+	other.Bucket = "elsewhere"
+
+	if got, _ := app.CloudPropStatus(other, "oak"); got != "not-yet" {
+		t.Fatalf("for another bucket: %q", got)
+	}
+}

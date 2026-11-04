@@ -331,6 +331,34 @@ func (a *App) OpenCloudBackup(target CloudTarget) (HeldBackup, error) {
 	return held, nil
 }
 
+// CloudPropStatus says whether one prop is in the cloud backup as it is now:
+// "backed-up", "changed" since this computer last backed it up, or "not-yet".
+// It reads only what this computer remembers uploading and the prop itself, so
+// it's quick enough for the Your props panel and needs no connection.
+func (a *App) CloudPropStatus(target CloudTarget, id string) (string, error) {
+	path, err := a.treePath(id, treeJSONSuffix)
+	if err != nil {
+		return "", err
+	}
+
+	uploaded, known := a.loadBackupState(target).Files[id+treeJSONSuffix]
+	if !known {
+		return "not-yet", nil
+	}
+
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	sum := sha256.Sum256(contents)
+	if hex.EncodeToString(sum[:]) != uploaded {
+		return "changed", nil
+	}
+
+	return "backed-up", nil
+}
+
 func (a *App) cloudStore(target CloudTarget) (objectStore, error) {
 	keys, err := a.secretsOrDefault().load()
 	if err != nil {

@@ -27,7 +27,7 @@ import {useUpdateStore} from '../store/update-store'
 import {RemovedProps} from '../pages/RemovedProps'
 import {findCloudService} from '../core/backup/cloud-services'
 import {canBackUp} from '../platform/backup'
-import {useBackupStore} from '../store/backup-store'
+import {useBackupAttention, useBackupStore} from '../store/backup-store'
 import {PalettesPage} from './PalettesPage'
 
 const PAGES: readonly {readonly id: SettingsPageId; readonly icon: LucideIcon}[] = [
@@ -425,6 +425,7 @@ function CloudBackupRows() {
     const backUpToCloudNow = useBackupStore((state) => state.backUpToCloudNow)
     const openCloudRestore = useBackupStore((state) => state.openCloudRestore)
     const turnOffCloud = useBackupStore((state) => state.turnOffCloud)
+    const setCloudAuto = useBackupStore((state) => state.setCloudAuto)
     const service = findCloudService(cloud.service)
 
     return (
@@ -445,6 +446,12 @@ function CloudBackupRows() {
                         <button type="button" className="button" disabled={busy} onClick={() => void backUpToCloudNow()}>
                             Back up now
                         </button>
+                    </SettingRow>
+                    <SettingRow
+                        label="Back up automatically"
+                        help="A minute after you save, when the app starts, and when it closes. Only what changed goes up, and nothing when nothing did."
+                    >
+                        <Switch label="Back up automatically" value={cloud.auto} onChange={setCloudAuto} />
                     </SettingRow>
                     <SettingRow label="Restore from the cloud" help="Shows what's in the cloud backup first, including props removed since. Nothing replaces a prop you have.">
                         <button type="button" className="button" disabled={busy} onClick={() => void openCloudRestore()}>
@@ -614,6 +621,7 @@ export function SettingsDialog() {
     const closeSettings = useUiStore((state) => state.closeSettings)
     const openSettings = useUiStore((state) => state.openSettings)
     const resetPage = useSettingsStore((state) => state.resetPage)
+    const attention = useBackupAttention()
     const [query, setQuery] = useState('')
     const needle = query.trim().toLowerCase()
 
@@ -664,6 +672,7 @@ export function SettingsDialog() {
                     >
                         <Icon size={14} aria-hidden="true" />
                         {id}
+                        {id === 'Backup' && attention ? <span className="attention-dot" role="img" aria-label="Needs attention" title={attention} /> : null}
                     </button>
                 ))}
             </nav>

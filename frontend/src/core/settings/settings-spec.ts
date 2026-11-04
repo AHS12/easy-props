@@ -400,6 +400,12 @@ export interface CloudBackupSettings {
     readonly pathStyle: boolean
     /** When the last backup to the cloud finished, as an ISO time. */
     readonly lastAt: string
+    /** Back up by itself, a minute after a change, at start and at close. */
+    readonly auto: boolean
+    /** What the props and palettes were at the last cloud backup, to tell whether anything changed. */
+    readonly lastFingerprint: string
+    /** When automatic backups started failing, as an ISO time, or empty while they work. */
+    readonly failingSince: string
 }
 
 export const DEFAULT_CLOUD_BACKUP: CloudBackupSettings = {
@@ -410,6 +416,9 @@ export const DEFAULT_CLOUD_BACKUP: CloudBackupSettings = {
     folder: 'easy-props',
     pathStyle: true,
     lastAt: '',
+    auto: true,
+    lastFingerprint: '',
+    failingSince: '',
 }
 
 /** Backing up to a folder by itself, once a day when something changed. */
@@ -545,6 +554,9 @@ const fileSchema = z.object({
             folder: z.string().catch('easy-props'),
             pathStyle: z.boolean().catch(true),
             lastAt: z.string().catch(''),
+            auto: z.boolean().catch(true),
+            lastFingerprint: z.string().catch(''),
+            failingSince: z.string().catch(''),
         })
         .catch(DEFAULT_CLOUD_BACKUP),
 })
