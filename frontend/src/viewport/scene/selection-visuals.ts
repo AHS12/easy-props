@@ -20,7 +20,7 @@ export function applySelectionVisuals(viewport: ViewportScene, selection: Select
 
         component.outline.visible = isSelected
 
-        for (const material of [component.materials.lit, component.materials.cartoon]) {
+        for (const material of [component.materials.lit, component.materials.cartoon, component.materials.cel]) {
             if (isSelected || isHovered) {
                 material.emissive.set(VIEWPORT_COLORS.selection)
                 material.emissiveIntensity = isSelected

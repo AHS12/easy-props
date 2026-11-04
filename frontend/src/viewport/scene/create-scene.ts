@@ -25,6 +25,9 @@ import {
     type ShadingMode,
     type StandIn,
 } from './component-renderer'
+import {cartoonFromStandard} from './cartoon'
+import {celFromStandard} from './cel'
+import {createIdMaterial, createInkLines, LAND_ID, type LineStyle} from './ink-lines'
 import {VIEWPORT_COLORS} from './materials'
 import {createMeadowScenery, type MeadowScenery} from './meadow-scenery'
 
@@ -36,6 +39,8 @@ export interface ViewportScene {
     readonly camera: THREE.PerspectiveCamera
     readonly controls: ReturnType<typeof attachCameraControls>
     readonly components: ComponentRenderer
+    /** Draws one frame: the scene, and the Cartoon view's lines over it. */
+    draw(): void
     /** Brings the viewport in line with the scene graph. */
     syncScene(scene: Scene): void
     /** Told when a sync that waited for a mesh built elsewhere has been applied. */
@@ -46,6 +51,8 @@ export interface ViewportScene {
     setLighting(lighting: SceneLighting): void
     /** Switches between the lit, flat, and wireframe views. */
     setShadingMode(mode: ShadingMode): void
+    /** How thick the Cartoon and Comic lines are: 1 is the usual. */
+    setLineWeight(weight: number): void
     /** Frames one part, or the whole prop for null. */
     frameComponent(componentId: string | null): void
     setBackdrop(backdrop: Backdrop, colour: string): void
@@ -76,6 +83,11 @@ export interface ViewportScene {
 }
 
 const CAMERA_FOV = 45
+/** Comic lines are bold ink. Cartoon ones are thin and soft, as a painter might pencil them. */
+const LINE_STYLES: Readonly<Partial<Record<ShadingMode, LineStyle>>> = {
+    cartoon: {weight: 0.75, strength: 0.45},
+    cel: {weight: 1.5, strength: 1},
+}
 const CAMERA_NEAR = 0.05
 const CAMERA_FAR = 500
 /** A clear midday sun, however warm the rest of the time of day is. */
@@ -263,6 +275,37 @@ export function createViewportScene(
     /** Meadow's sky and sunlight, which Studio with sky has too. */
     let bright = false
     let scenery: MeadowScenery | null = null
+    const ground = scene.getObjectByName('ground') as THREE.Mesh
+    const groundLooks: {cartoon?: THREE.MeshToonMaterial; cel?: THREE.MeshToonMaterial} = {}
+    const groundId = createIdMaterial(LAND_ID, null, 0, THREE.FrontSide)
+
+    /** Draws the ground and scenery as the prop is drawn. */
+    const applyLook = () => {
+        const look = shading === 'cartoon' || shading === 'cel' ? shading : 'lit'
+
+        if (look === 'cartoon') {
+            groundLooks.cartoon ??= cartoonFromStandard(groundMaterial)
+        } else if (look === 'cel') {
+            groundLooks.cel ??= celFromStandard(groundMaterial, ground.geometry)
+        }
+
+        ground.material = (look === 'lit' ? undefined : groundLooks[look]) ?? groundMaterial
+        scenery?.setLook(look)
+    }
+
+    /** Every outlined thing in its own colour: the prop, and in the demos the scenery and ground. */
+    const drawIds = () => {
+        components.drawIds(renderer, camera)
+
+        if (meadow && scenery) {
+            scenery.drawIds(renderer, camera)
+
+            const shown = ground.material
+            ground.material = groundId
+            renderer.render(ground, camera)
+            ground.material = shown
+        }
+    }
     let gridWanted = true
 
     const controls = attachCameraControls(camera, renderer.domElement)
@@ -286,9 +329,11 @@ export function createViewportScene(
         onContentArrived?.()
     })
     scene.add(components.group)
+    const inkLines = createInkLines()
 
     let currentStyleId = styleId
     let shading: ShadingMode = 'lit'
+    let lineWeight = 1
     let lighting: SceneLighting = DEFAULT_LIGHTING
 
     /** The centre and radius the shadow camera has to cover. */
@@ -366,6 +411,18 @@ export function createViewportScene(
         controls,
         components,
 
+        draw() {
+            groundLooks.cartoon?.color.copy(groundMaterial.color)
+            groundLooks.cel?.color.copy(groundMaterial.color)
+            renderer.render(scene, camera)
+
+            const lines = LINE_STYLES[shading]
+
+            if (lines) {
+                inkLines.draw(renderer, camera, drawIds, {weight: lines.weight * lineWeight, strength: lines.strength})
+            }
+        },
+
         syncScene(nextScene) {
             components.sync(nextScene, getStyleProfile(currentStyleId), shading, detail)
             fitToContent()
@@ -398,10 +455,15 @@ export function createViewportScene(
             applyLighting()
         },
 
+        setLineWeight(weight) {
+            lineWeight = weight
+        },
+
         setShadingMode(mode) {
             shading = mode
+            applyLook()
             // The shadow belongs to the finished looks only.
-            shadowsWanted = mode === 'lit' || mode === 'cartoon'
+            shadowsWanted = mode === 'lit' || mode === 'cartoon' || mode === 'cel'
             renderer.shadowMap.enabled = shadowsWanted && shadowsAllowed
             renderer.shadowMap.needsUpdate = true
         },
@@ -442,6 +504,7 @@ export function createViewportScene(
             if (meadow && !scenery) {
                 scenery = createMeadowScenery()
                 scene.add(scenery.group)
+                applyLook()
                 fitToContent()
             }
 
@@ -549,6 +612,10 @@ export function createViewportScene(
         dispose() {
             controls.dispose()
             components.dispose()
+            inkLines.dispose()
+            groundLooks.cartoon?.dispose()
+            groundLooks.cel?.dispose()
+            groundId.dispose()
             collision.dispose()
             sky.dispose()
             meadowSky.dispose()

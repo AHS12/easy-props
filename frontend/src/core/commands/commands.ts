@@ -12,7 +12,7 @@ import {
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
-import {SHADING_MODES, SHADING_MODE_LABELS} from '../../assets/style/shading'
+import {SHADING_MODES, SHADING_MODE_KEYWORDS, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
@@ -439,13 +439,14 @@ export const COMMANDS: readonly Command[] = [
         label: 'Shading',
         group: 'View',
         icon: Layers,
-        keywords: 'lit flat wireframe wind draw mode render',
+        keywords: 'lit flat wireframe wind cartoon comic cel toon draw mode render',
         children: () =>
             SHADING_MODES.map(
                 (mode): Command => ({
                     id: `shading-${mode}`,
                     label: SHADING_MODE_LABELS[mode],
                     group: 'View',
+                    keywords: SHADING_MODE_KEYWORDS[mode],
                     checked: (state) => state.shadingMode === mode,
                     run: (state) => state.setShadingMode(mode),
                 }),

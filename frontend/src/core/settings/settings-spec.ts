@@ -259,6 +259,20 @@ export const SETTING_SPECS = [
         step: 0.1,
     },
     {
+        key: 'lineWeight',
+        page: 'Viewport',
+        kind: 'choice',
+        label: 'Cartoon lines',
+        help: 'How thick the dark lines are in the Cartoon and Comic views.',
+        keywords: 'outline ink toon cel comic edge',
+        default: '1',
+        options: [
+            {value: '0.6', label: 'Thin'},
+            {value: '1', label: 'Medium'},
+            {value: '1.7', label: 'Bold'},
+        ],
+    },
+    {
         key: 'shadows',
         page: 'Viewport',
         kind: 'toggle',

@@ -203,7 +203,8 @@ export function Viewport() {
 
             lastDrawn = now
             viewport.controls.update()
-            viewport.renderer.render(viewport.scene, viewport.camera)
+            viewport.setLineWeight(Number(settingValue('lineWeight')) || 1)
+            viewport.draw()
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             rings.update(viewport.camera, viewport.renderer.domElement.clientHeight)

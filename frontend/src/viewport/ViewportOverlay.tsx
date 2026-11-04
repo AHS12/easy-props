@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, Paintbrush, PersonStanding, Rotate3d, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Sun, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -23,7 +23,7 @@ import {viewportHandle, type ViewAngle} from './viewport-bridge'
 
 const STATS_REFRESH_MS = 500
 
-const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, cartoon: Paintbrush, flat: Box, wireframe: Grid2x2, wind: Wind}
+const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, cartoon: Paintbrush, cel: PenTool, flat: Box, wireframe: Grid2x2, wind: Wind}
 
 const SCENES: readonly {id: string; label: string; help: string}[] = [
     {id: 'sky', label: 'Studio', help: 'A plain place to work'},
