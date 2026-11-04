@@ -695,7 +695,7 @@ export function Viewport() {
                 }
             },
             stats: () => ({
-                drawCalls: viewport.renderer.info.render.calls,
+                drawCalls: viewport.drawCalls(),
                 size: viewport.contentSize(),
             }),
         })

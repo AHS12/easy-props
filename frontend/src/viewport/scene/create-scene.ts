@@ -39,8 +39,10 @@ export interface ViewportScene {
     readonly camera: THREE.PerspectiveCamera
     readonly controls: ReturnType<typeof attachCameraControls>
     readonly components: ComponentRenderer
-    /** Draws one frame: the scene, and the Cartoon view's lines over it. */
+    /** Draws one frame: the scene, and the Cartoon or Comic lines over it. */
     draw(): void
+    /** How many draw calls the last frame's scene took, leaving out the passes that find and draw lines. */
+    drawCalls(): number
     /** Brings the viewport in line with the scene graph. */
     syncScene(scene: Scene): void
     /** Told when a sync that waited for a mesh built elsewhere has been applied. */
@@ -330,6 +332,7 @@ export function createViewportScene(
     })
     scene.add(components.group)
     const inkLines = createInkLines()
+    let sceneCalls = 0
 
     let currentStyleId = styleId
     let shading: ShadingMode = 'lit'
@@ -415,12 +418,18 @@ export function createViewportScene(
             groundLooks.cartoon?.color.copy(groundMaterial.color)
             groundLooks.cel?.color.copy(groundMaterial.color)
             renderer.render(scene, camera)
+            // Read before the lines, which are their own renders and would reset the count.
+            sceneCalls = renderer.info.render.calls
 
             const lines = LINE_STYLES[shading]
 
             if (lines) {
                 inkLines.draw(renderer, camera, drawIds, {weight: lines.weight * lineWeight, strength: lines.strength})
             }
+        },
+
+        drawCalls() {
+            return sceneCalls
         },
 
         syncScene(nextScene) {
