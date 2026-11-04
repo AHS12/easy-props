@@ -2,6 +2,49 @@
 
 What's new in each version of easy-props.
 
+## 0.3.8 (November 4, 2026)
+
+**Your props**
+
+- Your saved props have a page of their own. Open it with All your props on Home, from the File
+  menu, or with Ctrl+G. Pick a prop to see it larger beside the list, with its kind, the preset
+  it started from, when it was made and last changed, its seed and its size.
+- Open, export, copy, rename or remove a prop right there, without opening it first, or show its
+  file in its folder.
+- Search by name or by the preset a prop started from, show only trees, rocks or bushes, and sort
+  by last changed, name or date made.
+- Tick several props with Ctrl-click or Shift-click to export or remove them together. The arrow
+  keys move between props, Enter opens one, F2 renames it and Delete removes it.
+- Home now shows one row of the props you changed last, so it stays a place to start.
+- A saved prop without a picture gets one drawn for it.
+
+**Recently removed**
+
+- Removing a prop no longer deletes it. It goes to Recently removed for 30 days, and the message
+  that says so has an Undo button.
+- Put props back, or remove them for good, at the end of Your props or in Settings, under
+  Recently removed. Search for "bin" to get there quickly.
+
+**Back up your props**
+
+- Back up every saved prop, with its picture and your palettes, to a single file you can keep
+  anywhere: Settings, Backup.
+- Restore from a backup on any computer. You see what's in it first, and nothing replaces a prop
+  you have: one that's different comes in as a second copy, named "(from backup)".
+- Choose a folder, such as a synced folder or an external drive, and a dated backup goes there
+  by itself once a day when something changed. Older ones are cleared away, and nothing else in
+  the folder is touched.
+- Cloud backup to storage you already have: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi,
+  DigitalOcean Spaces, MinIO, or anything else that speaks the S3 API. Only what changed goes
+  up, a minute after you save, when the app starts and when it closes. Your keys are kept in
+  your system's keychain.
+- Restore from the cloud brings back props removed since, if you want them, and Your props shows
+  whether each prop is backed up.
+
+**Fixed**
+
+- Saving a prop again forgot when it was first made. It now keeps the date.
+
 ## 0.3.5 (November 3, 2026)
 
 **Your colours**

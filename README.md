@@ -36,6 +36,10 @@ replacement for Blender.
   ready-made shaders for Godot, and step-by-step material instructions for Unreal.
 - **Export many at once:** batch-export presets, saved props and random variations, with
   all of Export's choices, into a folder of their own.
+- **Your props, kept safe:** every saved prop on a page of its own, with a bin for anything
+  removed. Back them up to a file, to a folder once a day, or to your own S3-compatible cloud
+  storage (Cloudflare R2, Backblaze B2, Amazon S3, MinIO and others) after every change, and
+  bring them back on any computer.
 
 ![A red maple swaying in the view with Wind switched on, from the Wind panel at the top](docs/images/wind.gif)
 
