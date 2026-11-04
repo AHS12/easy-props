@@ -14,6 +14,60 @@ export namespace backend {
 	        this.bytes = source["bytes"];
 	    }
 	}
+	export class CloudKeysInfo {
+	    saved: boolean;
+	    accessKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudKeysInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.saved = source["saved"];
+	        this.accessKey = source["accessKey"];
+	    }
+	}
+	export class CloudSummary {
+	    props: number;
+	    uploaded: number;
+	    changedElsewhere: number;
+	    removed: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.props = source["props"];
+	        this.uploaded = source["uploaded"];
+	        this.changedElsewhere = source["changedElsewhere"];
+	        this.removed = source["removed"];
+	    }
+	}
+	export class CloudTarget {
+	    service: string;
+	    endpoint: string;
+	    region: string;
+	    bucket: string;
+	    folder: string;
+	    pathStyle: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudTarget(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.service = source["service"];
+	        this.endpoint = source["endpoint"];
+	        this.region = source["region"];
+	        this.bucket = source["bucket"];
+	        this.folder = source["folder"];
+	        this.pathStyle = source["pathStyle"];
+	    }
+	}
 	export class ExportFile {
 	    name: string;
 	    contents: number[];

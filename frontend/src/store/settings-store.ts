@@ -16,6 +16,7 @@ import {
     type SettingKey,
     type SettingPage,
     type SettingsFile,
+    type CloudBackupSettings,
     type FolderBackupSettings,
     type SavedPalette,
     type SettingValue,
@@ -58,6 +59,7 @@ export interface SettingsStore extends SettingsFile {
     /** Replaces every saved palette, as a restore does after merging. */
     setPalettes(palettes: readonly SavedPalette[]): void
     setFolderBackup(patch: Partial<FolderBackupSettings>): void
+    setCloudBackup(patch: Partial<CloudBackupSettings>): void
     setPropsSort(sort: PropSort): void
 }
 
@@ -69,9 +71,9 @@ const newPaletteId = () => `palette-${Date.now().toString(36)}-${Math.random().t
 
 export const useSettingsStore = create<SettingsStore>((set, get) => {
     const fileOf = (): SettingsFile => {
-        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup} = get()
+        const {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup, cloudBackup} = get()
 
-        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup}
+        return {version, values, shortcuts, recent, usage, openGroups, layout, tourSeen, galleryTourSeen, lastSeenVersion, lastTreeId, libraryFolder, lastUpdateCheck, recentColours, myColours, palettes, propsSort, folderBackup, cloudBackup}
     }
 
     const change = (patch: Partial<SettingsFile>) => {
@@ -184,6 +186,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         setPalettes: (palettes) => change({palettes: [...palettes]}),
 
         setFolderBackup: (patch) => change({folderBackup: {...get().folderBackup, ...patch}}),
+
+        setCloudBackup: (patch) => change({cloudBackup: {...get().cloudBackup, ...patch}}),
 
         setLibraryFolder: (libraryFolder) => {
             change({libraryFolder})

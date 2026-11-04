@@ -8,7 +8,7 @@
 import type {LucideIcon} from 'lucide-react'
 import {
     Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
-    ArchiveRestore, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
+    ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
@@ -198,6 +198,28 @@ export const COMMANDS: readonly Command[] = [
         keywords: 'restore backup zip bring back load import another computer',
         unavailable: () => (canBackUp() ? null : 'Backups need the desktop app.'),
         run: () => void useBackupStore.getState().openRestore(),
+    },
+    {
+        id: 'back-up-cloud',
+        label: 'Back up to the cloud now',
+        group: 'File',
+        icon: CloudUpload,
+        global: true,
+        keywords: 'backup cloud s3 r2 b2 bucket upload sync',
+        unavailable: () =>
+            !canBackUp() ? 'Backups need the desktop app.' : useSettingsStore.getState().cloudBackup.service ? null : 'Set up cloud backup in Settings, Backup first.',
+        run: () => void useBackupStore.getState().backUpToCloudNow(),
+    },
+    {
+        id: 'restore-cloud',
+        label: 'Restore from the cloud…',
+        group: 'File',
+        icon: CloudDownload,
+        global: true,
+        keywords: 'restore cloud s3 r2 b2 bucket download bring back another computer',
+        unavailable: () =>
+            !canBackUp() ? 'Backups need the desktop app.' : useSettingsStore.getState().cloudBackup.service ? null : 'Set up cloud backup in Settings, Backup first.',
+        run: () => void useBackupStore.getState().openCloudRestore(),
     },
     {
         id: 'recently-removed',

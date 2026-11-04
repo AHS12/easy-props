@@ -3646,3 +3646,56 @@ html[data-theme='dark'] .dialog__error {
     font: var(--text-label);
     font-weight: 600;
 }
+
+/* Setting up cloud backup. */
+.cloud-setup__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.cloud-setup__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-3);
+}
+
+.cloud-setup__field .field {
+    flex: none;
+}
+
+.cloud-setup__saved {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--control-height);
+    padding: 0 var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+}
+
+.cloud-setup__result {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font: var(--text-label);
+    overflow-wrap: anywhere;
+}
+
+.cloud-setup__result[data-result='passed'] {
+    background: var(--surface-selected);
+    color: var(--accent-moss-text);
+}
+
+.cloud-setup__result[data-result='failed'] {
+    border: 1px solid var(--danger);
+    color: var(--text-primary);
+}
+
+@media (max-width: 560px) {
+    .cloud-setup__pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

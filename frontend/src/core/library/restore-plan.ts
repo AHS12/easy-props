@@ -8,8 +8,11 @@
 
 import {savedPalette, type SavedPalette} from '../settings/settings-spec'
 
-/** How a prop in a backup compares with the saved prop of the same id. */
-export type HeldStatus = 'new' | 'same' | 'different'
+/**
+ * How a prop in a backup compares with the saved prop of the same id. A cloud
+ * backup adds "removed", for a prop a computer removed since it was backed up.
+ */
+export type HeldStatus = 'new' | 'same' | 'different' | 'removed'
 
 export interface HeldToRestore {
     readonly id: string
@@ -68,7 +71,7 @@ export function planRestore(
     return held
         .filter((prop) => ticked.has(prop.id) && prop.status !== 'same')
         .map((prop) => {
-            if (prop.status === 'new') {
+            if (prop.status === 'new' || prop.status === 'removed') {
                 return {id: prop.id, copyId: '', copyContents: ''}
             }
 

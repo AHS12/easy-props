@@ -16,6 +16,7 @@ import {useBackupStore, type HeldPropView} from '../store/backup-store'
 const GROUPS = [
     {status: 'new', title: 'New to this computer', hint: null},
     {status: 'different', title: 'Different from the one here', hint: `Comes in as a second copy, “… ${FROM_BACKUP}”. Yours stays as it is.`},
+    {status: 'removed', title: 'Removed since', hint: 'Removed on a computer after they were backed up. Tick any you want back.'},
 ] as const
 
 const madeLabel = (iso: string): string => {
@@ -57,9 +58,9 @@ export function RestoreDialog() {
 
     const props = useMemo(() => restoring?.props ?? [], [restoring])
 
-    // A fresh backup starts with everything worth bringing in ticked.
+    // A fresh backup starts with everything worth bringing in ticked. Removed props were removed on purpose, so they wait to be asked for.
     useEffect(() => {
-        setTicked(new Set(props.filter((prop) => prop.status !== 'same').map((prop) => prop.id)))
+        setTicked(new Set(props.filter((prop) => prop.status === 'new' || prop.status === 'different').map((prop) => prop.id)))
     }, [props])
 
     const toggle = (id: string) => {

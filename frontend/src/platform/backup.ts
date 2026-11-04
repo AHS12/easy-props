@@ -25,6 +25,29 @@ interface BackupBindings {
     PruneFolderBackups(folder: string, keep: number): Promise<number>
     SetBackupDue(due: boolean): Promise<void>
     ChooseFolder(title: string, start: string): Promise<string>
+    SetCloudKeys(accessKey: string, secretKey: string): Promise<void>
+    CloudKeys(): Promise<{saved: boolean; accessKey: string}>
+    ForgetCloudKeys(): Promise<void>
+    CheckCloudBackup(target: CloudTarget): Promise<void>
+    BackUpToCloud(target: CloudTarget, palettes: number[], appVersion: string): Promise<CloudSummary>
+    OpenCloudBackup(target: CloudTarget): Promise<HeldBackupFile>
+}
+
+/** Where cloud backups go: the settings, without the keys. */
+export interface CloudTarget {
+    readonly service: string
+    readonly endpoint: string
+    readonly region: string
+    readonly bucket: string
+    readonly folder: string
+    readonly pathStyle: boolean
+}
+
+export interface CloudSummary {
+    readonly props: number
+    readonly uploaded: number
+    readonly changedElsewhere: number
+    readonly removed: number
 }
 
 interface HeldBackupFile {
@@ -92,8 +115,15 @@ export interface HeldBackup {
 }
 
 export async function openBackupFile(path: string): Promise<HeldBackup> {
-    const held = await backupBindings().OpenBackupFile(path)
+    return heldBackupFrom(await backupBindings().OpenBackupFile(path))
+}
 
+/** Downloads the cloud backup into the holding folder, as a file's is unpacked. */
+export async function openCloudBackup(target: CloudTarget): Promise<HeldBackup> {
+    return heldBackupFrom(await backupBindings().OpenCloudBackup(target))
+}
+
+function heldBackupFrom(held: HeldBackupFile): HeldBackup {
     return {
         app: held.app,
         madeAt: held.madeAt,
@@ -106,6 +136,22 @@ export async function openBackupFile(path: string): Promise<HeldBackup> {
             picture: prop.hasPicture ? `/your-props/restoring/${encodeURIComponent(prop.id)}.png?v=${encodeURIComponent(held.madeAt)}` : null,
         })),
     }
+}
+
+/** Saves the keys in the system's keychain. An empty secret keeps the one already saved. */
+export const saveCloudKeys = (accessKey: string, secretKey: string): Promise<void> => backupBindings().SetCloudKeys(accessKey, secretKey)
+
+/** Whether keys are saved, and the access key. The secret never comes back. */
+export async function savedCloudKeys(): Promise<{saved: boolean; accessKey: string}> {
+    return (await bindings()?.CloudKeys()) ?? {saved: false, accessKey: ''}
+}
+
+export const forgetCloudKeys = async (): Promise<void> => bindings()?.ForgetCloudKeys()
+
+export const checkCloudBackup = (target: CloudTarget): Promise<void> => backupBindings().CheckCloudBackup(target)
+
+export async function backUpToCloud(target: CloudTarget, palettes: string, appVersion: string): Promise<CloudSummary> {
+    return backupBindings().BackUpToCloud(target, [...new TextEncoder().encode(palettes)], appVersion)
 }
 
 export async function readHeldProp(id: string): Promise<string> {

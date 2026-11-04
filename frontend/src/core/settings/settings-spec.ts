@@ -381,6 +381,35 @@ export interface SettingsFile {
     /** How Your props is sorted. */
     readonly propsSort: PropSort
     readonly folderBackup: FolderBackupSettings
+    readonly cloudBackup: CloudBackupSettings
+}
+
+/**
+ * Where cloud backups go. None of it is secret: the keys are in the system's
+ * keychain, never here, since this file is also copied into the browser's storage.
+ */
+export interface CloudBackupSettings {
+    /** The service picked in the setup, or empty when cloud backup isn't set up. */
+    readonly service: string
+    readonly endpoint: string
+    readonly region: string
+    readonly bucket: string
+    /** Where in the bucket the backup lives. */
+    readonly folder: string
+    /** The bucket in the path rather than the address, as every service but Amazon gets. */
+    readonly pathStyle: boolean
+    /** When the last backup to the cloud finished, as an ISO time. */
+    readonly lastAt: string
+}
+
+export const DEFAULT_CLOUD_BACKUP: CloudBackupSettings = {
+    service: '',
+    endpoint: '',
+    region: '',
+    bucket: '',
+    folder: 'easy-props',
+    pathStyle: true,
+    lastAt: '',
 }
 
 /** Backing up to a folder by itself, once a day when something changed. */
@@ -427,6 +456,7 @@ export const DEFAULT_SETTINGS: SettingsFile = {
     palettes: [],
     propsSort: 'changed',
     folderBackup: DEFAULT_FOLDER_BACKUP,
+    cloudBackup: DEFAULT_CLOUD_BACKUP,
 }
 
 /** A setting's value if it is valid for its spec, otherwise its default. */
@@ -506,6 +536,17 @@ const fileSchema = z.object({
             lastAt: z.string().catch(''),
         })
         .catch(DEFAULT_FOLDER_BACKUP),
+    cloudBackup: z
+        .object({
+            service: z.string().catch(''),
+            endpoint: z.string().catch(''),
+            region: z.string().catch(''),
+            bucket: z.string().catch(''),
+            folder: z.string().catch('easy-props'),
+            pathStyle: z.boolean().catch(true),
+            lastAt: z.string().catch(''),
+        })
+        .catch(DEFAULT_CLOUD_BACKUP),
 })
 
 /** Never throws: a damaged or foreign file gives the defaults. */

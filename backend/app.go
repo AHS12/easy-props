@@ -57,6 +57,14 @@ type App struct {
 	// through the interface, which runs it first. It is set by SetBackupDue.
 	backupDue bool
 
+	// secrets keeps the cloud backup keys. It is nil in the running app, which
+	// then uses the system's keychain; tests set it so they never touch it.
+	secrets secretStore
+
+	// cloudStoreFor makes the storage client. It is nil in the running app,
+	// which then uses the S3 client; tests set it to a fake.
+	cloudStoreFor func(target CloudTarget, keys cloudKeys) (objectStore, error)
+
 	// updateAPI, updateRoot and appFolder override where updates are looked for,
 	// downloaded and installed, and startInstaller overrides how one is started.
 	// All are empty in the running app; tests set them.

@@ -9,6 +9,7 @@ import {ConfirmDialog} from '../panels/ConfirmDialog'
 import {Details} from '../panels/Details'
 import {BatchExportDialog} from '../panels/BatchExportDialog'
 import {ClosingDialog} from '../panels/ClosingDialog'
+import {CloudSetupDialog} from '../panels/CloudSetupDialog'
 import {RestoreDialog} from '../panels/RestoreDialog'
 import {clearHolding} from '../platform/backup'
 import {VariationGrid} from '../panels/VariationGrid'
@@ -365,6 +366,7 @@ export function App() {
             <ExportDialog />
             <BatchExportDialog />
             <RestoreDialog />
+            <CloudSetupDialog />
             <VariationGrid />
             <SettingsDialog />
             <ConfirmDialog />

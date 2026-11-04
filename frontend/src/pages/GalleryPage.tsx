@@ -14,7 +14,7 @@ import {canUndo} from '../core/history/history'
 import {PresetThumb} from '../panels/PresetThumb'
 import type {SavedTree} from '../platform/library'
 import {canBackUp} from '../platform/backup'
-import {useBackupStore} from '../store/backup-store'
+import {useUiStore} from '../store/ui-store'
 import {useEditorStore} from '../store/editor-store'
 import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
 import {PropPicture} from './prop-tile'
@@ -243,7 +243,7 @@ export function GalleryPage() {
                         <div className="home__empty">
                             <p className="dialog__hint">Props you save show up here.</p>
                             {canBackUp() ? (
-                                <button type="button" className="button" onClick={() => void useBackupStore.getState().openRestore()}>
+                                <button type="button" className="button" onClick={() => useUiStore.getState().openSettings('Backup')}>
                                     <ArchiveRestore size={13} aria-hidden="true" />
                                     Bring back props from a backup
                                 </button>

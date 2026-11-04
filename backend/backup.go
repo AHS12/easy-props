@@ -74,6 +74,9 @@ type backupFile struct {
 	Size    int64  `json:"size"`
 	SHA256  string `json:"sha256"`
 	SavedAt string `json:"savedAt"`
+	// RemovedAt is set in a cloud backup when a computer that backed the prop
+	// up no longer has it. Its files stay, so it can still be brought back.
+	RemovedAt string `json:"removedAt,omitempty"`
 }
 
 // BackupSummary says what a backup to a file held.
@@ -84,7 +87,8 @@ type BackupSummary struct {
 
 // HeldProp is one prop of an unpacked backup, as the restore screen lists it.
 // Status compares it with the saved prop of the same id: "new" when there is
-// none, "same" when the bytes match, and "different" otherwise.
+// none, "same" when the bytes match, and "different" otherwise. A cloud backup
+// adds "removed", for a prop removed on a computer since it was backed up.
 type HeldProp struct {
 	ID         string `json:"id"`
 	SavedAt    string `json:"savedAt"`

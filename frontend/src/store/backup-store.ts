@@ -30,17 +30,24 @@ import {
     folderExists,
     libraryFingerprint,
     onBackupProgress,
+    backUpToCloud,
+    checkCloudBackup,
+    forgetCloudKeys,
     openBackupFile,
+    openCloudBackup,
+    saveCloudKeys,
     readHeldProp,
     pruneFolderBackups,
     restoreFromHolding,
     setBackupDue,
     stopBackup,
+    type CloudTarget,
     type HeldBackup,
     type HeldProp,
 } from '../platform/backup'
 import {newTreeId} from '../platform/library'
 import {useEditorStore} from './editor-store'
+import type {CloudBackupSettings} from '../core/settings/settings-spec'
 import {useSettingsStore} from './settings-store'
 
 export type BackupPhase = 'idle' | 'backing-up' | 'opening' | 'restoring'
@@ -79,11 +86,70 @@ export interface BackupStore {
     backUpBeforeClosing(): Promise<void>
     chooseFolder(): Promise<void>
     turnOffFolderBackup(): void
+
+    /** The cloud setup form is open. */
+    readonly cloudSetupOpen: boolean
+    openCloudSetup(): void
+    closeCloudSetup(): void
+    /**
+     * Saves the keys, then checks the connection with exactly what's in the
+     * form. Null when it worked, or what went wrong in plain words.
+     */
+    checkCloud(target: CloudTarget, accessKey: string, secretKey: string): Promise<string | null>
+    /** Keeps the form's target as the place cloud backups go. */
+    saveCloudSetup(target: CloudTarget): void
+    /** What went wrong with the last cloud backup, or null when all's well. */
+    readonly cloudProblem: string | null
+    backUpToCloudNow(): Promise<void>
+    /** Downloads the cloud backup and shows what's in it. */
+    openCloudRestore(): Promise<void>
+    /** Stops backing up to the cloud and removes the keys from the keychain. Nothing in the bucket is touched. */
+    turnOffCloud(): Promise<void>
 }
 
 export type FolderBackupResult = 'written' | 'not-due' | 'missing' | 'failed'
 
 export const NEWER_BACKUP = 'This backup was made by a newer easy-props. Update the app, then try again.'
+export const CLOUD_WRONG_KEYS = "The storage didn't accept these keys. Check the access key and secret key, and that they're for this bucket."
+export const CLOUD_NO_WRITE = 'These keys can read but not write. easy-props needs to read, write and list in this bucket.'
+export const CLOUD_REDIRECTED =
+    'That address sends easy-props somewhere else. Use only the storage address, such as <account>.r2.cloudflarestorage.com, without the bucket name or a path.'
+export const CLOUD_NO_KEYS = 'No keys are saved for cloud backup. Open Set up in Settings, Backup, and enter them again.'
+
+/** What went wrong talking to the storage, in words a person can act on. Null for anything else. */
+export function describeCloudFailure(error: unknown, target: {bucket: string; endpoint: string}): string | null {
+    const detail = error instanceof Error ? error.message : String(error)
+
+    if (detail.includes("didn't accept these keys")) {
+        return CLOUD_WRONG_KEYS
+    }
+
+    if (detail.includes("these keys can't write")) {
+        return CLOUD_NO_WRITE
+    }
+
+    if (detail.includes('there is no such bucket')) {
+        return `There's no bucket called ${target.bucket} at this address. Check the name, or create it on the service's site first.`
+    }
+
+    if (detail.includes("couldn't reach the storage")) {
+        return `easy-props couldn't reach ${target.endpoint || 'Amazon S3'}. Check the address and your internet connection.`
+    }
+
+    if (detail.includes('leads somewhere else')) {
+        return CLOUD_REDIRECTED
+    }
+
+    if (detail.includes('no keys are saved')) {
+        return CLOUD_NO_KEYS
+    }
+
+    if (detail.includes("isn't a storage address")) {
+        return 'That address has something extra in it. Use only the storage address, without https:// or a path.'
+    }
+
+    return null
+}
 export const NOT_A_BACKUP = "That file isn't an easy-props backup. Pick a .zip made with Back up to a file."
 export const BACKUP_STOPPED = 'Stopped. Nothing was changed.'
 
@@ -115,6 +181,32 @@ const propsLabel = (count: number) => (count === 1 ? '1 prop' : `${count} props`
 
 const newPaletteId = () => `palette-${newTreeId()}`
 
+/** Where cloud backups go, from the settings: everything but when it last ran. */
+export function cloudTargetOf(cloud: CloudBackupSettings): CloudTarget {
+    return {
+        service: cloud.service,
+        endpoint: cloud.endpoint,
+        region: cloud.region,
+        bucket: cloud.bucket,
+        folder: cloud.folder,
+        pathStyle: cloud.pathStyle,
+    }
+}
+
+const targetOf = (cloud: CloudBackupSettings) => JSON.stringify(cloudTargetOf(cloud))
+
+/** "Backed up 23 props", and anything left as it was. */
+export function cloudSummaryMessage(summary: {props: number; changedElsewhere: number}): string {
+    const elsewhere =
+        summary.changedElsewhere === 0
+            ? ''
+            : summary.changedElsewhere === 1
+              ? '. 1 prop was changed on another computer and was left as it is there'
+              : `. ${summary.changedElsewhere} props were changed on another computer and were left as they are there`
+
+    return `Backed up ${propsLabel(summary.props)} to the cloud${elsewhere}`
+}
+
 /** The minute's wait after a change, restarted by every change. */
 let folderBackupTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -126,6 +218,18 @@ export const folderMissing = (folder: string) =>
 
 export const useBackupStore = create<BackupStore>((set, get) => {
     /** Runs one long job, showing its progress, and always ends idle. */
+    /** Opens a backup into the holding folder, reads what each prop is, and shows the restore screen. */
+    async function openHeld(load: () => Promise<HeldBackup>): Promise<OpenRestore> {
+        return underWay('opening', async (): Promise<OpenRestore> => {
+            const backup = await load()
+            const props = await Promise.all(
+                backup.props.map(async (prop) => ({...summarizeProp(await readHeldProp(prop.id).catch(() => '')), ...prop})),
+            )
+
+            return {backup, props}
+        })
+    }
+
     async function underWay<T>(phase: BackupPhase, job: () => Promise<T>): Promise<T> {
         set({phase, progress: null})
 
@@ -179,16 +283,7 @@ export const useBackupStore = create<BackupStore>((set, get) => {
                     return
                 }
 
-                const restoring = await underWay('opening', async (): Promise<OpenRestore> => {
-                    const backup = await openBackupFile(source)
-                    const props = await Promise.all(
-                        backup.props.map(async (prop) => ({...summarizeProp(await readHeldProp(prop.id).catch(() => '')), ...prop})),
-                    )
-
-                    return {backup, props}
-                })
-
-                set({restoring})
+                set({restoring: await openHeld(() => openBackupFile(source))})
             } catch (error) {
                 await clearHolding().catch(() => undefined)
                 notify(describeBackupFailure(error, 'open'))
@@ -336,6 +431,78 @@ export const useBackupStore = create<BackupStore>((set, get) => {
             set({folderProblem: null})
             get().refreshBackupDue()
             await get().runFolderBackup()
+        },
+
+        cloudSetupOpen: false,
+        openCloudSetup: () => set({cloudSetupOpen: true}),
+        closeCloudSetup: () => set({cloudSetupOpen: false}),
+
+        checkCloud: async (target, accessKey, secretKey) => {
+            try {
+                await saveCloudKeys(accessKey.trim(), secretKey.trim())
+                await checkCloudBackup(target)
+
+                return null
+            } catch (error) {
+                return describeCloudFailure(error, target) ?? `The check didn't finish. ${error instanceof Error ? error.message : String(error)}`
+            }
+        },
+
+        saveCloudSetup: (target) => {
+            const settings = useSettingsStore.getState()
+            const moved = targetOf(settings.cloudBackup) !== JSON.stringify(target)
+
+            settings.setCloudBackup({...target, ...(moved ? {lastAt: ''} : {})})
+            set({cloudSetupOpen: false, cloudProblem: null})
+        },
+
+        cloudProblem: null,
+
+        backUpToCloudNow: async () => {
+            const cloud = useSettingsStore.getState().cloudBackup
+
+            if (!cloud.service || get().phase !== 'idle') {
+                return
+            }
+
+            const target = cloudTargetOf(cloud)
+
+            try {
+                const palettes = JSON.stringify(useSettingsStore.getState().palettes)
+                const summary = await underWay('backing-up', () => backUpToCloud(target, palettes, APP_VERSION))
+
+                useSettingsStore.getState().setCloudBackup({lastAt: new Date().toISOString()})
+                set({cloudProblem: null})
+                notify(cloudSummaryMessage(summary))
+            } catch (error) {
+                const message = describeCloudFailure(error, target) ?? describeBackupFailure(error, 'back up')
+
+                set({cloudProblem: message})
+                notify(message)
+            }
+        },
+
+        openCloudRestore: async () => {
+            const cloud = useSettingsStore.getState().cloudBackup
+
+            if (!cloud.service || get().phase !== 'idle') {
+                return
+            }
+
+            const target = cloudTargetOf(cloud)
+
+            try {
+                set({restoring: await openHeld(() => openCloudBackup(target))})
+            } catch (error) {
+                await clearHolding().catch(() => undefined)
+                notify(describeCloudFailure(error, target) ?? describeBackupFailure(error, 'open'))
+            }
+        },
+
+        turnOffCloud: async () => {
+            useSettingsStore.getState().setCloudBackup({service: '', lastAt: ''})
+            set({cloudProblem: null})
+            await forgetCloudKeys().catch(() => undefined)
         },
 
         turnOffFolderBackup: () => {

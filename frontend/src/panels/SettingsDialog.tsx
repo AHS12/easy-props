@@ -25,6 +25,7 @@ import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
 import {useUpdateStore} from '../store/update-store'
 import {RemovedProps} from '../pages/RemovedProps'
+import {findCloudService} from '../core/backup/cloud-services'
 import {canBackUp} from '../platform/backup'
 import {useBackupStore} from '../store/backup-store'
 import {PalettesPage} from './PalettesPage'
@@ -415,7 +416,57 @@ function FolderBackupRows() {
     )
 }
 
-/** Backing up to a file and restoring from one, and to a folder by itself. Cloud backup comes later. */
+/** Backing up to storage the person already has, over the S3 API. */
+function CloudBackupRows() {
+    const cloud = useSettingsStore((state) => state.cloudBackup)
+    const problem = useBackupStore((state) => state.cloudProblem)
+    const busy = useBackupStore((state) => state.phase !== 'idle')
+    const openCloudSetup = useBackupStore((state) => state.openCloudSetup)
+    const backUpToCloudNow = useBackupStore((state) => state.backUpToCloudNow)
+    const openCloudRestore = useBackupStore((state) => state.openCloudRestore)
+    const turnOffCloud = useBackupStore((state) => state.turnOffCloud)
+    const service = findCloudService(cloud.service)
+
+    return (
+        <>
+            <h3 className="settings__group">Cloud backup</h3>
+            {service ? (
+                <>
+                    <SettingRow label={service.label} help={`${cloud.bucket}/${cloud.folder ? `${cloud.folder}/` : ''}`}>
+                        <button type="button" className="text-button" onClick={() => void turnOffCloud()}>
+                            Turn off
+                        </button>
+                        <button type="button" className="button" disabled={busy} onClick={openCloudSetup}>
+                            Change…
+                        </button>
+                    </SettingRow>
+                    <SettingRow label="Last backed up" help={problem ?? (cloud.lastAt ? lastBackupLabel(cloud.lastAt) : 'Not yet.')}>
+                        {problem ? <span className="setting__warning">Not backed up</span> : null}
+                        <button type="button" className="button" disabled={busy} onClick={() => void backUpToCloudNow()}>
+                            Back up now
+                        </button>
+                    </SettingRow>
+                    <SettingRow label="Restore from the cloud" help="Shows what's in the cloud backup first, including props removed since. Nothing replaces a prop you have.">
+                        <button type="button" className="button" disabled={busy} onClick={() => void openCloudRestore()}>
+                            Restore from the cloud…
+                        </button>
+                    </SettingRow>
+                </>
+            ) : (
+                <SettingRow
+                    label="Back up to the cloud"
+                    help="To storage you already have: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, or any storage that speaks the S3 API. Only what changed goes up."
+                >
+                    <button type="button" className="button" disabled={busy} onClick={openCloudSetup}>
+                        Set up…
+                    </button>
+                </SettingRow>
+            )}
+        </>
+    )
+}
+
+/** Backing up to a file, to a folder by itself, and to the cloud; and restoring from each. */
 function BackupPage() {
     const phase = useBackupStore((state) => state.phase)
     const progress = useBackupStore((state) => state.progress)
@@ -445,6 +496,7 @@ function BackupPage() {
                 </button>
             </SettingRow>
             <FolderBackupRows />
+            <CloudBackupRows />
             {busy ? (
                 <div className="backup-progress" role="status">
                     <span className="setting__help">
