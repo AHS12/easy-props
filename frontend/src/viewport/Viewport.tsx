@@ -633,13 +633,14 @@ export function Viewport() {
             refreshFar()
         }
 
-        // Switching between Normal and Low-poly builds the whole tree again, which
-        // takes a moment, so the loading screen goes up first and stays until it is in.
+        // Switching between Normal and Low-poly, or to another low-poly tree, builds
+        // the whole tree again, which takes a moment. So the loading screen goes up
+        // first and stays until the tree is in.
         let switching = false
         let switchShowing = false
-        const switchStyle = (build: string) => {
+        const buildBehindLoading = (step: LoadStep) => {
             switching = true
-            setLoadStep(build === 'low-poly' ? 'low-poly' : 'normal')
+            setLoadStep(step)
 
             void afterPaint().then(() => {
                 if (stopped) {
@@ -663,7 +664,9 @@ export function Viewport() {
                 const before = previous.scene.assets[0]
 
                 if (now && before && now.id === before.id && (now.parameters.build ?? 'painted') !== (before.parameters.build ?? 'painted')) {
-                    switchStyle(String(now.parameters.build))
+                    buildBehindLoading(now.parameters.build === 'low-poly' ? 'low-poly' : 'normal')
+                } else if (now?.parameters.build === 'low-poly' && state.presetId !== previous.presetId) {
+                    buildBehindLoading('low-poly-tree')
                 } else if (!switching) {
                     showScene(state)
                 }

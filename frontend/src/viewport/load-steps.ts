@@ -1,9 +1,9 @@
 /** The steps of getting the view ready, as the loading screen tells them. */
 
-export type LoadStep = 'view' | 'prop' | 'draw' | 'previews' | 'scene' | 'low-poly' | 'normal'
+export type LoadStep = 'view' | 'prop' | 'draw' | 'previews' | 'scene' | 'low-poly' | 'normal' | 'low-poly-tree'
 
 /** How far along the bar is heading during each step. */
-export const LOAD_SHARE: Record<LoadStep, number> = {view: 0.3, prop: 0.7, draw: 0.9, previews: 0.97, scene: 0.85, 'low-poly': 0.7, normal: 0.7}
+export const LOAD_SHARE: Record<LoadStep, number> = {view: 0.3, prop: 0.7, draw: 0.9, previews: 0.97, scene: 0.85, 'low-poly': 0.7, normal: 0.7, 'low-poly-tree': 0.7}
 
 export function loadStepLabel(step: LoadStep, name: string): string {
     switch (step) {
@@ -21,5 +21,7 @@ export function loadStepLabel(step: LoadStep, name: string): string {
             return 'Switching to Low-poly…'
         case 'normal':
             return 'Switching to Normal…'
+        case 'low-poly-tree':
+            return 'Building the low-poly tree…'
     }
 }
