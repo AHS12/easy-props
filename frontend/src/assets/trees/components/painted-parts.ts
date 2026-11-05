@@ -18,6 +18,7 @@ import {
     buildBark,
     buildBarkOffThread,
     buildLowPolyOffThread,
+    lowPolyHold,
     buildClump,
     buildFrond,
     buildLowPolyBark,
@@ -106,6 +107,12 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     // Only what shapes the wood, so a leaf slider or a moved clump leaves the
     // bark's mesh alone.
     signature({tree, seed}) {
+        // A low-poly tree's crown is built with its wood, so any change to the
+        // tree builds them again together, except while a drag holds the crown.
+        if (tree.build === 'low-poly' && lowPolyHold() === null) {
+            return ['low-poly', seed, tree]
+        }
+
         const palette = resolvePalette(tree)
         const wood = Object.fromEntries(
             Object.entries(tree).filter(
@@ -153,7 +160,8 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     buildOffThread({tree, seed}, style, detail = 1) {
         if (tree.build === 'low-poly') {
             // The wood and the whole crown, built together away from the interface.
-            return canBuildBarkOffThread() ? buildLowPolyOffThread({tree, seed, detail}) : null
+            // While a drag holds the crown, only the wood.
+            return canBuildBarkOffThread() ? buildLowPolyOffThread({tree, seed, detail}, lowPolyHold() === null) : null
         }
 
         return canBuildBarkOffThread()
@@ -238,7 +246,10 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
         // A low-poly crown is one surface shared out among its clumps, so a
         // change to any of them reshapes the seams of the rest.
         if (tree.build === 'low-poly') {
-            return ['low-poly', key, seed, tree]
+            const hold = lowPolyHold()
+
+            // While a drag holds the crown, a clump keeps its faces and moves whole.
+            return hold === null ? ['low-poly', key, seed, tree] : ['low-poly held', key, hold]
         }
 
         const plan = planPaintedTree(tree, seed)

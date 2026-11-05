@@ -1,14 +1,19 @@
 import {describe, expect, it} from 'vitest'
+import * as THREE from 'three'
 import {findComponentGenerator} from '../assets/component-generators'
 import {generatePropComponents} from '../assets/prop-generators'
 import {RIGID_ATTRIBUTE} from '../assets/shared/generator-types'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {controlsForTree, paintedTreeParameterSpecs, planPaintedTree, validatePaintedTreeParameters, type PaintedTreeParameters} from '../assets/trees/painted'
-import {buildLowPolyWood, clumpField, lowPolyCrown} from '../assets/trees/painted/low-poly-surface'
+import {buildLowPolyWood, clumpField, crownShapes, lowPolyCrown} from '../assets/trees/painted/low-poly-surface'
 import {edgeUse} from './mesh-checks'
 import {findPreset} from '../assets/trees/presets'
 import {useEditorStore} from '../store/editor-store'
+import {createSceneFromPreset} from '../core/scene/initial-scene'
+import {setComponentPosition, updateTreeParameters} from '../core/scene/scene-ops'
+import {createComponentRenderer} from '../viewport/scene/component-renderer'
+import {holdLowPolyCrown} from '../assets/trees/painted'
 
 const STYLE = getStyleProfile('detailed')
 
@@ -151,6 +156,67 @@ describe('a low-poly tree', {timeout: 60000}, () => {
         }
     })
 
+    it('stacks a conifer into one closed crown, with no sky showing between its tiers', () => {
+        for (const id of ['spruce', 'fir', 'cypress', 'christmas']) {
+            const {tree, seed} = presetTree(id, 'low-poly')
+            const plan = planPaintedTree(tree, seed)
+            const crown = lowPolyCrown(plan, tree, seed, 1)
+            const {shapes} = crownShapes(plan, tree)
+            const leavesAt = (x: number, y: number, z: number) => Math.min(...shapes.map((shape) => shape.distance(x, y, z)))
+            const tiers = plan.clumps.filter((clump) => clump.kind === 'mass').sort((a, b) => a.centre[1] - b.centre[1])
+            const far = tiers[0].radius * 1.6
+            const low = tiers[0].centre[1]
+            const high = tiers[tiers.length - 1].centre[1]
+
+            expect(closed([...edgeUse(welded([...crown.faces.values()].flatMap((faces) => Array.from(faces)))).values()]), id).toBe(true)
+
+            // Looked at from the side, level, at every height from the lowest tier to the top one.
+            for (let step = 0; step <= 40; step++) {
+                const y = low + ((high - low) * step) / 40
+                const [x, , z] = plan.limbs[0].points.reduce((best, point) => (Math.abs(point[1] - y) < Math.abs(best[1] - y) ? point : best))
+
+                for (let turn = 0; turn < 12; turn++) {
+                    const angle = (turn / 12) * Math.PI * 2
+                    let blocked = false
+
+                    for (let reach = far; reach >= 0 && !blocked; reach -= 0.04) {
+                        blocked = leavesAt(x + Math.cos(angle) * reach, y, z + Math.sin(angle) * reach) < 0
+                    }
+
+                    expect(blocked, `${id} at ${y.toFixed(2)} m`).toBe(true)
+                }
+            }
+        }
+    })
+
+    it('turns hardly any face of a conifer inside out', () => {
+        for (const id of ['spruce', 'fir', 'snow-pine', 'christmas', 'larch']) {
+            const {tree, seed} = presetTree(id, 'low-poly')
+            const plan = planPaintedTree(tree, seed)
+            const {shapes} = crownShapes(plan, tree)
+            const leavesAt = (x: number, y: number, z: number) => Math.min(...shapes.map((shape) => shape.distance(x, y, z)))
+            const faces = [...lowPolyCrown(plan, tree, seed, 1).faces.values()].flatMap((own) => Array.from(own))
+            let inward = 0
+
+            for (let at = 0; at < faces.length; at += 9) {
+                const [a, b, c] = [0, 3, 6].map((k) => new THREE.Vector3(faces[at + k], faces[at + k + 1], faces[at + k + 2]))
+                const facing = b.clone().sub(a).cross(c.clone().sub(a)).normalize()
+                const middle = a.clone().add(b).add(c).divideScalar(3)
+                const out = new THREE.Vector3(
+                    leavesAt(middle.x + 0.01, middle.y, middle.z) - leavesAt(middle.x - 0.01, middle.y, middle.z),
+                    leavesAt(middle.x, middle.y + 0.01, middle.z) - leavesAt(middle.x, middle.y - 0.01, middle.z),
+                    leavesAt(middle.x, middle.y, middle.z + 0.01) - leavesAt(middle.x, middle.y, middle.z - 0.01),
+                ).normalize()
+
+                if (facing.dot(out) < -0.3) {
+                    inward++
+                }
+            }
+
+            expect(inward / (faces.length / 9), id).toBeLessThan(0.02)
+        }
+    })
+
     it('never sinks the leaves of one clump into another', () => {
         const {tree, seed} = presetTree('spring-tree', 'low-poly')
         const plan = planPaintedTree(tree, seed)
@@ -166,6 +232,40 @@ describe('a low-poly tree', {timeout: 60000}, () => {
                 }
             }
         }
+    })
+
+    it('moves a clump whole and quickly while a drag holds the crown, and melts the crown again after', () => {
+        const renderer = createComponentRenderer()
+        const start = createSceneFromPreset('spring-tree')
+        let scene = updateTreeParameters(start, start.assets[0].id, {build: 'low-poly'}, STYLE)
+        const clump = scene.assets[0].components.find((component) => component.generatorId === 'painted-clump')!
+        const shapeOf = () => Array.from(renderer.all().find((part) => part.id === clump.id)!.mesh.geometry.getAttribute('position').array)
+        const [x, y, z] = clump.transform.position
+
+        renderer.sync(scene, STYLE, 'lit')
+
+        const before = shapeOf()
+        const steps: number[] = []
+
+        holdLowPolyCrown(true)
+
+        for (let step = 1; step <= 4; step++) {
+            scene = setComponentPosition(scene, clump.id, [x + step * 0.2, y, z])
+
+            const started = performance.now()
+
+            renderer.sync(scene, STYLE, 'lit')
+            steps.push(performance.now() - started)
+        }
+
+        // The first step builds the held wood once. The rest only move the clump.
+        expect(Math.max(...steps.slice(1))).toBeLessThan(100)
+        expect(shapeOf()).toEqual(before)
+
+        holdLowPolyCrown(false)
+        renderer.sync(scene, STYLE, 'lit')
+
+        expect(shapeOf()).not.toEqual(before)
     })
 
     it('hides the controls that only shape leaf cards and carved bark', () => {

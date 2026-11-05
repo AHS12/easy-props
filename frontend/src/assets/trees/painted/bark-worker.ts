@@ -42,8 +42,9 @@ function run(task: BarkTask): {result: BarkTaskResult; transfer: Transferable[]}
         const crown = lowPolyCrown(planPaintedTree(tree, seed), tree, seed, detail)
         const crownKeys = [...crown.faces.keys()]
         const crownFaces = crownKeys.map((key) => Float32Array.from(crown.faces.get(key)!))
+        const crownCentres = crownKeys.map((key) => [...crown.centres.get(key)!] as [number, number, number])
 
-        return {result: {kind: 'low-poly-crown', crownKeys, crownFaces}, transfer: crownFaces.map((faces) => faces.buffer)}
+        return {result: {kind: 'low-poly-crown', crownKeys, crownFaces, crownCentres}, transfer: crownFaces.map((faces) => faces.buffer)}
     }
 
     const context = contextFor(task.job)

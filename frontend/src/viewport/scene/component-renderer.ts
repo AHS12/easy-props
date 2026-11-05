@@ -57,6 +57,8 @@ export interface ComponentRenderer {
     get(componentId: string): RenderedComponent | undefined
     /** Every rendered component. */
     all(): readonly RenderedComponent[]
+    /** Whether a mesh built elsewhere is still on its way, so what shows is not yet the newest scene. */
+    readonly building: boolean
     /** Moves the prop in the wind: 0 holds it still. A prop that never moves ignores this. */
     setWind(strength: number, seconds: number): void
     /** Draws every part in its own colour, for the Cartoon view's lines. */
@@ -589,6 +591,10 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
 
         all() {
             return [...rendered.values()]
+        },
+
+        get building() {
+            return building
         },
 
         setWind(strength, seconds) {

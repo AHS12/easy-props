@@ -33,7 +33,12 @@ export type BarkTask =
 
 export type BarkTaskResult =
     | {readonly kind: 'low-poly-wood'; readonly wood: {positions: Float32Array; normals: Float32Array; colors: Float32Array}}
-    | {readonly kind: 'low-poly-crown'; readonly crownKeys: readonly string[]; readonly crownFaces: readonly Float32Array[]}
+    | {
+          readonly kind: 'low-poly-crown'
+          readonly crownKeys: readonly string[]
+          readonly crownFaces: readonly Float32Array[]
+          readonly crownCentres: readonly (readonly [number, number, number])[]
+      }
     | {readonly kind: 'cells'; readonly cells: Int32Array}
     | {readonly kind: 'sculpt'; readonly chunk: BarkChunk}
     | {readonly kind: 'assemble'; readonly arrays: BarkArrays}
@@ -217,19 +222,22 @@ export async function buildBarkOffThread(job: BarkJob): Promise<THREE.BufferGeom
  * worked out on another. The crown is kept here, so the clumps that follow
  * find it ready.
  */
-export async function buildLowPolyOffThread(job: BarkJob): Promise<THREE.BufferGeometry> {
+export async function buildLowPolyOffThread(job: BarkJob, withCrown = true): Promise<THREE.BufferGeometry> {
     const active = getPool()
 
     if (active) {
         try {
             const [wood, crown] = (await Promise.all([
                 active.run({kind: 'low-poly-wood', job}),
-                active.run({kind: 'low-poly-crown', job}),
-            ])) as [Extract<BarkTaskResult, {kind: 'low-poly-wood'}>, Extract<BarkTaskResult, {kind: 'low-poly-crown'}>]
+                withCrown ? active.run({kind: 'low-poly-crown', job}) : null,
+            ])) as [Extract<BarkTaskResult, {kind: 'low-poly-wood'}>, Extract<BarkTaskResult, {kind: 'low-poly-crown'}> | null]
 
-            rememberCrown(job.tree, job.seed, job.detail, {
-                faces: new Map(crown.crownKeys.map((key, index) => [key, crown.crownFaces[index]])),
-            })
+            if (crown) {
+                rememberCrown(job.tree, job.seed, job.detail, {
+                    faces: new Map(crown.crownKeys.map((key, index) => [key, crown.crownFaces[index]])),
+                    centres: new Map(crown.crownKeys.map((key, index) => [key, crown.crownCentres[index]])),
+                })
+            }
 
             return facesToGeometry(wood.wood)
         } catch (error) {
@@ -239,7 +247,9 @@ export async function buildLowPolyOffThread(job: BarkJob): Promise<THREE.BufferG
 
     const plan = planPaintedTree(job.tree, job.seed)
 
-    lowPolyCrown(plan, job.tree, job.seed, job.detail)
+    if (withCrown) {
+        lowPolyCrown(plan, job.tree, job.seed, job.detail)
+    }
 
     return buildLowPolyWood(plan, job.tree, job.seed, job.detail)
 }

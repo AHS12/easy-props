@@ -16,6 +16,7 @@ import {
 } from '../assets/style/lighting'
 import type {SpineLike} from '../assets/shared/spines'
 import {hashSeed} from '../assets/shared/random'
+import {holdLowPolyCrown} from '../assets/trees/painted'
 import {
     EMPTY_HISTORY,
     pushHistory,
@@ -573,13 +574,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewSpine: (componentId, spine) => {
             const state = get()
 
+            holdLowPolyCrown(true)
+
             set({
                 scene: updateComponentParameters(state.scene, componentId, {spine}),
             })
         },
 
-        commitSpine: (before, componentId, spine) =>
-            commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before),
+        commitSpine: (before, componentId, spine) => {
+            holdLowPolyCrown(false)
+            commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before)
+        },
 
         moveComponent: (componentId, axis, value) =>
             commit(
@@ -595,24 +600,32 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
 
-        previewTurn: (componentId, turn) =>
-            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})}),
+        previewTurn: (componentId, turn) => {
+            holdLowPolyCrown(true)
+            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})})
+        },
 
-        commitTurn: (before, componentId, turn) =>
-            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before),
+        commitTurn: (before, componentId, turn) => {
+            holdLowPolyCrown(false)
+            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before)
+        },
 
         previewPosition: (componentId, position) => {
             const state = get()
 
+            holdLowPolyCrown(true)
+
             set({scene: setComponentPositionInScene(state.scene, componentId, position)})
         },
 
-        commitPosition: (before, componentId, position) =>
+        commitPosition: (before, componentId, position) => {
+            holdLowPolyCrown(false)
             commit(
                 'move part',
                 (scene) => setComponentPositionInScene(scene, componentId, position),
                 before,
-            ),
+            )
+        },
 
         updateMaterials: (patch, label) =>
             commit(label, (scene) => ({

@@ -26,6 +26,11 @@ export interface SimplifiedMesh {
 
 /** The least a face may turn in one collapse, as the cosine between its old and new facing. */
 const MAX_TURN = 0.2
+/**
+ * The most a face may turn away from the facing it started with, over all its
+ * collapses. Many small turns can otherwise add up to a face folded inside out.
+ */
+const MAX_DRIFT = 0.1
 /** The thinnest a face may become, as its area against the square of its longest side. */
 const MIN_SHAPE = 0.02
 
@@ -115,6 +120,8 @@ export function simplifyMesh(sourcePositions: ArrayLike<number>, sourceIndices: 
     // Symmetric 4x4 per vertex: aa ab ac ad bb bc bd cc cd dd.
     const quadrics = new Float64Array(vertexCount * 10)
     const vertexFaces: number[][] = Array.from({length: vertexCount}, () => [])
+    // Each face's facing on the surface as it came in, unit length, or zero for a face with no area.
+    const firstFacing = new Float64Array(faceCount * 3)
     let liveFaces = faceCount
 
     const point = (v: number): [number, number, number] => [positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]]
@@ -153,6 +160,8 @@ export function simplifyMesh(sourcePositions: ArrayLike<number>, sourceIndices: 
         // Weighted by area, so a large face's plane counts for more than a small one's.
         const weight = length / 2
         const [nx, ny, nz] = [n[0] / length, n[1] / length, n[2] / length]
+
+        firstFacing.set([nx, ny, nz], f * 3)
         const d = -(nx * positions[a * 3] + ny * positions[a * 3 + 1] + nz * positions[a * 3 + 2])
         const plane = [nx * nx, nx * ny, nx * nz, nx * d, ny * ny, ny * nz, ny * d, nz * nz, nz * d, d * d]
 
@@ -283,6 +292,10 @@ export function simplifyMesh(sourcePositions: ArrayLike<number>, sourceIndices: 
             }
 
             if (l0 > 1e-14 && (n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2]) / (l0 * l1) < MAX_TURN) {
+                return false
+            }
+
+            if ((firstFacing[f * 3] * n1[0] + firstFacing[f * 3 + 1] * n1[1] + firstFacing[f * 3 + 2] * n1[2]) / l1 < MAX_DRIFT && firstFacing[f * 3] ** 2 + firstFacing[f * 3 + 1] ** 2 + firstFacing[f * 3 + 2] ** 2 > 0.5) {
                 return false
             }
 

@@ -39,9 +39,23 @@ const WOOD_ERROR = 0.24
 
 /** Leaves are sampled at this share of a typical clump's radius. */
 const LEAF_CELL_SHARE = 0.16
+/**
+ * The least a mass of leaves may be from its middle to its top, in leaf cells.
+ * A thinner one slips between the grid's samples and tears into slivers.
+ */
+const LEAF_MIN_CELLS = 1.6
+/** The grid is never coarser than this share of that least thickness, at any detail. */
+const LEAF_CELLS_ACROSS = 1.3
+/** Every edge of a mass is rounded to this share of that least thickness. */
+const RIM_SHARE = 0.7
+/** How far a conifer's tier reaches into the one above, against that least thickness. */
+const TIER_OVERLAP = 0.8
 /** How softly lobes of one clump melt together, and clumps into each other, against a clump's radius. */
 const LOBE_BLEND = 0.35
 const CLUMP_BLEND = 0.12
+/** The least that clumps melt together, in leaf cells, and conifer tiers. */
+const MELT_CELLS = 1.25
+const TIER_MELT_CELLS = 2.5
 /** How far leaves may move as they are simplified, against a clump's radius. */
 const LEAF_ERROR = 0.07
 /** About this many faces per clump at full detail. */
@@ -164,8 +178,7 @@ export function buildLowPolyWood(plan: TreePlan, tree: PaintedTreeParameters, se
         extent,
     )
     const thinnest = cell * WOOD_MIN_CELLS
-    const shapes = plan.clumps.filter((clump) => clump.kind === 'mass').map((clump) => clumpField(clump, tree))
-    const typical = shapes.length > 0 ? shapes.reduce((sum, shape) => sum + shape.clump.radius, 0) / shapes.length : 1
+    const {shapes, typical} = crownShapes(plan, tree)
     const leavesAt = (point: Vec3) => Math.min(Infinity, ...shapes.map((shape) => shape.distance(point[0], point[1], point[2])))
     const limbs: Limb[] = plan.limbs
         .filter((limb) => limb.level <= keep && limb.points.length > 1)
@@ -263,46 +276,144 @@ export function lobesOf(clump: Clump, tree: PaintedTreeParameters): Lobe[] {
 
 /** The most a lobe's lumps push its surface out, as a share of its radius. */
 const MOST_LUMP = 0.24
+/** The flattest a mass's lumps are laid out on. */
+const LUMP_ROUNDNESS = 0.7
 
 interface ClumpShape {
     readonly clump: Clump
     /** No part of the clump lies farther than this from its centre. */
     readonly reach: number
-    readonly distance: (x: number, y: number, z: number) => number
+    /**
+     * The distance to the clump. Past `limit`, the answer need only be some
+     * distance beyond it, which is quick to give for a point far away.
+     */
+    readonly distance: (x: number, y: number, z: number, limit?: number) => number
 }
 
-/** A clump's own shape, in the tree's space: its lobes melted into one mass. */
-export function clumpField(clump: Clump, tree: PaintedTreeParameters): ClumpShape {
+export interface CrownShapes {
+    readonly shapes: readonly ClumpShape[]
+    /** A typical clump's radius. */
+    readonly typical: number
+    /** The least thickness a mass is given, from its middle to its top. */
+    readonly thinnest: number
+}
+
+/**
+ * The masses of leaves as the low-poly tree draws them: each at least
+ * `LEAF_MIN_CELLS` thick, so a flat crown stays a solid slab, with its rim
+ * rounded so it never thins to a knife edge the grid would fold.
+ *
+ * A conifer's tiers also rise near the trunk to meet the tier above, so the
+ * stack reads as one tree of overhanging skirts, as a modelled pine does,
+ * rather than discs with the trunk showing between them.
+ */
+export function crownShapes(plan: TreePlan, tree: PaintedTreeParameters): CrownShapes {
+    const masses = plan.clumps.filter((clump) => clump.kind === 'mass')
+    const typical = masses.length > 0 ? masses.reduce((sum, clump) => sum + clump.radius, 0) / masses.length : 1
+    const thinnest = typical * LEAF_CELL_SHARE * LEAF_MIN_CELLS
+    const thickened = masses.map((clump) => ({...clump, flatten: Math.max(clump.flatten, thinnest / Math.max(clump.radius, 1e-6))}))
+    const tiers = thickened.filter((clump) => clump.sag > 0).sort((a, b) => a.centre[1] - b.centre[1])
+    const shapes = thickened.map((clump) => {
+        const above = tiers[tiers.indexOf(clump) + 1]
+        // Up to the foot of the tier above, and a little into it, so the two melt.
+        const meet = above ? above.centre[1] - above.radius * above.flatten - clump.centre[1] + thinnest * TIER_OVERLAP : 0
+
+        // A sagging rim is tilted, which thins it across: it is rounded more to make up for that.
+        const tilt = Math.hypot(1, 2 * clump.sag)
+
+        return clumpField(clump, tree, {rise: Math.max(clump.flatten, meet / clump.radius), rim: thinnest * RIM_SHARE * tilt})
+    })
+
+    return {shapes, typical, thinnest}
+}
+
+/**
+ * Signed distance to an upright ellipsoid, `across` wide and `up` tall from
+ * its middle. It is round about the upright axis, so this is the distance to
+ * an ellipse in the plane through that axis. The true distance, even for a
+ * very flat one, so the shape can be grown evenly to round its rim.
+ */
+function ellipsoidDistance(x: number, y: number, z: number, across: number, up: number): number {
+    const px = Math.hypot(x, z)
+    const py = Math.abs(y)
+    // The nearest point on the ellipse, found by walking its angle: each step
+    // treats the ellipse near the guess as a circle about its centre of curvature.
+    const pull = across * across - up * up
+    let tx = Math.SQRT1_2
+    let ty = Math.SQRT1_2
+
+    for (let step = 0; step < 3; step++) {
+        const ex = (pull * tx * tx * tx) / across
+        const ey = (-pull * ty * ty * ty) / up
+        const r = Math.hypot(across * tx - ex, up * ty - ey)
+        const q = Math.max(Math.hypot(px - ex, py - ey), 1e-12)
+
+        tx = Math.min(Math.max(((px - ex) * r) / q + ex, 0) / across, 1)
+        ty = Math.min(Math.max(((py - ey) * r) / q + ey, 0) / up, 1)
+
+        const length = Math.max(Math.hypot(tx, ty), 1e-12)
+
+        tx /= length
+        ty /= length
+    }
+
+    const gap = Math.hypot(px - across * tx, py - up * ty)
+
+    return (px / across) ** 2 + (py / up) ** 2 < 1 ? -gap : gap
+}
+
+/**
+ * A clump's own shape, in the tree's space: its lobes melted into one mass.
+ *
+ * `rise` lets the top half stand taller than the bottom, as a share of the
+ * radius. `rim` rounds every edge to at least that radius: the shape is a
+ * smaller one grown outward by it.
+ */
+export function clumpField(clump: Clump, tree: PaintedTreeParameters, {rise = clump.flatten, rim = 0}: {rise?: number; rim?: number} = {}): ClumpShape {
     const lobes = lobesOf(clump, tree)
     const lumpSeed = (clump.seed % 1000) / 100
     const blend = clump.radius * LOBE_BLEND
-    const stretch = Math.max(clump.flatten, 1)
-    const reach =
-        Math.max(...lobes.map((lobe) => Math.hypot(...lobe.centre) + lobe.radius * (1 + MOST_LUMP) * stretch)) + clump.sag * clump.radius
+    const top = Math.max(rise, clump.flatten)
+    const stretch = Math.max(top, 1)
+    const bound = Math.max(...lobes.map((lobe) => Math.hypot(...lobe.centre) + lobe.radius * (1 + MOST_LUMP) * stretch))
+    const reach = bound + clump.sag * clump.radius
 
-    return {clump, reach, distance: (x, y, z) => {
+    return {clump, reach, distance: (x, y, z, limit = Infinity) => {
         const lx = x - clump.centre[0]
         const lz = z - clump.centre[2]
         // The rim of a skirt sags: a conifer's tier hangs at its edge.
         const ly = y - clump.centre[1] + (clump.sag * (lx * lx + lz * lz)) / clump.radius
+        const near = Math.hypot(lx, ly, lz) - bound
+
+        if (near > limit) {
+            return near
+        }
+
         let d = Infinity
 
         for (const lobe of lobes) {
             const px = lx - lobe.centre[0]
-            const py = (ly - lobe.centre[1]) / clump.flatten
+            const py = ly - lobe.centre[1]
             const pz = lz - lobe.centre[2]
-            const length = Math.hypot(px, py, pz)
-            const flat = Math.min(clump.flatten, 1)
+            const height = py > 0 ? top : clump.flatten
 
             // Too far for this lobe to change the answer: no need to work out its lumps.
-            if ((length - lobe.radius * (1 + MOST_LUMP)) * flat > d + blend) {
+            if (Math.hypot(px, py, pz) - lobe.radius * (1 + MOST_LUMP) * stretch > d + blend) {
                 continue
             }
 
-            const direction: Vec3 = length < 1e-9 ? [0, 1, 0] : [px / length, py / length, pz / length]
-            const own = length - lobe.radius * (1 + lumpAt(direction, lumpSeed))
+            const sx = px / lobe.radius
+            // Lumps are laid out on a rounder shape than a flat mass's own, so they
+            // change slowly over its thin rim instead of rippling across it.
+            const sy = py / (lobe.radius * Math.max(height, LUMP_ROUNDNESS))
+            const sz = pz / lobe.radius
+            const length = Math.hypot(sx, sy, sz)
+            const direction: Vec3 = length < 1e-9 ? [0, 1, 0] : [sx / length, sy / length, sz / length]
+            const across = lobe.radius * (1 + lumpAt(direction, lumpSeed))
+            const grow = Math.min(rim, across * height * 0.9, across * 0.9)
+            const own = ellipsoidDistance(px, py, pz, across - grow, across * height - grow) - grow
 
-            d = smin(d, own * flat, blend)
+            d = smin(d, own, blend)
         }
 
         return d
@@ -312,15 +423,44 @@ export function clumpField(clump: Clump, tree: PaintedTreeParameters): ClumpShap
 export interface Crown {
     /** Each clump's faces, in the tree's space, by its key. */
     readonly faces: ReadonlyMap<string, ArrayLike<number>>
+    /** Where each clump's centre was when its faces were worked out. */
+    readonly centres: ReadonlyMap<string, Vec3>
 }
 
 const crowns = new Map<string, Crown>()
 const CROWNS_KEPT = 8
 
+/**
+ * While a part is dragged, the crown is held as it was: each clump keeps its
+ * faces and moves whole, as a painted one does, and the crown is melted again
+ * once, when the drag ends. Melting it on every step of a drag cannot keep up.
+ */
+let held: {readonly seed: number; readonly crown: Crown} | null = null
+let holding = false
+let holds = 0
+let lastCrown: {readonly seed: number; readonly crown: Crown} | null = null
+
+export function holdLowPolyCrown(on: boolean): void {
+    if (on && !holding) {
+        held = lastCrown
+        holds++
+    }
+
+    if (!on) {
+        held = null
+    }
+
+    holding = on
+}
+
+/** Which hold this is, while a drag holds the crown, or null when none does. */
+export const lowPolyHold = (): number | null => (holding ? holds : null)
+
 const crownKey = (tree: PaintedTreeParameters, seed: number, detail: number) => JSON.stringify([tree, seed, Math.round(detail * 1000)])
 
-function keepCrown(key: string, crown: Crown) {
+function keepCrown(key: string, crown: Crown, seed: number) {
     crowns.set(key, crown)
+    lastCrown = {seed, crown}
 
     while (crowns.size > CROWNS_KEPT) {
         crowns.delete(crowns.keys().next().value!)
@@ -329,7 +469,7 @@ function keepCrown(key: string, crown: Crown) {
 
 /** Keeps a crown worked out on another thread, so the clumps that ask for it next find it. */
 export function rememberCrown(tree: PaintedTreeParameters, seed: number, detail: number, crown: Crown): void {
-    keepCrown(crownKey(tree, seed, detail), crown)
+    keepCrown(crownKey(tree, seed, detail), crown, seed)
 }
 
 /**
@@ -337,39 +477,49 @@ export function rememberCrown(tree: PaintedTreeParameters, seed: number, detail:
  * clump of a tree asks for it in turn, so it is worked out once and kept.
  */
 export function lowPolyCrown(plan: TreePlan, tree: PaintedTreeParameters, seed: number, detail: number): Crown {
+    if (holding && held && held.seed === seed && plan.clumps.every((clump) => clump.kind !== 'mass' || held!.crown.faces.has(clump.key))) {
+        return held.crown
+    }
+
     const key = crownKey(tree, seed, detail)
     const kept = crowns.get(key)
 
     if (kept) {
+        lastCrown = {seed, crown: kept}
+
         return kept
     }
 
-    const masses = plan.clumps.filter((clump) => clump.kind === 'mass')
-    const fields = masses.map((clump) => clumpField(clump, tree))
-    const typical = masses.length > 0 ? masses.reduce((sum, clump) => sum + clump.radius, 0) / masses.length : 1
-    const blend = typical * CLUMP_BLEND
+    const {shapes: fields, typical, thinnest} = crownShapes(plan, tree)
+    const masses = fields.map((shape) => shape.clump)
     const extent = extentOf(masses.flatMap((clump) => [sub(clump.centre, [clump.radius * 2, clump.radius * 2, clump.radius * 2]), [clump.centre[0] + clump.radius * 2, clump.centre[1] + clump.radius * 2, clump.centre[2] + clump.radius * 2]]))
-    const cell = cellFor((typical * LEAF_CELL_SHARE) / Math.sqrt(Math.max(detail, 0.1)), extent)
+    const cell = cellFor(Math.min((typical * LEAF_CELL_SHARE) / Math.sqrt(Math.max(detail, 0.1)), thinnest / LEAF_CELLS_ACROSS), extent)
+    // Masses closer than a couple of cells are melted together: a narrower gap
+    // than the grid can follow would pinch the surface where they nearly touch.
+    // A conifer's tiers leave a long shallow crease under each overhang, so
+    // they are melted more.
+    const blends = fields.map(({clump}) => Math.max(typical * CLUMP_BLEND, cell * (clump.sag > 0 ? TIER_MELT_CELLS : MELT_CELLS)))
     const field = withGradient((x, y, z) => {
         let d = Infinity
 
-        for (const shape of fields) {
-            const {centre} = shape.clump
+        fields.forEach((shape, index) => {
+            const blend = blends[index]
 
-            // A clump this far off cannot reach the point, so its lobes are not asked.
-            if (Math.hypot(x - centre[0], y - centre[1], z - centre[2]) - shape.reach > d + blend) {
-                continue
-            }
-
-            d = smin(d, shape.distance(x, y, z), blend)
-        }
+            // A clump farther off than the blend cannot change the answer.
+            d = smin(d, shape.distance(x, y, z, d + blend), blend)
+        })
 
         return d
     })
-    const boxes = fields.map(({clump, reach}) => ({
-        min: [clump.centre[0] - reach, clump.centre[1] - reach, clump.centre[2] - reach] as Vec3,
-        max: [clump.centre[0] + reach, clump.centre[1] + reach, clump.centre[2] + reach] as Vec3,
-    }))
+    const boxes = fields.map(({clump, reach: own}, index) => {
+        // Melting swells a shape past its own reach, by up to a quarter of each blend.
+        const reach = own + (clump.radius * LOBE_BLEND + blends[index]) * 0.25 + cell * 2
+
+        return {
+            min: [clump.centre[0] - reach, clump.centre[1] - reach, clump.centre[2] - reach] as Vec3,
+            max: [clump.centre[0] + reach, clump.centre[1] + reach, clump.centre[2] + reach] as Vec3,
+        }
+    })
     const surface =
         masses.length > 0
             ? lowPolySurface(field, cellsAround(boxes, cell), cell, typical * LEAF_ERROR / Math.sqrt(Math.max(detail, 0.1)), Math.round(masses.length * LEAF_FACES * detail))
@@ -395,9 +545,9 @@ export function lowPolyCrown(plan: TreePlan, tree: PaintedTreeParameters, seed: 
         faces.get(masses[owner].key)!.push(...corners.flat())
     }
 
-    const crown = {faces}
+    const crown = {faces, centres: new Map(masses.map((clump) => [clump.key, clump.centre]))}
 
-    keepCrown(key, crown)
+    keepCrown(key, crown, seed)
 
     return crown
 }

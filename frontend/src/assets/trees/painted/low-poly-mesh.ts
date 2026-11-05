@@ -124,19 +124,26 @@ export function buildLowPolyClump(
     const paint = leafColours(tree, clump)
     const random = createSeededRandom(hashSeed(clump.seed, 41))
     const clumpShift = (createSeededRandom(hashSeed(clump.seed, 3))() - 0.5) * 0.3 * tree.colourVariation
-    const corners = lowPolyCrown(plan, tree, seed, share).faces.get(clump.key) ?? []
+    const crown = lowPolyCrown(plan, tree, seed, share)
+    const corners = crown.faces.get(clump.key) ?? []
+    // Faces are kept around where the clump was when they were worked out, so a
+    // clump moved while the crown is held carries them along whole.
+    const origin = crown.centres.get(clump.key) ?? clump.centre
     const faces: Faces = {positions: [], normals: [], colors: []}
 
     for (let at = 0; at < corners.length; at += 9) {
         const [a, b, c] = [0, 3, 6].map(
-            (k): Vec3 => [corners[at + k] - clump.centre[0], corners[at + k + 1] - clump.centre[1], corners[at + k + 2] - clump.centre[2]],
+            (k): Vec3 => [corners[at + k] - origin[0], corners[at + k + 1] - origin[1], corners[at + k + 2] - origin[2]],
         )
         const n = normalize(cross(sub(b, a), sub(c, a)))
         const middle = (a[1] + b[1] + c[1]) / 3
         const height = (clump.base[1] + middle - plan.crownCentre[1]) / Math.max(plan.crownRadius, 0.001)
-        // Painted as the soft clump is: the top of the clump and of the crown are bright.
+        // Painted as the soft clump is, but with harder steps, as flat faces want:
+        // tops take the highlight, sides the middle and undersides the shadow,
+        // and the top of the crown is a little brighter than its foot.
+        const up = Math.min(Math.max((n[1] + 0.35) / 1.2, 0), 1)
         const value =
-            0.55 * (n[1] * 0.5 + 0.5) + 0.3 * (height * 0.5 + 0.5) + 0.12 + clumpShift + randomRange(random, -0.07, 0.07) * (0.5 + tree.colourVariation)
+            0.1 + 0.75 * up * up * (3 - 2 * up) + 0.15 * (height * 0.5 + 0.5) + clumpShift + randomRange(random, -0.06, 0.06) * (0.5 + tree.colourVariation)
 
         pushFace(faces, a, b, c, paint(value))
     }
