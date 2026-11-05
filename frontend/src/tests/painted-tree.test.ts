@@ -515,7 +515,10 @@ describe('painted tree', () => {
 
         it('has a unique id and a heading', () => {
             expect(new Set(treePresets.map((preset) => preset.id)).size).toBe(treePresets.length)
-            expect(presetGroups.flatMap((group) => group.presets).length).toBe(treePresets.length)
+            // All but the old-style tree, which stays only for the props made from it.
+            expect(presetGroups.flatMap((group) => group.presets).map((preset) => preset.id).sort()).toEqual(
+                treePresets.map((preset) => preset.id).filter((id) => id !== 'round-canopy').sort(),
+            )
         })
 
         it.each(presets.map((preset) => [preset.id, preset] as const))('%s builds within budget', (_, preset) => {

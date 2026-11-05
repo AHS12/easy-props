@@ -27,6 +27,8 @@ export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
 export type CrownShape = 'natural' | 'round' | 'wide' | 'umbrella' | 'column' | 'cone' | 'teardrop'
+/** Painted is soft leaf cards and sculpted bark. Low-poly is the same tree in a few hard-edged blocks. */
+export type TreeBuild = 'painted' | 'low-poly'
 const number = (
     group: string,
     key: string,
@@ -92,6 +94,19 @@ const NUMBERS = {
     patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
     patternScale: number(BARK, 'patternScale', 'Bark size', 'How big each plate or mark on the wood is.', 0.6, 2, 0.05, 1),
 } as const
+
+const BUILD = {
+    kind: 'choice',
+    group: TRUNK,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal is soft and leafy. Low-poly is the same tree in a few flat-sided blocks, lighter to draw.',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
+    ],
+    default: 'painted',
+} as const satisfies ChoiceParameter<TreeBuild>
 
 const FORM = {
     kind: 'choice',
@@ -219,6 +234,7 @@ const PALETTE = {
 } as const satisfies ChoiceParameter<PaletteId>
 
 export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
+    BUILD,
     FORM,
     NUMBERS.height,
     NUMBERS.trunkRadius,
@@ -288,6 +304,24 @@ const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
     conifer: ['stem', 'crownShape', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
 }
 
+/** Controls a low-poly tree has no use for: its bark is plain blocks and its leaves are not cards. */
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = [
+    'ridgeTwist',
+    'ridgeDepth',
+    'ridgeCount',
+    'fullness',
+    'leafSize',
+    'barkPattern',
+    'patternDepth',
+    'patternScale',
+    'brushStrokes',
+    'barkDetail',
+    'roughness',
+    'burls',
+    'hollow',
+    'moss',
+]
+
 /** What a shared control means on a form that reuses it for something else. */
 const LABELS_BY_FORM: Readonly<Record<TreeForm, Readonly<Record<string, string>>>> = {
     crown: {},
@@ -315,7 +349,8 @@ export function controlsForTree(
     values: Readonly<Record<string, unknown>>,
 ): readonly ParameterSpec[] {
     const form = (values.form ?? FORM.default) as TreeForm
-    const hidden = HIDDEN_BY_FORM[form] ?? []
+    // Style is a switch over the view, not a control in the panel.
+    const hidden = ['build', ...(HIDDEN_BY_FORM[form] ?? []), ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : [])]
     const labels = LABELS_BY_FORM[form] ?? {}
     const hasPattern = (values.barkPattern ?? BARK_PATTERN.default) !== 'none'
     const hasFruit = Number(values.fruitCount ?? 0) > 0
@@ -398,6 +433,7 @@ export type PaintedTreeParameters = {
     readonly [K in keyof typeof NUMBERS]: number
 } & Palette & {
         readonly palette: PaletteId
+        readonly build: TreeBuild
         readonly form: TreeForm
         readonly crownShape: CrownShape
         readonly frondStyle: FrondStyle
@@ -435,6 +471,7 @@ const paintedTreeSchema = z.object({
         ]),
     ),
     palette: choiceSchema(PALETTE),
+    build: choiceSchema(BUILD),
     form: choiceSchema(FORM),
     crownShape: choiceSchema(CROWN_SHAPE),
     frondStyle: choiceSchema(FROND_STYLE),
@@ -454,6 +491,7 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
         readonly [K in keyof typeof NUMBERS]: number
     }),
     palette: PALETTE.default,
+    build: BUILD.default,
     form: FORM.default,
     crownShape: CROWN_SHAPE.default,
     frondStyle: FROND_STYLE.default,

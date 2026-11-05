@@ -637,7 +637,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 style: state.style,
                 presetId: state.presetId,
             }
-            const scene = createSceneFromPreset(presetId)
+            const fresh = createSceneFromPreset(presetId)
+            // Low-poly is a switch over the view, so it stays on from one tree to the next.
+            const keepsLowPoly =
+                state.scene.assets[0]?.parameters.build === 'low-poly' && fresh.assets[0]?.generatorId === 'painted-tree'
+            const scene = keepsLowPoly
+                ? updateTreeParameters(fresh, fresh.assets[0].id, {build: 'low-poly'}, getStyleProfile(state.style))
+                : fresh
 
             set({
                 scene,

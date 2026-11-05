@@ -501,7 +501,10 @@ const GENERATOR_FAMILIES: Readonly<Record<string, PropFamily>> = {
 export const familyOfProp = (presetId: string | null | undefined, generatorId: string | null | undefined): PropFamily =>
     presetId && findPreset(presetId) ? familyOfPreset(presetId) : (GENERATOR_FAMILIES[generatorId ?? ''] ?? 'tree')
 
-/** The presets under their headings, the three first trees leading the list. */
+/**
+ * The presets under their headings, the three first trees leading the list.
+ * The old-style first preset is left out: any painted tree can be low-poly now.
+ */
 export const presetGroups: readonly {title: string; family: PropFamily; presets: readonly TreePreset[]}[] = [
     {title: 'Favourites', family: 'tree', presets: treePresets.slice(1, 4)},
     ...PRESET_CATEGORIES.map((title) => ({
@@ -509,5 +512,4 @@ export const presetGroups: readonly {title: string; family: PropFamily; presets:
         family: familyOfCategory(title),
         presets: treePresets.filter((preset) => preset.category === title),
     })),
-    {title: 'Older style', family: 'tree', presets: [treePresets[0]]},
 ]

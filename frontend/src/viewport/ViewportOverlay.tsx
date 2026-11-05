@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Sun, TreeDeciduous, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -82,6 +82,37 @@ function ToolButton({
                 {children}
             </button>
         </Tooltip>
+    )
+}
+
+/**
+ * Shows a painted tree as it is, or in its low-poly version. It sits over the
+ * view because it changes the whole prop at once, not one of its parts.
+ */
+function StyleToggle() {
+    const asset = useEditorStore((state) => state.scene.assets[0])
+    const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
+
+    if (asset?.generatorId !== 'painted-tree') {
+        return null
+    }
+
+    const lowPoly = asset.parameters.build === 'low-poly'
+    const choose = (build: 'painted' | 'low-poly') => () => {
+        if ((build === 'low-poly') !== lowPoly) {
+            updateTreeParameters({build}, 'change build')
+        }
+    }
+
+    return (
+        <div className="tool-group" role="group" aria-label="Style">
+            <ToolButton label="Normal" keys={shortcutFor('style-detailed')} pressed={!lowPoly} onPress={choose('painted')}>
+                <TreeDeciduous size={14} aria-hidden="true" />
+            </ToolButton>
+            <ToolButton label="Low-poly" keys={shortcutFor('style-low-poly')} pressed={lowPoly} onPress={choose('low-poly')}>
+                <Gem size={14} aria-hidden="true" />
+            </ToolButton>
+        </div>
     )
 }
 
@@ -326,6 +357,7 @@ export function ViewportOverlay() {
             </div>
 
             <div className="viewport-tools viewport-tools--right" role="toolbar" aria-label="View">
+                <StyleToggle />
                 <div className="tool-group">
                     <ToolMenu
                         label={`Shading: ${SHADING_MODE_LABELS[shadingMode]}`}

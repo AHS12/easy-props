@@ -63,6 +63,12 @@ const selectedPart = (state: EditorStore) => {
 const isPainted = (state: EditorStore) =>
     Boolean(findPropGenerator(state.scene.assets[0]?.generatorId ?? '')?.paintsOwnColours)
 
+/** Whether this prop has a style of its own to switch: painted trees do. */
+const hasBuild = (state: EditorStore) => state.scene.assets[0]?.generatorId === 'painted-tree'
+
+/** A tree saved before it had a style is painted. */
+const buildOf = (state: EditorStore) => state.scene.assets[0]?.parameters.build ?? 'painted'
+
 const needsPart = (state: EditorStore) => (selected(state) ? null : 'Select a part first')
 
 /** Parts that stand for the whole prop, so they cannot be moved or removed. */
@@ -662,23 +668,29 @@ export const COMMANDS: readonly Command[] = [
         keywords: 'reset defaults tree',
         run: (state) => state.restoreTree(),
     },
+    // A painted tree keeps its style as one of its own settings. A tree from
+    // before then still follows the app-wide style it was made with.
     {
         id: 'style-low-poly',
         label: 'Style: Low-poly',
         group: 'Prop',
         shortcut: '1',
-        unavailable: (state) => (isPainted(state) ? 'Painted props use Detail level instead' : null),
-        checked: (state) => state.style === 'low-poly',
-        run: (state) => state.setStyle('low-poly'),
+        keywords: 'blocks faceted simple',
+        unavailable: (state) => (isPainted(state) && !hasBuild(state) ? 'This prop has one style only' : null),
+        checked: (state) => (hasBuild(state) ? buildOf(state) === 'low-poly' : state.style === 'low-poly'),
+        run: (state) =>
+            hasBuild(state) ? state.updateTreeParameters({build: 'low-poly'}, 'change build') : state.setStyle('low-poly'),
     },
     {
         id: 'style-detailed',
-        label: 'Style: Detailed',
+        label: 'Style: Normal',
         group: 'Prop',
         shortcut: '2',
-        unavailable: (state) => (isPainted(state) ? 'Painted props use Detail level instead' : null),
-        checked: (state) => state.style === 'detailed',
-        run: (state) => state.setStyle('detailed'),
+        keywords: 'painted detailed soft leafy',
+        unavailable: (state) => (isPainted(state) && !hasBuild(state) ? 'This prop has one style only' : null),
+        checked: (state) => (hasBuild(state) ? buildOf(state) === 'painted' : state.style === 'detailed'),
+        run: (state) =>
+            hasBuild(state) ? state.updateTreeParameters({build: 'painted'}, 'change build') : state.setStyle('detailed'),
     },
     ...treePresets.map(
         (preset): Command => ({
