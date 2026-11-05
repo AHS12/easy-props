@@ -9,45 +9,19 @@
 
 import * as THREE from 'three'
 import type {GeneratedPart} from '../../assets/shared/generator-types'
+import {COMIC_LOOK, FLAT_COLOURS} from '../../assets/style/toon-looks'
 
-/** Shadow and lit. Two steps read as cel; a third starts to read as painted. */
-const BANDS = [80, 255]
+const {sameColour: SAME_COLOUR, brightnessWeight: BRIGHTNESS_WEIGHT, lean: LEAN, maxTones: MAX_TONES, rounds: ROUNDS} = FLAT_COLOURS
 
-/**
- * Where the light falls between the shadow colour and the lit colour, measured
- * as how bright a point is next to its own colour. Tuned by eye.
- */
-const SHADE_LEVEL = 0.55
-const LIT_LEVEL = 1.05
-
-/** How much richer colours are than the painted ones. */
-const VIVID = 1.2
-
-/**
- * How far a leaf card's light follows the round shape of its whole clump
- * rather than its own small lumps, which would speckle light and shade.
- */
-const ROUNDING = 0.85
-
-/**
- * A grey print darker than this, as read from the texture, is a stroke, and is
- * drawn this much darker than the wood. The print's plain ground is a little
- * lighter than the level.
- */
-const STROKE_LEVEL = 0.8
-const STROKE_TONE = 0.62
-
-/** Tones nearer than this count as one colour. Grain and shade fall within it; a flower does not. */
-export const SAME_COLOUR = 0.3
-
-const MAX_TONES = 6
-const ROUNDS = 8
+/** Writes a number into a shader, where a whole number would be read as an integer. */
+const glsl = (value: number) => value.toFixed(4)
 
 let gradient: THREE.DataTexture | null = null
 
 function bandTexture(): THREE.DataTexture {
     if (!gradient) {
-        gradient = new THREE.DataTexture(new Uint8Array(BANDS), BANDS.length, 1, THREE.RedFormat)
+        const bands = Uint8Array.from(COMIC_LOOK.bands, (band) => Math.round(band * 255))
+        gradient = new THREE.DataTexture(bands, bands.length, 1, THREE.RedFormat)
         gradient.minFilter = THREE.NearestFilter
         gradient.magFilter = THREE.NearestFilter
         gradient.generateMipmaps = false
@@ -56,12 +30,6 @@ function bandTexture(): THREE.DataTexture {
 
     return gradient
 }
-
-/** How much brightness counts next to hue when deciding two tones are one colour. */
-const BRIGHTNESS_WEIGHT = 0.3
-
-/** How far a joined tone leans to the colour of its lighter half, from 0 for an even mix to 1. */
-const LEAN = 0.75
 
 /**
  * How different two tones look as colours. Brightness counts for little: a
@@ -81,7 +49,7 @@ function toneDistance(a: readonly number[], b: readonly number[]): number {
  * colours.
  *
  * The main colours are found by grouping, then groups closer than
- * `SAME_COLOUR` are joined. A clump of leaves with grain becomes one colour,
+ * `FLAT_COLOURS.sameColour` are joined. A clump of leaves with grain becomes one colour,
  * while a bush keeps its flowers apart from its leaves.
  *
  * A picture of a whole prop is not joined: the blended colours where leaves
@@ -266,7 +234,7 @@ export function createCelMaterial(
 
     Object.assign(material, {flatShading: surface ? false : flatShading})
     material.userData.celCentre = {value: new THREE.Vector3()}
-    material.userData.celRound = surface?.map && (surface.alphaTest ?? 0) > 0 ? ROUNDING : 0
+    material.userData.celRound = surface?.map && (surface.alphaTest ?? 0) > 0 ? COMIC_LOOK.rounding : 0
 
     return material
 }
@@ -286,7 +254,7 @@ export function celFromStandard(standard: THREE.MeshStandardMaterial, geometry: 
     })
 
     material.userData.celCentre = {value: new THREE.Vector3()}
-    material.userData.celRound = standard.map && standard.alphaTest > 0 ? ROUNDING : 0
+    material.userData.celRound = standard.map && standard.alphaTest > 0 ? COMIC_LOOK.rounding : 0
     if (standard.vertexColors) {
         ensureFlatColours(geometry)
     }
@@ -390,9 +358,9 @@ export function addCelLook(material: THREE.Material): void {
 
     material.onBeforeCompile = (shader, renderer) => {
         before.call(material, shader, renderer)
-        shader.uniforms.celShade = {value: SHADE_LEVEL}
-        shader.uniforms.celLit = {value: LIT_LEVEL}
-        shader.uniforms.celVivid = {value: VIVID}
+        shader.uniforms.celShade = {value: COMIC_LOOK.shadeLevel}
+        shader.uniforms.celLit = {value: COMIC_LOOK.litLevel}
+        shader.uniforms.celVivid = {value: COMIC_LOOK.vivid}
         shader.uniforms.celCentre = material.userData.celCentre ?? {value: new THREE.Vector3()}
         shader.uniforms.celRound = {value: material.userData.celRound ?? 0}
         shader.uniforms.celLeaves = {value: material.userData.celRound > 0 ? 1 : 0}
@@ -437,8 +405,8 @@ export function addCelLook(material: THREE.Material): void {
                         // A grey print, such as the strokes on bark, is set in two flat
                         // tones: its strokes are faint grain in this view otherwise. A
                         // cut-out picture, such as a far-away card, is its own colours.
-                        else if (celPrintTop - celPrintBottom < 0.02) {
-                            celSample.rgb = vec3(celPrintTop < ${STROKE_LEVEL.toFixed(3)} ? ${STROKE_TONE.toFixed(3)} : 1.0);
+                        else if (celPrintTop - celPrintBottom < ${glsl(COMIC_LOOK.greyPrint)}) {
+                            celSample.rgb = vec3(celPrintTop < ${glsl(COMIC_LOOK.strokeLevel)} ? ${glsl(COMIC_LOOK.strokeTone)} : 1.0);
                         }
                     #endif
                     diffuseColor *= celSample;
@@ -457,20 +425,20 @@ export function addCelLook(material: THREE.Material): void {
                 // for colours that are clearly colours.
                 float celTop = max(max(celBase.r, celBase.g), celBase.b);
                 float celSaturation = (celTop - min(min(celBase.r, celBase.g), celBase.b)) / max(celTop, 0.0001);
-                float celColourful = smoothstep(0.3, 0.6, celSaturation);
+                float celColourful = smoothstep(${glsl(COMIC_LOOK.colourful[0])}, ${glsl(COMIC_LOOK.colourful[1])}, celSaturation);
                 vec3 celRich = max(mix(vec3(celBaseLuma), celBase, mix(1.0, celVivid, celColourful)), 0.0);
                 // The lit view's sun is warm, and that warmth is what makes a cool
                 // stone read as grey there, so the lit side keeps the light's tint.
                 vec3 celTint = celLightColour / max(celBase, vec3(0.02));
-                celTint = clamp(celTint / max(dot(celTint, celWeights), 0.0001), 0.7, 1.4);
+                celTint = clamp(celTint / max(dot(celTint, celWeights), 0.0001), ${glsl(COMIC_LOOK.tintRange[0])}, ${glsl(COMIC_LOOK.tintRange[1])});
                 // One sharp step: the sky's soft fill would otherwise grade each band.
                 float celMiddle = (celShade + celLit) * 0.5;
-                float celAmount = smoothstep(celMiddle - 0.03, celMiddle + 0.03, celLight);
+                float celAmount = smoothstep(celMiddle - ${glsl(COMIC_LOOK.stepSoftness)}, celMiddle + ${glsl(COMIC_LOOK.stepSoftness)}, celLight);
                 // Shade deepens a colour and makes it richer, as a painter would,
                 // rather than greying it. A grey only darkens.
                 float celRichLuma = max(dot(celRich, celWeights), 0.0001);
-                vec3 celShadow = mix(celRich * pow(celRichLuma, 0.7), pow(celRich, vec3(1.7)), celColourful) * 0.8;
-                outgoingLight = mix(celShadow, celRich * mix(vec3(1.0), celTint, 0.6), celAmount) + totalEmissiveRadiance;
+                vec3 celShadow = mix(celRich * pow(celRichLuma, ${glsl(COMIC_LOOK.greyShadowDepth)}), pow(celRich, vec3(${glsl(COMIC_LOOK.shadowDepth)})), celColourful) * ${glsl(COMIC_LOOK.shadowDarkness)};
+                outgoingLight = mix(celShadow, celRich * mix(vec3(1.0), celTint, ${glsl(COMIC_LOOK.tint)}), celAmount) + totalEmissiveRadiance;
                 #include <opaque_fragment>`,
             )
     }

@@ -9,32 +9,11 @@
 
 import * as THREE from 'three'
 import type {GeneratedPart} from '../../assets/shared/generator-types'
+import {cartoonLevel} from '../../assets/style/toon-looks'
 
-/** Shadow, mid and lit, and where light moves from one to the next. */
-const LEVELS = [0.42, 0.7, 1]
-const STEPS = [0.3, 0.62]
-/** How wide each soft step is, as a share of the whole range. Wider reads as painted, narrower as hard. */
-const SOFTNESS = 0.09
 const WIDTH = 128
 
 let gradient: THREE.DataTexture | null = null
-
-const smoothstep = (edge0: number, edge1: number, x: number) => {
-    const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1)
-
-    return t * t * (3 - 2 * t)
-}
-
-/** How bright each amount of light is drawn: flat bands joined by short soft steps. */
-export function cartoonLevel(light: number): number {
-    let level = LEVELS[0]
-
-    STEPS.forEach((step, index) => {
-        level += (LEVELS[index + 1] - LEVELS[index]) * smoothstep(step - SOFTNESS / 2, step + SOFTNESS / 2, light)
-    })
-
-    return level
-}
 
 /** Shared by every part, so it is made once and never disposed with one. */
 function bandTexture(): THREE.DataTexture {

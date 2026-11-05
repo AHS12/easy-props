@@ -14,6 +14,7 @@ import {
     type SceneLighting,
 } from '../../assets/style/lighting'
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
+import {CARTOON_LOOK, COMIC_LOOK} from '../../assets/style/toon-looks'
 import type {FaceCounts} from '../../core/export/pipeline/budget'
 import type {Scene} from '../../core/scene/scene-model'
 import type {CollisionShape} from '../../assets/shared/generator-types'
@@ -87,8 +88,8 @@ export interface ViewportScene {
 const CAMERA_FOV = 45
 /** Comic lines are bold ink. Cartoon ones are thin and soft, as a painter might pencil them. */
 const LINE_STYLES: Readonly<Partial<Record<ShadingMode, LineStyle>>> = {
-    cartoon: {weight: 0.75, strength: 0.45},
-    cel: {weight: 1.5, strength: 1},
+    cartoon: CARTOON_LOOK.lines,
+    cel: COMIC_LOOK.lines,
 }
 const CAMERA_NEAR = 0.05
 const CAMERA_FAR = 500

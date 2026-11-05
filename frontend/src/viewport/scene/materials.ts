@@ -25,6 +25,4 @@ export const VIEWPORT_COLORS = {
     selection: '#f5a63a',
     /** The colour the wireframe overlay draws in. */
     wireframe: '#c3d6bd',
-    /** The dark edge the Cartoon view draws around a prop. */
-    ink: '#1c1814',
 } as const

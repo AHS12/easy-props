@@ -3,8 +3,8 @@ import {describe, expect, it} from 'vitest'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {createComponentRenderer} from '../viewport/scene/component-renderer'
-import {cartoonLevel} from '../viewport/scene/cartoon'
-import {flattenColours, flattenPicture} from '../viewport/scene/cel'
+import {CARTOON_LOOK, cartoonLevel, COMIC_LOOK} from '../assets/style/toon-looks'
+import {addCelLook, flattenColours, flattenPicture} from '../viewport/scene/cel'
 import {createIdMaterial, idColour, LAND_ID, setIdMap} from '../viewport/scene/ink-lines'
 import {createMeadowScenery} from '../viewport/scene/meadow-scenery'
 
@@ -235,5 +235,29 @@ describe('the soft cartoon light', () => {
         expect(cartoonLevel(0.9)).toBeCloseTo(1, 3)
         expect(cartoonLevel(0.3)).toBeGreaterThan(cartoonLevel(0.2))
         expect(cartoonLevel(0.3)).toBeLessThan(cartoonLevel(0.45))
+    })
+})
+
+describe('the shared look numbers', () => {
+    it('start and end the cartoon light on its darkest and lightest bands', () => {
+        expect(cartoonLevel(0)).toBeCloseTo(CARTOON_LOOK.levels[0], 3)
+        expect(cartoonLevel(1)).toBeCloseTo(CARTOON_LOOK.levels[CARTOON_LOOK.levels.length - 1], 3)
+    })
+
+    it('are what the comic view shades with', () => {
+        const material = new THREE.MeshToonMaterial()
+        const shader = {
+            uniforms: {},
+            vertexShader: THREE.ShaderLib.toon.vertexShader,
+            fragmentShader: THREE.ShaderLib.toon.fragmentShader,
+        } as unknown as THREE.WebGLProgramParametersWithUniforms & {uniforms: Record<string, {value: unknown}>}
+
+        addCelLook(material)
+        material.onBeforeCompile(shader, undefined as never)
+
+        expect(shader.uniforms.celShade.value).toBe(COMIC_LOOK.shadeLevel)
+        expect(shader.uniforms.celVivid.value).toBe(COMIC_LOOK.vivid)
+        expect(shader.fragmentShader).toContain(`vec3(${COMIC_LOOK.shadowDepth.toFixed(4)})`)
+        expect(shader.fragmentShader).toContain(`? ${COMIC_LOOK.strokeTone.toFixed(4)} : 1.0`)
     })
 })

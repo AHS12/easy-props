@@ -12,14 +12,14 @@
  */
 
 import * as THREE from 'three'
-import {VIEWPORT_COLORS} from './materials'
+import {INK_LINES} from '../../assets/style/toon-looks'
 
 /** Line widths in screen pixels: the outside of a shape, and where shapes overlap. */
-export const OUTER_LINE = 2
-export const INNER_LINE = 1.25
+export const OUTER_LINE = INK_LINES.outer
+export const INNER_LINE = INK_LINES.inner
 
 /** Gaps in a crown narrower than this many pixels go without a line. */
-export const HOLE_REACH = 5
+export const HOLE_REACH = INK_LINES.holeReach
 
 /**
  * The colour index the ground shares with grass and flowers. Nothing standing on
@@ -235,7 +235,7 @@ export function createInkLines(): InkLines {
             outerLine: {value: OUTER_LINE},
             innerLine: {value: INNER_LINE},
             holeReach: {value: HOLE_REACH},
-            ink: {value: new THREE.Color(VIEWPORT_COLORS.ink)},
+            ink: {value: new THREE.Color(INK_LINES.colour)},
             land: {value: idColour(LAND_ID)},
             strength: {value: 1},
             cameraNear: {value: 0.1},
