@@ -1301,7 +1301,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatchWithSaved: (batchSavedIds) => set({batchSavedIds, batchPicked: null, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, folder: chosen, folderPerProp}, subfolder = '') => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, folder: chosen, folderPerProp}, subfolder = '') => {
             const inside = folderNameOf(subfolder)
             const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
@@ -1321,7 +1321,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind, join, far},
+                settings: {engine, levels, collision, wind, join, far, look, materials},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),

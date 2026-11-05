@@ -45,6 +45,15 @@ export const ENGINE_LABELS: Readonly<Record<EngineId, string>> = {
     plain: 'Plain GLB',
 }
 
+/**
+ * How the game will draw the prop. Lit is the usual look. Cartoon and Comic need
+ * the engine kit's toon materials, and Comic also bakes its flat colours and
+ * round leaf light into the file.
+ */
+export type ExportLook = 'lit' | 'cartoon' | 'cel'
+
+export const EXPORT_LOOKS: readonly ExportLook[] = ['lit', 'cartoon', 'cel']
+
 export interface ExportSettings {
     /** Used for every file, and already safe to be one. */
     readonly name: string
@@ -58,6 +67,10 @@ export interface ExportSettings {
     readonly join?: boolean
     /** Asks for a far-away card. A prop that offers none gets none regardless. */
     readonly far?: boolean
+    /** Lit when absent. */
+    readonly look?: ExportLook
+    /** Puts the look's Godot materials beside the files. Only Godot has them. */
+    readonly materials?: boolean
 }
 
 export interface ExportFile {

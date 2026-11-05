@@ -6,11 +6,12 @@
  */
 
 import {useEffect, useState} from 'react'
+import {SHADING_MODE_LABELS} from '../assets/style/shading'
 import {presetGroups} from '../assets/trees/presets'
 import {MAX_VARIATIONS, propsOf, type BatchChoice} from '../core/export/batch-items'
-import {GODOT_IMPORT_NOTE, loadExportPreferences, saveExportPreferences} from '../core/export/export-preferences'
+import {GODOT_IMPORT_NOTE, loadExportPreferences, LOOK_HELP, MATERIALS_HELP, saveExportPreferences} from '../core/export/export-preferences'
 import {findBudgetTarget} from '../core/export/pipeline/budget'
-import {ENGINE_LABELS, folderNameOf, type EngineId} from '../core/export/pipeline/types'
+import {ENGINE_LABELS, EXPORT_LOOKS, folderNameOf, type EngineId} from '../core/export/pipeline/types'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
 import {chooseFolder, desktopJoin, isDesktop, showFolder, writeFilesTo} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
@@ -316,6 +317,19 @@ export function BatchExportDialog() {
                         <Row label="Far-away card" help="A flat picture of each tree, bush and tall cactus, for far away. It looks flat from above.">
                             <Switch label="Far-away card" value={preferences.far} onChange={(next) => change({far: next})} />
                         </Row>
+                        <Row label="Look" help={LOOK_HELP}>
+                            <Select
+                                label="Look"
+                                value={preferences.look}
+                                onChange={(next) => change({look: next})}
+                                options={EXPORT_LOOKS.map((id) => ({value: id, label: SHADING_MODE_LABELS[id]}))}
+                            />
+                        </Row>
+                        {preferences.engine === 'godot' ? (
+                            <Row label="Materials" help={MATERIALS_HELP}>
+                                <Switch label="Materials" value={preferences.materials} onChange={(next) => change({materials: next})} />
+                            </Row>
+                        ) : null}
                         <Row label="Collision" help="Simple shapes for the trunk and heavy branches, for walking into.">
                             <Switch label="Collision" value={preferences.collision} onChange={(next) => change({collision: next})} />
                         </Row>

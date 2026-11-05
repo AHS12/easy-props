@@ -9,6 +9,8 @@
 import * as THREE from 'three'
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {RIGID_ATTRIBUTE, roleOfPart} from '../../../assets/shared/generator-types'
+import {flattenColours} from '../../../assets/style/flat-colours'
+import {COMIC_LOOK} from '../../../assets/style/toon-looks'
 import {tidyWood} from './tidy'
 import type {PlacedPart, Vec3} from './types'
 import {windAttribute, type WindExtent} from './wind'
@@ -127,8 +129,30 @@ function hasFinitePositions(geometry: THREE.BufferGeometry): boolean {
     return true
 }
 
+/**
+ * Bends a leaf card's normals toward the round shape of its whole clump, as the
+ * Comic view lights them, so an engine's light falls across a crown in one band
+ * rather than speckling card by card.
+ */
+function roundLeafLight(geometry: THREE.BufferGeometry): void {
+    geometry.computeBoundingSphere()
+
+    const centre = geometry.boundingSphere!.center
+    const position = geometry.getAttribute('position')
+    const normal = geometry.getAttribute('normal')
+    const own = new THREE.Vector3()
+    const round = new THREE.Vector3()
+
+    for (let i = 0; i < position.count; i++) {
+        own.fromBufferAttribute(normal, i)
+        round.fromBufferAttribute(position, i).sub(centre).normalize()
+        own.lerp(round, COMIC_LOOK.rounding).normalize()
+        normal.setXYZ(i, own.x, own.y, own.z)
+    }
+}
+
 /** The same shape with the attributes every part in a mesh must share. */
-function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent): THREE.BufferGeometry {
+function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent, comic = false): THREE.BufferGeometry {
     const {part, matrix, tint, flatShading} = placed
     // A faceted part has one normal per face, which takes its own vertices.
     const faceted = flatShading && !part.surface
@@ -136,7 +160,11 @@ function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent): THREE.B
     const geometry = new THREE.BufferGeometry()
     const position = source.getAttribute('position')
     const colors = new Float32Array(position.count * 3)
-    const vertexColors = source.getAttribute('color')
+    const painted = source.getAttribute('color')
+    // A Comic export carries the flat colours the view shows, so any engine draws them.
+    const vertexColors = painted && comic
+        ? new THREE.BufferAttribute(flattenColours(Array.from({length: painted.count * 3}, (_, at) => painted.getComponent(Math.floor(at / 3), at % 3))), 3)
+        : painted
 
     for (let i = 0; i < position.count; i++) {
         colors[i * 3] = (vertexColors ? vertexColors.getX(i) : 1) * tint[0]
@@ -167,6 +195,10 @@ function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent): THREE.B
         geometry.setIndex(new THREE.BufferAttribute(Uint32Array.from(source.index.array), 1))
     } else {
         geometry.setIndex(new THREE.BufferAttribute(Uint32Array.from({length: position.count}, (_, i) => i), 1))
+    }
+
+    if (comic && part.surface?.map && (part.surface.alphaTest ?? 0) > 0) {
+        roundLeafLight(geometry)
     }
 
     geometry.applyMatrix4(new THREE.Matrix4().fromArray([...matrix]))
@@ -203,6 +235,7 @@ export function mergeParts(
     pivot: Vec3,
     wind?: WindExtent,
     fullRelief = true,
+    comic = false,
 ): MergedMesh[] {
     const buckets = new Map<string, PlacedPart[]>()
 
@@ -224,7 +257,7 @@ export function mergeParts(
 
     for (const bucket of buckets.values()) {
         const surface = bucket[0].part.surface
-        const pieces = bucket.map((placed) => normalised(placed, pivot, wind))
+        const pieces = bucket.map((placed) => normalised(placed, pivot, wind, comic))
         const geometry = mergeGeometries(pieces, false)
 
         for (const piece of pieces) {

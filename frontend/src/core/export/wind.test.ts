@@ -141,9 +141,10 @@ describe('the Wind view', () => {
 describe('the engine kits', () => {
     it('read the channel the export writes', () => {
         const godot = engineKitFiles('godot').map((file) => new TextDecoder().decode(file.bytes))
-        const shaders = godot.filter((text) => text.includes('shader_type'))
+        // Lit, Cartoon and Comic, each for wood and leaves. The outline does not move.
+        const shaders = godot.filter((text) => text.includes('sway_strength'))
 
-        expect(shaders).toHaveLength(2)
+        expect(shaders).toHaveLength(6)
 
         for (const shader of shaders) {
             expect(shader).toContain('UV2.x')

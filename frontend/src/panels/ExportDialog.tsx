@@ -6,16 +6,19 @@
  */
 
 import {useEffect, useRef, useState} from 'react'
+import {SHADING_MODE_LABELS} from '../assets/style/shading'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {findPropGenerator, offersFarAway} from '../assets/prop-generators'
 import {
     APP_VERSION,
     GODOT_IMPORT_NOTE,
     loadExportPreferences,
+    LOOK_HELP,
+    MATERIALS_HELP,
     saveExportPreferences,
 } from '../core/export/export-preferences'
 import {buildExport} from '../core/export/pipeline/package'
-import {ENGINE_LABELS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
+import {ENGINE_LABELS, EXPORT_LOOKS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
 import {sceneExportSource} from '../core/export/scene-source'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
 import {
@@ -57,7 +60,7 @@ export function ExportDialog() {
     const [kitSaved, setKitSaved] = useState<string | null>(null)
 
     const safeName = exportNameOf(name)
-    const {engine, levels, collision, wind, join, far, folder} = preferences
+    const {engine, levels, collision, wind, join, far, look, materials, folder} = preferences
     const generator = findPropGenerator(scene.assets[0]?.generatorId ?? '')
     const offersFar = offersFarAway(scene.assets[0]?.generatorId, scene.assets[0]?.parameters)
 
@@ -92,7 +95,7 @@ export function ExportDialog() {
         const timer = window.setTimeout(() => {
             buildExport(
                 sceneExportSource(scene, getStyleProfile(style), APP_VERSION),
-                {name: safeName, engine, levels, collision, wind, join, far},
+                {name: safeName, engine, levels, collision, wind, join, far, look, materials},
                 (done, total) => current && setProgress(done / total),
             )
                 .then(
@@ -106,7 +109,7 @@ export function ExportDialog() {
             current = false
             window.clearTimeout(timer)
         }
-    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join, far])
+    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join, far, look, materials])
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -251,6 +254,19 @@ export function ExportDialog() {
                     {offersFar ? (
                         <Row label="Far-away card" help="A flat picture of the prop for far away. It costs almost nothing to draw, but looks flat from above.">
                             <Switch label="Far-away card" value={far} onChange={(next) => change({far: next})} />
+                        </Row>
+                    ) : null}
+                    <Row label="Look" help={LOOK_HELP}>
+                        <Select
+                            label="Look"
+                            value={look}
+                            onChange={(next) => change({look: next})}
+                            options={EXPORT_LOOKS.map((id) => ({value: id, label: SHADING_MODE_LABELS[id]}))}
+                        />
+                    </Row>
+                    {engine === 'godot' ? (
+                        <Row label="Materials" help={MATERIALS_HELP}>
+                            <Switch label="Materials" value={materials} onChange={(next) => change({materials: next})} />
                         </Row>
                     ) : null}
                     <Row label="Collision" help="Simple shapes for the trunk and heavy branches, for walking into.">

@@ -73,3 +73,9 @@ Leaves, named `M_PropLeaves`:
 Assign `M_PropWood` to the `_wood` mesh and `M_PropLeaves` to the `_leaves` mesh, and give
 both the same **Location**. Each tree has its own leaf texture, so duplicate `M_PropLeaves`
 for each new tree. Trees sway in the editor if **Realtime** is on in the viewport.
+
+## Cartoon and Comic looks
+
+Toon materials for Unreal are not in the kit yet. You can already export with **Look: Comic**:
+the colours in the file are flat, and the leaves' light follows the round shape of each clump,
+ready for a toon material of your own.
