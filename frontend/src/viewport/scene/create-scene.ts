@@ -92,6 +92,10 @@ const LINE_STYLES: Readonly<Partial<Record<ShadingMode, LineStyle>>> = {
 }
 const CAMERA_NEAR = 0.05
 const CAMERA_FAR = 500
+/** Haze starts no nearer than this, and this far behind the prop, and takes this long to be total. */
+const HAZE_START = 22
+const HAZE_BEHIND = 4
+const HAZE_DEPTH = 38
 /** A clear midday sun, however warm the rest of the time of day is. */
 const MEADOW_WARMTH = 0.3
 /** A big bright sky: shade stays clearly coloured and never goes dark. */
@@ -269,7 +273,8 @@ export function createViewportScene(
     const sky = createSkyTexture(VIEWPORT_COLORS.skyTop, VIEWPORT_COLORS.skyHorizon)
     const meadowSky = createSkyTexture(VIEWPORT_COLORS.meadowSkyTop, VIEWPORT_COLORS.meadowHorizon)
     scene.background = sky
-    scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), 22, 60)
+    const haze = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), HAZE_START, HAZE_START + HAZE_DEPTH)
+    scene.fog = haze
 
     const lights = addLighting(scene)
     const groundMaterial = addGround(scene)
@@ -415,6 +420,11 @@ export function createViewportScene(
         components,
 
         draw() {
+            // Haze is measured from the camera, so zooming out would sink the prop
+            // itself in it. Starting it a set way behind the prop keeps the prop
+            // clear at any distance, and only the scenery far behind it fades.
+            haze.near = Math.max(HAZE_START, camera.position.distanceTo(controls.target) + HAZE_BEHIND)
+            haze.far = haze.near + HAZE_DEPTH
             groundLooks.cartoon?.color.copy(groundMaterial.color)
             groundLooks.cel?.color.copy(groundMaterial.color)
             renderer.render(scene, camera)
@@ -424,7 +434,7 @@ export function createViewportScene(
             const lines = LINE_STYLES[shading]
 
             if (lines) {
-                inkLines.draw(renderer, camera, drawIds, {weight: lines.weight * lineWeight, strength: lines.strength})
+                inkLines.draw(renderer, camera, drawIds, {weight: lines.weight * lineWeight, strength: lines.strength}, haze)
             }
         },
 

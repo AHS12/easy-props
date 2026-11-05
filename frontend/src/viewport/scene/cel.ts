@@ -29,6 +29,14 @@ const VIVID = 1.2
  */
 const ROUNDING = 0.85
 
+/**
+ * A grey print darker than this, as read from the texture, is a stroke, and is
+ * drawn this much darker than the wood. The print's plain ground is a little
+ * lighter than the level.
+ */
+const STROKE_LEVEL = 0.8
+const STROKE_TONE = 0.62
+
 /** Tones nearer than this count as one colour. Grain and shade fall within it; a flower does not. */
 export const SAME_COLOUR = 0.3
 
@@ -49,11 +57,11 @@ function bandTexture(): THREE.DataTexture {
     return gradient
 }
 
-const distanceSquared = (a: ArrayLike<number>, ai: number, b: ArrayLike<number>, bi: number) =>
-    (a[ai] - b[bi]) ** 2 + (a[ai + 1] - b[bi + 1]) ** 2 + (a[ai + 2] - b[bi + 2]) ** 2
-
 /** How much brightness counts next to hue when deciding two tones are one colour. */
 const BRIGHTNESS_WEIGHT = 0.3
+
+/** How far a joined tone leans to the colour of its lighter half, from 0 for an even mix to 1. */
+const LEAN = 0.75
 
 /**
  * How different two tones look as colours. Brightness counts for little: a
@@ -75,8 +83,11 @@ function toneDistance(a: readonly number[], b: readonly number[]): number {
  * The main colours are found by grouping, then groups closer than
  * `SAME_COLOUR` are joined. A clump of leaves with grain becomes one colour,
  * while a bush keeps its flowers apart from its leaves.
+ *
+ * A picture of a whole prop is not joined: the blended colours where leaves
+ * meet the trunk would join tone to tone until the trunk was green.
  */
-export function flattenColours(colours: ArrayLike<number>): Float32Array {
+export function flattenColours(colours: ArrayLike<number>, join = true): Float32Array {
     const count = Math.floor(colours.length / 3)
     const flat = new Float32Array(count * 3)
 
@@ -84,18 +95,36 @@ export function flattenColours(colours: ArrayLike<number>): Float32Array {
         return flat
     }
 
+    // Grouped by colour, with brightness counting for little, as tones are
+    // joined. Grouped by plain distance, a dark brown trunk and a dark green
+    // leaf would share a group and come out olive.
+    const features = new Float32Array(count * 4)
+    for (let index = 0; index < count; index++) {
+        const r = colours[index * 3]
+        const g = colours[index * 3 + 1]
+        const b = colours[index * 3 + 2]
+        const sum = r + g + b + 1e-4
+        features.set([r / sum, g / sum, b / sum, (sum / 3) * BRIGHTNESS_WEIGHT], index * 4)
+    }
+
+    const featureGap = (index: number, centre: ArrayLike<number>) =>
+        (features[index * 4] - centre[0]) ** 2 +
+        (features[index * 4 + 1] - centre[1]) ** 2 +
+        (features[index * 4 + 2] - centre[2]) ** 2 +
+        (features[index * 4 + 3] - centre[3]) ** 2
+
     // Start from the colours most unlike each other, so a few flowers among
     // many leaves still get a tone of their own.
-    let tones: number[][] = [[colours[0], colours[1], colours[2]]]
+    let centres: Float32Array[] = [features.slice(0, 4)]
     const gap = new Float32Array(count).fill(Infinity)
 
-    while (tones.length < MAX_TONES) {
-        const latest = tones[tones.length - 1]
+    while (centres.length < MAX_TONES) {
+        const latest = centres[centres.length - 1]
         let farthest = -1
         let farthestGap = 1e-6
 
         for (let index = 0; index < count; index++) {
-            gap[index] = Math.min(gap[index], distanceSquared(colours, index * 3, latest, 0))
+            gap[index] = Math.min(gap[index], featureGap(index, latest))
             if (gap[index] > farthestGap) {
                 farthestGap = gap[index]
                 farthest = index
@@ -106,44 +135,48 @@ export function flattenColours(colours: ArrayLike<number>): Float32Array {
             break
         }
 
-        tones.push([colours[farthest * 3], colours[farthest * 3 + 1], colours[farthest * 3 + 2]])
+        centres.push(features.slice(farthest * 4, farthest * 4 + 4))
     }
 
-    const nearestTone = (index: number) => {
+    const nearestCentre = (index: number) => {
         let best = 0
         let bestDistance = Infinity
 
-        for (let tone = 0; tone < tones.length; tone++) {
-            const d = distanceSquared(colours, index * 3, tones[tone], 0)
+        for (let centre = 0; centre < centres.length; centre++) {
+            const d = featureGap(index, centres[centre])
             if (d < bestDistance) {
                 bestDistance = d
-                best = tone
+                best = centre
             }
         }
 
         return best
     }
 
-    const settle = () => {
-        for (let round = 0; round < ROUNDS; round++) {
-            const sums = tones.map(() => [0, 0, 0, 0])
+    let tones: number[][] = []
 
-            for (let index = 0; index < count; index++) {
-                const sum = sums[nearestTone(index)]
-                sum[0] += colours[index * 3]
-                sum[1] += colours[index * 3 + 1]
-                sum[2] += colours[index * 3 + 2]
-                sum[3] += 1
+    for (let round = 0; round < ROUNDS; round++) {
+        // Each group's colour, its place in the grouping, and how much of the part it covers.
+        const sums = centres.map(() => new Float64Array(8))
+
+        for (let index = 0; index < count; index++) {
+            const sum = sums[nearestCentre(index)]
+            for (let k = 0; k < 3; k++) {
+                sum[k] += colours[index * 3 + k]
             }
-
-            tones = sums.filter((sum) => sum[3] > 0).map((sum) => [sum[0] / sum[3], sum[1] / sum[3], sum[2] / sum[3], sum[3]])
+            for (let k = 0; k < 4; k++) {
+                sum[3 + k] += features[index * 4 + k]
+            }
+            sum[7] += 1
         }
+
+        const used = sums.filter((sum) => sum[7] > 0)
+        centres = used.map((sum) => Float32Array.from([sum[3], sum[4], sum[5], sum[6]], (value) => value / sum[7]))
+        tones = used.map((sum) => [sum[0] / sum[7], sum[1] / sum[7], sum[2] / sum[7], sum[7]])
     }
 
-    settle()
-
     // Join tones that are really one colour with grain, weighted by how much of the part each covers.
-    let joined = true
+    let joined = join
     while (joined && tones.length > 1) {
         joined = false
 
@@ -153,11 +186,16 @@ export function flattenColours(colours: ArrayLike<number>): Float32Array {
                     const wa = tones[a][3]
                     const wb = tones[b][3]
                     const w = wa + wb
-                    const mixed = [0, 1, 2].map((k) => (tones[a][k] * wa + tones[b][k] * wb) / w)
+                    const sumA = tones[a][0] + tones[a][1] + tones[a][2]
+                    const sumB = tones[b][0] + tones[b][1] + tones[b][2]
+                    const lighter = sumA >= sumB ? tones[a] : tones[b]
                     // The darker half is shade painted in for the lit view, and the Comic
-                    // view draws shade itself, so the joined tone keeps the lighter half's brightness.
-                    const brighter = Math.max(tones[a][0] + tones[a][1] + tones[a][2], tones[b][0] + tones[b][1] + tones[b][2])
-                    const lift = brighter / Math.max(mixed[0] + mixed[1] + mixed[2], 1e-4)
+                    // view draws shade itself, so the joined tone keeps the lighter half's
+                    // brightness, and leans to its colour. Stone is painted deep blue in
+                    // shade and pale on top, and an even mix lifted to the top's
+                    // brightness is a vivid blue that the rock never shows.
+                    const mixed = [0, 1, 2].map((k) => ((tones[a][k] * wa + tones[b][k] * wb) / w) * (1 - LEAN) + lighter[k] * LEAN)
+                    const lift = Math.max(sumA, sumB) / Math.max(mixed[0] + mixed[1] + mixed[2], 1e-4)
                     tones[a] = [...mixed.map((value) => Math.min(value * lift, 1)), w]
                     tones.splice(b, 1)
                     joined = true
@@ -166,8 +204,26 @@ export function flattenColours(colours: ArrayLike<number>): Float32Array {
         }
     }
 
+    // Matched by colour as the joining was, not by plain distance, or a dark
+    // green leaf would land on the brown of the trunk.
+    const nearestColour = (index: number) => {
+        const colour = [colours[index * 3], colours[index * 3 + 1], colours[index * 3 + 2]]
+        let best = tones[0]
+        let bestDistance = Infinity
+
+        for (const tone of tones) {
+            const d = toneDistance(colour, tone)
+            if (d < bestDistance) {
+                bestDistance = d
+                best = tone
+            }
+        }
+
+        return best
+    }
+
     for (let index = 0; index < count; index++) {
-        const tone = tones[nearestTone(index)]
+        const tone = nearestColour(index)
         flat[index * 3] = tone[0]
         flat[index * 3 + 1] = tone[1]
         flat[index * 3 + 2] = tone[2]
@@ -240,6 +296,79 @@ export function celFromStandard(standard: THREE.MeshStandardMaterial, geometry: 
     return material
 }
 
+/**
+ * The Comic version of a far-away card. Its picture is cut to a few flat
+ * colours, as the prop's own parts are, and its relief keeps the light falling
+ * across the crown, so the shadow side is a hard band. Give it wind, then
+ * `addCelLook`.
+ */
+export function celCardFromStandard(standard: THREE.MeshStandardMaterial): THREE.MeshToonMaterial {
+    const material = new THREE.MeshToonMaterial({
+        color: standard.color,
+        gradientMap: bandTexture(),
+        map: standard.map instanceof THREE.DataTexture ? flattenPicture(standard.map, standard.alphaTest) : standard.map,
+        normalMap: standard.normalMap,
+        alphaTest: standard.alphaTest,
+        side: standard.side,
+    })
+
+    material.userData.celCentre = {value: new THREE.Vector3()}
+    material.userData.celRound = 0
+
+    return material
+}
+
+const toLinear = (byte: number) => {
+    const value = byte / 255
+
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+}
+
+const toByte = (linear: number) => {
+    const value = linear <= 0.0031308 ? linear * 12.92 : 1.055 * linear ** (1 / 2.4) - 0.055
+
+    return Math.round(Math.min(Math.max(value, 0), 1) * 255)
+}
+
+/**
+ * A copy of a picture with each shown pixel moved to one of its few main
+ * colours, found as for a part's painted colours. The cut-away pixels keep
+ * theirs, so the edge of the shape blends as it did.
+ */
+export function flattenPicture(picture: THREE.DataTexture, cutoff: number): THREE.DataTexture {
+    const {data, width, height} = picture.image as {data: Uint8Array; width: number; height: number}
+    const shown: number[] = []
+    const colours: number[] = []
+
+    for (let index = 0; index < width * height; index++) {
+        if (data[index * 4 + 3] >= cutoff * 255) {
+            shown.push(index)
+            colours.push(toLinear(data[index * 4]), toLinear(data[index * 4 + 1]), toLinear(data[index * 4 + 2]))
+        }
+    }
+
+    const flat = flattenColours(colours, false)
+    const pixels = new Uint8Array(data)
+
+    shown.forEach((index, at) => {
+        pixels[index * 4] = toByte(flat[at * 3])
+        pixels[index * 4 + 1] = toByte(flat[at * 3 + 1])
+        pixels[index * 4 + 2] = toByte(flat[at * 3 + 2])
+    })
+
+    const texture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat)
+    texture.colorSpace = picture.colorSpace
+    texture.wrapS = picture.wrapS
+    texture.wrapT = picture.wrapT
+    texture.magFilter = picture.magFilter
+    texture.minFilter = picture.minFilter
+    texture.generateMipmaps = picture.generateMipmaps
+    texture.flipY = picture.flipY
+    texture.needsUpdate = true
+
+    return texture
+}
+
 /** Where a part's leaves take their round light from: the middle of its shape. */
 export function centreCelLight(material: THREE.MeshToonMaterial, geometry: THREE.BufferGeometry): void {
     if (!geometry.boundingSphere) {
@@ -296,21 +425,52 @@ export function addCelLook(material: THREE.Material): void {
             // textures, such as the moss on a rock, are the colours themselves.
             .replace(
                 '#include <map_fragment>',
-                '#ifdef USE_MAP\n    vec4 celSample = texture2D(map, vMapUv);\n    diffuseColor *= celLeaves > 0.0 ? vec4(1.0, 1.0, 1.0, celSample.a) : celSample;\n#endif',
+                /* glsl */ `
+                #ifdef USE_MAP
+                    vec4 celSample = texture2D(map, vMapUv);
+                    float celPrintTop = max(max(celSample.r, celSample.g), celSample.b);
+                    float celPrintBottom = min(min(celSample.r, celSample.g), celSample.b);
+                    if (celLeaves > 0.0) {
+                        celSample.rgb = vec3(1.0);
+                    }
+                    #ifndef USE_ALPHATEST
+                        // A grey print, such as the strokes on bark, is set in two flat
+                        // tones: its strokes are faint grain in this view otherwise. A
+                        // cut-out picture, such as a far-away card, is its own colours.
+                        else if (celPrintTop - celPrintBottom < 0.02) {
+                            celSample.rgb = vec3(celPrintTop < ${STROKE_LEVEL.toFixed(3)} ? ${STROKE_TONE.toFixed(3)} : 1.0);
+                        }
+                    #endif
+                    diffuseColor *= celSample;
+                #endif`,
             )
             .replace(
                 '#include <opaque_fragment>',
                 /* glsl */ `
                 vec3 celWeights = vec3(0.2126, 0.7152, 0.0722);
                 vec3 celBase = diffuseColor.rgb;
-                vec3 celRich = max(mix(vec3(dot(celBase, celWeights)), celBase, celVivid), 0.0);
-                float celLight = dot(outgoingLight - totalEmissiveRadiance, celWeights) / max(dot(celBase, celWeights), 0.0001);
+                float celBaseLuma = max(dot(celBase, celWeights), 0.0001);
+                vec3 celLightColour = outgoingLight - totalEmissiveRadiance;
+                float celLight = dot(celLightColour, celWeights) / celBaseLuma;
+                // A grey stone with a faint cool cast should stay grey. Richer colour
+                // and deeper shade would turn that cast into blue, so they are kept
+                // for colours that are clearly colours.
+                float celTop = max(max(celBase.r, celBase.g), celBase.b);
+                float celSaturation = (celTop - min(min(celBase.r, celBase.g), celBase.b)) / max(celTop, 0.0001);
+                float celColourful = smoothstep(0.3, 0.6, celSaturation);
+                vec3 celRich = max(mix(vec3(celBaseLuma), celBase, mix(1.0, celVivid, celColourful)), 0.0);
+                // The lit view's sun is warm, and that warmth is what makes a cool
+                // stone read as grey there, so the lit side keeps the light's tint.
+                vec3 celTint = celLightColour / max(celBase, vec3(0.02));
+                celTint = clamp(celTint / max(dot(celTint, celWeights), 0.0001), 0.7, 1.4);
                 // One sharp step: the sky's soft fill would otherwise grade each band.
                 float celMiddle = (celShade + celLit) * 0.5;
                 float celAmount = smoothstep(celMiddle - 0.03, celMiddle + 0.03, celLight);
-                // Shade deepens a colour and makes it richer, as a painter would, rather than greying it.
-                vec3 celShadow = pow(celRich, vec3(1.7)) * 0.8;
-                outgoingLight = mix(celShadow, celRich, celAmount) + totalEmissiveRadiance;
+                // Shade deepens a colour and makes it richer, as a painter would,
+                // rather than greying it. A grey only darkens.
+                float celRichLuma = max(dot(celRich, celWeights), 0.0001);
+                vec3 celShadow = mix(celRich * pow(celRichLuma, 0.7), pow(celRich, vec3(1.7)), celColourful) * 0.8;
+                outgoingLight = mix(celShadow, celRich * mix(vec3(1.0), celTint, 0.6), celAmount) + totalEmissiveRadiance;
                 #include <opaque_fragment>`,
             )
     }

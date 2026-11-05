@@ -21,8 +21,8 @@ import {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode} from '../../assets
 import type {StyleProfile} from '../../assets/style/style-profiles'
 import type {Scene, SceneMaterials} from '../../core/scene/scene-model'
 import {VIEWPORT_COLORS} from './materials'
-import {createCartoonMaterial} from './cartoon'
-import {addCelLook, centreCelLight, createCelMaterial, ensureFlatColours} from './cel'
+import {cartoonFromStandard, createCartoonMaterial} from './cartoon'
+import {addCelLook, celCardFromStandard, centreCelLight, createCelMaterial, ensureFlatColours} from './cel'
 import {createIdMaterial, setIdMap} from './ink-lines'
 
 export {SHADING_MODES, SHADING_MODE_LABELS, type ShadingMode}
@@ -287,7 +287,25 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
     let shownScene: Scene | null = null
     let still = false
     let standIn: THREE.Mesh | null = null
+    /** The card's own material, and the ones it wears in the Cartoon and Comic views. */
+    let cardLooks: {lit: THREE.MeshStandardMaterial; cartoon: THREE.MeshToonMaterial; cel?: THREE.MeshToonMaterial; id: THREE.ShaderMaterial} | null = null
     let nextId = 0
+
+    const showCardLook = () => {
+        if (!standIn || !cardLooks) {
+            return
+        }
+
+        // Flattening the card's picture takes a moment, so only the Comic view pays for it.
+        if (shading === 'cel' && !cardLooks.cel) {
+            const cel = celCardFromStandard(cardLooks.lit)
+            addLiveWind(cel, windUniforms, liveWind, false)
+            addCelLook(cel)
+            cardLooks.cel = cel
+        }
+
+        standIn.material = shading === 'cartoon' ? cardLooks.cartoon : shading === 'cel' ? cardLooks.cel! : cardLooks.lit
+    }
 
     const showParts = () => {
         for (const component of rendered.values()) {
@@ -300,15 +318,21 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
             return
         }
 
-        const material = standIn.material as THREE.MeshStandardMaterial
+        const looks = cardLooks!
 
         standIn.removeFromParent()
         standIn.geometry.dispose()
-        material.map?.dispose()
-        material.normalMap?.dispose()
-        material.dispose()
+        looks.lit.map?.dispose()
+        looks.lit.normalMap?.dispose()
+        looks.lit.dispose()
+        looks.cartoon.dispose()
+        // Its picture is a flattened copy of the card's, made for it alone.
+        looks.cel?.map?.dispose()
+        looks.cel?.dispose()
+        looks.id.dispose()
         standIn.customDepthMaterial?.dispose()
         standIn = null
+        cardLooks = null
     }
 
     const measureFor = (scene: Scene) => {
@@ -400,6 +424,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
 
         if (nextShading !== shading) {
             shading = nextShading
+            showCardLook()
         }
 
         const seen = new Set<string>()
@@ -587,10 +612,9 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 component.outline.visible = false
             }
 
-            // A far-away card has no colour of its own here, so it sits this one out.
-            const cardShown = standIn?.visible ?? false
-            if (standIn) {
-                standIn.visible = false
+            const cardMaterial = standIn?.material
+            if (standIn && cardLooks) {
+                standIn.material = cardLooks.id
             }
 
             renderer.render(group, camera)
@@ -599,8 +623,8 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 component.mesh.material = material
                 component.outline.visible = outlined
             }
-            if (standIn) {
-                standIn.visible = cardShown
+            if (standIn && cardMaterial) {
+                standIn.material = cardMaterial
             }
         },
 
@@ -609,9 +633,18 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
 
             if (card) {
                 const mesh = new THREE.Mesh(card.geometry, card.material)
+                const looks = {
+                    lit: card.material,
+                    cartoon: cartoonFromStandard(card.material),
+                    // Its own colour in the lines pass, so a far-away crown is outlined too.
+                    id: createIdMaterial(nextId++, card.material.map, card.material.alphaTest, card.material.side),
+                }
 
                 // It sways as the wood does, and never flutters, as in the file.
-                addLiveWind(card.material, windUniforms, liveWind, false)
+                for (const material of [looks.lit, looks.cartoon, looks.id]) {
+                    addLiveWind(material, windUniforms, liveWind, false)
+                }
+                cardLooks = looks
                 mesh.customDepthMaterial = createLiveWindDepthMaterial(windUniforms, liveWind, false, card.material.map, card.material.alphaTest)
                 mesh.position.set(...card.pivot)
                 mesh.castShadow = true
@@ -620,6 +653,7 @@ export function createComponentRenderer(onContentArrived?: () => void): Componen
                 mesh.userData.isHelper = true
                 standIn = mesh
                 group.add(mesh)
+                showCardLook()
             }
 
             showParts()

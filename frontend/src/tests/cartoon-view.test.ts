@@ -4,7 +4,7 @@ import {getStyleProfile} from '../assets/style/style-profiles'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {createComponentRenderer} from '../viewport/scene/component-renderer'
 import {cartoonLevel} from '../viewport/scene/cartoon'
-import {flattenColours} from '../viewport/scene/cel'
+import {flattenColours, flattenPicture} from '../viewport/scene/cel'
 import {createIdMaterial, idColour, LAND_ID, setIdMap} from '../viewport/scene/ink-lines'
 import {createMeadowScenery} from '../viewport/scene/meadow-scenery'
 
@@ -119,6 +119,50 @@ describe('cel shading colours', () => {
         }
 
         expect(tones(flattenColours(colours)).size).toBe(2)
+    })
+
+    it('keeps a dark brown trunk apart from dark green leaves', () => {
+        const colours: number[] = []
+
+        for (let index = 0; index < 300; index++) {
+            const light = 0.3 + (index % 10) / 14
+            colours.push(...(index % 15 === 0 ? [0.12 * light, 0.05 * light, 0.02 * light] : [0.1 * light, 0.4 * light, 0.03 * light]))
+        }
+
+        const flat = flattenColours(colours)
+        let brown = 0
+
+        for (let index = 0; index < flat.length; index += 3) {
+            if (flat[index] > flat[index + 1]) {
+                brown++
+            }
+        }
+
+        expect(brown).toBe(20)
+    })
+
+    it('cuts a far-away picture to a few flat colours and keeps its trunk brown', () => {
+        const size = 16
+        const pixels = new Uint8Array(size * size * 4)
+
+        for (let index = 0; index < size * size; index++) {
+            const trunk = index % size < 3
+            const grain = (index * 7) % 40
+            pixels.set(trunk ? [110, 70, 40, 255] : [90 + grain, 170 + grain, 50, 255], index * 4)
+        }
+
+        const flat = flattenPicture(new THREE.DataTexture(pixels, size, size), 0.5)
+        const data = flat.image.data as Uint8Array
+        const found = new Set<string>()
+
+        for (let index = 0; index < size * size; index++) {
+            found.add(`${data[index * 4]},${data[index * 4 + 1]},${data[index * 4 + 2]}`)
+            if (index % size < 3) {
+                expect(data[index * 4]).toBeGreaterThan(data[index * 4 + 1])
+            }
+        }
+
+        expect(found.size).toBeLessThanOrEqual(6)
     })
 
     it('makes every part look the same in the cel view whatever was drawn before', () => {

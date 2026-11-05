@@ -112,6 +112,7 @@ const QUAD_VERTEX = /* glsl */ `
 const SAMPLES = 12
 
 const QUAD_FRAGMENT = /* glsl */ `
+    #include <packing>
     uniform sampler2D ids;
     uniform sampler2D depths;
     uniform vec2 texel;
@@ -121,6 +122,10 @@ const QUAD_FRAGMENT = /* glsl */ `
     uniform vec3 ink;
     uniform vec3 land;
     uniform float strength;
+    uniform float cameraNear;
+    uniform float cameraFar;
+    uniform float hazeNear;
+    uniform float hazeFar;
     varying vec2 vUv;
 
     void main() {
@@ -168,8 +173,13 @@ const QUAD_FRAGMENT = /* glsl */ `
 
         if (around >= 7.0) discard;
 
+        // A line fades into the haze with what it outlines, or far trees would
+        // be crisp black shapes in a pale distance.
+        float distanceAway = -perspectiveDepthToViewZ(nearest, cameraNear, cameraFar);
+        float clear = 1.0 - smoothstep(hazeNear, hazeFar, distanceAway);
+
         // A few hits is the soft end of a line, which keeps it from looking stepped.
-        gl_FragColor = vec4(ink, clamp(hits / 6.0, 0.0, 1.0) * strength);
+        gl_FragColor = vec4(ink, clamp(hits / 6.0, 0.0, 1.0) * strength * clear);
         #include <colorspace_fragment>
         // At the depth of what it outlines, so anything in front still hides it.
         gl_FragDepth = nearest;
@@ -184,13 +194,25 @@ export interface LineStyle {
     readonly strength: number
 }
 
+/** Where the scene's haze starts and is total, so the lines fade with it. */
+export interface Haze {
+    readonly near: number
+    readonly far: number
+}
+
 export interface InkLines {
     /**
      * Draws the lines over what is already on screen.
      *
      * @param drawIds Draws every outlined part in its own colour, to the target.
      */
-    draw(renderer: THREE.WebGLRenderer, camera: THREE.Camera, drawIds: () => void, style?: LineStyle): void
+    draw(
+        renderer: THREE.WebGLRenderer,
+        camera: THREE.PerspectiveCamera,
+        drawIds: () => void,
+        style?: LineStyle,
+        haze?: Haze | null,
+    ): void
     dispose(): void
 }
 
@@ -216,6 +238,10 @@ export function createInkLines(): InkLines {
             ink: {value: new THREE.Color(VIEWPORT_COLORS.ink)},
             land: {value: idColour(LAND_ID)},
             strength: {value: 1},
+            cameraNear: {value: 0.1},
+            cameraFar: {value: 1000},
+            hazeNear: {value: 1e9},
+            hazeFar: {value: 2e9},
         },
         transparent: true,
         depthTest: true,
@@ -231,7 +257,7 @@ export function createInkLines(): InkLines {
     const clearColour = new THREE.Color()
 
     return {
-        draw(renderer, camera, drawIds, {weight, strength} = {weight: 1, strength: 1}) {
+        draw(renderer, camera, drawIds, {weight, strength} = {weight: 1, strength: 1}, haze = null) {
             renderer.getDrawingBufferSize(size)
 
             if (target.width !== size.x || target.height !== size.y) {
@@ -244,6 +270,10 @@ export function createInkLines(): InkLines {
             material.uniforms.innerLine.value = INNER_LINE * pixelRatio
             material.uniforms.holeReach.value = HOLE_REACH * pixelRatio
             material.uniforms.strength.value = strength
+            material.uniforms.cameraNear.value = camera.near
+            material.uniforms.cameraFar.value = camera.far
+            material.uniforms.hazeNear.value = haze?.near ?? 1e9
+            material.uniforms.hazeFar.value = haze?.far ?? 2e9
 
             const previousTarget = renderer.getRenderTarget()
             const previousAlpha = renderer.getClearAlpha()
