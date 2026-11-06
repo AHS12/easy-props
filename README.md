@@ -5,9 +5,9 @@
 
 Make game-ready 3D props in minutes, with no 3D experience needed.
 
-Pick a tree, rock, bush, fern or patch of grass, shape it with plain sliders, and
-export it for your game engine. It's a focused desktop tool for props, not a
-replacement for Blender.
+Pick a tree, palm, bush, flower, patch of grass, cactus or rock, shape it with plain
+sliders, and export it for your game engine, painted or low-poly, lit or toon-shaded.
+It's a focused desktop tool for props, not a replacement for Blender.
 
 ![A red maple open in easy-props, standing in the Meadow demo scene in front of a cliff, with rocks, bushes and grass](docs/images/meadow.png)
 
@@ -15,8 +15,12 @@ replacement for Blender.
 
 ## What it does
 
-- **Start from a preset:** broadleaf trees, palms, conifers, fantasy trees, bushes,
-  ferns, grass and flowers, boulders, stones and cliffs.
+- **Start from a preset:** over 100 of them, from broadleaf trees, palms, conifers and
+  fantasy trees to bushes, ferns, flowers, grass, cacti, boulders and cliffs.
+- **Cartoon and Comic looks:** see your prop under toon shading, with soft bands of light or
+  flat colours and bold ink lines, and export it to match, with ready-made Godot materials.
+- **Low-poly in one click:** switch any prop to big flat faces, each one colour. It's the
+  same prop, so your changes carry over.
 - **Find the one you want:** **Show me more** puts nine versions of your prop side by
   side. Click one to use it, or tick several and export them all.
 - **Make it yours:** drag a slider or type a value, and the prop updates live. Click a
@@ -41,15 +45,19 @@ replacement for Blender.
   storage (Cloudflare R2, Backblaze B2, Amazon S3, MinIO and others) after every change, and
   bring them back on any computer.
 
+![A red maple in the Meadow demo, side by side in the Cartoon look, with soft bands of light, and the Comic look, with flat colours and ink lines](docs/images/looks.png)
+
+![A red maple side by side, in the Normal style with painted leaves and in the Low-poly style with flat faces](docs/images/low-poly.png)
+
 ![A red maple swaying in the view with Wind switched on, from the Wind panel at the top](docs/images/wind.gif)
 
 ![The editor, with presets on the left, a red maple in the middle and its controls on the right](docs/images/editor.png)
 
-![The home page, with recent props and presets to start from](docs/images/home.png)
+![The home page, with recent props, a card for each kind of prop, and presets to start from](docs/images/home.png)
 
 ## Using props in your engine
 
-![The Export dialog set up for Godot, listing the files for a red maple with their face counts](docs/images/export.png)
+![The Export dialog set up for Godot with the Cartoon look, listing the files for a red maple, its Cartoon materials and their face counts](docs/images/export.png)
 
 | Target | How |
 |---|---|

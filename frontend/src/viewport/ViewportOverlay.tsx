@@ -107,7 +107,7 @@ function StyleToggle() {
     }
 
     return (
-        <div className="tool-group" role="group" aria-label="Style">
+        <div className="tool-group" role="group" aria-label="Style" data-coach="style">
             <ToolButton label="Normal" keys={shortcutFor('style-detailed')} pressed={!lowPoly} onPress={choose('painted')}>
                 <NormalIcon size={14} aria-hidden="true" />
             </ToolButton>
@@ -361,22 +361,24 @@ export function ViewportOverlay() {
             <div className="viewport-tools viewport-tools--right" role="toolbar" aria-label="View">
                 <StyleToggle />
                 <div className="tool-group">
-                    <ToolMenu
-                        label={`Shading: ${SHADING_MODE_LABELS[shadingMode]}`}
-                        trigger={
-                            <>
-                                <ShadingIcon size={14} aria-hidden="true" />
-                                <span>{SHADING_MODE_LABELS[shadingMode]}</span>
-                            </>
-                        }
-                        items={SHADING_MODES.map((mode) => ({
-                            id: mode,
-                            label: SHADING_MODE_LABELS[mode],
-                            help: SHADING_MODE_HELP[mode],
-                            checked: mode === shadingMode,
-                            run: () => setShadingMode(mode),
-                        }))}
-                    />
+                    <span data-coach="looks" className="tool-coach">
+                        <ToolMenu
+                            label={`Shading: ${SHADING_MODE_LABELS[shadingMode]}`}
+                            trigger={
+                                <>
+                                    <ShadingIcon size={14} aria-hidden="true" />
+                                    <span>{SHADING_MODE_LABELS[shadingMode]}</span>
+                                </>
+                            }
+                            items={SHADING_MODES.map((mode) => ({
+                                id: mode,
+                                label: SHADING_MODE_LABELS[mode],
+                                help: SHADING_MODE_HELP[mode],
+                                checked: mode === shadingMode,
+                                run: () => setShadingMode(mode),
+                            }))}
+                        />
+                    </span>
                     <ToolMenu
                         label={previewLevel === FAR_LEVEL ? 'Detail level: far away' : `Detail level ${previewLevel}`}
                         trigger={
