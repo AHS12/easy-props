@@ -38,6 +38,10 @@ export function findPropGenerator(id: string): PropGenerator | undefined {
     return propGenerators[id]
 }
 
+/** Whether this kind of prop can be switched between Normal and Low-poly. */
+export const offersLowPoly = (generatorId: string | undefined): boolean =>
+    generatorId ? findPropGenerator(generatorId)?.lowPoly === true : false
+
 /** Whether export offers a far-away card for this prop, as it's set now. */
 export function offersFarAway(generatorId: string | undefined, parameters: unknown): boolean {
     const generator = generatorId ? findPropGenerator(generatorId) : undefined

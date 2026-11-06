@@ -46,16 +46,16 @@ const GROUND_REACH = 0.25
 /** Below this share of its detail, a rock has no edge rings. */
 const RINGS_FROM = 0.7
 /** Below this, it keeps its largest chunks and its first cuts only. */
-const PLAIN_BELOW = 0.25
+export const PLAIN_BELOW = 0.25
 const PLAIN_CHUNKS = 0.75
 /** The shares of its cuts a plain rock tries, keeping whichever lands nearest its target. */
-const PLAIN_CUTS: readonly number[] = [0.15, 0.25, 0.35, 0.45, 0.6, 0.8, 1]
+export const PLAIN_CUTS: readonly number[] = [0.15, 0.25, 0.35, 0.45, 0.6, 0.8, 1]
 const WELD = 500
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 /** A lighter level drops the small chunks and the last cuts of the rest. */
-function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number): readonly RockChunk[] {
+export function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number): readonly RockChunk[] {
     if (detail >= PLAIN_BELOW) {
         return plan.chunks
     }
@@ -69,7 +69,7 @@ function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number): reado
 }
 
 /** Stretches a lighter rock to the full size, so losing a chunk at an end does not change its outline. */
-function fitToPlan(positions: number[], plan: RockPlan) {
+export function fitToPlan(positions: number[], plan: RockPlan) {
     const min = [Infinity, Infinity, Infinity]
     const max = [-Infinity, -Infinity, -Infinity]
 
@@ -111,33 +111,19 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
     return best
 }
 
-function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {
+/**
+ * The colour of the stone at a point on a face: darker in a seam between chunks
+ * and near the ground, mossy where it faces the sky.
+ */
+export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surface: RockSurface) {
     const size = (plan.width + plan.height + plan.depth) / 3
-    const chunks = chunksAtDetail(plan, detail, cutShare)
     const stone = colourRamp(rampOf(surface.palette, ROCK_RAMPS, surface, STONE_ROWS))
     const moss = colourRamp(MOSS_RAMP)
     const mossAbove = surface.moss > 0 ? 1 - surface.moss * MOSS_REACH : Infinity
-    const withRings = detail >= RINGS_FROM && surface.edges > 0
-    const edgeWidth = surface.edges * EDGE_WIDTH * size ** 0.6
     const seamReach = size * SEAM_REACH
     const groundReach = plan.height * GROUND_REACH
 
-    const waves = WARP_WAVES / size
-    const reach = surface.bend * WARP_REACH * size
-    const phase = (seed % 1000) / 100
-    // A function of where a point is, so corners shared by two faces move together.
-    const warp = (p: Vec3): Vec3 => [
-        p[0] + reach * Math.sin((p[1] + p[2] * 0.7) * waves + phase),
-        p[1] + reach * 0.6 * Math.sin((p[0] * 0.8 + p[2] * 0.6) * waves + phase * 2.1),
-        p[2] + reach * Math.sin((p[0] * 0.9 + p[1] * 0.6) * waves + phase * 0.4),
-    ]
-
-    const positions: number[] = []
-    const normals: number[] = []
-    const colors: number[] = []
-    const indices: number[] = []
-
-    const paint = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
+    return (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
         let seam = Infinity
 
         chunks.forEach((other, index) => {
@@ -163,6 +149,30 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
 
         return stone(value * shade)
     }
+}
+
+function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {
+    const size = (plan.width + plan.height + plan.depth) / 3
+    const chunks = chunksAtDetail(plan, detail, cutShare)
+    const withRings = detail >= RINGS_FROM && surface.edges > 0
+    const edgeWidth = surface.edges * EDGE_WIDTH * size ** 0.6
+
+    const waves = WARP_WAVES / size
+    const reach = surface.bend * WARP_REACH * size
+    const phase = (seed % 1000) / 100
+    // A function of where a point is, so corners shared by two faces move together.
+    const warp = (p: Vec3): Vec3 => [
+        p[0] + reach * Math.sin((p[1] + p[2] * 0.7) * waves + phase),
+        p[1] + reach * 0.6 * Math.sin((p[0] * 0.8 + p[2] * 0.6) * waves + phase * 2.1),
+        p[2] + reach * Math.sin((p[0] * 0.9 + p[1] * 0.6) * waves + phase * 0.4),
+    ]
+
+    const positions: number[] = []
+    const normals: number[] = []
+    const colors: number[] = []
+    const indices: number[] = []
+
+    const paint = rockPainter(plan, chunks, surface)
 
     chunks.forEach((chunk, chunkIndex) => {
         const faces = facesOfChunk(chunk)

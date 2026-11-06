@@ -162,6 +162,11 @@ export interface PropGenerator<P extends object = object> {
     readonly paintsOwnColours?: boolean
     /** True for a prop the wind does not move. */
     readonly still?: boolean
+    /**
+     * True when it can also be made low-poly, through a `build` choice between
+     * 'painted' (Normal) and 'low-poly'. The switch over the view then shows.
+     */
+    readonly lowPoly?: boolean
     /** True when every part of it moves about alike, as across a patch of grass. */
     readonly swaysEvenly?: boolean
     /** What to lower when it costs too much, in the words of its own controls. */

@@ -17,6 +17,7 @@ import {
 import type {SpineLike} from '../assets/shared/spines'
 import {hashSeed} from '../assets/shared/random'
 import {holdLowPolyCrown} from '../assets/trees/painted'
+import {offersLowPoly} from '../assets/prop-generators'
 import {
     EMPTY_HISTORY,
     pushHistory,
@@ -651,9 +652,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 presetId: state.presetId,
             }
             const fresh = createSceneFromPreset(presetId)
-            // Low-poly is a switch over the view, so it stays on from one tree to the next.
-            const keepsLowPoly =
-                state.scene.assets[0]?.parameters.build === 'low-poly' && fresh.assets[0]?.generatorId === 'painted-tree'
+            // Low-poly is a switch over the view, so it stays on from one prop to the next.
+            const keepsLowPoly = state.scene.assets[0]?.parameters.build === 'low-poly' && offersLowPoly(fresh.assets[0]?.generatorId)
             const scene = keepsLowPoly
                 ? updateTreeParameters(fresh, fresh.assets[0].id, {build: 'low-poly'}, getStyleProfile(state.style))
                 : fresh

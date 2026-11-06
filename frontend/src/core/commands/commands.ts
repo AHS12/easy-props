@@ -11,7 +11,7 @@ import {
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
-import {findPropGenerator, offersFarAway} from '../../assets/prop-generators'
+import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {SHADING_MODES, SHADING_MODE_KEYWORDS, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
@@ -63,10 +63,10 @@ const selectedPart = (state: EditorStore) => {
 const isPainted = (state: EditorStore) =>
     Boolean(findPropGenerator(state.scene.assets[0]?.generatorId ?? '')?.paintsOwnColours)
 
-/** Whether this prop has a style of its own to switch: painted trees do. */
-const hasBuild = (state: EditorStore) => state.scene.assets[0]?.generatorId === 'painted-tree'
+/** Whether this prop has a style of its own to switch: painted trees and rocks do. */
+const hasBuild = (state: EditorStore) => offersLowPoly(state.scene.assets[0]?.generatorId)
 
-/** A tree saved before it had a style is painted. */
+/** A prop saved before it had a style is painted. */
 const buildOf = (state: EditorStore) => state.scene.assets[0]?.parameters.build ?? 'painted'
 
 const needsPart = (state: EditorStore) => (selected(state) ? null : 'Select a part first')
