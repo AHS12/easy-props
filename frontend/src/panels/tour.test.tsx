@@ -62,6 +62,14 @@ describe('which steps there are', () => {
         expect(availableSteps(TOUR_STEPS.gallery, () => true)).toHaveLength(TOUR_STEPS.gallery.length)
     })
 
+    it('shows the Low-poly switch and the looks in the editor, leaving out the switch where a prop has none', () => {
+        const targets = (exists: (target: string) => boolean) => availableSteps(TOUR_STEPS.editor, exists).map((step) => step.target)
+
+        expect(targets(() => true)).toEqual(expect.arrayContaining(['style', 'looks']))
+        expect(targets((target) => target !== 'style')).not.toContain('style')
+        expect(targets((target) => target !== 'style')).toContain('looks')
+    })
+
     it('never gives two steps one title, because they are told apart by it', () => {
         for (const steps of Object.values(TOUR_STEPS)) {
             expect(new Set(steps.map((step) => step.title)).size).toBe(steps.length)

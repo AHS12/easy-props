@@ -331,7 +331,7 @@ export function GalleryPage() {
                 <section className="home__section" aria-label="Start a new prop">
                     <div className="home__section-head">
                         <h2 className="home__section-title">Start a new prop</h2>
-                        <div className="filter home__filter">
+                        <div className="filter home__filter" data-coach="gallery-search">
                             <Search size={13} aria-hidden="true" className="filter__icon" />
                             <input
                                 className="filter__input"

@@ -31,13 +31,19 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
     gallery: [
         {
             title: 'Welcome to easy-props',
-            text: 'This makes props for your game: trees, palms, bushes, flowers, grass, cacti and rocks. Every prop takes three steps. Pick one, shape it, and export it to your game engine. You do not need any 3D experience.',
+            text: 'This makes props for your game: trees, palms, bushes, flowers, grass, cacti and rocks, painted or low-poly. Every prop takes three steps. Pick one, shape it, and export it to your game engine. You do not need any 3D experience.',
             side: 'over',
         },
         {
             target: 'gallery-kinds',
             title: 'Choose what to make',
-            text: 'Pick a kind of prop to see its presets. The chips under it narrow them down further.',
+            text: 'Every kind of prop has a card. Pick one to see its presets, and use the chips under the cards to narrow them down.',
+            side: 'below',
+        },
+        {
+            target: 'gallery-search',
+            title: 'Or search for it',
+            text: 'Type a name, such as cherry or cactus, to look through every preset of every kind at once.',
             side: 'below',
         },
         {
@@ -89,6 +95,19 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
             side: 'right',
         },
         {
+            target: 'style',
+            title: 'Normal or low-poly',
+            text: 'Switch the whole prop to low-poly: big flat faces, each one colour, for games with a faceted look. It is the same prop, so your changes carry over. Press 1 for Low-poly and 2 for Normal.',
+            side: 'below',
+            optional: true,
+        },
+        {
+            target: 'looks',
+            title: 'Cartoon and Comic',
+            text: 'This menu changes how the view is lit. Cartoon shows soft bands of light and faint lines, and Comic shows flat colours with bold ink lines, as a game with toon shading would. Export can match either look.',
+            side: 'below',
+        },
+        {
             target: 'scene',
             title: 'See it in a real place',
             text: 'The tree button changes what is around your prop. Work in a plain studio, with or without a sky, or stand it in the Meadow or Grove demo, among grass, rocks, bushes and trees made here.',
@@ -109,7 +128,7 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
         {
             target: 'export',
             title: 'Take it to your game',
-            text: 'Export prepares it for Unreal, Godot or Blender, with lighter versions for far away, collision and wind included. You can see this tour again from Help, Show the tour.',
+            text: 'Export prepares it for Unreal, Godot or Blender, with lighter versions for far away, collision and wind included. Choose a Look there to match Cartoon or Comic. You can see this tour again from Help, Show the tour.',
             side: 'below',
         },
     ],
