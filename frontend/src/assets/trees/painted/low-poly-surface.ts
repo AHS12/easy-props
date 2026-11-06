@@ -16,8 +16,7 @@
 
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
-import {simplifyMesh} from '../../shared/simplify'
-import {joinChunks, packedCell, sculptCells, type MeshBuffers, type SurfaceField} from '../../shared/surface-nets'
+import {cellsAround, lowPolySurface, smin, withGradient} from '../../shared/low-poly-remesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, type Clump, type Limb, type TreePlan, type Vec3} from './plan'
 import {createWoodField} from './wood-field'
@@ -25,7 +24,6 @@ import {createWoodField} from './wood-field'
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 /** The grid packs each axis into 1024 cells around the origin. */
 const MAX_CELLS_ACROSS = 480
-const GRADIENT_STEP = 0.004
 
 /** Wood is sampled at this share of the trunk's radius, within these sizes in metres. */
 const WOOD_CELL_SHARE = 0.3
@@ -62,68 +60,6 @@ const LEAF_ERROR = 0.07
 const LEAF_FACES = 90
 
 type Lobe = {readonly centre: Vec3; readonly radius: number}
-
-/** Smooth minimum: the two shapes melt into one with a fillet of about `k`. */
-function smin(a: number, b: number, k: number): number {
-    if (k <= 0) {
-        return Math.min(a, b)
-    }
-
-    const h = Math.max(k - Math.abs(a - b), 0) / k
-
-    return Math.min(a, b) - h * h * k * 0.25
-}
-
-function withGradient(distance: (x: number, y: number, z: number) => number): SurfaceField {
-    return {
-        distance,
-        gradient(x, y, z) {
-            const e = GRADIENT_STEP
-            const gx = distance(x + e, y, z) - distance(x - e, y, z)
-            const gy = distance(x, y + e, z) - distance(x, y - e, z)
-            const gz = distance(x, y, z + e) - distance(x, y, z - e)
-            const length = Math.hypot(gx, gy, gz)
-
-            return length < 1e-12 ? [0, 1, 0] : [gx / length, gy / length, gz / length]
-        },
-    }
-}
-
-/** Every grid cell within a box around each shape: a tree is mostly air. */
-function cellsAround(boxes: readonly {min: Vec3; max: Vec3}[], cell: number): Int32Array {
-    const seen = new Set<number>()
-    const cells: number[] = []
-
-    for (const {min, max} of boxes) {
-        const low = min.map((value) => Math.floor(value / cell) - 1)
-        const high = max.map((value) => Math.floor(value / cell) + 1)
-
-        for (let i = low[0]; i <= high[0]; i++) {
-            for (let j = low[1]; j <= high[1]; j++) {
-                for (let k = low[2]; k <= high[2]; k++) {
-                    const key = packedCell(i, j, k)
-
-                    if (!seen.has(key)) {
-                        seen.add(key)
-                        cells.push(i, j, k)
-                    }
-                }
-            }
-        }
-    }
-
-    return Int32Array.from(cells)
-}
-
-/** One surface out of a field, cut down to its few faces. */
-function lowPolySurface(field: SurfaceField, cells: Int32Array, cell: number, maxError: number, targetFaces: number) {
-    const chunk = sculptCells(field, cells, cell, (_x, _y, _z, _n, colors) => colors.push(0, 0, 0))
-    const buffers: MeshBuffers = {positions: [], normals: [], colors: [], indices: []}
-
-    joinChunks(cells, [chunk], buffers, -Infinity)
-
-    return simplifyMesh(buffers.positions, buffers.indices, {targetFaces, maxError: maxError * maxError})
-}
 
 const cellFor = (wanted: number, extent: number) => Math.max(wanted, extent / MAX_CELLS_ACROSS)
 

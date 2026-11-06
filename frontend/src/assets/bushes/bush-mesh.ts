@@ -26,10 +26,14 @@ import {BUSH_RAMPS, PETAL_RAMPS, TWIG_RAMP, type BushPaletteId, type PetalPalett
 
 export type BushKind = 'round' | 'spreading' | 'tall' | 'hedge'
 
+/** Normal is leaf cards over a core. Low-poly is one surface of flat faces. */
+export type BushBuild = 'painted' | 'low-poly'
+
 /** Solid hides everything behind it. Open has twigs and sky inside. */
 export type BushInside = 'solid' | 'open'
 
 export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
+    readonly build: BushBuild
     readonly kind: BushKind
     readonly width: number
     readonly height: number
@@ -52,7 +56,7 @@ export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS
     readonly flowerColour: PetalPaletteId | OwnColours
 }
 
-type Vec3 = readonly [number, number, number]
+export type Vec3 = readonly [number, number, number]
 
 interface Lobe {
     readonly centre: Vec3
@@ -186,19 +190,20 @@ function lobeRecipe(kind: BushKind, count: number, random: RandomSource): Lobe[]
     }
 }
 
-class BushShape {
+export class BushShape {
     private readonly size: number
 
     constructor(
         readonly lobes: readonly Lobe[],
         private readonly bush: BushParameters,
+        private readonly blend = BLEND,
     ) {
         this.size = (bush.width + bush.height + bush.depth) / 3
     }
 
     /** Negative inside, positive outside. */
     field(x: number, y: number, z: number): number {
-        const k = BLEND * this.size
+        const k = this.blend * this.size
         let d = Infinity
 
         for (const {centre, radii} of this.lobes) {
@@ -291,8 +296,12 @@ function shellGeometry(shape: BushShape, bush: BushParameters, level: number, de
     return geometry
 }
 
-/** The shape, stretched so the bush is exactly the size asked for. */
-function shapeOf(bush: BushParameters, seed: number): BushShape {
+/**
+ * The shape, stretched so the bush is exactly the size asked for. `blend` is how
+ * wide the fillets between lobes are, as a share of the bush's size, and `fit` how
+ * finely the shape is sampled to measure it.
+ */
+export function shapeOf(bush: BushParameters, seed: number, blend = BLEND, fit = FULL_CORE): BushShape {
     const random = createSeededRandom(hashSeed(seed, SEED_LOBES))
     const unit = lobeRecipe(bush.kind, Math.max(1, Math.round(bush.lobes)), random)
     const placed = (x: number, y: number, z: number, height: number): Lobe[] =>
@@ -301,8 +310,8 @@ function shapeOf(bush: BushParameters, seed: number): BushShape {
             radii: [radii[0] * x, radii[1] * y, radii[2] * z],
             shift,
         }))
-    const first = new BushShape(placed(bush.width, bush.height, bush.depth, bush.height), bush)
-    const shell = shellGeometry(first, bush, 0, FULL_CORE)
+    const first = new BushShape(placed(bush.width, bush.height, bush.depth, bush.height), bush, blend)
+    const shell = shellGeometry(first, bush, 0, fit)
     const box = new THREE.Box3().setFromBufferAttribute(shell.getAttribute('position') as THREE.BufferAttribute)
 
     shell.dispose()
@@ -311,7 +320,7 @@ function shapeOf(bush: BushParameters, seed: number): BushShape {
     const fitY = bush.height / Math.max(box.max.y, 1e-6)
     const fitZ = bush.depth / Math.max(box.max.z - box.min.z, 1e-6)
 
-    return new BushShape(placed(bush.width * fitX, bush.height * fitY, bush.depth * fitZ, bush.height * fitY), bush)
+    return new BushShape(placed(bush.width * fitX, bush.height * fitY, bush.depth * fitZ, bush.height * fitY), bush, blend)
 }
 
 const coreDetail = (detail: number) => (detail >= 1 ? FULL_CORE : detail >= 0.25 ? 2 : 1)
@@ -445,7 +454,7 @@ export function buildBushCore(bush: BushParameters, seed: number, detail: number
     return geometry
 }
 
-interface Card {
+export interface Card {
     readonly point: Vec3
     readonly normal: Vec3
     readonly seed: number
@@ -456,7 +465,7 @@ interface Card {
 }
 
 /** Evenly over the surface: each triangle gets its share of cards by area. */
-function placeCards(shape: BushShape, bush: BushParameters, seed: number): readonly Card[] {
+export function placeCards(shape: BushShape, bush: BushParameters, seed: number): readonly Card[] {
     const shell = shellGeometry(shape, bush, 0, SAMPLING_CORE)
     const position = shell.getAttribute('position')
     const index = shell.index!

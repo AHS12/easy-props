@@ -279,7 +279,7 @@ describe('a low-poly tree', {timeout: 60000}, () => {
         expect(keys('painted')).not.toContain('build')
     })
 
-    it('stays low-poly when another tree or a rock is picked, and not on a prop without it', () => {
+    it('stays low-poly when another tree, a rock or a bush is picked, and not on a prop without it', () => {
         const store = useEditorStore.getState()
 
         store.applyPreset('spring-tree')
@@ -293,6 +293,10 @@ describe('a low-poly tree', {timeout: 60000}, () => {
         expect(useEditorStore.getState().scene.assets[0].parameters.build).toBe('low-poly')
 
         useEditorStore.getState().applyPreset('round-bush')
+
+        expect(useEditorStore.getState().scene.assets[0].parameters.build).toBe('low-poly')
+
+        useEditorStore.getState().applyPreset('meadow-patch')
 
         expect(useEditorStore.getState().scene.assets[0].parameters.build).toBeUndefined()
 
