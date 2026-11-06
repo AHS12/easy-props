@@ -4,24 +4,6 @@ What's new in each version of easy-props.
 
 ## 0.4.0 (November 6, 2026)
 
-**Low-poly style**
-
-- Every kind of prop can now be made low-poly: big flat faces, each one colour, for games with a
-  faceted look. Switch with the Normal and Low-poly buttons beside the Lit menu, from the Prop
-  menu, or with key 1 for Low-poly and 2 for Normal.
-- It is the same prop in another style. Its seed, its settings and the parts you dragged all
-  carry over, and Low-poly stays on when you pick another preset.
-- Trees grow as one joined shape: limbs meet the trunk smoothly, and the leaves form a few solid
-  masses. Conifer tiers meet without gaps.
-- Palms and ferns keep fewer, wider leaflets, and their fronds stay full at the lighter detail
-  levels.
-- Rocks become a single shell of sharp, flat faces, at a quarter to a half of the normal cost.
-- Bushes, flowers, grass and cacti get their own low-poly shapes. Flowers have flat petals,
-  grass has fewer, wider blades folded down the middle, and cacti are cut into clean ridges.
-- Controls that do nothing in Low-poly are hidden. Make it fit only changes the controls you can
-  see, and the face budget's advice names them.
-- A loading screen shows while a low-poly tree is being built.
-
 **Cartoon and Comic looks**
 
 - Two new views in the Lit menu show how a prop will look under a game's toon shading. Cartoon
@@ -33,6 +15,12 @@ What's new in each version of easy-props.
   part's colours to a few flat tones, so the files match what you see.
 - For Godot, a Materials switch writes matching Cartoon or Comic materials beside the exported
   files, wind included, along with an outline effect. The prop's folder is ready to use.
+
+**Low-poly style**
+
+- Every kind of prop can now be made low-poly: big flat faces, each one colour. Switch with the
+  Normal and Low-poly buttons beside the Lit menu, or with keys 1 and 2.
+- It is the same prop in another style, so its seed, settings and dragged parts carry over.
 
 **A new Home**
 
