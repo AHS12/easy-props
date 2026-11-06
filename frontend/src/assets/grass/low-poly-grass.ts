@@ -20,6 +20,8 @@ type Vec3 = readonly [number, number, number]
 const BLADE_SHARE = 0.33
 /** Blades left widen to cover the ground the rest covered, but no further than this. */
 const MAX_WIDENING = 5
+/** The widest a blade may be before it is widened, against Blade width: as wide as an ordinary blade gets. */
+const STANDOUT_WIDTH = 1.3
 /** Where the keel sits, from root to tip, and how far its edges stand up. */
 const KEEL_AT = 0.35
 const FOLD = 0.45
@@ -49,7 +51,8 @@ export function buildLowPolyGrassMesh(grass: GrassParameters, seed: number, deta
         const root = bladePoint(blade, 0)
         const keel = bladePoint(blade, KEEL_AT)
         const tip = bladePoint(blade, 1)
-        const half = blade.width * widening * 0.5
+        // A standout rises taller, but widened as wide as the rest it would tower as a spike.
+        const half = Math.min(blade.width, grass.bladeWidth * STANDOUT_WIDTH) * widening * 0.5
         // The edges stand up from the keel, square to the blade, so the fold opens to the sky.
         const toward = [tip[0] - root[0], tip[1] - root[1], tip[2] - root[2]]
         const length = Math.hypot(toward[0], toward[1], toward[2]) || 1

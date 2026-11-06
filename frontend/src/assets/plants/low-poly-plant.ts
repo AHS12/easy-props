@@ -19,6 +19,9 @@ const STEM_STOPS: readonly number[] = [0, 0.55, 1]
 /** Three sides look thinner than a flat strip, so the stem is drawn wider to read as well. */
 export const STEM_THICKER = 1.8
 const DAISY_PETALS = 8
+/** A plume's flat feathers, and how wide each is against its length, either side. */
+const PLUME_FEATHERS = 10
+const FEATHER_WIDTH = 0.24
 const CUP_SIDES = 5
 const SPINDLE_SIDES = 5
 /** How far one face's colour strays from the next, so neighbouring facets read apart. */
@@ -210,6 +213,35 @@ function addHeadSpindle(out: Faces, path: StemPath, share: number, stops: readon
     addSpindle(out, from, rings, to, (band) => paint(0.2 + (band / (stops.length + 1)) * 0.7 + jitter(random)))
 }
 
+const plumeFullness = (s: number) => Math.sin(Math.min(1, s * 1.1 + 0.08) * Math.PI) ** 0.7
+
+/**
+ * A slim faceted core with flat feathers splayed up round it, fullest in the
+ * middle and combed the way the stem leans, so it reads as feathery, not solid.
+ */
+function addPlume(out: Faces, path: StemPath, head: number, paint: Paint, random: RandomSource) {
+    addHeadSpindle(out, path, PLUME_SHARE, [0.15, 0.5, 0.8], (s) => head * (0.14 + 0.28 * plumeFullness(s)) * 0.18, head * 0.22, paint, random)
+
+    for (let i = 0; i < PLUME_FEATHERS; i++) {
+        const s = 0.12 + (i / (PLUME_FEATHERS - 1)) * 0.8
+        const t = 1 - PLUME_SHARE * (1 - s)
+        const base = path.point(t)
+        const axis = path.tangent(t)
+        const {u, v} = frameOf(axis, path.side)
+        const angle = i * 2.4 + random() * 0.5
+        const outward = add([u[0] * Math.cos(angle), u[1] * Math.cos(angle), u[2] * Math.cos(angle)], v, Math.sin(angle))
+        const direction = normalize(add(axis, outward, 0.75))
+        const size = head * (0.14 + 0.28 * plumeFullness(s)) * randomRange(random, 0.85, 1.1)
+        const across = normalize(cross(direction, outward))
+        const middle = add(base, direction, size * 0.45)
+        const tip = add(base, direction, size)
+        const colour = paint(0.55 + random() * 0.4)
+
+        pushBothSides(out, base, add(middle, across, size * FEATHER_WIDTH), tip, colour)
+        pushBothSides(out, base, tip, add(middle, across, -size * FEATHER_WIDTH), colour.clone().multiplyScalar(0.9))
+    }
+}
+
 export function facesToGeometry(faces: Faces): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry()
 
@@ -261,12 +293,9 @@ export function buildLowPolyPlantMesh(plant: PlantParameters, seed: number, deta
                 case 'spike':
                     addHeadSpindle(faces, path, SPIKE_SHARE, [0.05, 0.4, 0.75], (s) => head * 0.17 * (1.1 - s * 0.75), head * 0.08, petal, random)
                     break
-                case 'plume': {
-                    const fullness = (s: number) => Math.sin(Math.min(1, s * 1.1 + 0.08) * Math.PI) ** 0.7
-
-                    addHeadSpindle(faces, path, PLUME_SHARE, [0.15, 0.45, 0.75], (s) => head * (0.14 + 0.28 * fullness(s)) * 0.45, head * 0.22, petal, random)
+                case 'plume':
+                    addPlume(faces, path, head, petal, random)
                     break
-                }
             }
         }
 

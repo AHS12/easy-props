@@ -10,7 +10,7 @@
  */
 
 import {findComponentGenerator} from '../../assets/component-generators'
-import {findPropGenerator} from '../../assets/prop-generators'
+import {findPropGenerator, shownControls} from '../../assets/prop-generators'
 import {createSeededRandom} from '../../assets/shared/random'
 import {roleOfPart, type FitControl, type GeneratedPart} from '../../assets/shared/generator-types'
 import type {NumberParameter} from '../../assets/shared/parameters'
@@ -122,10 +122,13 @@ function onStep(value: number, spec: NumberParameter): number {
 
 /** The controls a prop's generator offers for fitting, with their specs. */
 export function fitControlsOf(scene: Scene): readonly {control: FitControl; spec: NumberParameter}[] {
-    const generator = findPropGenerator(scene.assets[0]?.generatorId ?? '')
+    const asset = scene.assets[0]
+    const generator = findPropGenerator(asset?.generatorId ?? '')
+    // A hidden control does nothing for these values, as Leaf size on a low-poly bush.
+    const shown = generator ? shownControls(asset?.generatorId, generator.parameters, asset?.parameters ?? {}) : []
 
     return (generator?.fitControls ?? []).flatMap((control) => {
-        const spec = generator!.parameters.find((candidate) => candidate.key === control.key)
+        const spec = shown?.find((candidate) => candidate.key === control.key)
 
         return spec?.kind === 'number' ? [{control, spec}] : []
     })

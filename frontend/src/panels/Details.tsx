@@ -482,9 +482,12 @@ export function Details() {
 
     const generator = findComponentGenerator(component.generatorId)
     const isFrond = component.parameters.kind === 'frond'
+    // A low-poly clump is a few flat faces, not leaf cards, so it has no leaves to thin or size.
+    const cardless = asset?.parameters.build === 'low-poly' && component.generatorId === 'painted-clump' && !isFrond
     // A frond has no lumps, and its Flatness is how hard it arches.
     const specs = (generator?.parameters ?? [])
         .filter((spec) => !isFrond || spec.key !== 'lumpinessScale')
+        .filter((spec) => !cardless || (spec.key !== 'fullnessScale' && spec.key !== 'leafSizeScale'))
         .map((spec) => (isFrond && spec.key === 'flattenScale' ? {...spec, label: 'Arch'} : spec))
     const painted = isPaintedPart(component.generatorId)
     const isTrunk = component.type === 'trunk' && !painted

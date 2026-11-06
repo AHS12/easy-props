@@ -252,9 +252,12 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     paintsOwnColours: true,
     lowPoly: true,
     budgetAdvice: 'Lower Fullness or raise Leaf size.',
+    lowPolyAdvice: 'Lower Masses.',
+    // Fewer masses changes its shape, so it comes last. In Low-poly it is all there is.
     fitControls: [
         {key: 'fullness', limit: 1},
         {key: 'leafSize', limit: 0.35},
+        {key: 'lobes', limit: 3},
     ],
 
     createDefaultParameters() {

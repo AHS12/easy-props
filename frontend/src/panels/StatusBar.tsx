@@ -4,7 +4,8 @@
  */
 
 import {AlertTriangle} from 'lucide-react'
-import {findPropGenerator} from '../assets/prop-generators'
+import {budgetAdviceFor} from '../assets/prop-generators'
+import {fitControlsOf} from '../core/export/make-it-fit'
 import {FAR_FACES, FAR_LEVEL} from '../core/export/pipeline/types'
 import {BUDGET_TARGETS, checkBudget, findBudgetTarget, type BudgetTargetId} from '../core/export/pipeline/budget'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
@@ -34,9 +35,8 @@ export function StatusBar() {
 
     const target = findBudgetTarget(budgetTarget)
     const asset = scene.assets[0]
-    const generator = asset ? findPropGenerator(asset.generatorId) : undefined
-    const budget = checkBudget(faceCounts, target, generator?.budgetAdvice)
-    const canFit = (generator?.fitControls?.length ?? 0) > 0
+    const budget = checkBudget(faceCounts, target, budgetAdviceFor(asset?.generatorId, asset?.parameters ?? {}))
+    const canFit = fitControlsOf(scene).length > 0
 
     return (
         <footer className="statusbar" data-coach="status">

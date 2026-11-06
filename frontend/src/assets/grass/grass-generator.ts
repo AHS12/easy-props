@@ -199,6 +199,7 @@ export const grassGenerator: PropGenerator<GrassParameters> = {
     swaysEvenly: true,
     lowPoly: true,
     budgetAdvice: 'Lower Blades or Smoothness.',
+    lowPolyAdvice: 'Lower Blades.',
     fitControls: [
         {key: 'blades', limit: 40},
         {key: 'smoothness', limit: 2},

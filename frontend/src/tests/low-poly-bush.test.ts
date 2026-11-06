@@ -3,7 +3,10 @@ import {describe, expect, it} from 'vitest'
 import {bushGenerator} from '../assets/bushes/bush-generator'
 import type {BushParameters} from '../assets/bushes/bush-mesh'
 import {findComponentGenerator} from '../assets/component-generators'
-import {generatePropComponents} from '../assets/prop-generators'
+import {budgetAdviceFor, generatePropComponents} from '../assets/prop-generators'
+import {fitControlsOf} from '../core/export/make-it-fit'
+import {createSceneFromPreset} from '../core/scene/initial-scene'
+import {updateTreeParameters} from '../core/scene/scene-ops'
 import {createSeededRandom} from '../assets/shared/random'
 import {getStyleProfile} from '../assets/style/style-profiles'
 import {findPreset} from '../assets/trees/presets'
@@ -119,5 +122,29 @@ describe('a low-poly bush', {timeout: 120000}, () => {
         expect(keys('low-poly')).not.toContain('fullness')
         expect(keys('low-poly')).not.toContain('leafSize')
         expect(keys('low-poly')).not.toContain('build')
+    })
+})
+
+describe('fitting a low-poly prop to a budget', () => {
+    const lowPoly = (presetId: string) => {
+        const scene = createSceneFromPreset(presetId)
+
+        return updateTreeParameters(scene, scene.assets[0].id, {build: 'low-poly'}, getStyleProfile('low-poly'))
+    }
+    const keys = (presetId: string) => fitControlsOf(lowPoly(presetId)).map(({control}) => control.key)
+
+    it('only moves the controls a low-poly prop shows', () => {
+        expect(keys('round-bush')).toEqual(['lobes'])
+        expect(keys('meadow-patch')).toEqual(['blades'])
+        expect(keys('spring-tree')).toEqual(['clumpCount', 'twigCount'])
+        expect(fitControlsOf(createSceneFromPreset('round-bush')).map(({control}) => control.key)).toEqual(['fullness', 'leafSize', 'lobes'])
+    })
+
+    it('gives advice in the words of the controls a low-poly prop shows', () => {
+        const advice = (presetId: string) => budgetAdviceFor(lowPoly(presetId).assets[0].generatorId, lowPoly(presetId).assets[0].parameters)
+
+        expect(advice('round-bush')).toBe('Lower Masses.')
+        expect(advice('meadow-patch')).toBe('Lower Blades.')
+        expect(budgetAdviceFor('bush', createSceneFromPreset('round-bush').assets[0].parameters)).toBe('Lower Fullness or raise Leaf size.')
     })
 })

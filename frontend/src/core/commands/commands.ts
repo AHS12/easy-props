@@ -12,6 +12,7 @@ import {
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
+import {fitControlsOf} from '../export/make-it-fit'
 import {SHADING_MODES, SHADING_MODE_KEYWORDS, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
 import {canRedo, canUndo} from '../history/history'
@@ -619,10 +620,9 @@ export const COMMANDS: readonly Command[] = [
         icon: Shrink,
         keywords: 'budget faces lighter reduce mobile performance',
         unavailable: (state) => {
-            const generator = findPropGenerator(state.scene.assets[0]?.generatorId ?? '')
             const faces = state.faceCounts.wood + state.faceCounts.leaves
 
-            if (!generator?.fitControls?.length) {
+            if (fitControlsOf(state.scene).length === 0) {
                 return 'This kind of prop has to be lowered by hand'
             }
 

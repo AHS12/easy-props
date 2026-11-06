@@ -39,6 +39,13 @@ export function findPropGenerator(id: string): PropGenerator | undefined {
 }
 
 /** Whether this kind of prop can be switched between Normal and Low-poly. */
+/** What to lower when a prop costs too much, for the controls it shows now. */
+export function budgetAdviceFor(generatorId: string | undefined, values: Readonly<Record<string, unknown>>): string | undefined {
+    const generator = generatorId ? findPropGenerator(generatorId) : undefined
+
+    return values.build === 'low-poly' ? (generator?.lowPolyAdvice ?? generator?.budgetAdvice) : generator?.budgetAdvice
+}
+
 export const offersLowPoly = (generatorId: string | undefined): boolean =>
     generatorId ? findPropGenerator(generatorId)?.lowPoly === true : false
 
