@@ -13,6 +13,7 @@ import {FLOWER_CENTRE, PETAL_RAMPS, STEM_RAMP, type PetalPaletteId} from '../sty
 import {colourRamp} from '../style/ramp'
 
 export type PlantKind = 'daisy' | 'cup' | 'spike' | 'plume'
+export type PlantBuild = 'painted' | 'low-poly'
 
 export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_ROWS>> {
     readonly kind: PlantKind
@@ -26,9 +27,10 @@ export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_R
     /** Leaves at the foot of each stem. */
     readonly leaves: number
     readonly palette: PetalPaletteId | OwnColours
+    readonly build: PlantBuild
 }
 
-type Vec3 = readonly [number, number, number]
+export type Vec3 = readonly [number, number, number]
 
 export interface PlantBuffers {
     readonly positions: number[]
@@ -37,7 +39,7 @@ export interface PlantBuffers {
     readonly indices: number[]
 }
 
-interface Stem {
+export interface Stem {
     readonly x: number
     readonly z: number
     readonly facing: number
@@ -49,15 +51,15 @@ interface Stem {
 
 const SEED_STEM = 7000
 const STEM_PIECES = 3
-const STEM_WIDTH = 0.006
+export const STEM_WIDTH = 0.006
 const LEAF_PIECES = 2
 const DAISY_PETALS = 9
 const CUP_PETALS = 6
 const SPIKE_FLORETS = 15
 const PLUME_FEATHERS = 36
 /** How much of a stem's length a spike or plume takes up. */
-const SPIKE_SHARE = 0.38
-const PLUME_SHARE = 0.42
+export const SPIKE_SHARE = 0.38
+export const PLUME_SHARE = 0.42
 const MAX_HEAD_GROWTH = 1.5
 const REACH_AT_MIDDLE = 0.25
 const CURVE_AT_MIDDLE = 0.62
@@ -323,62 +325,22 @@ function stemsAtDetail(stems: readonly Stem[], count: number): readonly Stem[] {
     return [...edges, ...rest.slice(0, Math.max(0, count - edges.size))]
 }
 
-export function buildPlantMesh(plant: PlantParameters, seed: number, detail: number): THREE.BufferGeometry {
+/**
+ * The stems kept at this detail, built by `build`. Heads grow as stems are dropped,
+ * and a lighter plant is stretched to the full one's extent.
+ */
+export function plantAtDetail(
+    plant: PlantParameters,
+    seed: number,
+    detail: number,
+    build: (stems: readonly Stem[], growth: number) => THREE.BufferGeometry,
+): THREE.BufferGeometry {
     const all = planStems(plant, seed)
     const stems = detail < 1 ? stemsAtDetail(all, Math.round(all.length * detail)) : all
-    const growth = Math.min(Math.sqrt(all.length / stems.length), MAX_HEAD_GROWTH)
-    const petal = colourRamp(rampOf(plant.palette, PETAL_RAMPS, plant, FLOWER_ROWS))
-    const green = colourRamp(STEM_RAMP)
-    const buffers: PlantBuffers = {positions: [], normals: [], colors: [], indices: []}
-    const head = plant.headSize * growth
-
-    for (const stem of stems) {
-        const random = createSeededRandom(hashSeed(stem.seed, 1))
-        const path = stemPath(stem.x, stem.z, stem.facing, stem.height, stem.lean)
-        const stemWidth = STEM_WIDTH * (1 + plant.height) * growth
-
-        addStrip(buffers, path, stemWidth, STEM_PIECES, (t) => green(0.2 + t * 0.5), false)
-
-        for (let leaf = 0; leaf < Math.round(plant.leaves); leaf++) {
-            const leafPath = stemPath(
-                stem.x,
-                stem.z,
-                stem.facing + randomRange(random, -3, 3),
-                stem.height * randomRange(random, 0.3, 0.55),
-                randomRange(random, 0.5, 1),
-            )
-
-            addStrip(buffers, leafPath, plant.headSize * 0.45 * growth + stemWidth, LEAF_PIECES, (t) => green(0.15 + t * 0.8), true)
-        }
-
-        const tip = path.point(1)
-        const axis = path.tangent(1)
-
-        switch (plant.kind) {
-            case 'daisy':
-                addDaisy(buffers, tip, axis, head, DAISY_PETALS, petal, random)
-                break
-            case 'cup':
-                addCup(buffers, tip, axis, head, petal, random)
-                break
-            case 'spike':
-                addSpike(buffers, path, head, petal, random)
-                break
-            case 'plume':
-                addPlume(buffers, path, head, petal, random)
-                break
-        }
-    }
-
-    const geometry = new THREE.BufferGeometry()
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3))
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
-    geometry.setIndex(buffers.indices)
+    const geometry = build(stems, Math.min(Math.sqrt(all.length / stems.length), MAX_HEAD_GROWTH))
 
     if (detail < 1) {
-        const full = buildPlantMesh(plant, seed, 1)
+        const full = build(all, 1)
 
         full.computeBoundingBox()
         fitToExtent(geometry, full.boundingBox!)
@@ -388,6 +350,62 @@ export function buildPlantMesh(plant: PlantParameters, seed: number, detail: num
     geometry.computeBoundingSphere()
 
     return geometry
+}
+
+export function buildPlantMesh(plant: PlantParameters, seed: number, detail: number): THREE.BufferGeometry {
+    return plantAtDetail(plant, seed, detail, (stems, growth) => {
+        const petal = colourRamp(rampOf(plant.palette, PETAL_RAMPS, plant, FLOWER_ROWS))
+        const green = colourRamp(STEM_RAMP)
+        const buffers: PlantBuffers = {positions: [], normals: [], colors: [], indices: []}
+        const head = plant.headSize * growth
+
+        for (const stem of stems) {
+            const random = createSeededRandom(hashSeed(stem.seed, 1))
+            const path = stemPath(stem.x, stem.z, stem.facing, stem.height, stem.lean)
+            const stemWidth = STEM_WIDTH * (1 + plant.height) * growth
+
+            addStrip(buffers, path, stemWidth, STEM_PIECES, (t) => green(0.2 + t * 0.5), false)
+
+            for (let leaf = 0; leaf < Math.round(plant.leaves); leaf++) {
+                const leafPath = stemPath(
+                    stem.x,
+                    stem.z,
+                    stem.facing + randomRange(random, -3, 3),
+                    stem.height * randomRange(random, 0.3, 0.55),
+                    randomRange(random, 0.5, 1),
+                )
+
+                addStrip(buffers, leafPath, plant.headSize * 0.45 * growth + stemWidth, LEAF_PIECES, (t) => green(0.15 + t * 0.8), true)
+            }
+
+            const tip = path.point(1)
+            const axis = path.tangent(1)
+
+            switch (plant.kind) {
+                case 'daisy':
+                    addDaisy(buffers, tip, axis, head, DAISY_PETALS, petal, random)
+                    break
+                case 'cup':
+                    addCup(buffers, tip, axis, head, petal, random)
+                    break
+                case 'spike':
+                    addSpike(buffers, path, head, petal, random)
+                    break
+                case 'plume':
+                    addPlume(buffers, path, head, petal, random)
+                    break
+            }
+        }
+
+        const geometry = new THREE.BufferGeometry()
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3))
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
+        geometry.setIndex(buffers.indices)
+
+        return geometry
+    })
 }
 
 /** Stretches a lighter plant to the full size: a leaf it dropped may have set the outline. */

@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Shrub, Sun, TreeDeciduous, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Shrub, Sun, TreeDeciduous, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -97,7 +97,7 @@ function StyleToggle() {
         return null
     }
 
-    const NormalIcon = asset?.generatorId === 'cut-rock' ? Mountain : asset?.generatorId === 'bush' ? Shrub : TreeDeciduous
+    const NormalIcon = asset?.generatorId === 'cut-rock' ? Mountain : asset?.generatorId === 'bush' ? Shrub : asset?.generatorId === 'plant' ? Flower2 : TreeDeciduous
 
     const lowPoly = asset.parameters.build === 'low-poly'
     const choose = (build: 'painted' | 'low-poly') => () => {

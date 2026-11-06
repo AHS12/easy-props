@@ -15,7 +15,8 @@ import {
 } from '../shared/parameters'
 import {FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {PETAL_RAMPS, type PetalPaletteId} from '../style/palettes'
-import {buildPlantMesh, type PlantKind, type PlantParameters} from './plant-mesh'
+import {buildLowPolyPlantMesh} from './low-poly-plant'
+import {buildPlantMesh, type PlantBuild, type PlantKind, type PlantParameters} from './plant-mesh'
 
 const SHAPE = 'Shape'
 const FLOWER = 'Flower'
@@ -47,6 +48,19 @@ const KIND: ChoiceParameter<PlantKind> = {
     ],
 }
 
+const BUILD: ChoiceParameter<PlantBuild> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal is thin and fine. Low-poly is the same flowers as solid shapes in a few flat faces, each one colour.',
+    default: 'painted',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
+    ],
+}
+
 const PALETTE: ChoiceParameter<PetalPaletteId | OwnColours> = {
     kind: 'choice',
     group: FLOWER,
@@ -72,9 +86,10 @@ const LEAN = number(SHAPE, 'lean', 'Lean', 'How far the stems bend over.', 0, 1,
 const LEAVES = number(SHAPE, 'leaves', 'Leaves', 'Leaves at the foot of each stem.', 0, 6, 1, 2)
 const HEAD_SIZE = number(FLOWER, 'headSize', 'Flower size', 'Across a flower, or how long a spike or plume is.', 0.01, 1, 0.01, 0.07, 'm')
 
-const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs]
 
 export const plantDefaults: PlantParameters = {
+    build: BUILD.default,
     kind: KIND.default,
     width: WIDTH.default,
     height: HEIGHT.default,
@@ -86,6 +101,7 @@ export const plantDefaults: PlantParameters = {
 }
 
 const plantSchema = z.object({
+    build: choiceSchema(BUILD),
     kind: choiceSchema(KIND),
     width: numberSchema(WIDTH),
     height: numberSchema(HEIGHT),
@@ -134,7 +150,7 @@ export const plantBodyGenerator: PartGenerator<PlantBodyParameters> = {
 
     generate({plant, seed}, {detail = 1}) {
         return {
-            geometry: buildPlantMesh(plant, seed, detail),
+            geometry: plant.build === 'low-poly' ? buildLowPolyPlantMesh(plant, seed, detail) : buildPlantMesh(plant, seed, detail),
             material: 'painted',
             role: 'foliage',
             surface: {vertexColors: true, receiveShadow: false},
@@ -149,6 +165,7 @@ export const plantGenerator: PropGenerator<PlantParameters> = {
     parameters: specs,
     paintsOwnColours: true,
     swaysEvenly: true,
+    lowPoly: true,
     budgetAdvice: 'Lower Stems or Leaves.',
     fitControls: [
         {key: 'stems', limit: 4},
@@ -160,6 +177,11 @@ export const plantGenerator: PropGenerator<PlantParameters> = {
     },
 
     validate: validatePlant,
+
+    shownControls() {
+        // Style is a switch over the view.
+        return specs.filter((spec) => spec.key !== 'build')
+    },
 
     // Nothing stops a player walking through flowers.
     collision() {
