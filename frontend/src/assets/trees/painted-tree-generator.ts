@@ -74,7 +74,9 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     farAway: () => true,
     parameters: paintedTreeParameterSpecs,
     paintsOwnColours: true,
+    lowPoly: true,
     budgetAdvice: 'Lower Leaf density or Wood detail.',
+    lowPolyAdvice: 'Lower Clumps or Twigs.',
     // Leaves cost most, and thinning them shows least. The limits keep a tree from going bald.
     fitControls: [
         {key: 'fullness', limit: 0.4},

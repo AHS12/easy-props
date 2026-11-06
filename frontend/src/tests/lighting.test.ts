@@ -119,8 +119,8 @@ describe('colours', () => {
 })
 
 describe('shading modes', () => {
-    it('offers lit, flat, wireframe and wind', () => {
-        expect(SHADING_MODES).toEqual(['lit', 'flat', 'wireframe', 'wind'])
+    it('offers lit, flat, wireframe, wind, cartoon and cel shading', () => {
+        expect(SHADING_MODES).toEqual(['lit', 'flat', 'wireframe', 'wind', 'cartoon', 'cel'])
     })
 
     it('names every time of day', () => {

@@ -8,6 +8,7 @@
  */
 
 import * as THREE from 'three'
+import {flattenPicture} from '../../../assets/style/flat-colours'
 import {webglFarPainter} from '../far-painter'
 import {afterPaint} from './yield'
 import {reliefForFile, type MergedMesh} from './merge'
@@ -303,9 +304,14 @@ export async function buildFarCard(meshes: readonly MergedMesh[], name: string, 
     }
 }
 
-/** The card as a file wants it. The card's own material stays the view's. */
-export function farCardMesh(card: FarCard, name: string): NamedMesh {
+/** The card as a file wants it. The card's own material stays the view's. A Comic card's picture is cut to flat colours. */
+export function farCardMesh(card: FarCard, name: string, comic = false): NamedMesh {
     const material = card.material.clone()
+
+    if (comic && card.material.map instanceof THREE.DataTexture) {
+        material.map = flattenPicture(card.material.map, FAR_CUTOFF)
+        material.map.name = card.material.map.name
+    }
 
     material.normalMap = card.material.normalMap ? reliefForFile(card.material.normalMap, true) : null
     material.normalScale = new THREE.Vector2(1, -1)

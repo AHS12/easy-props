@@ -351,7 +351,7 @@ export function YourPropsPage() {
     }, [gallery])
 
     const counts = useMemo(() => {
-        const found: Record<KindFilter, number> = {all: gallery.length, tree: 0, rock: 0, bush: 0}
+        const found = {all: gallery.length, ...Object.fromEntries(PROP_FAMILIES.map(({id}) => [id, 0]))} as Record<KindFilter, number>
 
         for (const tree of gallery) {
             if (tree.kind) {
@@ -505,7 +505,8 @@ export function YourPropsPage() {
                             </div>
 
                             <div className="kind-tabs" role="tablist" aria-label="Kind of prop">
-                                {(['all', ...PROP_FAMILIES.map(({id}) => id)] as const).map((id) => {
+                                {/* Seven kinds crowd the bar, so only those someone has made are offered. */}
+                                {(['all', ...PROP_FAMILIES.map(({id}) => id).filter((id) => counts[id] > 0 || kind === id)] as const).map((id) => {
                                     const Icon = id === 'all' ? null : FAMILY_ICONS[id]
 
                                     return (

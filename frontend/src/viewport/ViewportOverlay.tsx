@@ -4,12 +4,12 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Frame, Grid2x2, Info, Layers, Maximize, Minimize, MousePointer2, Move, PersonStanding, Rotate3d, Sun, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Shrub, Sprout, Sun, TreeDeciduous, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
 import {Switch, Tooltip} from '../components/controls'
-import {findPropGenerator, offersFarAway} from '../assets/prop-generators'
+import {findPropGenerator, offersFarAway, offersLowPoly} from '../assets/prop-generators'
 import {runCommand, findCommand, shortcutFor} from '../core/commands/commands'
 import {loadExportPreferences} from '../core/export/export-preferences'
 import {FAR_LEVEL, LEVEL_SHARES} from '../core/export/pipeline/types'
@@ -23,7 +23,7 @@ import {viewportHandle, type ViewAngle} from './viewport-bridge'
 
 const STATS_REFRESH_MS = 500
 
-const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, flat: Box, wireframe: Grid2x2, wind: Wind}
+const SHADING_ICONS: Readonly<Record<ShadingMode, typeof Sun>> = {lit: Sun, cartoon: Paintbrush, cel: PenTool, flat: Box, wireframe: Grid2x2, wind: Wind}
 
 const SCENES: readonly {id: string; label: string; help: string}[] = [
     {id: 'sky', label: 'Studio', help: 'A plain place to work'},
@@ -82,6 +82,39 @@ function ToolButton({
                 {children}
             </button>
         </Tooltip>
+    )
+}
+
+/**
+ * Shows a prop as it is, or in its low-poly version. It sits over the view
+ * because it changes the whole prop at once, not one of its parts.
+ */
+function StyleToggle() {
+    const asset = useEditorStore((state) => state.scene.assets[0])
+    const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
+
+    if (!offersLowPoly(asset?.generatorId)) {
+        return null
+    }
+
+    const NormalIcon = asset?.generatorId === 'cut-rock' ? Mountain : asset?.generatorId === 'bush' ? Shrub : asset?.generatorId === 'plant' ? Flower2 : asset?.generatorId === 'cactus' || asset?.generatorId === 'grass' ? Sprout : TreeDeciduous
+
+    const lowPoly = asset.parameters.build === 'low-poly'
+    const choose = (build: 'painted' | 'low-poly') => () => {
+        if ((build === 'low-poly') !== lowPoly) {
+            updateTreeParameters({build}, 'change build')
+        }
+    }
+
+    return (
+        <div className="tool-group" role="group" aria-label="Style">
+            <ToolButton label="Normal" keys={shortcutFor('style-detailed')} pressed={!lowPoly} onPress={choose('painted')}>
+                <NormalIcon size={14} aria-hidden="true" />
+            </ToolButton>
+            <ToolButton label="Low-poly" keys={shortcutFor('style-low-poly')} pressed={lowPoly} onPress={choose('low-poly')}>
+                <Gem size={14} aria-hidden="true" />
+            </ToolButton>
+        </div>
     )
 }
 
@@ -326,6 +359,7 @@ export function ViewportOverlay() {
             </div>
 
             <div className="viewport-tools viewport-tools--right" role="toolbar" aria-label="View">
+                <StyleToggle />
                 <div className="tool-group">
                     <ToolMenu
                         label={`Shading: ${SHADING_MODE_LABELS[shadingMode]}`}

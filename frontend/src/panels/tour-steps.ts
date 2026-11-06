@@ -31,13 +31,13 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
     gallery: [
         {
             title: 'Welcome to easy-props',
-            text: 'This makes props for your game: trees, rocks, bushes, grass and flowers. Every prop takes three steps. Pick one, shape it, and export it to your game engine. You do not need any 3D experience.',
+            text: 'This makes props for your game: trees, palms, bushes, flowers, grass, cacti and rocks. Every prop takes three steps. Pick one, shape it, and export it to your game engine. You do not need any 3D experience.',
             side: 'over',
         },
         {
             target: 'gallery-kinds',
             title: 'Choose what to make',
-            text: 'Switch between Tree, Rock and Bush. Grass and flowers are listed under Bush.',
+            text: 'Pick a kind of prop to see its presets. The chips under it narrow them down further.',
             side: 'below',
         },
         {

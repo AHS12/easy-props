@@ -8,6 +8,7 @@
 import {assembleBark, listBarkCells, prepareBark, sculptBarkCells, type BarkContext} from './bark-mesh'
 import type {BarkJob, BarkTask, BarkTaskResult} from './bark-pool'
 import {planPaintedTree} from './plan'
+import {buildLowPolyWood, lowPolyCrown} from './low-poly-surface'
 
 let lastKey = ''
 let lastContext: BarkContext | null = null
@@ -24,6 +25,28 @@ function contextFor({tree, seed, detail}: BarkJob): BarkContext {
 }
 
 function run(task: BarkTask): {result: BarkTaskResult; transfer: Transferable[]} {
+    if (task.kind === 'low-poly-wood') {
+        const {tree, seed, detail} = task.job
+        const geometry = buildLowPolyWood(planPaintedTree(tree, seed), tree, seed, detail)
+        const wood = {
+            positions: geometry.getAttribute('position').array as Float32Array,
+            normals: geometry.getAttribute('normal').array as Float32Array,
+            colors: geometry.getAttribute('color').array as Float32Array,
+        }
+
+        return {result: {kind: 'low-poly-wood', wood}, transfer: [wood.positions.buffer, wood.normals.buffer, wood.colors.buffer]}
+    }
+
+    if (task.kind === 'low-poly-crown') {
+        const {tree, seed, detail} = task.job
+        const crown = lowPolyCrown(planPaintedTree(tree, seed), tree, seed, detail)
+        const crownKeys = [...crown.faces.keys()]
+        const crownFaces = crownKeys.map((key) => Float32Array.from(crown.faces.get(key)!))
+        const crownCentres = crownKeys.map((key) => [...crown.centres.get(key)!] as [number, number, number])
+
+        return {result: {kind: 'low-poly-crown', crownKeys, crownFaces, crownCentres}, transfer: crownFaces.map((faces) => faces.buffer)}
+    }
+
     const context = contextFor(task.job)
 
     switch (task.kind) {

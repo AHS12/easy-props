@@ -16,6 +16,8 @@ import {
 } from '../assets/style/lighting'
 import type {SpineLike} from '../assets/shared/spines'
 import {hashSeed} from '../assets/shared/random'
+import {holdLowPolyCrown} from '../assets/trees/painted'
+import {offersLowPoly} from '../assets/prop-generators'
 import {
     EMPTY_HISTORY,
     pushHistory,
@@ -573,13 +575,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewSpine: (componentId, spine) => {
             const state = get()
 
+            holdLowPolyCrown(true)
+
             set({
                 scene: updateComponentParameters(state.scene, componentId, {spine}),
             })
         },
 
-        commitSpine: (before, componentId, spine) =>
-            commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before),
+        commitSpine: (before, componentId, spine) => {
+            holdLowPolyCrown(false)
+            commit('shape part', (scene) => updateComponentParameters(scene, componentId, {spine}), before)
+        },
 
         moveComponent: (componentId, axis, value) =>
             commit(
@@ -595,24 +601,32 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
 
-        previewTurn: (componentId, turn) =>
-            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})}),
+        previewTurn: (componentId, turn) => {
+            holdLowPolyCrown(true)
+            set({scene: updateComponentParameters(get().scene, componentId, {turn: [...turn]})})
+        },
 
-        commitTurn: (before, componentId, turn) =>
-            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before),
+        commitTurn: (before, componentId, turn) => {
+            holdLowPolyCrown(false)
+            commit('turn part', (scene) => updateComponentParameters(scene, componentId, {turn: [...turn]}), before)
+        },
 
         previewPosition: (componentId, position) => {
             const state = get()
 
+            holdLowPolyCrown(true)
+
             set({scene: setComponentPositionInScene(state.scene, componentId, position)})
         },
 
-        commitPosition: (before, componentId, position) =>
+        commitPosition: (before, componentId, position) => {
+            holdLowPolyCrown(false)
             commit(
                 'move part',
                 (scene) => setComponentPositionInScene(scene, componentId, position),
                 before,
-            ),
+            )
+        },
 
         updateMaterials: (patch, label) =>
             commit(label, (scene) => ({
@@ -637,7 +651,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 style: state.style,
                 presetId: state.presetId,
             }
-            const scene = createSceneFromPreset(presetId)
+            const fresh = createSceneFromPreset(presetId)
+            // Low-poly is a switch over the view, so it stays on from one prop to the next.
+            const keepsLowPoly = state.scene.assets[0]?.parameters.build === 'low-poly' && offersLowPoly(fresh.assets[0]?.generatorId)
+            const scene = keepsLowPoly
+                ? updateTreeParameters(fresh, fresh.assets[0].id, {build: 'low-poly'}, getStyleProfile(state.style))
+                : fresh
 
             set({
                 scene,
@@ -1301,7 +1320,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatchWithSaved: (batchSavedIds) => set({batchSavedIds, batchPicked: null, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, folder: chosen, folderPerProp}, subfolder = '') => {
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, folder: chosen, folderPerProp}, subfolder = '') => {
             const inside = folderNameOf(subfolder)
             const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
@@ -1321,7 +1340,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind, join, far},
+                settings: {engine, levels, collision, wind, join, far, look, materials},
                 budget: state.budgetTarget,
                 signal: controller.signal,
                 write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),

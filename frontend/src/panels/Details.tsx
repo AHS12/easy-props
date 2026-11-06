@@ -294,10 +294,7 @@ export function Details() {
     const presetId = useEditorStore((state) => state.presetId)
     const family = familyOfPreset(presetId)
     const scene = useEditorStore((state) => state.scene)
-    // The Bush tab holds bushes, grass, flowers and cacti, so the panel names which.
-    const familyLabel =
-        (family === 'bush' && scene.assets[0] ? findPropGenerator(scene.assets[0].generatorId)?.label : undefined) ??
-        PROP_FAMILIES.find(({id}) => id === family)!.label
+    const familyLabel = PROP_FAMILIES.find(({id}) => id === family)!.label
     const selectedId = useEditorStore((state) => state.selection.selectedId)
     const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
     const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)
@@ -482,9 +479,12 @@ export function Details() {
 
     const generator = findComponentGenerator(component.generatorId)
     const isFrond = component.parameters.kind === 'frond'
+    // A low-poly clump is a few flat faces, not leaf cards, so it has no leaves to thin or size.
+    const cardless = asset?.parameters.build === 'low-poly' && component.generatorId === 'painted-clump' && !isFrond
     // A frond has no lumps, and its Flatness is how hard it arches.
     const specs = (generator?.parameters ?? [])
         .filter((spec) => !isFrond || spec.key !== 'lumpinessScale')
+        .filter((spec) => !cardless || (spec.key !== 'fullnessScale' && spec.key !== 'leafSizeScale'))
         .map((spec) => (isFrond && spec.key === 'flattenScale' ? {...spec, label: 'Arch'} : spec))
     const painted = isPaintedPart(component.generatorId)
     const isTrunk = component.type === 'trunk' && !painted
@@ -602,32 +602,35 @@ export function Details() {
                         </Group>
                     )}
 
-                    {sections.map((section) => (
-                        <Group
-                            key={section.title}
-                            title={section.title}
-                            open={filter !== '' || groups.isOpen(section.title)}
-                            empty={
-                                filter !== '' &&
-                                !section.specs.some((spec) => answers(filter, spec.label, spec.help)) &&
-                                !section.colours.some((key) => answers(filter, COLOUR_LABELS[key], 'colour'))
-                            }
-                            onToggle={() => groups.toggle(section.title, partTitles)}
-                        >
-                            <ParameterControls
-                                specs={controlsForTree(section.specs, asset?.parameters ?? {})}
-                                values={asset?.parameters ?? {}}
-                                base={presetBase(presetId)}
-                                palettes={{specs: treeSpecs, onPatch: updateTreeParameters}}
-                                onChange={(key, value) => updateTreeParameters({[key]: value}, `change ${key}`)}
-                            />
-                            <PaletteColours
-                                keys={section.colours}
-                                values={asset?.parameters ?? {}}
-                                onColours={(patch) => updateTreeParameters(patch, 'change colours')}
-                            />
-                        </Group>
-                    ))}
+                    {sections
+                        // A section whose every control is hidden on this tree, such as bark detail on a low-poly one, is left out.
+                        .filter((section) => section.colours.length > 0 || controlsForTree(section.specs, asset?.parameters ?? {}).length > 0)
+                        .map((section) => (
+                            <Group
+                                key={section.title}
+                                title={section.title}
+                                open={filter !== '' || groups.isOpen(section.title)}
+                                empty={
+                                    filter !== '' &&
+                                    !section.specs.some((spec) => answers(filter, spec.label, spec.help)) &&
+                                    !section.colours.some((key) => answers(filter, COLOUR_LABELS[key], 'colour'))
+                                }
+                                onToggle={() => groups.toggle(section.title, partTitles)}
+                            >
+                                <ParameterControls
+                                    specs={controlsForTree(section.specs, asset?.parameters ?? {})}
+                                    values={asset?.parameters ?? {}}
+                                    base={presetBase(presetId)}
+                                    palettes={{specs: treeSpecs, onPatch: updateTreeParameters}}
+                                    onChange={(key, value) => updateTreeParameters({[key]: value}, `change ${key}`)}
+                                />
+                                <PaletteColours
+                                    keys={section.colours}
+                                    values={asset?.parameters ?? {}}
+                                    onColours={(patch) => updateTreeParameters(patch, 'change colours')}
+                                />
+                            </Group>
+                        ))}
                     {noMatches}
                 </div>
             </FilterContext.Provider>

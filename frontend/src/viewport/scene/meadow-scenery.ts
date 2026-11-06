@@ -23,6 +23,15 @@ import {getStyleProfile} from '../../assets/style/style-profiles'
 import {mergeParts} from '../../core/export/pipeline/merge'
 import {sceneExportSource} from '../../core/export/scene-source'
 import {createSceneFromPreset} from '../../core/scene/initial-scene'
+import {cartoonFromStandard} from './cartoon'
+import {celFromStandard} from './cel'
+import {createIdMaterial, LAND_ID} from './ink-lines'
+
+/** How the scenery is drawn, following the prop's view. */
+export type SceneryLook = 'lit' | 'cartoon' | 'cel'
+
+/** Where the scenery's colours for the Cartoon and Comic lines start, clear of the prop's. */
+const FIRST_SCENERY_ID = 1 << 20
 
 const SEED = 5150
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
@@ -76,6 +85,10 @@ export interface MeadowScenery {
     setClearing(radius: number): void
     /** Trees are the difference between the two demos. */
     setTrees(wanted: boolean): void
+    /** Draws the scenery as the prop is drawn, so a cartoon prop stands in a cartoon meadow. */
+    setLook(look: SceneryLook): void
+    /** Draws every piece in its own colour, for the Cartoon and Comic lines. Grass and flowers count as ground. */
+    drawIds(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void
     dispose(): void
 }
 
@@ -122,6 +135,8 @@ export function createMeadowScenery(): MeadowScenery {
     const addInstances = (geometry: THREE.BufferGeometry, places: readonly Placed[]) => {
         const mesh = new THREE.InstancedMesh(keep(geometry), solid, places.length)
 
+        // Part of the ground, so the meadow is not ringed tuft by tuft.
+        mesh.userData.land = true
         mesh.frustumCulled = false
         group.add(mesh)
         instanced.push({mesh, places})
@@ -204,6 +219,7 @@ export function createMeadowScenery(): MeadowScenery {
                 part.geometry.dispose()
             }
 
+            applyLook(tree)
             tree.position.set(x, 0, z)
             tree.scale.setScalar(scale)
             tree.rotation.y = x + z
@@ -236,9 +252,88 @@ export function createMeadowScenery(): MeadowScenery {
 
     setClearing(0)
 
+    let look: SceneryLook = 'lit'
+    let nextId = FIRST_SCENERY_ID
+    /** Every other way a piece is drawn, made when first wanted. */
+    const looks = new Map<THREE.Mesh, {lit: THREE.MeshStandardMaterial; cartoon?: THREE.Material; cel?: THREE.Material; id?: THREE.ShaderMaterial}>()
+    const extras: THREE.Material[] = []
+
+    const versionsOf = (mesh: THREE.Mesh) => {
+        let versions = looks.get(mesh)
+
+        if (!versions) {
+            versions = {lit: mesh.material as THREE.MeshStandardMaterial}
+            looks.set(mesh, versions)
+        }
+
+        return versions
+    }
+
+    const made = <T extends THREE.Material>(material: T) => {
+        extras.push(material)
+
+        return material
+    }
+
+    function applyLook(root: THREE.Object3D) {
+        root.traverse((object) => {
+            if (!(object instanceof THREE.Mesh)) {
+                return
+            }
+
+            const versions = versionsOf(object)
+
+            if (look === 'cartoon') {
+                versions.cartoon ??= made(cartoonFromStandard(versions.lit))
+            } else if (look === 'cel') {
+                versions.cel ??= made(celFromStandard(versions.lit, object.geometry))
+            }
+
+            object.material = versions[look] ?? versions.lit
+        })
+    }
+
     return {
         group,
         setClearing,
+        setLook(next) {
+            if (next !== look) {
+                look = next
+                applyLook(group)
+            }
+        },
+        drawIds(renderer, camera) {
+            if (!group.visible) {
+                return
+            }
+
+            const shown = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>()
+
+            group.traverse((object) => {
+                if (!(object instanceof THREE.Mesh)) {
+                    return
+                }
+
+                const versions = versionsOf(object)
+
+                versions.id ??= made(
+                    createIdMaterial(
+                        object.userData.land ? LAND_ID : nextId++,
+                        versions.lit.map,
+                        versions.lit.alphaTest,
+                        versions.lit.side,
+                    ),
+                )
+                shown.set(object, object.material)
+                object.material = versions.id
+            })
+
+            renderer.render(group, camera)
+
+            for (const [mesh, material] of shown) {
+                mesh.material = material
+            }
+        },
         setTrees(wanted) {
             trees.visible = wanted
 
@@ -264,6 +359,10 @@ export function createMeadowScenery(): MeadowScenery {
 
             solid.dispose()
             leaves.dispose()
+
+            for (const material of extras) {
+                material.dispose()
+            }
         },
     }
 }

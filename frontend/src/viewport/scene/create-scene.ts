@@ -14,6 +14,7 @@ import {
     type SceneLighting,
 } from '../../assets/style/lighting'
 import {getStyleProfile, type StyleProfileId} from '../../assets/style/style-profiles'
+import {CARTOON_LOOK, COMIC_LOOK} from '../../assets/style/toon-looks'
 import type {FaceCounts} from '../../core/export/pipeline/budget'
 import type {Scene} from '../../core/scene/scene-model'
 import type {CollisionShape} from '../../assets/shared/generator-types'
@@ -25,6 +26,9 @@ import {
     type ShadingMode,
     type StandIn,
 } from './component-renderer'
+import {cartoonFromStandard} from './cartoon'
+import {celFromStandard} from './cel'
+import {createIdMaterial, createInkLines, LAND_ID, type LineStyle} from './ink-lines'
 import {VIEWPORT_COLORS} from './materials'
 import {createMeadowScenery, type MeadowScenery} from './meadow-scenery'
 
@@ -36,6 +40,10 @@ export interface ViewportScene {
     readonly camera: THREE.PerspectiveCamera
     readonly controls: ReturnType<typeof attachCameraControls>
     readonly components: ComponentRenderer
+    /** Draws one frame: the scene, and the Cartoon or Comic lines over it. */
+    draw(): void
+    /** How many draw calls the last frame's scene took, leaving out the passes that find and draw lines. */
+    drawCalls(): number
     /** Brings the viewport in line with the scene graph. */
     syncScene(scene: Scene): void
     /** Told when a sync that waited for a mesh built elsewhere has been applied. */
@@ -46,6 +54,8 @@ export interface ViewportScene {
     setLighting(lighting: SceneLighting): void
     /** Switches between the lit, flat, and wireframe views. */
     setShadingMode(mode: ShadingMode): void
+    /** How thick the Cartoon and Comic lines are: 1 is the usual. */
+    setLineWeight(weight: number): void
     /** Frames one part, or the whole prop for null. */
     frameComponent(componentId: string | null): void
     setBackdrop(backdrop: Backdrop, colour: string): void
@@ -76,8 +86,17 @@ export interface ViewportScene {
 }
 
 const CAMERA_FOV = 45
+/** Comic lines are bold ink. Cartoon ones are thin and soft, as a painter might pencil them. */
+const LINE_STYLES: Readonly<Partial<Record<ShadingMode, LineStyle>>> = {
+    cartoon: CARTOON_LOOK.lines,
+    cel: COMIC_LOOK.lines,
+}
 const CAMERA_NEAR = 0.05
 const CAMERA_FAR = 500
+/** Haze starts no nearer than this, and this far behind the prop, and takes this long to be total. */
+const HAZE_START = 22
+const HAZE_BEHIND = 4
+const HAZE_DEPTH = 38
 /** A clear midday sun, however warm the rest of the time of day is. */
 const MEADOW_WARMTH = 0.3
 /** A big bright sky: shade stays clearly coloured and never goes dark. */
@@ -255,7 +274,8 @@ export function createViewportScene(
     const sky = createSkyTexture(VIEWPORT_COLORS.skyTop, VIEWPORT_COLORS.skyHorizon)
     const meadowSky = createSkyTexture(VIEWPORT_COLORS.meadowSkyTop, VIEWPORT_COLORS.meadowHorizon)
     scene.background = sky
-    scene.fog = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), 22, 60)
+    const haze = new THREE.Fog(new THREE.Color(VIEWPORT_COLORS.skyHorizon), HAZE_START, HAZE_START + HAZE_DEPTH)
+    scene.fog = haze
 
     const lights = addLighting(scene)
     const groundMaterial = addGround(scene)
@@ -263,6 +283,37 @@ export function createViewportScene(
     /** Meadow's sky and sunlight, which Studio with sky has too. */
     let bright = false
     let scenery: MeadowScenery | null = null
+    const ground = scene.getObjectByName('ground') as THREE.Mesh
+    const groundLooks: {cartoon?: THREE.MeshToonMaterial; cel?: THREE.MeshToonMaterial} = {}
+    const groundId = createIdMaterial(LAND_ID, null, 0, THREE.FrontSide)
+
+    /** Draws the ground and scenery as the prop is drawn. */
+    const applyLook = () => {
+        const look = shading === 'cartoon' || shading === 'cel' ? shading : 'lit'
+
+        if (look === 'cartoon') {
+            groundLooks.cartoon ??= cartoonFromStandard(groundMaterial)
+        } else if (look === 'cel') {
+            groundLooks.cel ??= celFromStandard(groundMaterial, ground.geometry)
+        }
+
+        ground.material = (look === 'lit' ? undefined : groundLooks[look]) ?? groundMaterial
+        scenery?.setLook(look)
+    }
+
+    /** Every outlined thing in its own colour: the prop, and in the demos the scenery and ground. */
+    const drawIds = () => {
+        components.drawIds(renderer, camera)
+
+        if (meadow && scenery) {
+            scenery.drawIds(renderer, camera)
+
+            const shown = ground.material
+            ground.material = groundId
+            renderer.render(ground, camera)
+            ground.material = shown
+        }
+    }
     let gridWanted = true
 
     const controls = attachCameraControls(camera, renderer.domElement)
@@ -286,9 +337,12 @@ export function createViewportScene(
         onContentArrived?.()
     })
     scene.add(components.group)
+    const inkLines = createInkLines()
+    let sceneCalls = 0
 
     let currentStyleId = styleId
     let shading: ShadingMode = 'lit'
+    let lineWeight = 1
     let lighting: SceneLighting = DEFAULT_LIGHTING
 
     /** The centre and radius the shadow camera has to cover. */
@@ -366,6 +420,29 @@ export function createViewportScene(
         controls,
         components,
 
+        draw() {
+            // Haze is measured from the camera, so zooming out would sink the prop
+            // itself in it. Starting it a set way behind the prop keeps the prop
+            // clear at any distance, and only the scenery far behind it fades.
+            haze.near = Math.max(HAZE_START, camera.position.distanceTo(controls.target) + HAZE_BEHIND)
+            haze.far = haze.near + HAZE_DEPTH
+            groundLooks.cartoon?.color.copy(groundMaterial.color)
+            groundLooks.cel?.color.copy(groundMaterial.color)
+            renderer.render(scene, camera)
+            // Read before the lines, which are their own renders and would reset the count.
+            sceneCalls = renderer.info.render.calls
+
+            const lines = LINE_STYLES[shading]
+
+            if (lines) {
+                inkLines.draw(renderer, camera, drawIds, {weight: lines.weight * lineWeight, strength: lines.strength}, haze)
+            }
+        },
+
+        drawCalls() {
+            return sceneCalls
+        },
+
         syncScene(nextScene) {
             components.sync(nextScene, getStyleProfile(currentStyleId), shading, detail)
             fitToContent()
@@ -398,10 +475,15 @@ export function createViewportScene(
             applyLighting()
         },
 
+        setLineWeight(weight) {
+            lineWeight = weight
+        },
+
         setShadingMode(mode) {
             shading = mode
-            // The shadow belongs to the finished look only.
-            shadowsWanted = mode === 'lit'
+            applyLook()
+            // The shadow belongs to the finished looks only.
+            shadowsWanted = mode === 'lit' || mode === 'cartoon' || mode === 'cel'
             renderer.shadowMap.enabled = shadowsWanted && shadowsAllowed
             renderer.shadowMap.needsUpdate = true
         },
@@ -442,6 +524,7 @@ export function createViewportScene(
             if (meadow && !scenery) {
                 scenery = createMeadowScenery()
                 scene.add(scenery.group)
+                applyLook()
                 fitToContent()
             }
 
@@ -549,6 +632,10 @@ export function createViewportScene(
         dispose() {
             controls.dispose()
             components.dispose()
+            inkLines.dispose()
+            groundLooks.cartoon?.dispose()
+            groundLooks.cel?.dispose()
+            groundId.dispose()
             collision.dispose()
             sky.dispose()
             meadowSky.dispose()

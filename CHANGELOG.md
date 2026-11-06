@@ -2,6 +2,39 @@
 
 What's new in each version of easy-props.
 
+## 0.4.0 (November 6, 2026)
+
+**Cartoon and Comic looks**
+
+- Two new views in the Lit menu show how a prop will look under a game's toon shading. Cartoon
+  is soft, with gentle bands of light and faint lines. Comic has flat colours, hard shadows and
+  bold ink lines round whole shapes, so a leaf crown is outlined as one shape, not leaf by leaf.
+- Pick thin, medium or bold lines in Settings, under Viewport, Cartoon lines.
+- The Meadow and Grove demos around your prop follow the look too.
+- Export and Export many have a Look choice: Lit, Cartoon or Comic. A Comic export cuts each
+  part's colours to a few flat tones, so the files match what you see.
+- For Godot, a Materials switch writes matching Cartoon or Comic materials beside the exported
+  files, wind included, along with an outline effect. The prop's folder is ready to use.
+
+**Low-poly style**
+
+- Every kind of prop can now be made low-poly: big flat faces, each one colour. Switch with the
+  Normal and Low-poly buttons beside the Lit menu, or with keys 1 and 2.
+- It is the same prop in another style, so its seed, settings and dragged parts carry over.
+
+**A new Home**
+
+- Home shows every kind of prop as a card with a picture: trees, palms, bushes, flowers, grass,
+  cacti and rocks. Cacti, flowers and grass no longer hide under Bush.
+- Chips under the cards narrow a kind down, such as Conifers or Fantasy under Trees.
+- Search every preset from Home, across all kinds at once.
+- The File menu has a New entry for each kind, and Your props sorts your props into the same
+  kinds, showing only the kinds you have made.
+
+**Fixed**
+
+- Zooming out no longer greys the prop itself with haze.
+
 ## 0.3.8 (November 4, 2026)
 
 **Your props**

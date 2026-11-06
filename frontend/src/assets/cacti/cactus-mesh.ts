@@ -6,6 +6,9 @@
  * are flattened ovals. Spines are small three-sided points in rows along the
  * ridges, or scattered over a pad, so they stand out from any side. Colour is
  * painted into the vertices, as on bushes and flowers, so nothing needs a texture.
+ *
+ * Low-poly is the same cactus drawn coarsely: a star of a few ridges, a few rings,
+ * faceted pads and fewer spines, each face flat and one colour.
  */
 
 import * as THREE from 'three'
@@ -15,6 +18,7 @@ import {CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} fr
 import {colourRamp} from '../style/ramp'
 
 export type CactusKind = 'column' | 'barrel' | 'paddle'
+export type CactusBuild = 'painted' | 'low-poly'
 
 export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
     readonly kind: CactusKind
@@ -34,6 +38,7 @@ export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_
     readonly flowers: number
     readonly palette: CactusPaletteId | OwnColours
     readonly flowerColour: PetalPaletteId | OwnColours
+    readonly build: CactusBuild
 }
 
 type Vec3 = readonly [number, number, number]
@@ -69,6 +74,12 @@ const SPINE_SPACING_FLOOR = 0.15
 const FLOWER_PETALS = 7
 /** Petals on a flower seen from far off. */
 const FAR_PETALS = 3
+/** Low-poly: at most this many ridges, so each one is a face you can see. */
+const LOW_POLY_RIBS = 10
+/** Low-poly: the share of rings kept up a stem, and of the spines. */
+const LOW_POLY_RINGS = 0.3
+const LOW_POLY_SPINES = 0.35
+const LOW_POLY_PETALS = 5
 
 function normalize(a: Vec3): Vec3 {
     const length = Math.hypot(a[0], a[1], a[2]) || 1
@@ -110,7 +121,14 @@ interface Stem {
  * Sides come in whole numbers per ridge, so the rings make up the rest: `rings`
  * scales how many there are.
  */
-function resolution(radius: number, ribs: number, detail: number): {around: number; rings: number} {
+function resolution(radius: number, ribs: number, detail: number, lowPoly: boolean): {around: number; rings: number} {
+    if (lowPoly) {
+        const rings = LOW_POLY_RINGS * Math.sqrt(detail)
+
+        // A ridge and a valley each, until far off, where the ridges are only corners.
+        return ribs < 3 ? {around: Math.max(Math.round(8 * Math.sqrt(detail)), 5), rings} : {around: ridgesOf(ribs, true) * (detail >= 0.3 ? 2 : 1), rings}
+    }
+
     if (ribs < 3) {
         return {around: Math.max(Math.round(14 * Math.sqrt(detail)), 6), rings: Math.sqrt(detail)}
     }
@@ -121,6 +139,8 @@ function resolution(radius: number, ribs: number, detail: number): {around: numb
 
     return {around: ribs * perRidge, rings: Math.min((detail * full) / perRidge, 1)}
 }
+
+const ridgesOf = (ribs: number, lowPoly: boolean) => (lowPoly && ribs >= 3 ? Math.min(ribs, LOW_POLY_RIBS) : ribs)
 
 /** Where each ring of a stem sits, its frame carried along so the ridges never twist. */
 function frames(path: readonly Vec3[]): {tangent: Vec3; side: Vec3; other: Vec3}[] {
@@ -294,11 +314,12 @@ function pad(
     across: Vec3,
     size: {width: number; height: number; depth: number},
     detail: number,
+    lowPoly: boolean,
 ): void {
     const facing = cross(up, across)
     const centre = add(base, up, size.height / 2)
-    const rings = Math.max(3, Math.ceil(9 * Math.sqrt(detail)))
-    const around = Math.max(6, Math.round(16 * Math.sqrt(detail)))
+    const rings = lowPoly ? 4 : Math.max(3, Math.ceil(9 * Math.sqrt(detail)))
+    const around = lowPoly ? Math.max(5, Math.round(8 * Math.sqrt(detail))) : Math.max(6, Math.round(16 * Math.sqrt(detail)))
     const first = buffers.positions.length / 3
     const bottom = vertex(buffers, add(centre, up, -size.height / 2), Paint.Skin, 0.6)
 
@@ -440,19 +461,19 @@ function pointAtHeight(path: readonly Vec3[], y: number): Vec3 {
     return path[path.length - 1]
 }
 
-function columnStems(parameters: CactusParameters, seed: number, detail: number): {stems: Stem[]; tops: {at: Vec3; up: Vec3}[]} {
+function columnStems(parameters: CactusParameters, seed: number, detail: number, lowPoly: boolean): {stems: Stem[]; tops: {at: Vec3; up: Vec3}[]} {
     const {height, thickness, lean} = parameters
     const radius = thickness / 2
     const leanRandom = createSeededRandom(hashSeed(seed, SEED_LEAN))
     const leanAzimuth = leanRandom() * Math.PI * 2
     const ribs = Math.round(parameters.ribs)
-    const trunk = resolution(radius, ribs, detail)
+    const trunk = resolution(radius, ribs, detail, lowPoly)
     const trunkPath = risingPath([0, -radius * 0.3, 0], height + radius * 0.3, ringsFor(height + radius * 0.3, radius, trunk.rings), lean, leanAzimuth)
     const stems: Stem[] = [{path: trunkPath, radii: domedRadii(trunkPath, radius, 0.12), around: trunk.around}]
     const tops = [{at: trunkPath[trunkPath.length - 1], up: [0, 1, 0] as Vec3}]
     const arms = Math.round(parameters.arms)
     const armRadius = radius * 0.72
-    const armDetail = resolution(armRadius, ribs, detail)
+    const armDetail = resolution(armRadius, ribs, detail, lowPoly)
 
     for (let arm = 0; arm < arms; arm++) {
         const random = createSeededRandom(hashSeed(seed, SEED_ARMS, arm))
@@ -503,10 +524,10 @@ function columnStems(parameters: CactusParameters, seed: number, detail: number)
     return {stems, tops}
 }
 
-function barrelStem(parameters: CactusParameters, detail: number): Stem {
+function barrelStem(parameters: CactusParameters, detail: number, lowPoly: boolean): Stem {
     const {height, thickness} = parameters
     const radius = thickness / 2
-    const {around, rings} = resolution(radius, Math.round(parameters.ribs), detail)
+    const {around, rings} = resolution(radius, Math.round(parameters.ribs), detail, lowPoly)
     const steps = Math.max(4, Math.round(16 * rings))
     const path = risingPath([0, -height * 0.05, 0], height * 1.05, Array.from({length: steps + 1}, (_, step) => step / steps), parameters.lean * 0.3, 0)
     // Widest a little below the middle, and closing over a flattish top.
@@ -578,8 +599,9 @@ export function buildCactusMesh(parameters: CactusParameters, seed: number, deta
     const buffers: Buffers = {positions: [], indices: [], paint: [], shade: []}
     const spineRandom = createSeededRandom(hashSeed(seed, SEED_SPINES))
     const flowerRandom = createSeededRandom(hashSeed(seed, SEED_FLOWERS))
-    const ribs = Math.round(parameters.ribs)
-    const spines = parameters.spines * detail
+    const lowPoly = parameters.build === 'low-poly'
+    const ribs = ridgesOf(Math.round(parameters.ribs), lowPoly)
+    const spines = parameters.spines * detail * (lowPoly ? LOW_POLY_SPINES : 1)
     const flowers = Math.round(parameters.flowers)
     let tops: {at: Vec3; up: Vec3}[]
 
@@ -587,7 +609,7 @@ export function buildCactusMesh(parameters: CactusParameters, seed: number, deta
         const pads = growPads(parameters, seed)
 
         for (const each of pads) {
-            pad(buffers, each.base, each.up, each.across, each.size, detail)
+            pad(buffers, each.base, each.up, each.across, each.size, detail, lowPoly)
             padSpines(buffers, each.base, each.up, each.across, each.size, spines, spineRandom)
         }
 
@@ -599,8 +621,8 @@ export function buildCactusMesh(parameters: CactusParameters, seed: number, deta
     } else {
         const {stems, tops: stemTops} =
             parameters.kind === 'column'
-                ? columnStems(parameters, seed, detail)
-                : {stems: [barrelStem(parameters, detail)], tops: [] as {at: Vec3; up: Vec3}[]}
+                ? columnStems(parameters, seed, detail, lowPoly)
+                : {stems: [barrelStem(parameters, detail, lowPoly)], tops: [] as {at: Vec3; up: Vec3}[]}
         for (const stem of stems) {
             stemMesh(buffers, stem, ribs, parameters.ribDepth)
             stemSpines(buffers, stem, ribs, spines, spineRandom)
@@ -632,10 +654,36 @@ export function buildCactusMesh(parameters: CactusParameters, seed: number, deta
         const side = anyPerpendicular(top.up)
         const offset = add(add([0, 0, 0], side, Math.cos(angle)), cross(top.up, side), Math.sin(angle))
 
-        flower(buffers, add(top.at, offset, round === 0 ? 0 : flowerSize * 0.9), top.up, flowerSize, detail < 0.3 ? FAR_PETALS : FLOWER_PETALS, detail >= 0.3, flowerRandom)
+        flower(buffers, add(top.at, offset, round === 0 ? 0 : flowerSize * 0.9), top.up, flowerSize, detail < 0.3 ? FAR_PETALS : lowPoly ? LOW_POLY_PETALS : FLOWER_PETALS, detail >= 0.3, flowerRandom)
     }
 
-    return paintCactus(buffers, parameters)
+    return lowPoly ? paintFacets(buffers, parameters) : paintCactus(buffers, parameters)
+}
+
+/** How a point is coloured, from what it is, which way it faces, its shade and its height. */
+function painter(parameters: CactusParameters): (paint: Paint, n: Vec3, shade: number, y: number) => THREE.Color {
+    const ramp = rampOf(parameters.palette, CACTUS_RAMPS, parameters, CACTUS_ROWS)
+    const skin = colourRamp(ramp.slice(0, 4))
+    const petal = colourRamp(rampOf(parameters.flowerColour, PETAL_RAMPS, parameters, FLOWER_ROWS))
+    const spineColour = new THREE.Color(ramp[4])
+    const colour = new THREE.Color()
+    const top = Math.max(parameters.height, 0.01)
+
+    return (paint, n, shade, y) => {
+        const light = Math.min(Math.max(0.5 + 0.5 * dot(n, SUN), 0), 1)
+
+        if (paint === Paint.Spine) {
+            return colour.copy(spineColour).multiplyScalar(0.7 + 0.3 * shade)
+        }
+
+        if (paint === Paint.Petal) {
+            return colour.copy(petal(0.25 + 0.75 * shade * (0.6 + 0.4 * light)))
+        }
+
+        const height = Math.min(Math.max(y / top, 0), 1)
+
+        return colour.copy(skin(0.08 + 0.55 * light + 0.22 * shade + 0.12 * height))
+    }
 }
 
 function paintCactus(buffers: Buffers, parameters: CactusParameters): THREE.BufferGeometry {
@@ -647,33 +695,51 @@ function paintCactus(buffers: Buffers, parameters: CactusParameters): THREE.Buff
 
     const normals = geometry.getAttribute('normal')
     const colours = new Float32Array(buffers.positions.length)
-    const ramp = rampOf(parameters.palette, CACTUS_RAMPS, parameters, CACTUS_ROWS)
-    const skin = colourRamp(ramp.slice(0, 4))
-    const petal = colourRamp(rampOf(parameters.flowerColour, PETAL_RAMPS, parameters, FLOWER_ROWS))
-    const spineColour = new THREE.Color(ramp[4])
-    const colour = new THREE.Color()
-    const top = Math.max(parameters.height, 0.01)
+    const paint = painter(parameters)
 
     for (let index = 0; index < buffers.paint.length; index++) {
         const n: Vec3 = [normals.getX(index), normals.getY(index), normals.getZ(index)]
-        const light = Math.min(Math.max(0.5 + 0.5 * dot(n, SUN), 0), 1)
-        const shade = buffers.shade[index]
-
-        if (buffers.paint[index] === Paint.Spine) {
-            colour.copy(spineColour).multiplyScalar(0.7 + 0.3 * shade)
-        } else if (buffers.paint[index] === Paint.Petal) {
-            colour.copy(petal(0.25 + 0.75 * shade * (0.6 + 0.4 * light)))
-        } else {
-            const height = Math.min(Math.max(buffers.positions[index * 3 + 1] / top, 0), 1)
-
-            colour.copy(skin(0.08 + 0.55 * light + 0.22 * shade + 0.12 * height))
-        }
+        const colour = paint(buffers.paint[index], n, buffers.shade[index], buffers.positions[index * 3 + 1])
 
         colours[index * 3] = colour.r
         colours[index * 3 + 1] = colour.g
         colours[index * 3 + 2] = colour.b
     }
 
+    geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3))
+    geometry.computeBoundingSphere()
+
+    return geometry
+}
+
+/** Every face apart, with one facing and one colour of its own. */
+function paintFacets(buffers: Buffers, parameters: CactusParameters): THREE.BufferGeometry {
+    const count = buffers.indices.length
+    const positions = new Float32Array(count * 3)
+    const normals = new Float32Array(count * 3)
+    const colours = new Float32Array(count * 3)
+    const paint = painter(parameters)
+    const at = (index: number): Vec3 => [buffers.positions[index * 3], buffers.positions[index * 3 + 1], buffers.positions[index * 3 + 2]]
+
+    for (let face = 0; face < count; face += 3) {
+        const corners = [buffers.indices[face], buffers.indices[face + 1], buffers.indices[face + 2]]
+        const points = corners.map(at)
+        const [a, b, c] = points
+        const n = normalize(cross(add(b, a, -1), add(c, a, -1)))
+        const shade = corners.reduce((sum, index) => sum + buffers.shade[index], 0) / 3
+        const colour = paint(buffers.paint[corners[0]], n, shade, (a[1] + b[1] + c[1]) / 3)
+
+        points.forEach((p, k) => {
+            positions.set(p, (face + k) * 3)
+            normals.set(n, (face + k) * 3)
+            colours.set([colour.r, colour.g, colour.b], (face + k) * 3)
+        })
+    }
+
+    const geometry = new THREE.BufferGeometry()
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3))
     geometry.computeBoundingSphere()
 

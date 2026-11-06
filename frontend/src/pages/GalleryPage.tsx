@@ -1,14 +1,15 @@
 /**
- * Home, in the manner of a project browser: recent props first, then a new one by
- * kind, then the presets for that kind.
+ * Home, in the manner of a project browser: recent props first, then every kind of
+ * prop as a card, then the presets for the chosen kind.
  *
- * This is the first thing the app shows, so it answers two questions in one
- * breath: what have I got, and where do I start.
+ * This is the first thing the app shows, so it answers three questions in one
+ * breath: what have I got, what can I make, and where do I start. Every kind is
+ * on show, so nobody has to open a tab to learn there are cacti.
  */
 
-import {ArchiveRestore, ChevronRight, Pencil, RotateCcw, Trash2} from 'lucide-react'
-import {useEffect, useLayoutEffect, useRef, useState} from 'react'
-import {presetGroups, PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
+import {ArchiveRestore, ChevronRight, Pencil, RotateCcw, Search, Trash2, X} from 'lucide-react'
+import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react'
+import {familyOfPreset, presetGroups, PROP_FAMILIES, treePresets, type PropFamily, type TreePreset} from '../assets/trees/presets'
 import {guardUnsaved} from '../core/commands/commands'
 import {canUndo} from '../core/history/history'
 import {PresetThumb} from '../panels/PresetThumb'
@@ -16,11 +17,34 @@ import type {SavedTree} from '../platform/library'
 import {canBackUp} from '../platform/backup'
 import {useUiStore} from '../store/ui-store'
 import {useEditorStore} from '../store/editor-store'
-import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
+import {displayName, FAMILY_ICONS, KIND_PICTURES, savedLabel} from './prop-labels'
 import {PropPicture} from './prop-tile'
 
 /** Home shows the latest saves in one row; Your props has the rest. */
 const RECENT_MOST = 8
+
+const ALL = 'All'
+
+/** The kind chosen last, so coming back Home from a prop lands where it left. */
+let lastFamily: PropFamily = 'tree'
+
+const KINDS_IN_WORDS = (() => {
+    const names = PROP_FAMILIES.map(({plural}) => plural.toLowerCase())
+
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+})()
+
+const sentenceCase = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
+/** One preset to start from, as a picture and a name. */
+function PresetCard({preset, onPick}: {preset: TreePreset; onPick(): void}) {
+    return (
+        <button type="button" className="preset-card" title={preset.sub} onClick={onPick}>
+            <PresetThumb presetId={preset.id} />
+            <span className="preset-card__name">{preset.name}</span>
+        </button>
+    )
+}
 
 interface CardProps {
     tree: SavedTree
@@ -146,7 +170,9 @@ export function GalleryPage() {
     const history = useEditorStore((state) => state.history)
     const propInHand = useEditorStore((state) => state.propInHand)
 
-    const [family, setFamily] = useState<PropFamily>('tree')
+    const [family, setFamilyState] = useState<PropFamily>(lastFamily)
+    const [category, setCategory] = useState(ALL)
+    const [query, setQuery] = useState('')
     const [perRow, setPerRow] = useState(RECENT_MOST)
     const recentList = useRef<HTMLDivElement>(null)
 
@@ -191,13 +217,88 @@ export function GalleryPage() {
     // Only something opened or changed in this session is worth going back to.
     const inHand = propInHand || canUndo(history)
 
+    const setFamily = (next: PropFamily) => {
+        lastFamily = next
+        setFamilyState(next)
+        setCategory(ALL)
+    }
+
+    const pick = (id: string) => guardUnsaved(useEditorStore.getState(), 'Start a new prop', () => startNewProp(id))
+    const groups = presetGroups.filter((group) => group.family === family && group.presets.length > 0)
+    const shownGroups = category === ALL ? groups : groups.filter((group) => group.title === category)
+    const wanted = query.trim().toLowerCase()
+
+    // A search looks through every kind, as someone typing "cactus" should not have to find its card first.
+    const found = useMemo(
+        () =>
+            wanted === ''
+                ? []
+                : PROP_FAMILIES.map(({id, plural}) => ({
+                      title: plural,
+                      presets: treePresets.filter(
+                          (preset) =>
+                              familyOfPreset(preset.id) === id &&
+                              `${preset.name} ${preset.sub} ${preset.category ?? ''} ${plural}`.toLowerCase().includes(wanted),
+                      ),
+                  })).filter((group) => group.presets.length > 0),
+        [wanted],
+    )
+
+    const recentSection = (
+        <section className="home__section" aria-label="Recent props" data-coach="gallery-recent">
+            <div className="home__section-head">
+                <h2 className="home__section-title">Recent props</h2>
+                {gallery.length > 0 ? (
+                    <button type="button" className="button" onClick={showProps}>
+                        All your props ({gallery.length})
+                        <ChevronRight size={13} aria-hidden="true" />
+                    </button>
+                ) : null}
+            </div>
+
+            {galleryLoading && gallery.length === 0 ? (
+                <p className="dialog__hint" role="status">
+                    Looking for your props…
+                </p>
+            ) : gallery.length === 0 ? (
+                <div className="home__empty">
+                    <p className="dialog__hint">Props you save show up here.</p>
+                    {canBackUp() ? (
+                        <button type="button" className="button" onClick={() => useUiStore.getState().openSettings('Backup')}>
+                            <ArchiveRestore size={13} aria-hidden="true" />
+                            Bring back props from a backup
+                        </button>
+                    ) : null}
+                </div>
+            ) : (
+                <div ref={recentList}>
+                    <ul className="tile-grid">
+                        {recent.map((tree) => (
+                            <TreeCard
+                                key={tree.id}
+                                tree={tree}
+                                current={tree.id === currentTreeId}
+                                onOpen={() => void openTree(tree.id)}
+                                onRemove={() => void removeTree(tree.id)}
+                                onRename={(name) => void renameTree(tree.id, name)}
+                            />
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </section>
+    )
+
     return (
         <main className="home">
             <div className="home__inner">
                 <header className="home__head">
                     <div>
                         <h1 className="home__title">Make a prop for your game</h1>
-                        <p className="home__sub">Start from a preset, shape it, and export it. No 3D experience needed.</p>
+                        <p className="home__sub">
+                            {sentenceCase(KINDS_IN_WORDS)}, from {treePresets.length} presets. Shape one, then export it with its
+                            detail levels, painted or low-poly. No 3D experience needed.
+                        </p>
                     </div>
                     {inHand ? (
                         <button type="button" className="button" onClick={showEditor}>
@@ -224,99 +325,110 @@ export function GalleryPage() {
                     </section>
                 ) : null}
 
-                <section className="home__section" aria-label="Recent props" data-coach="gallery-recent">
-                    <div className="home__section-head">
-                        <h2 className="home__section-title">Recent props</h2>
-                        {gallery.length > 0 ? (
-                            <button type="button" className="button" onClick={showProps}>
-                                All your props ({gallery.length})
-                                <ChevronRight size={13} aria-hidden="true" />
-                            </button>
-                        ) : null}
-                    </div>
-
-                    {galleryLoading && gallery.length === 0 ? (
-                        <p className="dialog__hint" role="status">
-                            Looking for your props…
-                        </p>
-                    ) : gallery.length === 0 ? (
-                        <div className="home__empty">
-                            <p className="dialog__hint">Props you save show up here.</p>
-                            {canBackUp() ? (
-                                <button type="button" className="button" onClick={() => useUiStore.getState().openSettings('Backup')}>
-                                    <ArchiveRestore size={13} aria-hidden="true" />
-                                    Bring back props from a backup
-                                </button>
-                            ) : null}
-                        </div>
-                    ) : (
-                        <div ref={recentList}>
-                            <ul className="tile-grid">
-                                {recent.map((tree) => (
-                                    <TreeCard
-                                        key={tree.id}
-                                        tree={tree}
-                                        current={tree.id === currentTreeId}
-                                        onOpen={() => void openTree(tree.id)}
-                                        onRemove={() => void removeTree(tree.id)}
-                                        onRename={(name) => void renameTree(tree.id, name)}
-                                    />
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </section>
+                {/* Someone with no props yet meets the presets first, not an empty shelf. */}
+                {hasProps || galleryLoading ? recentSection : null}
 
                 <section className="home__section" aria-label="Start a new prop">
                     <div className="home__section-head">
                         <h2 className="home__section-title">Start a new prop</h2>
-                        <div className="kind-tabs" role="tablist" aria-label="Kind of prop" data-coach="gallery-kinds">
-                            {PROP_FAMILIES.map(({id, label}) => {
-                                const Icon = FAMILY_ICONS[id]
-
-                                return (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        role="tab"
-                                        className="kind-tab"
-                                        aria-selected={family === id}
-                                        onClick={() => setFamily(id)}
-                                    >
-                                        <Icon size={14} aria-hidden="true" />
-                                        {label}
-                                    </button>
-                                )
-                            })}
+                        <div className="filter home__filter">
+                            <Search size={13} aria-hidden="true" className="filter__icon" />
+                            <input
+                                className="filter__input"
+                                placeholder="Search every preset"
+                                aria-label="Search every preset"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Escape' && query) {
+                                        event.stopPropagation()
+                                        setQuery('')
+                                    }
+                                }}
+                            />
+                            {query ? (
+                                <button type="button" className="filter__clear" aria-label="Clear search" onClick={() => setQuery('')}>
+                                    <X size={12} aria-hidden="true" />
+                                </button>
+                            ) : null}
                         </div>
                     </div>
 
-                    {presetGroups
-                        .filter((group) => group.family === family)
-                        .map((group, index) => (
-                            <div key={group.title} data-coach={index === 0 ? 'gallery-presets' : undefined}>
-                                {presetGroups.filter((other) => other.family === family).length > 1 ? (
+                    {wanted !== '' ? (
+                        found.length === 0 ? (
+                            <p className="dialog__hint">No preset by that name. Try a shorter word.</p>
+                        ) : (
+                            found.map((group) => (
+                                <div key={group.title}>
                                     <h3 className="settings__group">{group.title}</h3>
-                                ) : null}
-                                <div className="preset-grid preset-grid--wide">
-                                    {group.presets.map((preset) => (
+                                    <div className="preset-grid preset-grid--wide">
+                                        {group.presets.map((preset) => (
+                                            <PresetCard key={preset.id} preset={preset} onPick={() => pick(preset.id)} />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )
+                    ) : (
+                        <>
+                            <div className="kind-cards" role="tablist" aria-label="Kind of prop" data-coach="gallery-kinds">
+                                {PROP_FAMILIES.map(({id, plural}) => {
+                                    const Icon = FAMILY_ICONS[id]
+                                    const count = presetGroups
+                                        .filter((group) => group.family === id && group.title !== 'Favourites')
+                                        .reduce((sum, group) => sum + group.presets.length, 0)
+
+                                    return (
                                         <button
-                                            key={preset.id}
+                                            key={id}
                                             type="button"
-                                            className="preset-card"
-                                            title={preset.sub}
-                                            onClick={() =>
-                                                guardUnsaved(useEditorStore.getState(), 'Start a new prop', () => startNewProp(preset.id))
-                                            }
+                                            role="tab"
+                                            className="kind-card"
+                                            aria-selected={family === id}
+                                            onClick={() => setFamily(id)}
                                         >
-                                            <PresetThumb presetId={preset.id} />
-                                            <span className="preset-card__name">{preset.name}</span>
+                                            <PresetThumb presetId={KIND_PICTURES[id]} />
+                                            <span className="kind-card__label">
+                                                <Icon size={14} aria-hidden="true" />
+                                                {plural}
+                                                <span className="kind-card__count tabular">{count}</span>
+                                            </span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {groups.length > 1 ? (
+                                <div className="chips" role="group" aria-label="Narrow the presets">
+                                    {[ALL, ...groups.map((group) => group.title)].map((title) => (
+                                        <button
+                                            key={title}
+                                            type="button"
+                                            className="chip"
+                                            aria-pressed={category === title}
+                                            onClick={() => setCategory(title)}
+                                        >
+                                            {title}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                        ))}
+                            ) : null}
+
+                            {shownGroups.map((group, index) => (
+                                <div key={group.title} data-coach={index === 0 ? 'gallery-presets' : undefined}>
+                                    {shownGroups.length > 1 ? <h3 className="settings__group">{group.title}</h3> : null}
+                                    <div className="preset-grid preset-grid--wide">
+                                        {group.presets.map((preset) => (
+                                            <PresetCard key={preset.id} preset={preset} onPick={() => pick(preset.id)} />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
                 </section>
+
+                {hasProps || galleryLoading ? null : recentSection}
             </div>
         </main>
     )

@@ -11,6 +11,7 @@ import {buildFarCard, farCardMesh, FAR_FACES, type FarCard} from './far'
 import {joinMeshes, mergeParts} from './merge'
 import {EVEN_REACH, measureWindExtent, type WindExtent} from './wind'
 import {yieldIfBusy} from './yield'
+import {godotMaterialFiles} from '../engine-kits'
 import {writeGLB, type NamedMesh} from '../glb-exporter'
 import {LEVEL_SHARES, type ExportFile, type ExportSettings, type ExportSource} from './types'
 
@@ -46,6 +47,8 @@ export async function buildExport(
     const far = settings.far === true && source.farAway?.() === true
     const total = levels + (settings.collision ? 1 : 0) + (far ? 1 : 0)
     const hasWind = settings.wind && source.sways()
+    const look = settings.look ?? 'lit'
+    const comic = look === 'cel'
     let extent: WindExtent | undefined
     let card: FarCard | null = null
     let done = 0
@@ -72,7 +75,7 @@ export async function buildExport(
         }
 
         // Only the full level is seen up close, where a small relief shows its pixels.
-        const merged = mergeParts(parts, name, pivot, extent, level === 0)
+        const merged = mergeParts(parts, name, pivot, extent, level === 0, comic)
 
         // Drawn from what ships at full detail, before joining lets go of it.
         if (level === 0 && far) {
@@ -80,7 +83,15 @@ export async function buildExport(
 
             if (card) {
                 faceCounts.far = FAR_FACES
-                files.push({name: `${name}_far.glb`, bytes: new Uint8Array(await writeGLB([farCardMesh(card, name)], `${name}_far`)), faces: FAR_FACES})
+                const cardMesh = farCardMesh(card, name, comic)
+                const cardMap = (cardMesh.material as THREE.MeshStandardMaterial).map
+
+                files.push({name: `${name}_far.glb`, bytes: new Uint8Array(await writeGLB([cardMesh], `${name}_far`)), faces: FAR_FACES})
+
+                // A Comic card's flattened picture is its own, and the writer leaves pictures alone.
+                if (cardMap !== card.material.map) {
+                    cardMap?.dispose()
+                }
                 card.material.map?.dispose()
                 card.material.normalMap?.dispose()
                 card.material.dispose()
@@ -130,6 +141,7 @@ export async function buildExport(
         format: ASSET_FORMAT_VERSION,
         name,
         engine,
+        look,
         faces: faceCounts,
         wind: extent ?? null,
         far: card
@@ -140,6 +152,10 @@ export async function buildExport(
             }
             : null,
         ...source.describe(),
+    }
+
+    if (settings.materials && engine === 'godot') {
+        files.push(...godotMaterialFiles(look))
     }
 
     files.push({name: `${name}.asset.json`, bytes: new TextEncoder().encode(`${JSON.stringify(asset, null, 4)}\n`)})

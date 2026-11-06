@@ -104,14 +104,15 @@ async function showPage() {
 }
 
 describe('Your props', () => {
-    it('lists every saved prop, with a count for each kind', async () => {
+    it('lists every saved prop, with a count for each kind it has', async () => {
         await showPage()
 
         const kinds = screen.getByRole('tablist', {name: 'Kind of prop'})
 
         expect(within(kinds).getByRole('tab', {name: /All/}).textContent).toContain('3')
         expect(within(kinds).getByRole('tab', {name: /Rock/}).textContent).toContain('1')
-        expect(within(kinds).getByRole('tab', {name: /Bush/}).textContent).toContain('1')
+        expect(within(kinds).getByRole('tab', {name: /Flower/}).textContent).toContain('1')
+        expect(within(kinds).queryByRole('tab', {name: /Cactus/})).toBeNull()
     })
 
     it('shows only the props of the kind picked', async () => {

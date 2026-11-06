@@ -17,8 +17,12 @@ import type {StyleProfile} from '../../style/style-profiles'
 import {
     buildBark,
     buildBarkOffThread,
+    buildLowPolyOffThread,
+    lowPolyHold,
     buildClump,
     buildFrond,
+    buildLowPolyBark,
+    buildLowPolyClump,
     canBuildBarkOffThread,
     COLOUR_KEYS,
     getBarkRelief,
@@ -103,6 +107,12 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     // Only what shapes the wood, so a leaf slider or a moved clump leaves the
     // bark's mesh alone.
     signature({tree, seed}) {
+        // A low-poly tree's crown is built with its wood, so any change to the
+        // tree builds them again together, except while a drag holds the crown.
+        if (tree.build === 'low-poly' && lowPolyHold() === null) {
+            return ['low-poly', seed, tree]
+        }
+
         const palette = resolvePalette(tree)
         const wood = Object.fromEntries(
             Object.entries(tree).filter(
@@ -120,6 +130,11 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     scalesWithDetail: true,
 
     dress(geometry, {tree}) {
+        // Plain blocks: their colour is in the faces, with nothing printed over it.
+        if (tree.build === 'low-poly') {
+            return {geometry, material: 'painted', surface: {vertexColors: true}, role: 'solid'}
+        }
+
         return {
             geometry,
             material: 'painted',
@@ -133,12 +148,22 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     },
 
     generate({tree, seed}, context) {
+        if (tree.build === 'low-poly') {
+            return this.dress!(buildLowPolyBark(planPaintedTree(tree, seed), tree, seed, context.detail ?? 1), {tree, seed})
+        }
+
         const detail = detailOf(context.style) * (context.detail ?? 1)
 
         return this.dress!(buildBark(planPaintedTree(tree, seed), tree, seed, detail), {tree, seed})
     },
 
     buildOffThread({tree, seed}, style, detail = 1) {
+        if (tree.build === 'low-poly') {
+            // The wood and the whole crown, built together away from the interface.
+            // While a drag holds the crown, only the wood.
+            return canBuildBarkOffThread() ? buildLowPolyOffThread({tree, seed, detail}, lowPolyHold() === null) : null
+        }
+
         return canBuildBarkOffThread()
             ? buildBarkOffThread({tree, seed, detail: detailOf(style) * detail})
             : null
@@ -218,6 +243,15 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
     // Its own shape, its leaf settings, and the neighbours that hide some of
     // its cards. Where it sits is the part's position, so moving it is free.
     signature({tree, seed, key}) {
+        // A low-poly crown is one surface shared out among its clumps, so a
+        // change to any of them reshapes the seams of the rest.
+        if (tree.build === 'low-poly') {
+            const hold = lowPolyHold()
+
+            // While a drag holds the crown, a clump keeps its faces and moves whole.
+            return hold === null ? ['low-poly', key, seed, tree] : ['low-poly held', key, hold]
+        }
+
         const plan = planPaintedTree(tree, seed)
         const clump = plan.clumps.find((candidate) => candidate.key === key)
 
@@ -264,6 +298,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
             rounded(clump.elevation),
             plan.clumps.indexOf(clump),
             plan.clumps.length,
+            tree.build,
             tree.droop,
             tree.height,
             tree.strands,
@@ -287,6 +322,16 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
     generate({tree, seed, key}, context) {
         const plan = planPaintedTree(tree, seed)
         const clump = findClump(tree, seed, key)
+
+        if (tree.build === 'low-poly') {
+            return {
+                geometry: clump ? buildLowPolyClump(plan, clump, tree, seed, context.detail ?? 1, context.detail ?? 1) : new THREE.BufferGeometry(),
+                material: 'painted',
+                // Gems, fronds and strands are all real shapes, so nothing is cut out of a picture.
+                surface: {vertexColors: true},
+                role: 'foliage',
+            }
+        }
 
         return {
             geometry: clump

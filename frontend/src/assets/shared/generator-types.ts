@@ -162,10 +162,17 @@ export interface PropGenerator<P extends object = object> {
     readonly paintsOwnColours?: boolean
     /** True for a prop the wind does not move. */
     readonly still?: boolean
+    /**
+     * True when it can also be made low-poly, through a `build` choice between
+     * 'painted' (Normal) and 'low-poly'. The switch over the view then shows.
+     */
+    readonly lowPoly?: boolean
     /** True when every part of it moves about alike, as across a patch of grass. */
     readonly swaysEvenly?: boolean
     /** What to lower when it costs too much, in the words of its own controls. */
     readonly budgetAdvice?: string
+    /** The same in Low-poly, where some of those controls are hidden. Left out, `budgetAdvice`. */
+    readonly lowPolyAdvice?: string
     /**
      * The controls that do something with these values, as a kind of prop that
      * reuses one generator hides what it has no use for. Left out, all of them.
@@ -176,7 +183,10 @@ export interface PropGenerator<P extends object = object> {
      * are seen from far off. Left out, none.
      */
     farAway?(parameters: P): boolean
-    /** What Make it fit may change, best first. Left out, the prop only gets the advice. */
+    /**
+     * What Make it fit may change, best first. Left out, the prop only gets the
+     * advice. Only the controls the prop shows for its values are tried.
+     */
     readonly fitControls?: readonly FitControl[]
     createDefaultParameters(): P
     validate(parameters: unknown): ValidationResult<P>

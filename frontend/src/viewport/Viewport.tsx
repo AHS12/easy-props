@@ -203,7 +203,8 @@ export function Viewport() {
 
             lastDrawn = now
             viewport.controls.update()
-            viewport.renderer.render(viewport.scene, viewport.camera)
+            viewport.setLineWeight(Number(settingValue('lineWeight')) || 1)
+            viewport.draw()
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             rings.update(viewport.camera, viewport.renderer.domElement.clientHeight)
@@ -619,18 +620,56 @@ export function Viewport() {
         window.addEventListener('pointerup', onWindowPointerUp, true)
         window.addEventListener('pointercancel', onWindowPointerUp, true)
 
+        const showScene = (state: ReturnType<typeof store.getState>) => {
+            viewport.syncScene(state.scene)
+            applySelectionVisuals(viewport, state.selection)
+            reportFaces(viewport)
+            reframeIfNeeded(state.scene)
+            refreshHandles()
+            // The gizmo sits on the part, so it moves with it. A drag
+            // still measures against the axis as it was at the start.
+            refreshGizmo()
+            refreshCollision()
+            refreshFar()
+        }
+
+        // Switching between Normal and Low-poly, or to another low-poly tree, builds
+        // the whole tree again, which takes a moment. So the loading screen goes up
+        // first and stays until the tree is in.
+        let switching = false
+        let switchShowing = false
+        const buildBehindLoading = (step: LoadStep) => {
+            switching = true
+            setLoadStep(step)
+
+            void afterPaint().then(() => {
+                if (stopped) {
+                    return
+                }
+
+                switching = false
+                showScene(store.getState())
+
+                if (viewport.components.building) {
+                    switchShowing = true
+                } else {
+                    setLoadStep(null)
+                }
+            })
+        }
+
         const unsubscribe = store.subscribe((state, previous) => {
             if (state.scene !== previous.scene) {
-                viewport.syncScene(state.scene)
-                applySelectionVisuals(viewport, state.selection)
-                reportFaces(viewport)
-                reframeIfNeeded(state.scene)
-                refreshHandles()
-                // The gizmo sits on the part, so it moves with it. A drag
-                // still measures against the axis as it was at the start.
-                refreshGizmo()
-                refreshCollision()
-                refreshFar()
+                const now = state.scene.assets[0]
+                const before = previous.scene.assets[0]
+
+                if (now && before && now.id === before.id && (now.parameters.build ?? 'painted') !== (before.parameters.build ?? 'painted')) {
+                    buildBehindLoading(now.parameters.build === 'low-poly' ? 'low-poly' : 'normal')
+                } else if (now?.parameters.build === 'low-poly' && state.presetId !== previous.presetId) {
+                    buildBehindLoading('low-poly-tree')
+                } else if (!switching) {
+                    showScene(state)
+                }
             }
 
             if (state.style !== previous.style) {
@@ -694,7 +733,7 @@ export function Viewport() {
                 }
             },
             stats: () => ({
-                drawCalls: viewport.renderer.info.render.calls,
+                drawCalls: viewport.drawCalls(),
                 size: viewport.contentSize(),
             }),
         })
@@ -760,6 +799,11 @@ export function Viewport() {
             // Parts rebuilt just now have not been told whether they are selected.
             applySelectionVisuals(viewport, store.getState().selection)
             reportFaces(viewport)
+
+            if (switchShowing) {
+                switchShowing = false
+                setLoadStep(null)
+            }
         })
         viewport.setLighting(store.getState().lighting)
         viewport.setShadingMode(store.getState().shadingMode)

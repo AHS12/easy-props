@@ -18,6 +18,7 @@ import {
 } from '../shared/parameters'
 import {OWN_COLOURS_OPTION, STONE_ROWS, ownColours, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
+import {buildLowPolyRockMesh} from './low-poly-rock'
 import {buildRockMesh} from './rock-mesh'
 import {facesOfChunk, planRock, type RockKind} from './rock-plan'
 
@@ -51,6 +52,21 @@ const KIND: ChoiceParameter<RockKind> = {
     ],
 }
 
+export type RockBuild = 'painted' | 'low-poly'
+
+const BUILD: ChoiceParameter<RockBuild> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal has soft, carved edges. Low-poly is the same rock in hard flat faces, each one colour.',
+    default: 'painted',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
+    ],
+}
+
 const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
     kind: 'choice',
     group: SURFACE,
@@ -67,6 +83,9 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
     ],
 }
 
+/** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend']
+
 const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
 const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the rock is.', 0.2, 40, 0.1, 3, 'm')
@@ -80,9 +99,10 @@ const BEND = number(SURFACE, 'bend', 'Bend', 'How far the flat faces bend, so th
 const MOSS = number(SURFACE, 'moss', 'Moss', 'Green caps on whatever faces the sky.', 0, 1, 0.05, 0.5)
 const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, MOSS, VARIATION, PALETTE, ...STONE.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, MOSS, VARIATION, PALETTE, ...STONE.specs]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
+    readonly build: RockBuild
     readonly kind: RockKind
     readonly width: number
     readonly height: number
@@ -98,6 +118,7 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
 }
 
 export const cutRockDefaults: CutRockParameters = {
+    build: BUILD.default,
     kind: KIND.default,
     width: WIDTH.default,
     height: HEIGHT.default,
@@ -113,6 +134,7 @@ export const cutRockDefaults: CutRockParameters = {
 }
 
 const cutRockSchema = z.object({
+    build: choiceSchema(BUILD),
     kind: choiceSchema(KIND),
     width: numberSchema(WIDTH),
     height: numberSchema(HEIGHT),
@@ -164,8 +186,10 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
     validate: validateBody,
 
     generate({rock, seed}, {detail = 1}) {
+        const plan = planRock(rock, seed)
+
         return {
-            geometry: buildRockMesh(planRock(rock, seed), rock, seed, detail),
+            geometry: rock.build === 'low-poly' ? buildLowPolyRockMesh(plan, rock, detail) : buildRockMesh(plan, rock, seed, detail),
             material: 'painted',
             role: 'solid',
             surface: {vertexColors: true},
@@ -205,6 +229,7 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
     label: 'Rock',
     parameters: specs,
     paintsOwnColours: true,
+    lowPoly: true,
     still: true,
     budgetAdvice: 'Lower Chunks or Faces.',
     // Fewer faces keeps the rock's outline. Fewer chunks changes its shape, so it comes second.
@@ -218,6 +243,13 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
     },
 
     validate: validateCutRock,
+
+    shownControls(values) {
+        // Style is a switch over the view. A low-poly rock has hard, flat faces.
+        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : [])]
+
+        return specs.filter((spec) => !hidden.includes(spec.key))
+    },
 
     collision: chunkCollision,
 

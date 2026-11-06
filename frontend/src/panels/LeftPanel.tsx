@@ -15,8 +15,7 @@ function PresetsPanel() {
     const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
     const wanted = query.trim().toLowerCase()
     const family = familyOfPreset(presetId)
-    const noun = PROP_FAMILIES.find(({id}) => id === family)!.label.toLowerCase()
-    const plural = noun === 'bush' ? 'bushes' : `${noun}s`
+    const plural = PROP_FAMILIES.find(({id}) => id === family)!.plural.toLowerCase()
     const groups = presetGroups
         .filter((group) => group.family === family)
         .map((group) => ({

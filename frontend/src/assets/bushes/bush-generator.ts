@@ -19,7 +19,8 @@ import {
 } from '../shared/parameters'
 import {FLOWER_ROWS, LEAF_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {BUSH_RAMPS, PETAL_RAMPS, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
-import {buildBushCore, buildBushLeaves, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
+import {buildBushCore, buildBushLeaves, type BushBuild, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
+import {buildLowPolyBushBody, buildLowPolyBushFlowers} from './low-poly-bush'
 
 const SHAPE = 'Shape'
 const LEAVES = 'Leaves'
@@ -51,6 +52,22 @@ const KIND: ChoiceParameter<BushKind> = {
         {value: 'hedge', label: 'Hedge'},
     ],
 }
+
+const BUILD: ChoiceParameter<BushBuild> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal is covered in leaves. Low-poly is the same bush in a few flat faces, each one colour.',
+    default: 'painted',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
+    ],
+}
+
+/** Controls that only shape the leaf cards, which a low-poly bush has none of. */
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['inside', 'fullness', 'leafSize']
 
 const INSIDE: ChoiceParameter<BushInside> = {
     kind: 'choice',
@@ -112,9 +129,10 @@ const VARIATION = number(LEAVES, 'variation', 'Variation', 'How much one mass di
 const FLOWERS = number(FLOWERS_GROUP, 'flowers', 'Flowers', 'How thickly it flowers. They gather in drifts on its upper part.', 0, 1, 0.05, 0)
 const FLOWER_SIZE = number(FLOWERS_GROUP, 'flowerSize', 'Flower size', 'How large each flower is.', 0.02, 0.3, 0.01, 0.1, 'm')
 
-const specs: readonly ParameterSpec[] = [KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
 
 export const bushDefaults: BushParameters = {
+    build: BUILD.default,
     kind: KIND.default,
     width: WIDTH.default,
     height: HEIGHT.default,
@@ -132,6 +150,7 @@ export const bushDefaults: BushParameters = {
 }
 
 const bushSchema = z.object({
+    build: choiceSchema(BUILD),
     kind: choiceSchema(KIND),
     width: numberSchema(WIDTH),
     height: numberSchema(HEIGHT),
@@ -187,7 +206,7 @@ export const bushCoreGenerator: PartGenerator<BushPartParameters> = {
 
     generate({bush, seed}, {detail = 1}) {
         return {
-            geometry: buildBushCore(bush, seed, detail),
+            geometry: bush.build === 'low-poly' ? buildLowPolyBushBody(bush, seed, detail) : buildBushCore(bush, seed, detail),
             material: 'painted',
             role: 'solid',
             surface: {vertexColors: true},
@@ -210,6 +229,11 @@ export const bushLeavesGenerator: PartGenerator<BushPartParameters> = {
     validate: validatePart,
 
     generate({bush, seed}, {detail = 1}) {
+        // Flowers alone, as real shapes, so nothing is cut out of a picture.
+        if (bush.build === 'low-poly') {
+            return {geometry: buildLowPolyBushFlowers(bush, seed, detail), material: 'painted', role: 'foliage', surface: {vertexColors: true}}
+        }
+
         return {
             geometry: buildBushLeaves(bush, seed, detail),
             material: 'painted',
@@ -226,10 +250,14 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     farAway: () => true,
     parameters: specs,
     paintsOwnColours: true,
+    lowPoly: true,
     budgetAdvice: 'Lower Fullness or raise Leaf size.',
+    lowPolyAdvice: 'Lower Masses.',
+    // Fewer masses changes its shape, so it comes last. In Low-poly it is all there is.
     fitControls: [
         {key: 'fullness', limit: 1},
         {key: 'leafSize', limit: 0.35},
+        {key: 'lobes', limit: 3},
     ],
 
     createDefaultParameters() {
@@ -237,6 +265,13 @@ export const bushGenerator: PropGenerator<BushParameters> = {
     },
 
     validate: validateBush,
+
+    shownControls(values) {
+        // Style is a switch over the view.
+        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : [])]
+
+        return specs.filter((spec) => !hidden.includes(spec.key))
+    },
 
     collision(bush) {
         const across = (bush.width + bush.depth) / 4
