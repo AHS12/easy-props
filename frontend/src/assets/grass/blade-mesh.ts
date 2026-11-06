@@ -20,6 +20,8 @@ import {colourRamp} from '../style/ramp'
 import {FLOWER_ROWS, GRASS_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {DRY_RAMP, GRASS_RAMPS, PETAL_RAMPS, STEM_RAMP, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 
+export type GrassBuild = 'painted' | 'low-poly'
+
 export interface GrassParameters extends Partial<OwnColourValues<typeof GRASS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
     readonly width: number
     readonly height: number
@@ -45,6 +47,7 @@ export interface GrassParameters extends Partial<OwnColourValues<typeof GRASS_RO
     /** Flowers standing among the blades, in drifts. */
     readonly flowers: number
     readonly flowerColour: PetalPaletteId | OwnColours
+    readonly build: GrassBuild
 }
 
 interface Clump {
@@ -73,7 +76,7 @@ const SEED_BLADE = 1000
 const SEED_FLOWER = 60000
 const FLOWER_PETALS = 6
 const FLOWER_ACROSS = 0.06
-const FLOWER_STEM = 0.007
+export const FLOWER_STEM = 0.007
 const FLOWER_STEM_PIECES = 2
 /** How tall a blade stands near the rim, at the very least. */
 const RIM_HEIGHT = 0.4
@@ -98,7 +101,7 @@ const MIN_PIECES = 2
 /** The most a blade may widen to cover for the ones a lighter level leaves out. */
 const MAX_WIDENING = 2.5
 
-const tipHeight = (blade: Pick<Blade, 'height' | 'lean'>) => blade.height * (1 - LEAN_DROP * blade.lean)
+export const tipHeight = (blade: Pick<Blade, 'height' | 'lean'>) => blade.height * (1 - LEAN_DROP * blade.lean)
 
 const tipOf = (blade: Blade) => ({
     x: blade.x + Math.cos(blade.facing) * blade.lean * blade.height,
@@ -167,7 +170,7 @@ export function planGrass(grass: GrassParameters, seed: number): readonly Blade[
  * The blades a lighter level keeps. It always keeps whichever mark the patch's
  * extent, so the outline holds, and never rerolls: stepping down only takes away.
  */
-function bladesAtDetail(blades: readonly Blade[], count: number): readonly Blade[] {
+export function bladesAtDetail(blades: readonly Blade[], count: number): readonly Blade[] {
     const edges = new Set<Blade>()
     const extreme = (measure: (blade: Blade) => number) => {
         edges.add(blades.reduce((best, blade) => (measure(blade) > measure(best) ? blade : best)))
@@ -184,11 +187,19 @@ function bladesAtDetail(blades: readonly Blade[], count: number): readonly Blade
     return [...edges, ...rest.slice(0, Math.max(0, count - edges.size))]
 }
 
-/** A flower belongs to a drift, so only those falling near one of a few centres stand. */
-function addFlowers(buffers: {positions: number[]; normals: number[]; colors: number[]; indices: number[]}, grass: GrassParameters, seed: number, detail: number) {
+/** Where a blade's curve is at `t`, root to tip: along the way it faces, and up. */
+export function bladePoint(blade: Blade, t: number): readonly [number, number, number] {
+    const u = 1 - t
+    const reach = blade.lean * blade.height
+    const along = 2 * u * t * reach * REACH_AT_MIDDLE + t * t * reach
+    const up = 2 * u * t * blade.height * CURVE_AT_MIDDLE + t * t * tipHeight(blade)
+
+    return [blade.x + Math.cos(blade.facing) * along, up, blade.z + Math.sin(blade.facing) * along]
+}
+
+/** Where each flower stands, its stem's path, and how wide it is. */
+export function flowerStems(grass: GrassParameters, seed: number, detail: number): {path: ReturnType<typeof stemPath>; across: number; random: () => number}[] {
     const count = Math.round(grass.flowers * detail)
-    const petal = colourRamp(rampOf(grass.flowerColour, PETAL_RAMPS, grass, FLOWER_ROWS))
-    const stem = colourRamp(STEM_RAMP)
     const radius = grass.width / 2
     const drift = createSeededRandom(hashSeed(seed, SEED_FLOWER))
     const centres = [0, 1, 2].map(() => {
@@ -198,15 +209,25 @@ function addFlowers(buffers: {positions: number[]; normals: number[]; colors: nu
         return [Math.cos(azimuth) * out, Math.sin(azimuth) * out] as const
     })
 
-    for (let i = 0; i < count; i++) {
+    return Array.from({length: count}, (_, i) => {
         const random = createSeededRandom(hashSeed(seed, SEED_FLOWER + 1 + i))
         const [cx, cz] = centres[i % centres.length]
         const azimuth = random() * Math.PI * 2
         const out = random() * radius * 0.4
         const path = stemPath(cx + Math.cos(azimuth) * out, cz + Math.sin(azimuth) * out, random() * Math.PI * 2, grass.height * randomRange(random, 0.7, 0.98), grass.lean * 0.25)
 
+        return {path, across: FLOWER_ACROSS * randomRange(random, 0.8, 1.2), random}
+    })
+}
+
+/** A flower belongs to a drift, so only those falling near one of a few centres stand. */
+function addFlowers(buffers: {positions: number[]; normals: number[]; colors: number[]; indices: number[]}, grass: GrassParameters, seed: number, detail: number) {
+    const petal = colourRamp(rampOf(grass.flowerColour, PETAL_RAMPS, grass, FLOWER_ROWS))
+    const stem = colourRamp(STEM_RAMP)
+
+    for (const {path, across, random} of flowerStems(grass, seed, detail)) {
         addStrip(buffers, path, FLOWER_STEM, FLOWER_STEM_PIECES, (t) => stem(0.2 + t * 0.6), false)
-        addDaisy(buffers, path.point(1), path.tangent(1), FLOWER_ACROSS * randomRange(random, 0.8, 1.2), FLOWER_PETALS, petal, random)
+        addDaisy(buffers, path.point(1), path.tangent(1), across, FLOWER_PETALS, petal, random)
     }
 }
 

@@ -97,7 +97,7 @@ function StyleToggle() {
         return null
     }
 
-    const NormalIcon = asset?.generatorId === 'cut-rock' ? Mountain : asset?.generatorId === 'bush' ? Shrub : asset?.generatorId === 'plant' ? Flower2 : asset?.generatorId === 'cactus' ? Sprout : TreeDeciduous
+    const NormalIcon = asset?.generatorId === 'cut-rock' ? Mountain : asset?.generatorId === 'bush' ? Shrub : asset?.generatorId === 'plant' ? Flower2 : asset?.generatorId === 'cactus' || asset?.generatorId === 'grass' ? Sprout : TreeDeciduous
 
     const lowPoly = asset.parameters.build === 'low-poly'
     const choose = (build: 'painted' | 'low-poly') => () => {

@@ -17,7 +17,7 @@ import {plantAtDetail, PLUME_SHARE, SPIKE_SHARE, STEM_WIDTH, stemPath, type Plan
 const STEM_SIDES = 3
 const STEM_STOPS: readonly number[] = [0, 0.55, 1]
 /** Three sides look thinner than a flat strip, so the stem is drawn wider to read as well. */
-const STEM_THICKER = 1.8
+export const STEM_THICKER = 1.8
 const DAISY_PETALS = 8
 const CUP_SIDES = 5
 const SPINDLE_SIDES = 5
@@ -26,7 +26,7 @@ const FACE_JITTER = 0.06
 /** A folded leaf's edges stand up by this share of its half width. */
 const LEAF_FOLD = 0.45
 
-type Faces = {positions: number[]; normals: number[]; colors: number[]}
+export type Faces = {positions: number[]; normals: number[]; colors: number[]}
 type Paint = (value: number) => THREE.Color
 
 const add = (a: Vec3, b: Vec3, t = 1): Vec3 => [a[0] + b[0] * t, a[1] + b[1] * t, a[2] + b[2] * t]
@@ -66,7 +66,7 @@ function pushOutward(out: Faces, a: Vec3, b: Vec3, c: Vec3, inside: Vec3, colour
  * A thin face seen from both sides. Both sides take the facing that looks up, as
  * the normal plant's do, or a petal seen from below would turn dark.
  */
-function pushBothSides(out: Faces, a: Vec3, b: Vec3, c: Vec3, colour: THREE.Color) {
+export function pushBothSides(out: Faces, a: Vec3, b: Vec3, c: Vec3, colour: THREE.Color) {
     const n = normalize(cross(sub(b, a), sub(c, a)))
     const up: Vec3 = n[1] < 0 ? [-n[0], -n[1], -n[2]] : n
 
@@ -122,7 +122,7 @@ function addSpindle(out: Faces, from: Vec3, rings: readonly Vec3[][], to: Vec3 |
     }
 }
 
-function addStem(out: Faces, path: StemPath, width: number, paint: Paint, random: RandomSource) {
+export function addStem(out: Faces, path: StemPath, width: number, paint: Paint, random: RandomSource) {
     const rings = STEM_STOPS.map((t) => ringAround(path.point(t), path.tangent(t), (width / 2) * (1 - 0.4 * t), STEM_SIDES, 0, path.side))
 
     for (let band = 0; band + 1 < rings.length; band++) {
@@ -153,7 +153,7 @@ function addLeaf(out: Faces, path: StemPath, width: number, paint: Paint, random
     pushBothSides(out, base, tip, right, paint(value - 0.12))
 }
 
-function addDaisy(out: Faces, tip: Vec3, axis: Vec3, across: number, paint: Paint, random: RandomSource) {
+export function addDaisy(out: Faces, tip: Vec3, axis: Vec3, across: number, paint: Paint, random: RandomSource) {
     const radius = across / 2
     const turn = random() * Math.PI * 2
     const {u, v} = frameOf(axis)
@@ -210,6 +210,16 @@ function addHeadSpindle(out: Faces, path: StemPath, share: number, stops: readon
     addSpindle(out, from, rings, to, (band) => paint(0.2 + (band / (stops.length + 1)) * 0.7 + jitter(random)))
 }
 
+export function facesToGeometry(faces: Faces): THREE.BufferGeometry {
+    const geometry = new THREE.BufferGeometry()
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(faces.positions, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(faces.normals, 3))
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(faces.colors, 3))
+
+    return geometry
+}
+
 export function buildLowPolyPlantMesh(plant: PlantParameters, seed: number, detail: number): THREE.BufferGeometry {
     return plantAtDetail(plant, seed, detail, (stems, growth) => {
         const petal = colourRamp(rampOf(plant.palette, PETAL_RAMPS, plant, FLOWER_ROWS))
@@ -260,12 +270,6 @@ export function buildLowPolyPlantMesh(plant: PlantParameters, seed: number, deta
             }
         }
 
-        const geometry = new THREE.BufferGeometry()
-
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(faces.positions, 3))
-        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(faces.normals, 3))
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(faces.colors, 3))
-
-        return geometry
+        return facesToGeometry(faces)
     })
 }

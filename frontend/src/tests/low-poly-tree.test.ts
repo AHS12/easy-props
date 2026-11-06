@@ -320,7 +320,7 @@ describe('a low-poly tree', {timeout: 60000}, () => {
 
         expect(useEditorStore.getState().scene.assets[0].parameters.build).toBe('low-poly')
 
-        useEditorStore.getState().applyPreset('meadow-patch')
+        useEditorStore.getState().applyPreset('round-canopy')
 
         expect(useEditorStore.getState().scene.assets[0].parameters.build).toBeUndefined()
 

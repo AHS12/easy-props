@@ -18,7 +18,8 @@ import {
 } from '../shared/parameters'
 import {FLOWER_ROWS, GRASS_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {GRASS_RAMPS, PETAL_RAMPS, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
-import {buildGrassMesh, type GrassParameters} from './blade-mesh'
+import {buildGrassMesh, type GrassBuild, type GrassParameters} from './blade-mesh'
+import {buildLowPolyGrassMesh} from './low-poly-grass'
 
 const SHAPE = 'Shape'
 const BLADES = 'Blades'
@@ -68,6 +69,22 @@ const FLOWER_COLOUR: ChoiceParameter<PetalPaletteId | OwnColours> = {
     ],
 }
 
+const BUILD: ChoiceParameter<GrassBuild> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal is many fine blades. Low-poly is fewer, wider blades, each folded down the middle in flat colours.',
+    default: 'painted',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
+    ],
+}
+
+/** Controls a low-poly patch has no use for: its blades are always folded in two. */
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['smoothness']
+
 const OWN_GRASS = ownColours(PALETTE, GRASS_RAMPS, GRASS_ROWS, 'grass')
 const OWN_FLOWERS = ownColours(FLOWER_COLOUR, PETAL_RAMPS, FLOWER_ROWS, 'flowers')
 
@@ -86,9 +103,10 @@ const VARIATION = number(COLOUR, 'variation', 'Variation', 'How much one clump d
 
 const FLOWERS = number(COLOUR, 'flowers', 'Flowers', 'How many flowers stand among the blades, in drifts.', 0, 120, 1, 0)
 
-const specs: readonly ParameterSpec[] = [WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, ...OWN_GRASS.specs, FLOWERS, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, ...OWN_GRASS.specs, FLOWERS, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
 
 export const grassDefaults: GrassParameters = {
+    build: BUILD.default,
     width: WIDTH.default,
     height: HEIGHT.default,
     blades: COUNT.default,
@@ -107,6 +125,7 @@ export const grassDefaults: GrassParameters = {
 }
 
 const grassSchema = z.object({
+    build: choiceSchema(BUILD),
     width: numberSchema(WIDTH),
     height: numberSchema(HEIGHT),
     blades: numberSchema(COUNT),
@@ -163,7 +182,7 @@ export const grassBodyGenerator: PartGenerator<GrassBodyParameters> = {
 
     generate({grass, seed}, {detail = 1}) {
         return {
-            geometry: buildGrassMesh(grass, seed, detail),
+            geometry: grass.build === 'low-poly' ? buildLowPolyGrassMesh(grass, seed, detail) : buildGrassMesh(grass, seed, detail),
             material: 'painted',
             role: 'foliage',
             surface: {vertexColors: true, receiveShadow: false},
@@ -178,6 +197,7 @@ export const grassGenerator: PropGenerator<GrassParameters> = {
     parameters: specs,
     paintsOwnColours: true,
     swaysEvenly: true,
+    lowPoly: true,
     budgetAdvice: 'Lower Blades or Smoothness.',
     fitControls: [
         {key: 'blades', limit: 40},
@@ -189,6 +209,13 @@ export const grassGenerator: PropGenerator<GrassParameters> = {
     },
 
     validate: validateGrass,
+
+    shownControls(values) {
+        // Style is a switch over the view.
+        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : [])]
+
+        return specs.filter((spec) => !hidden.includes(spec.key))
+    },
 
     // Nothing stops a player walking through grass.
     collision() {
