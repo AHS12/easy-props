@@ -3,12 +3,22 @@
  * kind, and how long ago it was saved, in the fewest words that are still true.
  */
 
-import {Box, Brush, TreePine, type LucideIcon} from 'lucide-react'
 import type {PropFamily} from '../assets/trees/presets'
 import {calendarDaysBetween} from '../core/library/prop-summary'
 import type {SavedTree} from '../platform/library'
 
-export const FAMILY_ICONS: Readonly<Record<PropFamily, LucideIcon>> = {tree: TreePine, rock: Box, bush: Brush}
+export {FAMILY_ICONS} from '../components/kind-icons'
+
+/** The preset whose picture stands for each kind on its Home card. */
+export const KIND_PICTURES: Readonly<Record<PropFamily, string>> = {
+    tree: 'oak',
+    palm: 'coconut-palm-painted',
+    bush: 'flower-bush',
+    flower: 'daisies',
+    grass: 'meadow-patch',
+    cactus: 'saguaro',
+    rock: 'split-boulder',
+}
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE

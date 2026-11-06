@@ -35,7 +35,8 @@ export const PRESET_CATEGORIES = [
     'Fantasy',
     'Bushes',
     'Ferns',
-    'Grass & flowers',
+    'Flowers',
+    'Grass',
     'Cacti',
     'Boulders',
     'Outcrops',
@@ -45,22 +46,33 @@ export const PRESET_CATEGORIES = [
 
 export type PresetCategory = (typeof PRESET_CATEGORIES)[number]
 
-/** The tab a preset is listed under. */
-export type PropFamily = 'tree' | 'rock' | 'bush'
+/** The kind of prop a preset is listed under. */
+export type PropFamily = 'tree' | 'palm' | 'bush' | 'flower' | 'grass' | 'cactus' | 'rock'
 
-export const PROP_FAMILIES: readonly {readonly id: PropFamily; readonly label: string}[] = [
-    {id: 'tree', label: 'Tree'},
-    {id: 'rock', label: 'Rock'},
-    {id: 'bush', label: 'Bush'},
+/** Every kind, in the order Home shows them. Each is named alone, and as a heading. */
+export const PROP_FAMILIES: readonly {readonly id: PropFamily; readonly label: string; readonly plural: string}[] = [
+    {id: 'tree', label: 'Tree', plural: 'Trees'},
+    {id: 'palm', label: 'Palm', plural: 'Palms'},
+    {id: 'bush', label: 'Bush', plural: 'Bushes'},
+    {id: 'flower', label: 'Flower', plural: 'Flowers'},
+    {id: 'grass', label: 'Grass', plural: 'Grass'},
+    {id: 'cactus', label: 'Cactus', plural: 'Cacti'},
+    {id: 'rock', label: 'Rock', plural: 'Rocks'},
 ]
 
 const familyOfCategory = (category: PresetCategory | undefined): PropFamily => {
     switch (category) {
+        case 'Palms & tropical':
+            return 'palm'
         case 'Bushes':
         case 'Ferns':
-        case 'Grass & flowers':
-        case 'Cacti':
             return 'bush'
+        case 'Flowers':
+            return 'flower'
+        case 'Grass':
+            return 'grass'
+        case 'Cacti':
+            return 'cactus'
         case 'Boulders':
         case 'Outcrops':
         case 'Stones':
@@ -115,7 +127,7 @@ const plant = (
     sub: string,
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
-): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'plant', parameters: {...plantDefaults, ...parameters}})
+): TreePreset => ({id, name, sub, category: 'Flowers', seed, generatorId: 'plant', parameters: {...plantDefaults, ...parameters}})
 
 /** One cactus: only what differs from the defaults. */
 const cactus = (
@@ -133,7 +145,7 @@ const grass = (
     sub: string,
     seed: number,
     parameters: Readonly<Record<string, number | string>>,
-): TreePreset => ({id, name, sub, category: 'Grass & flowers', seed, generatorId: 'grass', parameters: {...grassDefaults, ...parameters}})
+): TreePreset => ({id, name, sub, category: 'Grass', seed, generatorId: 'grass', parameters: {...grassDefaults, ...parameters}})
 
 const PALM_BASE = {
     form: 'palm',
@@ -486,12 +498,13 @@ export const familyOfPreset = (id: string | null | undefined): PropFamily =>
     familyOfCategory(id ? findPreset(id)?.category : undefined)
 
 const GENERATOR_FAMILIES: Readonly<Record<string, PropFamily>> = {
+    'palm-tree': 'palm',
     'cut-rock': 'rock',
     rock: 'rock',
     bush: 'bush',
-    plant: 'bush',
-    grass: 'bush',
-    cactus: 'bush',
+    plant: 'flower',
+    grass: 'grass',
+    cactus: 'cactus',
 }
 
 /**

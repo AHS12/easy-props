@@ -294,10 +294,7 @@ export function Details() {
     const presetId = useEditorStore((state) => state.presetId)
     const family = familyOfPreset(presetId)
     const scene = useEditorStore((state) => state.scene)
-    // The Bush tab holds bushes, grass, flowers and cacti, so the panel names which.
-    const familyLabel =
-        (family === 'bush' && scene.assets[0] ? findPropGenerator(scene.assets[0].generatorId)?.label : undefined) ??
-        PROP_FAMILIES.find(({id}) => id === family)!.label
+    const familyLabel = PROP_FAMILIES.find(({id}) => id === family)!.label
     const selectedId = useEditorStore((state) => state.selection.selectedId)
     const updateTreeParameters = useEditorStore((state) => state.updateTreeParameters)
     const updateComponentParameters = useEditorStore((state) => state.updateComponentParameters)

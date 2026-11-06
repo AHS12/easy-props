@@ -55,6 +55,10 @@ describe('rocks go through the same pipeline', () => {
         expect(presetsOf('bush').length).toBeGreaterThanOrEqual(9)
         expect(familyOfPreset('boulder')).toBe('rock')
         expect(familyOfPreset('forest-fern')).toBe('bush')
+        expect(familyOfPreset('coconut-palm-painted')).toBe('palm')
+        expect(familyOfPreset('daisies')).toBe('flower')
+        expect(familyOfPreset('flower-meadow')).toBe('grass')
+        expect(familyOfPreset('saguaro')).toBe('cactus')
         expect(familyOfPreset('oak')).toBe('tree')
         expect(familyOfPreset('no-such-preset')).toBe('tree')
     })
@@ -115,7 +119,7 @@ describe('rocks go through the same pipeline', () => {
 })
 
 describe('foliage props', () => {
-    const SMALL = presetsOf('bush').map((preset) => preset.id)
+    const SMALL = ['bush', 'flower', 'grass', 'cactus'].flatMap(presetsOf).map((preset) => preset.id)
 
     it.each(SMALL)('%s has low detail levels that fit Mobile, and full detail that fits Background', async (id) => {
         const files = await buildExport(sourceOf(id), {name: 'plant', engine: 'plain', levels: 3, collision: false, wind: true})

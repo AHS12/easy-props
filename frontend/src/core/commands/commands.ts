@@ -7,7 +7,7 @@
 
 import type {LucideIcon} from 'lucide-react'
 import {
-    Box, BrickWall, Brush, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
+    BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
     PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
@@ -15,6 +15,7 @@ import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop
 import {fitControlsOf} from '../export/make-it-fit'
 import {SHADING_MODES, SHADING_MODE_KEYWORDS, SHADING_MODE_LABELS} from '../../assets/style/shading'
 import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/presets'
+import {FAMILY_ICONS} from '../../components/kind-icons'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
 import {findBudgetTarget} from '../export/pipeline/budget'
@@ -114,11 +115,13 @@ const whyNotTurn = (state: EditorStore) => {
 /** What a New command opens on. */
 const FAMILY_STARTERS: Readonly<Record<PropFamily, string>> = {
     tree: 'blossom-tree',
-    rock: 'boulder',
+    palm: 'coconut-palm-painted',
     bush: 'round-bush',
+    flower: 'daisies',
+    grass: 'grass-tuft',
+    cactus: 'saguaro',
+    rock: 'boulder',
 }
-
-const ICONS: Readonly<Record<PropFamily, LucideIcon>> = {tree: Sparkles, rock: Box, bush: Brush}
 
 const VIEW_ANGLES: readonly {angle: ViewAngle; label: string; shortcut?: string}[] = [
     {angle: 'perspective', label: 'Perspective'},
@@ -170,7 +173,7 @@ export const COMMANDS: readonly Command[] = [
             id: `new-${id}`,
             label: `New ${label.toLowerCase()}`,
             group: 'File',
-            icon: ICONS[id],
+            icon: FAMILY_ICONS[id],
             global: true,
             keywords: 'start create prop',
             run: (state) => guardUnsaved(state, 'Start a new prop', () => state.startNewProp(FAMILY_STARTERS[id])),

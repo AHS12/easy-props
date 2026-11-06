@@ -3181,6 +3181,101 @@ html[data-theme='dark'] .dialog__error {
     width: 240px;
 }
 
+/* Every kind of prop, side by side, so the whole range shows before any click. */
+.kind-cards {
+    display: grid;
+    /* Always one even row, never six and a straggler. */
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+@media (max-width: 640px) {
+    .kind-cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.kind-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    overflow: hidden;
+    text-align: left;
+    transition: border-color var(--motion-fast), transform var(--motion-fast);
+}
+
+.kind-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+}
+
+.kind-card[aria-selected='true'] {
+    border-color: var(--accent-moss-text);
+    box-shadow: inset 0 0 0 1px var(--accent-moss-text);
+}
+
+.kind-card .preset-card__thumb {
+    padding: var(--space-2);
+}
+
+.kind-card__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 6px 8px 7px;
+    color: var(--text-secondary);
+    font: var(--text-label);
+    white-space: nowrap;
+}
+
+.kind-card__label > svg {
+    flex: none;
+}
+
+.kind-card[aria-selected='true'] .kind-card__label,
+.kind-card:hover .kind-card__label {
+    color: var(--text-primary);
+}
+
+.kind-card__count {
+    margin-left: auto;
+    color: var(--text-tertiary);
+    font: var(--text-caption);
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: var(--space-3);
+}
+
+.chip {
+    height: 26px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: var(--text-label);
+}
+
+.chip:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+}
+
+.chip[aria-pressed='true'] {
+    border-color: var(--accent-moss-text);
+    background: var(--surface-selected);
+    color: var(--text-primary);
+}
+
 .tile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

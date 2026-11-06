@@ -30,8 +30,8 @@ describe('reading a saved prop', () => {
 
     it('gets the kind of a prop saved before 0.3.5 from its generator', () => {
         expect(summarizeProp(documentOf({name: 'Rock'}, {generatorId: 'cut-rock'})).kind).toBe('rock')
-        expect(summarizeProp(documentOf({name: 'Fern'}, {generatorId: 'plant'})).kind).toBe('bush')
-        expect(summarizeProp(documentOf({name: 'Palm'}, {generatorId: 'palm-tree'})).kind).toBe('tree')
+        expect(summarizeProp(documentOf({name: 'Fern'}, {generatorId: 'plant'})).kind).toBe('flower')
+        expect(summarizeProp(documentOf({name: 'Palm'}, {generatorId: 'palm-tree'})).kind).toBe('palm')
     })
 
     it('lists a file it cannot read under no kind', () => {
