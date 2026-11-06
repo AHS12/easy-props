@@ -15,7 +15,7 @@ import {
 } from '../shared/parameters'
 import {CACTUS_ROWS, FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {CACTUS_COLOURS, CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
-import {buildCactusMesh, type CactusKind, type CactusParameters} from './cactus-mesh'
+import {buildCactusMesh, type CactusBuild, type CactusKind, type CactusParameters} from './cactus-mesh'
 
 const SHAPE = 'Shape'
 const SURFACE = 'Ridges & spines'
@@ -45,6 +45,19 @@ const KIND: ChoiceParameter<CactusKind> = {
         {value: 'column', label: 'Column'},
         {value: 'barrel', label: 'Barrel'},
         {value: 'paddle', label: 'Paddles'},
+    ],
+}
+
+const BUILD: ChoiceParameter<CactusBuild> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'build',
+    label: 'Style',
+    help: 'Normal is rounded and spiny. Low-poly is the same cactus in a few flat faces, each one colour.',
+    default: 'painted',
+    options: [
+        {value: 'painted', label: 'Normal'},
+        {value: 'low-poly', label: 'Low-poly'},
     ],
 }
 
@@ -84,7 +97,7 @@ const RIB_DEPTH = number(SURFACE, 'ribDepth', 'Ridge depth', 'How deep the valle
 const SPINES = number(SURFACE, 'spines', 'Spines', 'How thickly spines grow. 0 leaves it smooth.', 0, 1, 0.05, 0.6)
 const FLOWER_COUNT = number(FLOWERS, 'flowers', 'Flowers', 'How many flowers open on top.', 0, 16, 1, 0, 'count')
 
-const specs: readonly ParameterSpec[] = [KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, ...OWN_FLOWERS.specs, PALETTE, ...OWN_CACTUS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, ...OWN_FLOWERS.specs, PALETTE, ...OWN_CACTUS.specs]
 
 /** Controls a kind has no use for. */
 const HIDDEN_BY_KIND: Readonly<Record<CactusKind, readonly string[]>> = {
@@ -94,6 +107,7 @@ const HIDDEN_BY_KIND: Readonly<Record<CactusKind, readonly string[]>> = {
 }
 
 export const cactusDefaults: CactusParameters = {
+    build: BUILD.default,
     kind: KIND.default,
     height: HEIGHT.default,
     thickness: THICKNESS.default,
@@ -112,6 +126,7 @@ export const cactusDefaults: CactusParameters = {
 const whole = (spec: NumberParameter) => numberSchema(spec).transform((value) => Math.round(value))
 
 const cactusSchema = z.object({
+    build: choiceSchema(BUILD),
     kind: choiceSchema(KIND),
     height: numberSchema(HEIGHT),
     thickness: numberSchema(THICKNESS),
@@ -184,6 +199,7 @@ export const cactusGenerator: PropGenerator<CactusParameters> = {
     parameters: specs,
     paintsOwnColours: true,
     still: true,
+    lowPoly: true,
     budgetAdvice: 'Lower Spines, Ridges or Pads.',
     fitControls: [
         {key: 'spines', limit: 0.2},
@@ -198,7 +214,8 @@ export const cactusGenerator: PropGenerator<CactusParameters> = {
     validate: validateCactus,
 
     shownControls(values) {
-        const hidden = HIDDEN_BY_KIND[(values.kind as CactusKind) ?? KIND.default] ?? []
+        // Style is a switch over the view.
+        const hidden = ['build', ...(HIDDEN_BY_KIND[(values.kind as CactusKind) ?? KIND.default] ?? [])]
         const flowers = Number(values.flowers ?? 0) > 0
 
         return specs.filter((spec) => !hidden.includes(spec.key) && (flowers || spec.key !== 'flowerColour'))
