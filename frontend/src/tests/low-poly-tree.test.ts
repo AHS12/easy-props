@@ -110,6 +110,30 @@ describe('a low-poly tree', {timeout: 60000}, () => {
         expect(triangles(buildParts(presetTree('oak', 'low-poly'), 0.2))).toBeLessThan(triangles(buildParts(presetTree('oak', 'low-poly'))))
     })
 
+    it('keeps its fronds full at a lighter detail level, with fewer and wider leaflets', () => {
+        const leafArea = (parts: ReturnType<typeof buildParts>) =>
+            shown(parts)
+                .filter(({component}) => !component.generatorId.includes('bark'))
+                .reduce((sum, {part}) => {
+                    const position = part.geometry.getAttribute('position')
+                    const corner = (i: number) => new THREE.Vector3().fromBufferAttribute(position, i)
+
+                    for (let at = 0; at < position.count; at += 3) {
+                        sum += new THREE.Triangle(corner(at), corner(at + 1), corner(at + 2)).getArea()
+                    }
+
+                    return sum
+                }, 0)
+
+        for (const id of ['coconut-palm-painted', 'fan-palm', 'tree-fern']) {
+            const full = buildParts(presetTree(id, 'low-poly'))
+            const light = buildParts(presetTree(id, 'low-poly'), 0.12)
+
+            expect(triangles(light), id).toBeLessThan(triangles(full))
+            expect(leafArea(light) / leafArea(full), id).toBeGreaterThan(0.6)
+        }
+    })
+
     /** Flat faces welded where their corners meet, so edges can be counted. */
     const welded = (positions: ArrayLike<number>) => {
         const ids = new Map<string, number>()

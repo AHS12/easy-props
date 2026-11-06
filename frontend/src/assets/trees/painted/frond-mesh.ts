@@ -28,6 +28,8 @@ const MAX_LEAF_GROWTH = 3
 const FEW_FRUIT_BELOW = 0.2
 /** Below this share, fruit is a plainer ball. */
 const FRUIT_PLAIN_BELOW = 0.7
+/** A widened leaflet stops at about this many times the gap it has to cover. */
+const WIDEST_OVER_GAP = 1.2
 
 export interface LeafBuffers {
     readonly positions: number[]
@@ -226,6 +228,14 @@ function addStem(
     }
 }
 
+/**
+ * A leaflet `widen` times as wide, to cover for the ones a lighter level leaves
+ * out, but never much wider than the gap between it and the next.
+ */
+function widened(width: number, widen: number, gap: number): number {
+    return widen > 1 ? Math.max(width, Math.min(width * widen, gap * WIDEST_OVER_GAP)) : width
+}
+
 /** Leaflets in pairs down the stem, longest a third of the way along. */
 function addFeather(
     buffers: LeafBuffers,
@@ -236,9 +246,10 @@ function addFeather(
     paint: (value: number) => THREE.Color,
     random: () => number,
     share: number,
+    widen: number,
 ) {
     const count = Math.max(2, Math.round((12 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 24) * detail * share))
-    const width = clump.radius * 0.05 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH)
+    const width = widened(clump.radius * 0.05 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH), widen, clump.radius / count)
 
     for (let pair = 0; pair < count; pair++) {
         const t = 0.1 + (pair / count) * 0.9
@@ -276,11 +287,12 @@ function addFan(
     paint: (value: number) => THREE.Color,
     random: () => number,
     share: number,
+    widen: number,
 ) {
     const count = Math.max(3, Math.round((14 + tree.fullness * (clump.edit.fullnessScale ?? 1) * 16) * detail * share))
     const at = sampleFrond(path, 0.55)
     const reach = clump.radius * 0.55
-    const width = clump.radius * 0.13 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH)
+    const width = widened(clump.radius * 0.13 * tree.leafSize * (clump.edit.leafSizeScale ?? 1) * Math.min(1 / share, MAX_LEAF_GROWTH), widen, (reach * Math.PI * 1.35) / count)
 
     for (let spoke = 0; spoke < count; spoke++) {
         const share = spoke / Math.max(count - 1, 1)
@@ -473,6 +485,7 @@ export function buildFrond(
     tree: PaintedTreeParameters,
     detail: number,
     share = 1,
+    widen = 1,
 ): THREE.BufferGeometry {
     const buffers = emptyLeafBuffers()
     const random = createSeededRandom(clump.seed)
@@ -482,11 +495,11 @@ export function buildFrond(
     addStem(buffers, path, Math.max(clump.radius * 0.016, 0.012), paint, share)
 
     if (tree.frondStyle === 'fan') {
-        addFan(buffers, path, clump, tree, detail, paint, random, share)
+        addFan(buffers, path, clump, tree, detail, paint, random, share, widen)
     } else if (tree.frondStyle === 'blade') {
         addBlade(buffers, path, clump, tree, paint, random, share)
     } else {
-        addFeather(buffers, path, clump, tree, detail, paint, random, share)
+        addFeather(buffers, path, clump, tree, detail, paint, random, share, widen)
     }
 
     // Coconuts sit in a ring where the fronds meet the trunk, so a frond carries

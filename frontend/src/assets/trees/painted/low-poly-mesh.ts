@@ -14,7 +14,11 @@ import type {PaintedTreeParameters} from './parameters'
 import {cross, normalize, type Clump, type TreePlan, type Vec3} from './plan'
 import {buildLowPolyWood, lowPolyCrown} from './low-poly-surface'
 
-/** A frond at low-poly is built as a lighter level, with fewer, wider leaflets. */
+/**
+ * A frond at low-poly is built as a lighter level, with fewer, wider leaflets.
+ * Its leaflets are already as wide as a lighter level makes them, so its own
+ * lighter levels widen them further, or the frond would fall apart into gaps.
+ */
 const FROND_SHARE = 0.3
 
 type Faces = {positions: number[]; normals: number[]; colors: number[]}
@@ -118,7 +122,7 @@ export function buildLowPolyClump(
     share = 1,
 ): THREE.BufferGeometry {
     if (clump.kind === 'frond') {
-        return facet(buildFrond(plan, clump, tree, detail, Math.min(share, FROND_SHARE)))
+        return facet(buildFrond(plan, clump, tree, detail, Math.min(share, FROND_SHARE), 1 / Math.max(detail, 0.05)))
     }
 
     const paint = leafColours(tree, clump)
