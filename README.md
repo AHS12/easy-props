@@ -53,7 +53,7 @@ It's a focused desktop tool for props, not a replacement for Blender.
 
 ![The editor, with presets on the left, a red maple in the middle and its controls on the right](docs/images/editor.png)
 
-![The home page, with recent props, a card for each kind of prop, and presets to start from](docs/images/home.png)
+![The home page, with recent props, a tab for each kind of prop, your own presets, and the presets to start from](docs/images/home.png)
 
 ## Using props in your engine
 
