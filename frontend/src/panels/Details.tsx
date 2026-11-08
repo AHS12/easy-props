@@ -485,6 +485,8 @@ export function Details() {
     const specs = (generator?.parameters ?? [])
         .filter((spec) => !isFrond || spec.key !== 'lumpinessScale')
         .filter((spec) => !cardless || (spec.key !== 'fullnessScale' && spec.key !== 'leafSizeScale'))
+        // The trunk is the tree, so Height sizes it.
+        .filter((spec) => !(component.generatorId === 'painted-limb' && component.parameters.key === 't' && spec.key === 'sizeScale'))
         .map((spec) => (isFrond && spec.key === 'flattenScale' ? {...spec, label: 'Arch'} : spec))
     const painted = isPaintedPart(component.generatorId)
     const isTrunk = component.type === 'trunk' && !painted

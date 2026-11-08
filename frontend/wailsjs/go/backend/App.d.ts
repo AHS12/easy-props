@@ -102,6 +102,8 @@ export function ShowProp(arg1:string):Promise<void>;
 
 export function StopBackup():Promise<void>;
 
+export function SystemInfo():Promise<string>;
+
 export function WriteDraft(arg1:Array<number>):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:Array<number>):Promise<void>;

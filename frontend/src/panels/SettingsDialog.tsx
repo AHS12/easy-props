@@ -23,6 +23,7 @@ import {openLink} from '../platform/window'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore, type SettingsPageId} from '../store/ui-store'
+import {REPOSITORY_URL} from '../core/feedback/issue-link'
 import {useUpdateStore} from '../store/update-store'
 import {RemovedProps} from '../pages/RemovedProps'
 import {findCloudService} from '../core/backup/cloud-services'
@@ -520,7 +521,6 @@ function BackupPage() {
     )
 }
 
-const GITHUB_URL = 'https://github.com/AHS12/easy-props'
 
 function UpdateRow() {
     const update = useUpdateStore((state) => state.update)
@@ -602,9 +602,14 @@ function AboutPage() {
             </SettingRow>
             {canCheckForUpdates() ? <UpdateRow /> : null}
             <SettingRow label="Developer" help="AHS12. The code, releases and issues are on GitHub.">
-                <button type="button" className="button" onClick={() => openLink(GITHUB_URL)}>
-                    github.com/AHS12/easy-props
-                </button>
+                <div className="setting__buttons">
+                    <button type="button" className="button" onClick={() => openLink(REPOSITORY_URL)}>
+                        github.com/AHS12/easy-props
+                    </button>
+                    <button type="button" className="button" onClick={() => useUiStore.getState().setReportOpen(true)}>
+                        Report a problem…
+                    </button>
+                </div>
             </SettingRow>
             <SettingRow
                 label="Open-source software"

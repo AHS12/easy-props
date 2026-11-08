@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Shrub, Sprout, Sun, TreeDeciduous, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Scale3d, Shrub, Sprout, Sun, TreeDeciduous, TreePine, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -311,6 +311,7 @@ export function ViewportOverlay() {
     const setPreviewLevel = useEditorStore((state) => state.setPreviewLevel)
     const moveTool = useEditorStore((state) => state.moveTool)
     const turnTool = useEditorStore((state) => state.turnTool)
+    const resizeTool = useEditorStore((state) => state.resizeTool)
     const showStats = useUiStore((state) => state.showStats)
     const showScaleFigure = useUiStore((state) => state.showScaleFigure)
     const showCollision = useUiStore((state) => state.showCollision)
@@ -320,6 +321,7 @@ export function ViewportOverlay() {
 
     const moveReason = findCommand('tool-move')?.unavailable?.(editor) ?? null
     const turnReason = findCommand('tool-turn')?.unavailable?.(editor) ?? null
+    const resizeReason = findCommand('tool-resize')?.unavailable?.(editor) ?? null
     const ShadingIcon = SHADING_ICONS[shadingMode]
     const backdrop = String(useSetting('backdrop'))
     const command = (id: string) => () => {
@@ -334,7 +336,7 @@ export function ViewportOverlay() {
         <>
             <div className="viewport-tools viewport-tools--left" role="toolbar" aria-label="Tools">
                 <div className="tool-group">
-                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool && !turnTool} onPress={command('tool-select')}>
+                    <ToolButton label="Select" keys={shortcutFor('tool-select')} pressed={!moveTool && !turnTool && !resizeTool} onPress={command('tool-select')}>
                         <MousePointer2 size={14} aria-hidden="true" />
                     </ToolButton>
                     <ToolButton
@@ -354,6 +356,15 @@ export function ViewportOverlay() {
                         onPress={command('tool-turn')}
                     >
                         <Rotate3d size={14} aria-hidden="true" />
+                    </ToolButton>
+                    <ToolButton
+                        label="Resize"
+                        keys={shortcutFor('tool-resize')}
+                        pressed={resizeTool}
+                        disabledReason={resizeTool ? null : resizeReason}
+                        onPress={command('tool-resize')}
+                    >
+                        <Scale3d size={14} aria-hidden="true" />
                     </ToolButton>
                 </div>
             </div>

@@ -32,6 +32,10 @@ export interface Limb {
     readonly controls: readonly Vec3[]
     readonly lengthScale: number
     readonly thicknessScale: number
+    /** How much it was resized by hand. */
+    readonly sizeScale: number
+    /** Its own size times its parents', so what grows on it can follow. */
+    readonly size: number
     /** How far it was turned by hand, in degrees about X, Y and Z. */
     readonly turn: Vec3
 }
@@ -118,6 +122,8 @@ interface LimbRecipe {
     /** Above 1 the radius falls quickly at first, so a limb ends in a whip. */
     readonly taperPower: number
     readonly controlTs: readonly number[]
+    /** How much the limb it grows from was resized, with its own parents. */
+    readonly parentSize?: number
     /** Applied to the finished path, before any hand edit. */
     readonly shape?: (point: Vec3, t: number) => Vec3
 }
@@ -162,9 +168,13 @@ function growLimb(
     const edit = edits.limbs[key] ?? {}
     const lengthScale = edit.lengthScale ?? 1
     const thicknessScale = edit.thicknessScale ?? 1
-    const {steps, tipRadius, taperPower} = recipe
-    const length = recipe.length * lengthScale
-    const baseRadius = recipe.baseRadius * thicknessScale
+    // Resizing scales length and girth together. What grows on it is sized
+    // from its length and girth, so it follows without being told.
+    const sizeScale = edit.sizeScale ?? 1
+    const {steps, taperPower} = recipe
+    const length = recipe.length * lengthScale * sizeScale
+    const baseRadius = recipe.baseRadius * thicknessScale * sizeScale
+    const tipRadius = recipe.tipRadius * sizeScale
     const side = perpendicularTo(recipe.direction)
     const other = cross(recipe.direction, side)
     const phaseA = random() * Math.PI * 2
@@ -216,6 +226,8 @@ function growLimb(
         controls: sampled(points),
         lengthScale,
         thicknessScale,
+        sizeScale,
+        size: sizeScale * (recipe.parentSize ?? 1),
         turn,
     }
 }
@@ -684,6 +696,7 @@ function growWood(
                     rise: 0.45 - tree.droop * 1.2,
                     taperPower: 1.3,
                     controlTs: [0.5, 1],
+                    parentSize: heavy.size,
                     shape: fitted(from.point),
                 },
                 seed,
@@ -720,6 +733,7 @@ function growWood(
                             rise: 0.2,
                             taperPower: 1,
                             controlTs: [1],
+                            parentSize: branch.size,
                             shape: outlined ? outlined(leaving.point) : undefined,
                         },
                         seed,
@@ -797,18 +811,21 @@ function placeClumps(
     edits: PaintedEdits,
 ): Clump[] {
     const tips = new Map(limbs.filter((limb) => limb.level === 2).map((limb) => [limb.key, tipOf(limb)]))
+    const sizes = new Map(limbs.filter((limb) => limb.level === 2).map((limb) => [limb.key, limb.size]))
     const baseRadius = (tree.spread * 0.17 + tree.height * 0.03) * tree.clumpSize
     const countScale = Math.sqrt(11 / Math.max(tree.clumpCount, 1))
     const crown = crownRule(tree)
-    const placed: {seat: Seat; point: Vec3}[] = []
+    const placed: {seat: Seat; point: Vec3; size: number}[] = []
 
     for (const seat of seats) {
-        const live = seat.keys.map((key) => tips.get(key)).filter((tip): tip is Vec3 => tip !== undefined)
+        const keys = seat.keys.filter((key) => tips.has(key))
 
-        if (live.length > 0) {
-            const sum = live.reduce<Vec3>((total, tip) => add(total, tip), [0, 0, 0])
+        if (keys.length > 0) {
+            const sum = keys.reduce<Vec3>((total, key) => add(total, tips.get(key)!), [0, 0, 0])
+            // A clump on a resized branch is resized with it.
+            const size = keys.reduce((total, key) => total + sizes.get(key)!, 0) / keys.length
 
-            placed.push({seat, point: [sum[0] / live.length, sum[1] / live.length, sum[2] / live.length]})
+            placed.push({seat, point: [sum[0] / keys.length, sum[1] / keys.length, sum[2] / keys.length], size})
         }
     }
 
@@ -816,7 +833,7 @@ function placeClumps(
     const middle = placed.reduce<Vec3>((total, {point}) => add(total, point, 1 / count), [0, 0, 0])
     const clumps: Clump[] = []
 
-    for (const {seat, point} of placed) {
+    for (const {seat, point, size} of placed) {
         const key = [...seat.keys].sort()[0]
         const edit = edits.clumps[key] ?? {}
 
@@ -834,7 +851,8 @@ function placeClumps(
             // Clumps follow the outline too, so a cone ends in a point. Against the
             // shape's own average, so a column's clumps stay full.
             (crown === CROWN_RULES.natural ? 1 : Math.min(Math.max(Math.sqrt(outlineAt(tree, point[1]) / averageOutline(crown)), 0.6), 1.25)) *
-            (edit.sizeScale ?? 1)
+            (edit.sizeScale ?? 1) *
+            size
         // Merging pulls clumps together, and flatter clumps sit lower.
         const pull = tree.clumpMerge * 0.32
         const base: Vec3 = [

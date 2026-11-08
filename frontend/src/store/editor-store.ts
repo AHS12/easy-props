@@ -55,7 +55,7 @@ import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/ex
 import {folderNameOf} from '../core/export/pipeline/types'
 import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
-import {parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
+import {markedStartingPoint, parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
 import {desktopJoin, openProjectFile, saveProjectFile, writeExportFiles, writeFilesTo} from '../platform/desktop'
 import {
     clearDraftText,
@@ -229,6 +229,13 @@ export interface EditorStore {
     /** True while the turn rings are showing. One tool at a time, so turning it on puts Move away. */
     turnTool: boolean
     setTurnTool(on: boolean): void
+    /** True while the resize handle is showing. One tool at a time, as with Turn. */
+    resizeTool: boolean
+    setResizeTool(on: boolean): void
+    /** Shows a size without recording history. Used while dragging the resize ring. */
+    previewSize(componentId: string, size: number): void
+    /** Records the size a drag ended with as one undo step. */
+    commitSize(before: Scene, componentId: string, size: number): void
     /** Shows a turn without recording history. Used while dragging a ring. */
     previewTurn(componentId: string, turn: readonly number[]): void
     /** Records the turn a drag ended with as one undo step. */
@@ -334,7 +341,11 @@ export interface EditorStore {
     page: Page
     showGallery(): void
     /** The page listing every saved prop. */
-    showProps(): void
+    /** Opens Your props, showing only My presets when asked. */
+    showProps(onlyMyPresets?: boolean): void
+    /** True while Your props shows only My presets. */
+    onlyMyPresets: boolean
+    setOnlyMyPresets(on: boolean): void
     showEditor(): void
     /** The prop picked on Your props, whose details show beside the list. */
     pickedPropId: string | null
@@ -369,6 +380,14 @@ export interface EditorStore {
     forgetAllRemoved(): Promise<void>
     /** Saves a copy of a saved prop without opening it, and picks the copy. */
     copyTree(id: string): Promise<void>
+    /** Asks for a name, then saves the prop in hand as a new starting point. */
+    saveStartingPoint(): void
+    /** A new, unsaved prop made from a starting point, as a preset makes one. */
+    startFromStartingPoint(id: string): Promise<void>
+    /** Puts a starting point's prop in place of this one, as one step to undo, as picking a preset does. */
+    applyStartingPoint(id: string): Promise<void>
+    /** Marks a saved prop as a starting point, or takes the mark off and keeps it as a saved prop. */
+    setStartingPoint(id: string, on: boolean): Promise<void>
     /** The props in the bin, most recently removed first. */
     removedProps: readonly RemovedTree[]
     refreshRemoved(): Promise<void>
@@ -399,6 +418,8 @@ export interface SavePrompt {
     /** The name offered, and the fallback if the field is left blank. */
     readonly name: string
     readonly asCopy: boolean
+    /** Saves it as a starting point, which new props can be made from. */
+    readonly startingPoint?: boolean
 }
 
 /** True when closing would lose something that was never saved. */
@@ -467,17 +488,24 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     }
 
     /** The one write path, so every save records the same things. */
-    const saveNow = async (name: string, asCopy: boolean) => {
+    const saveNow = async (name: string, asCopy: boolean, startingPoint = false) => {
         const state = get()
         const copy = asCopy || state.currentTreeId === null
         const id = copy ? newTreeId() : state.currentTreeId
+        // A copy of a starting point is a plain prop, unless a starting point was asked for.
+        const extras = copy ? markedStartingPoint(state.projectExtras, startingPoint) : state.projectExtras
+
+        // A new starting point is made now, whatever the prop it came from.
+        if (startingPoint) {
+            delete extras.createdAt
+        }
 
         const text = serializeProject({
             scene: state.scene,
             name,
             style: state.style,
             presetId: state.presetId,
-            extras: state.projectExtras,
+            extras,
         })
 
         try {
@@ -493,7 +521,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             set({
                 currentTreeId: id,
                 treeName: name,
-                toast: {message: `Saved "${name}"`, undoable: false},
+                projectExtras: extras,
+                toast: {message: startingPoint ? `Saved "${name}" to My presets` : `Saved "${name}"`, undoable: false},
             })
 
             markSaved(state.scene, state.style)
@@ -595,11 +624,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         moveTool: false,
 
-        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false} : {moveTool: false}),
+        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false, resizeTool: false} : {moveTool: false}),
 
         turnTool: false,
 
-        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
+        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false, resizeTool: false} : {turnTool: false}),
+
+        resizeTool: false,
+
+        setResizeTool: (on) => set(on ? {resizeTool: true, moveTool: false, turnTool: false} : {resizeTool: false}),
+
+        previewSize: (componentId, size) => {
+            holdLowPolyCrown(true)
+            set({scene: updateComponentParameters(get().scene, componentId, {sizeScale: size})})
+        },
+
+        commitSize: (before, componentId, size) => {
+            holdLowPolyCrown(false)
+            commit('resize part', (scene) => updateComponentParameters(scene, componentId, {sizeScale: size}), before)
+        },
 
         previewTurn: (componentId, turn) => {
             holdLowPolyCrown(true)
@@ -855,7 +898,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         galleryLoading: false,
         page: 'gallery',
         showGallery: () => set({page: 'gallery'}),
-        showProps: () => set({page: 'props'}),
+        showProps: (onlyMyPresets = false) => set({page: 'props', onlyMyPresets}),
+
+        onlyMyPresets: false,
+
+        setOnlyMyPresets: (on) => set({onlyMyPresets: on}),
         showEditor: () => set({page: 'editor'}),
         pickedPropId: null,
         pickProp: (id) => set({pickedPropId: id}),
@@ -965,7 +1012,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
             set({savePrompt: null})
 
-            await saveNow(chosen === '' ? (prompt?.name ?? get().treeName) : chosen, prompt?.asCopy ?? true)
+            await saveNow(chosen === '' ? (prompt?.name ?? get().treeName) : chosen, prompt?.asCopy ?? true, prompt?.startingPoint === true)
         },
 
         cancelSave: () => set({savePrompt: null}),
@@ -1210,6 +1257,100 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 await copyTreePicture(id, copyId)
 
                 set({pickedPropId: copyId, toast: {message: `Copied as "${name}"`, undoable: false}})
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+        },
+
+        saveStartingPoint: () => {
+            const state = get()
+
+            set({
+                savePrompt: {
+                    title: 'Save as my preset',
+                    name: copyNameOf(state.treeName, state.gallery),
+                    asCopy: true,
+                    startingPoint: true,
+                },
+            })
+        },
+
+        startFromStartingPoint: async (id) => {
+            try {
+                const project = parseProject(await readTree(id))
+                const style = asStyleId(project.style)
+                // The new prop is its own, made now, and not a starting point itself.
+                const extras = markedStartingPoint(project.extras, false)
+                delete extras.createdAt
+
+                // Nothing to undo, and nothing unsaved yet, as with a preset.
+                set({
+                    scene: project.scene,
+                    style,
+                    presetId: presetOfScene(project.scene, project.presetId),
+                    page: 'editor',
+                    history: EMPTY_HISTORY,
+                    savedScene: project.scene,
+                    savedStyle: style,
+                    treeName: project.name,
+                    currentTreeId: null,
+                    filePath: null,
+                    projectExtras: extras,
+                    selection: EMPTY_SELECTION,
+                    propInHand: true,
+                })
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        applyStartingPoint: async (id) => {
+            try {
+                const project = parseProject(await readTree(id))
+                const state = get()
+                const style = asStyleId(project.style)
+                const presetId = presetOfScene(project.scene, project.presetId)
+                const before: DocumentState = {scene: state.scene, style: state.style, presetId: state.presetId}
+
+                set({
+                    scene: project.scene,
+                    style,
+                    presetId,
+                    page: 'editor',
+                    selection: EMPTY_SELECTION,
+                    history: pushHistory(state.history, 'change tree', before, {scene: project.scene, style, presetId}),
+                })
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'open'), undoable: false}})
+            }
+        },
+
+        setStartingPoint: async (id, on) => {
+            try {
+                const project = parseProject(await readTree(id))
+                const extras = markedStartingPoint(project.extras, on)
+
+                await writeTree(
+                    id,
+                    serializeProject({
+                        scene: project.scene,
+                        name: project.name,
+                        style: project.style,
+                        presetId: project.presetId ?? undefined,
+                        extras,
+                    }),
+                    null,
+                )
+
+                set({
+                    ...(get().currentTreeId === id ? {projectExtras: markedStartingPoint(get().projectExtras, on)} : {}),
+                    toast: {
+                        message: on ? `Added "${project.name}" to My presets` : `Took "${project.name}" off My presets. It's still in Your props`,
+                        undoable: false,
+                    },
+                })
+
                 await get().refreshGallery()
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'save'), undoable: false}})

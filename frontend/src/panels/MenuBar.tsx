@@ -6,11 +6,12 @@
  */
 
 import {Dropdown} from '@heroui/react'
-import {Check, ChevronRight, Copy, Download, Minus, Save, Search, Square, Trees, X} from 'lucide-react'
+import {Check, ChevronDown, ChevronRight, Copy, Download, Minus, Save, Search, Square, Trees, X} from 'lucide-react'
 import {Fragment, useEffect, useRef, useState} from 'react'
 import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
 import {APP_VERSION} from '../core/export/export-preferences'
+import {isStartingPoint} from '../core/project/project-document'
 import {closeWindow, hasInsetTitleBar, hasWindowControls, minimiseWindow, toggleMaximiseWindow, windowIsMaximised} from '../platform/window'
 import {useBackupAttention} from '../store/backup-store'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
@@ -20,7 +21,7 @@ import {useUiStore} from '../store/ui-store'
 const MENUS: readonly {readonly title: string; readonly items: readonly (string | null)[]}[] = [
     {
         title: 'File',
-        items: ['new-tree', 'new-palm', 'new-bush', 'new-flower', 'new-grass', 'new-cactus', 'new-rock', null, 'home', 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'batch-export', null, 'back-up', 'restore-backup', null, 'settings'],
+        items: ['new-tree', 'new-palm', 'new-bush', 'new-flower', 'new-grass', 'new-cactus', 'new-rock', null, 'home', 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'save-picture', 'batch-export', null, 'back-up', 'restore-backup', null, 'settings'],
     },
     {
         title: 'Edit',
@@ -32,11 +33,11 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Prop',
-        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
+        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'save-starting-point', null, 'style-low-poly', 'style-detailed'],
     },
     {
         title: 'Help',
-        items: ['palette', 'shortcuts', 'tour', 'whats-new', null, 'check-updates', 'about'],
+        items: ['palette', 'shortcuts', 'tour', 'whats-new', null, 'check-updates', 'report-problem', 'about'],
     },
 ]
 
@@ -170,12 +171,39 @@ function Menus() {
     )
 }
 
+/** The other ways to save, under the arrow beside Save, where people look when they want to keep something. */
+const SAVE_MORE: readonly (string | null)[] = ['save-project-as', 'save-starting-point', null, 'save-to-file', 'save-picture']
+
+function SaveButton() {
+    const saveTree = useEditorStore((state) => state.saveTree)
+    const [open, setOpen] = useState(false)
+
+    return (
+        <span className="split-button" data-coach="save">
+            <button type="button" className="button" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
+                <Save size={13} aria-hidden="true" />
+                Save
+            </button>
+            <Dropdown isOpen={open} onOpenChange={setOpen}>
+                <Dropdown.Trigger className="button split-button__more" aria-label="More ways to save" data-open={open}>
+                    <ChevronDown size={13} aria-hidden="true" />
+                </Dropdown.Trigger>
+                <Dropdown.Popover className="menu-popover" placement="bottom end" offset={4}>
+                    <MenuEntries items={SAVE_MORE} onDone={() => setOpen(false)} />
+                </Dropdown.Popover>
+            </Dropdown>
+        </span>
+    )
+}
+
 /** The prop's name: click to rename it where it is. A dot marks unsaved changes. */
 function PropName() {
     const treeName = useEditorStore((state) => state.treeName)
     const setTreeName = useEditorStore((state) => state.setTreeName)
     const dirty = useEditorStore(hasUnsavedChanges)
     const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
+    // Saving changes one of My presets itself, so it says so where the name is.
+    const startingPoint = useEditorStore((state) => isStartingPoint(state.projectExtras))
     const [draft, setDraft] = useState<string | null>(null)
     const input = useRef<HTMLInputElement>(null)
 
@@ -220,6 +248,7 @@ function PropName() {
     return (
         <button type="button" className="prop-name" title="Rename" onClick={() => setDraft(treeName)}>
             <span className="prop-name__text">{treeName}</span>
+            {startingPoint ? <span className="prop-name__tag">My preset</span> : null}
             <span className="prop-name__dot" data-dirty={dirty} role="img" aria-label={dirty ? 'Unsaved changes' : neverSaved ? 'Not saved yet' : 'Saved'} />
         </button>
     )
@@ -257,7 +286,6 @@ function WindowControls() {
 }
 
 export function MenuBar({home}: {home?: boolean}) {
-    const saveTree = useEditorStore((state) => state.saveTree)
     const exportModel = useEditorStore((state) => state.exportModel)
     const setPaletteOpen = useUiStore((state) => state.setPaletteOpen)
     const showGallery = useEditorStore((state) => state.showGallery)
@@ -278,10 +306,7 @@ export function MenuBar({home}: {home?: boolean}) {
             <span className="menubar__drag" />
             {home ? null : (
                 <Fragment>
-                    <button type="button" className="button" data-coach="save" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
-                        <Save size={13} aria-hidden="true" />
-                        Save
-                    </button>
+                    <SaveButton />
                     <button
                         type="button"
                         className="button button--primary"

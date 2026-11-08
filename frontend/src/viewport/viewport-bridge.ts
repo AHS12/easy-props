@@ -15,6 +15,8 @@ export interface ViewportHandle {
     frameDemo(): void
     /** What the stats overlay shows. */
     stats(): {readonly drawCalls: number; readonly size: readonly [number, number, number]}
+    /** A PNG of the prop as the view shows it, without the tools on it, or null. */
+    picture(options: {readonly size: number; readonly seeThrough: boolean}): string | null
 }
 
 let handle: ViewportHandle | null = null

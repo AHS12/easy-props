@@ -37,7 +37,7 @@ export const TOUR_STEPS: Readonly<Record<TourPage, readonly TourStep[]>> = {
         {
             target: 'gallery-kinds',
             title: 'Choose what to make',
-            text: 'Every kind of prop has a card. Pick one to see its presets, and use the chips under the cards to narrow them down.',
+            text: 'Every kind of prop has a tab. Pick one to see its presets, and use the chips under the tabs to narrow them down.',
             side: 'below',
         },
         {

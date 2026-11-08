@@ -327,6 +327,7 @@ export const treePresets: readonly TreePreset[] = [
     {
         id: 'blossom-tree',
         name: 'Blossom tree',
+        category: 'Blossom & fruit',
         sub: 'Old, heavy and in flower',
         generatorId: 'painted-tree',
         seed: 77123,
@@ -335,6 +336,7 @@ export const treePresets: readonly TreePreset[] = [
     {
         id: 'spring-tree',
         name: 'Spring tree',
+        category: 'Broadleaf',
         sub: 'Fresh, round and green',
         generatorId: 'painted-tree',
         seed: 5,
@@ -343,6 +345,7 @@ export const treePresets: readonly TreePreset[] = [
     {
         id: 'autumn-tree',
         name: 'Autumn tree',
+        category: 'Broadleaf',
         sub: 'Tall, gold and slender',
         generatorId: 'painted-tree',
         seed: 9,
@@ -515,14 +518,11 @@ export const familyOfProp = (presetId: string | null | undefined, generatorId: s
     presetId && findPreset(presetId) ? familyOfPreset(presetId) : (GENERATOR_FAMILIES[generatorId ?? ''] ?? 'tree')
 
 /**
- * The presets under their headings, the three first trees leading the list.
- * The old-style first preset is left out: any painted tree can be low-poly now.
+ * The presets under their headings. The old-style first preset has no heading,
+ * so it's left out: any painted tree can be low-poly now.
  */
-export const presetGroups: readonly {title: string; family: PropFamily; presets: readonly TreePreset[]}[] = [
-    {title: 'Favourites', family: 'tree', presets: treePresets.slice(1, 4)},
-    ...PRESET_CATEGORIES.map((title) => ({
-        title,
-        family: familyOfCategory(title),
-        presets: treePresets.filter((preset) => preset.category === title),
-    })),
-]
+export const presetGroups: readonly {title: string; family: PropFamily; presets: readonly TreePreset[]}[] = PRESET_CATEGORIES.map((title) => ({
+    title,
+    family: familyOfCategory(title),
+    presets: treePresets.filter((preset) => preset.category === title),
+}))

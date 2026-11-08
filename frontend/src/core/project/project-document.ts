@@ -256,6 +256,28 @@ export function parseProject(text: string): LoadedProject {
     }
 }
 
+/**
+ * A starting point is a saved prop that new props are made from. It is marked
+ * with one key that older versions keep as an unknown one, so there it simply
+ * shows as a saved prop.
+ */
+export const STARTING_POINT_KEY = 'startingPoint'
+
+export const isStartingPoint = (extras: Readonly<Record<string, unknown>>): boolean => extras[STARTING_POINT_KEY] === true
+
+/** The extras with the mark set or taken off. */
+export function markedStartingPoint(extras: Readonly<Record<string, unknown>>, on: boolean): Record<string, unknown> {
+    const next: Record<string, unknown> = {...extras}
+
+    if (on) {
+        next[STARTING_POINT_KEY] = true
+    } else {
+        delete next[STARTING_POINT_KEY]
+    }
+
+    return next
+}
+
 export interface SaveInput {
     readonly scene: Scene
     /** What the user calls this tree. */
