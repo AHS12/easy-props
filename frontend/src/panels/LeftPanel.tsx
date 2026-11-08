@@ -1,5 +1,5 @@
 import {ListTree, Puzzle, Search, Shapes, X} from 'lucide-react'
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {familyOfPreset, presetGroups, PROP_FAMILIES} from '../assets/trees/presets'
 import {findPropGenerator} from '../assets/prop-generators'
 import {useEditorStore} from '../store/editor-store'
@@ -7,10 +7,19 @@ import {useUiStore} from '../store/ui-store'
 import {Outliner} from './Outliner'
 import {PartsPanel} from './PartsPanel'
 import {PresetThumb} from './PresetThumb'
+import {displayName} from '../pages/prop-labels'
+import {PropPicture} from '../pages/prop-tile'
 
 function PresetsPanel() {
     const presetId = useEditorStore((state) => state.presetId)
     const applyPreset = useEditorStore((state) => state.applyPreset)
+    const applyStartingPoint = useEditorStore((state) => state.applyStartingPoint)
+    const gallery = useEditorStore((state) => state.gallery)
+
+    // Starting points are saved props, which the app may not have listed yet if it opened straight here.
+    useEffect(() => {
+        void useEditorStore.getState().refreshGallery()
+    }, [])
     const [query, setQuery] = useState('')
     const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
     const wanted = query.trim().toLowerCase()
@@ -25,6 +34,10 @@ function PresetsPanel() {
             ),
         }))
         .filter((group) => group.presets.length > 0)
+    const startingPoints = gallery.filter(
+        (tree) => tree.startingPoint && tree.kind === family && displayName(tree).toLowerCase().includes(wanted),
+    )
+    const MINE = 'My starting points'
 
     const toggle = (title: string) => {
         const next = new Set(closed)
@@ -54,6 +67,43 @@ function PresetsPanel() {
                 ) : null}
             </div>
             <div className="panel__scroll" data-coach="presets">
+                {startingPoints.length > 0 ? (
+                    <section className="preset-group">
+                        <h3 className="group__heading">
+                            <button
+                                type="button"
+                                className="group__head"
+                                aria-expanded={wanted !== '' || !closed.has(MINE)}
+                                data-open={wanted !== '' || !closed.has(MINE)}
+                                onClick={() => toggle(MINE)}
+                            >
+                                <span className="group__chevron-text" aria-hidden="true">
+                                    ›
+                                </span>
+                                <span>{MINE}</span>
+                                <span className="group__count tabular">{startingPoints.length}</span>
+                            </button>
+                        </h3>
+                        {wanted !== '' || !closed.has(MINE) ? (
+                            <div className="preset-grid">
+                                {startingPoints.map((tree) => (
+                                    <button
+                                        key={tree.id}
+                                        type="button"
+                                        className="preset-card"
+                                        title="Your own starting point"
+                                        onClick={() => void applyStartingPoint(tree.id)}
+                                    >
+                                        <span className="preset-card__thumb" data-pictured={tree.thumbnail ? true : undefined}>
+                                            <PropPicture tree={tree} />
+                                        </span>
+                                        <span className="preset-card__name">{displayName(tree)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+                    </section>
+                ) : null}
                 {groups.map((group) => {
                     const open = wanted !== '' || !closed.has(group.title)
 
@@ -94,7 +144,7 @@ function PresetsPanel() {
                         </section>
                     )
                 })}
-                {groups.length === 0 ? <p className="panel-empty">Nothing matches that. Try a shorter word.</p> : null}
+                {groups.length === 0 && startingPoints.length === 0 ? <p className="panel-empty">Nothing matches that. Try a shorter word.</p> : null}
             </div>
         </>
     )

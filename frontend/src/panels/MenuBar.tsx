@@ -11,6 +11,7 @@ import {Fragment, useEffect, useRef, useState} from 'react'
 import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
 import {APP_VERSION} from '../core/export/export-preferences'
+import {isStartingPoint} from '../core/project/project-document'
 import {closeWindow, hasInsetTitleBar, hasWindowControls, minimiseWindow, toggleMaximiseWindow, windowIsMaximised} from '../platform/window'
 import {useBackupAttention} from '../store/backup-store'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
@@ -32,7 +33,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Prop',
-        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'style-low-poly', 'style-detailed'],
+        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'save-starting-point', null, 'style-low-poly', 'style-detailed'],
     },
     {
         title: 'Help',
@@ -176,6 +177,8 @@ function PropName() {
     const setTreeName = useEditorStore((state) => state.setTreeName)
     const dirty = useEditorStore(hasUnsavedChanges)
     const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
+    // Saving changes a starting point itself, so it says so where the name is.
+    const startingPoint = useEditorStore((state) => isStartingPoint(state.projectExtras))
     const [draft, setDraft] = useState<string | null>(null)
     const input = useRef<HTMLInputElement>(null)
 
@@ -220,6 +223,7 @@ function PropName() {
     return (
         <button type="button" className="prop-name" title="Rename" onClick={() => setDraft(treeName)}>
             <span className="prop-name__text">{treeName}</span>
+            {startingPoint ? <span className="prop-name__tag">Starting point</span> : null}
             <span className="prop-name__dot" data-dirty={dirty} role="img" aria-label={dirty ? 'Unsaved changes' : neverSaved ? 'Not saved yet' : 'Saved'} />
         </button>
     )

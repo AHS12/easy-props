@@ -9,6 +9,7 @@ const summary = (name: string): PropSummary => ({
     presetName: null,
     seed: 1,
     createdAt: null,
+    startingPoint: false,
 })
 
 const file = (id: string, size = 10, savedAt = '2026-11-01T10:00:00Z') => ({id, size, savedAt})

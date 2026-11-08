@@ -298,6 +298,16 @@ p {
     white-space: nowrap;
 }
 
+.prop-name__tag {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    color: var(--accent-moss-text);
+    font: var(--text-caption);
+    font-weight: 600;
+}
+
 .prop-name__dot {
     flex: none;
     width: 7px;

@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    Bookmark, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -289,6 +289,14 @@ export const COMMANDS: readonly Command[] = [
         shortcut: 'Ctrl+Shift+S',
         keywords: 'write disk json duplicate new version',
         run: (state) => void state.saveTree(true),
+    },
+    {
+        id: 'save-starting-point',
+        label: 'Save as a starting point…',
+        group: 'Prop',
+        icon: Bookmark,
+        keywords: 'my own preset template start from reuse keep base',
+        run: (state) => state.saveStartingPoint(),
     },
     {
         id: 'save-to-file',

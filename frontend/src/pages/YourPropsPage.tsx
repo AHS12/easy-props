@@ -7,7 +7,7 @@
  * message, and Recently removed at the end of the list puts anything back.
  */
 
-import {ArrowLeft, Check, Copy, Download, FolderOpen, Pencil, Search, Trash2, X} from 'lucide-react'
+import {ArrowLeft, Bookmark, BookmarkX, Check, Copy, Download, FolderOpen, Pencil, Search, Trash2, X} from 'lucide-react'
 import {useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent} from 'react'
 import {PROP_FAMILIES, type PropFamily} from '../assets/trees/presets'
 import {Select} from '../components/controls'
@@ -175,6 +175,7 @@ function Details({tree, editing, request}: {tree: SavedTree; editing: boolean; r
                 <h2 className="props-page__name">
                     {name}
                     {editing ? <span className="prop-tile__badge">Editing</span> : null}
+                    {tree.startingPoint ? <span className="prop-tile__badge">Starting point</span> : null}
                 </h2>
             )}
 
@@ -244,6 +245,16 @@ function Details({tree, editing, request}: {tree: SavedTree; editing: boolean; r
                     >
                         <Pencil size={13} aria-hidden="true" />
                         Rename
+                    </button>
+                    <button
+                        type="button"
+                        className="button"
+                        disabled={!readable}
+                        title={tree.startingPoint ? 'Keep it as a saved prop, off the starting points' : 'Start new props from this one, as from a preset'}
+                        onClick={() => void useEditorStore.getState().setStartingPoint(tree.id, !tree.startingPoint)}
+                    >
+                        {tree.startingPoint ? <BookmarkX size={13} aria-hidden="true" /> : <Bookmark size={13} aria-hidden="true" />}
+                        {tree.startingPoint ? 'Stop using as a starting point' : 'Use as a starting point'}
                     </button>
                     <button type="button" className="button" onClick={() => void showPropFile(tree.id)}>
                         <FolderOpen size={13} aria-hidden="true" />
@@ -573,6 +584,7 @@ export function YourPropsPage() {
                                                             <span className="prop-tile__meta">
                                                                 {savedLabel(tree.savedAt)}
                                                                 {tree.id === currentTreeId ? <span className="prop-tile__badge">Editing</span> : null}
+                                                                {tree.startingPoint ? <span className="prop-tile__badge">Starting point</span> : null}
                                                             </span>
                                                         </button>
                                                         <button

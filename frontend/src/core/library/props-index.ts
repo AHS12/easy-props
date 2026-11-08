@@ -8,9 +8,11 @@
  */
 
 import {z} from 'zod'
+import {PROP_FAMILIES, type PropFamily} from '../../assets/trees/presets'
 import type {PropSummary} from './prop-summary'
 
-export const PROPS_INDEX_VERSION = 1
+// 2 added starting points, and every kind of prop: version 1 only knew trees, rocks and bushes.
+export const PROPS_INDEX_VERSION = 2
 
 export interface IndexedFile {
     readonly id: string
@@ -28,11 +30,12 @@ export type PropsIndex = Readonly<Record<string, IndexEntry>>
 
 const summarySchema = z.object({
     name: z.string(),
-    kind: z.enum(['tree', 'rock', 'bush']).nullable(),
+    kind: z.enum(PROP_FAMILIES.map(({id}) => id) as [PropFamily, ...PropFamily[]]).nullable(),
     presetId: z.string().nullable(),
     presetName: z.string().nullable(),
     seed: z.number().nullable(),
     createdAt: z.string().nullable(),
+    startingPoint: z.boolean(),
 })
 
 const indexSchema = z.object({

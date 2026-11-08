@@ -7,8 +7,8 @@
  * on show, so nobody has to open a tab to learn there are cacti.
  */
 
-import {ArchiveRestore, ChevronRight, Pencil, RotateCcw, Search, Trash2, X} from 'lucide-react'
-import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react'
+import {ArchiveRestore, BookmarkX, ChevronRight, Pencil, PenLine, RotateCcw, Search, Trash2, X} from 'lucide-react'
+import {useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {familyOfPreset, presetGroups, PROP_FAMILIES, treePresets, type PropFamily, type TreePreset} from '../assets/trees/presets'
 import {guardUnsaved} from '../core/commands/commands'
 import {canUndo} from '../core/history/history'
@@ -52,6 +52,10 @@ interface CardProps {
     onOpen(): void
     onRemove(): void
     onRename(name: string): void
+    /** More actions, after Rename and before Remove. */
+    actions?: ReactNode
+    /** What the tile says under the name, in place of when it was saved. */
+    meta?: string
 }
 
 /** One saved prop. The body opens it; the actions are siblings, not nested buttons. */
@@ -61,6 +65,8 @@ function TreeCard({
     onOpen,
     onRemove,
     onRename,
+    actions,
+    meta,
 }: CardProps) {
     const name = displayName(tree)
     const [renaming, setRenaming] = useState(false)
@@ -120,7 +126,7 @@ function TreeCard({
                 </span>
                 <span className="prop-tile__name">{name}</span>
                 <span className="prop-tile__meta">
-                    {savedLabel(tree.savedAt)}
+                    {meta ?? savedLabel(tree.savedAt)}
                     {current ? <span className="prop-tile__badge">Editing</span> : null}
                 </span>
             </button>
@@ -137,6 +143,7 @@ function TreeCard({
                 >
                     <Pencil size={12} aria-hidden="true" />
                 </button>
+                {actions}
                 <button
                     type="button"
                     className="icon-button icon-button--overlay"
@@ -148,6 +155,45 @@ function TreeCard({
                 </button>
             </div>
         </li>
+    )
+}
+
+/** A starting point: the body starts a new prop from it, and the actions look after it. */
+function StartingPointCard({tree, current}: {tree: SavedTree; current: boolean}) {
+    const store = useEditorStore.getState
+    const name = displayName(tree)
+
+    return (
+        <TreeCard
+            tree={tree}
+            current={current}
+            meta="Starting point"
+            onOpen={() => guardUnsaved(store(), 'Start a new prop', () => void store().startFromStartingPoint(tree.id))}
+            onRemove={() => void store().removeTree(tree.id)}
+            onRename={(next) => void store().renameTree(tree.id, next)}
+            actions={
+                <>
+                    <button
+                        type="button"
+                        className="icon-button icon-button--overlay"
+                        aria-label={`Edit ${name} itself`}
+                        title="Edit the starting point itself"
+                        onClick={() => guardUnsaved(store(), 'Edit a starting point', () => void store().openTree(tree.id))}
+                    >
+                        <PenLine size={12} aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        className="icon-button icon-button--overlay"
+                        aria-label={`Stop using ${name} as a starting point`}
+                        title="Stop using as a starting point. It stays in Your props"
+                        onClick={() => void store().setStartingPoint(tree.id, false)}
+                    >
+                        <BookmarkX size={12} aria-hidden="true" />
+                    </button>
+                </>
+            }
+        />
     )
 }
 
@@ -227,6 +273,16 @@ export function GalleryPage() {
     const groups = presetGroups.filter((group) => group.family === family && group.presets.length > 0)
     const shownGroups = category === ALL ? groups : groups.filter((group) => group.title === category)
     const wanted = query.trim().toLowerCase()
+    const startingPoints = gallery.filter((tree) => tree.startingPoint)
+    const ownStartingPoints = startingPoints.filter((tree) => tree.kind === family)
+    const foundStartingPoints = wanted === '' ? [] : startingPoints.filter((tree) => displayName(tree).toLowerCase().includes(wanted))
+    const startingPointGrid = (trees: readonly SavedTree[]) => (
+        <ul className="tile-grid">
+            {trees.map((tree) => (
+                <StartingPointCard key={tree.id} tree={tree} current={tree.id === currentTreeId} />
+            ))}
+        </ul>
+    )
 
     // A search looks through every kind, as someone typing "cactus" should not have to find its card first.
     const found = useMemo(
@@ -354,9 +410,17 @@ export function GalleryPage() {
                         </div>
                     </div>
 
+                    {wanted !== '' && foundStartingPoints.length > 0 ? (
+                        <div>
+                            <h3 className="settings__group">My starting points</h3>
+                            {startingPointGrid(foundStartingPoints)}
+                        </div>
+                    ) : null}
+
                     {wanted !== '' ? (
                         found.length === 0 ? (
-                            <p className="dialog__hint">No preset by that name. Try a shorter word.</p>
+                            foundStartingPoints.length > 0 ? null : 
+<p className="dialog__hint">No preset by that name. Try a shorter word.</p>
                         ) : (
                             found.map((group) => (
                                 <div key={group.title}>
@@ -414,9 +478,16 @@ export function GalleryPage() {
                                 </div>
                             ) : null}
 
+                            {category === ALL && ownStartingPoints.length > 0 ? (
+                                <div>
+                                    <h3 className="settings__group">My starting points</h3>
+                                    {startingPointGrid(ownStartingPoints)}
+                                </div>
+                            ) : null}
+
                             {shownGroups.map((group, index) => (
                                 <div key={group.title} data-coach={index === 0 ? 'gallery-presets' : undefined}>
-                                    {shownGroups.length > 1 ? <h3 className="settings__group">{group.title}</h3> : null}
+                                    {shownGroups.length > 1 || (category === ALL && ownStartingPoints.length > 0) ? <h3 className="settings__group">{group.title}</h3> : null}
                                     <div className="preset-grid preset-grid--wide">
                                         {group.presets.map((preset) => (
                                             <PresetCard key={preset.id} preset={preset} onPick={() => pick(preset.id)} />

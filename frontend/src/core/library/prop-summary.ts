@@ -16,6 +16,8 @@ export interface PropSummary {
     readonly seed: number | null
     /** ISO timestamp from the file, or null when it doesn't say. */
     readonly createdAt: string | null
+    /** New props can be started from it, as from a preset. */
+    readonly startingPoint: boolean
 }
 
 export const UNREADABLE_NAME = 'Unreadable prop'
@@ -27,6 +29,7 @@ const UNREADABLE: PropSummary = {
     presetName: null,
     seed: null,
     createdAt: null,
+    startingPoint: false,
 }
 
 const textOf = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value : null)
@@ -62,6 +65,7 @@ export function summarizeProp(contents: string): PropSummary {
         presetName: presetId ? (findPreset(presetId)?.name ?? null) : null,
         seed: typeof seed === 'number' && Number.isFinite(seed) ? seed : null,
         createdAt: textOf(document.createdAt),
+        startingPoint: document.startingPoint === true,
     }
 }
 
