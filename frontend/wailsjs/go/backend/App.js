@@ -202,6 +202,10 @@ export function StopBackup() {
   return window['go']['backend']['App']['StopBackup']();
 }
 
+export function SystemInfo() {
+  return window['go']['backend']['App']['SystemInfo']();
+}
+
 export function WriteDraft(arg1) {
   return window['go']['backend']['App']['WriteDraft'](arg1);
 }

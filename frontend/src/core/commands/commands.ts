@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    Bookmark, ImageDown, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    Bookmark, ImageDown, MessageSquareWarning, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -802,6 +802,15 @@ export const COMMANDS: readonly Command[] = [
         global: true,
         keywords: 'changelog release notes version update',
         run: () => useUiStore.getState().setWhatsNewOpen(true),
+    },
+    {
+        id: 'report-problem',
+        label: 'Report a problem…',
+        group: 'Help',
+        icon: MessageSquareWarning,
+        global: true,
+        keywords: 'bug issue feedback broken wrong idea suggest request github prop',
+        run: () => useUiStore.getState().setReportOpen(true),
     },
     {
         id: 'check-updates',

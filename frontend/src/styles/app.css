@@ -2368,6 +2368,80 @@ html[data-theme='dark'] .dialog__error {
     gap: var(--space-2);
 }
 
+/* Two buttons side by side in one settings row. */
+.setting__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+/* Pushes the buttons after it to the far end of a row of dialog actions. */
+.dialog__spacer {
+    flex: 1;
+}
+
+/* Report a problem: one question under another, as on GitHub. */
+.report__kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.report__fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: min(52vh, 460px);
+    overflow-y: auto;
+    padding-right: var(--space-1);
+}
+
+.report__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.report__optional {
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+.field--area {
+    height: auto;
+    min-height: 72px;
+    padding: var(--space-2);
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.field[aria-invalid='true'] {
+    border-color: var(--danger);
+}
+
+.report__shared summary {
+    color: var(--text-secondary);
+    font: var(--text-label);
+    cursor: pointer;
+}
+
+.report__shared[open] summary {
+    margin-bottom: var(--space-1);
+}
+
+.report__check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text-secondary);
+    font: var(--text-body);
+}
+
+.report__missing {
+    color: var(--danger);
+    font: var(--text-label);
+}
+
 .dialog__more {
     margin-right: auto;
 }

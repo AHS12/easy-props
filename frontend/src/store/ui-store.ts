@@ -5,6 +5,16 @@
 
 import {create} from 'zustand'
 import {settingValue, useSettingsStore} from './settings-store'
+import type {ReportKind} from '../core/feedback/report-forms'
+
+/** What someone has typed into Report a problem so far. */
+export interface ReportDraft {
+    readonly kind: ReportKind
+    readonly title: string
+    readonly fields: Readonly<Record<string, string>>
+    /** False when they chose to leave the preset and seed out. */
+    readonly includeProp: boolean
+}
 
 export type SettingsPageId =
     | 'General'
@@ -49,6 +59,13 @@ interface UiStore {
     /** True while Save a picture is asking how big and on what. */
     pictureOpen: boolean
     setPictureOpen(open: boolean): void
+
+    /** True while Report a problem is open. */
+    reportOpen: boolean
+    setReportOpen(open: boolean): void
+    /** What was typed into Report a problem, kept until it's sent or the app closes, so a stray click loses nothing. */
+    reportDraft: ReportDraft | null
+    setReportDraft(draft: ReportDraft | null): void
 
     /** Hides both panels: Ctrl+\. */
     panelsHidden: boolean
@@ -118,6 +135,11 @@ export const useUiStore = create<UiStore>((set) => ({
 
     pictureOpen: false,
     setPictureOpen: (pictureOpen) => set({pictureOpen}),
+
+    reportOpen: false,
+    setReportOpen: (reportOpen) => set({reportOpen, paletteOpen: false}),
+    reportDraft: null,
+    setReportDraft: (reportDraft) => set({reportDraft}),
 
     panelsHidden: false,
     togglePanels: () => set((state) => ({panelsHidden: !state.panelsHidden})),
