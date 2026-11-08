@@ -298,6 +298,26 @@ p {
     white-space: nowrap;
 }
 
+/* Save, with the other ways to save under an arrow joined on to it. */
+.split-button {
+    display: inline-flex;
+}
+
+.split-button > .button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.split-button__more.button {
+    width: 24px;
+    min-width: 0;
+    margin-left: -1px;
+    padding: 0;
+    justify-content: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
 .prop-name__tag {
     flex: none;
     padding: 1px 6px;
@@ -2809,6 +2829,14 @@ html[data-theme='dark'] .dialog__error {
     color: var(--text-secondary);
     font: var(--text-label);
     line-height: 1.5;
+}
+
+/* A group heading on Home with a button at its end, such as All my presets. */
+.home__group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
 }
 
 .settings__group {

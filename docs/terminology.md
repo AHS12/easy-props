@@ -37,6 +37,7 @@ agree on the term first, or rethink the control.
 | Collision, collision shapes | **What you can walk into** | In the view. Export keeps **Collision**, where people look for the word |
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
+| User template, starting point | **My presets** / **my preset** | A saved prop new props start from. "Save as my preset…", "Add to My presets". The app's own are just **presets** |
 
 ## Button voice
 

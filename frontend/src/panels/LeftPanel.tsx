@@ -16,7 +16,7 @@ function PresetsPanel() {
     const applyStartingPoint = useEditorStore((state) => state.applyStartingPoint)
     const gallery = useEditorStore((state) => state.gallery)
 
-    // Starting points are saved props, which the app may not have listed yet if it opened straight here.
+    // My presets are saved props, which the app may not have listed yet if it opened straight here.
     useEffect(() => {
         void useEditorStore.getState().refreshGallery()
     }, [])
@@ -37,7 +37,7 @@ function PresetsPanel() {
     const startingPoints = gallery.filter(
         (tree) => tree.startingPoint && tree.kind === family && displayName(tree).toLowerCase().includes(wanted),
     )
-    const MINE = 'My starting points'
+    const MINE = 'My presets'
 
     const toggle = (title: string) => {
         const next = new Set(closed)
@@ -91,7 +91,7 @@ function PresetsPanel() {
                                         key={tree.id}
                                         type="button"
                                         className="preset-card"
-                                        title="Your own starting point"
+                                        title="One of your own presets"
                                         onClick={() => void applyStartingPoint(tree.id)}
                                     >
                                         <span className="preset-card__thumb" data-pictured={tree.thumbnail ? true : undefined}>

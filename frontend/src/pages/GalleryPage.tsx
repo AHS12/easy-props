@@ -158,7 +158,7 @@ function TreeCard({
     )
 }
 
-/** A starting point: the body starts a new prop from it, and the actions look after it. */
+/** One of My presets: the body starts a new prop from it, and the actions look after it. */
 function StartingPointCard({tree, current}: {tree: SavedTree; current: boolean}) {
     const store = useEditorStore.getState
     const name = displayName(tree)
@@ -167,7 +167,7 @@ function StartingPointCard({tree, current}: {tree: SavedTree; current: boolean})
         <TreeCard
             tree={tree}
             current={current}
-            meta="Starting point"
+            meta="My preset"
             onOpen={() => guardUnsaved(store(), 'Start a new prop', () => void store().startFromStartingPoint(tree.id))}
             onRemove={() => void store().removeTree(tree.id)}
             onRename={(next) => void store().renameTree(tree.id, next)}
@@ -176,17 +176,17 @@ function StartingPointCard({tree, current}: {tree: SavedTree; current: boolean})
                     <button
                         type="button"
                         className="icon-button icon-button--overlay"
-                        aria-label={`Edit ${name} itself`}
-                        title="Edit the starting point itself"
-                        onClick={() => guardUnsaved(store(), 'Edit a starting point', () => void store().openTree(tree.id))}
+                        aria-label={`Edit the preset ${name} itself`}
+                        title="Edit the preset itself"
+                        onClick={() => guardUnsaved(store(), 'Edit a preset', () => void store().openTree(tree.id))}
                     >
                         <PenLine size={12} aria-hidden="true" />
                     </button>
                     <button
                         type="button"
                         className="icon-button icon-button--overlay"
-                        aria-label={`Stop using ${name} as a starting point`}
-                        title="Stop using as a starting point. It stays in Your props"
+                        aria-label={`Take ${name} off My presets`}
+                        title="Take it off My presets. It stays in Your props"
                         onClick={() => void store().setStartingPoint(tree.id, false)}
                     >
                         <BookmarkX size={12} aria-hidden="true" />
@@ -305,7 +305,7 @@ export function GalleryPage() {
             <div className="home__section-head">
                 <h2 className="home__section-title">Recent props</h2>
                 {gallery.length > 0 ? (
-                    <button type="button" className="button" onClick={showProps}>
+                    <button type="button" className="button" onClick={() => showProps()}>
                         All your props ({gallery.length})
                         <ChevronRight size={13} aria-hidden="true" />
                     </button>
@@ -412,7 +412,7 @@ export function GalleryPage() {
 
                     {wanted !== '' && foundStartingPoints.length > 0 ? (
                         <div>
-                            <h3 className="settings__group">My starting points</h3>
+                            <h3 className="settings__group">My presets</h3>
                             {startingPointGrid(foundStartingPoints)}
                         </div>
                     ) : null}
@@ -476,10 +476,19 @@ export function GalleryPage() {
                                 </div>
                             ) : null}
 
+                            {/* One row, as Recent props, so a long list never pushes the presets out of sight. */}
                             {category === ALL && ownStartingPoints.length > 0 ? (
                                 <div>
-                                    <h3 className="settings__group">My starting points</h3>
-                                    {startingPointGrid(ownStartingPoints)}
+                                    <div className="home__group-head">
+                                        <h3 className="settings__group">My presets</h3>
+                                        {ownStartingPoints.length > perRow ? (
+                                            <button type="button" className="button" onClick={() => showProps(true)}>
+                                                All my presets ({startingPoints.length})
+                                                <ChevronRight size={13} aria-hidden="true" />
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                    {startingPointGrid(ownStartingPoints.slice(0, perRow))}
                                 </div>
                             ) : null}
 

@@ -91,14 +91,14 @@ describe('a starting point', () => {
 
     it('is saved from the prop in hand under a name of its own', async () => {
         store().saveStartingPoint()
-        expect(store().savePrompt?.title).toBe('Save as a starting point')
+        expect(store().savePrompt?.title).toBe('Save as my preset')
 
         await store().finishSave('Our maple')
 
         const [, written] = [...app.saved].find(([id]) => id !== 'ours')!
 
         expect(summarizeProp(written)).toMatchObject({name: 'Our maple', startingPoint: true})
-        expect(store().toast?.message).toBe('Saved "Our maple" as a starting point')
+        expect(store().toast?.message).toBe('Saved "Our maple" to My presets')
     })
 
     it('stops being one and stays a saved prop', async () => {
@@ -125,5 +125,15 @@ describe('the index of saved props', () => {
         const text = serializePropsIndex({one: {size: 1, savedAt: 'now', summary}})
 
         expect(parsePropsIndex(text).one?.summary.kind).toBe('cactus')
+    })
+})
+
+describe('Your props', () => {
+    it('opens on My presets alone when asked, and on everything otherwise', () => {
+        store().showProps(true)
+        expect(store().onlyMyPresets).toBe(true)
+
+        store().showProps()
+        expect(store().onlyMyPresets).toBe(false)
     })
 })

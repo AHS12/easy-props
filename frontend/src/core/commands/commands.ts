@@ -292,10 +292,10 @@ export const COMMANDS: readonly Command[] = [
     },
     {
         id: 'save-starting-point',
-        label: 'Save as a starting point…',
+        label: 'Save as my preset…',
         group: 'Prop',
         icon: Bookmark,
-        keywords: 'my own preset template start from reuse keep base',
+        keywords: 'my presets own template starting point start from reuse keep base',
         run: (state) => state.saveStartingPoint(),
     },
     {

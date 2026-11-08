@@ -6,7 +6,7 @@
  */
 
 import {Dropdown} from '@heroui/react'
-import {Check, ChevronRight, Copy, Download, Minus, Save, Search, Square, Trees, X} from 'lucide-react'
+import {Check, ChevronDown, ChevronRight, Copy, Download, Minus, Save, Search, Square, Trees, X} from 'lucide-react'
 import {Fragment, useEffect, useRef, useState} from 'react'
 import {Keys} from '../components/controls'
 import {findCommand, runCommand, shortcutFor, type Command} from '../core/commands/commands'
@@ -171,13 +171,38 @@ function Menus() {
     )
 }
 
+/** The other ways to save, under the arrow beside Save, where people look when they want to keep something. */
+const SAVE_MORE: readonly (string | null)[] = ['save-project-as', 'save-starting-point', null, 'save-to-file']
+
+function SaveButton() {
+    const saveTree = useEditorStore((state) => state.saveTree)
+    const [open, setOpen] = useState(false)
+
+    return (
+        <span className="split-button" data-coach="save">
+            <button type="button" className="button" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
+                <Save size={13} aria-hidden="true" />
+                Save
+            </button>
+            <Dropdown isOpen={open} onOpenChange={setOpen}>
+                <Dropdown.Trigger className="button split-button__more" aria-label="More ways to save" data-open={open}>
+                    <ChevronDown size={13} aria-hidden="true" />
+                </Dropdown.Trigger>
+                <Dropdown.Popover className="menu-popover" placement="bottom end" offset={4}>
+                    <MenuEntries items={SAVE_MORE} onDone={() => setOpen(false)} />
+                </Dropdown.Popover>
+            </Dropdown>
+        </span>
+    )
+}
+
 /** The prop's name: click to rename it where it is. A dot marks unsaved changes. */
 function PropName() {
     const treeName = useEditorStore((state) => state.treeName)
     const setTreeName = useEditorStore((state) => state.setTreeName)
     const dirty = useEditorStore(hasUnsavedChanges)
     const neverSaved = useEditorStore((state) => state.currentTreeId === null && state.filePath === null)
-    // Saving changes a starting point itself, so it says so where the name is.
+    // Saving changes one of My presets itself, so it says so where the name is.
     const startingPoint = useEditorStore((state) => isStartingPoint(state.projectExtras))
     const [draft, setDraft] = useState<string | null>(null)
     const input = useRef<HTMLInputElement>(null)
@@ -223,7 +248,7 @@ function PropName() {
     return (
         <button type="button" className="prop-name" title="Rename" onClick={() => setDraft(treeName)}>
             <span className="prop-name__text">{treeName}</span>
-            {startingPoint ? <span className="prop-name__tag">Starting point</span> : null}
+            {startingPoint ? <span className="prop-name__tag">My preset</span> : null}
             <span className="prop-name__dot" data-dirty={dirty} role="img" aria-label={dirty ? 'Unsaved changes' : neverSaved ? 'Not saved yet' : 'Saved'} />
         </button>
     )
@@ -261,7 +286,6 @@ function WindowControls() {
 }
 
 export function MenuBar({home}: {home?: boolean}) {
-    const saveTree = useEditorStore((state) => state.saveTree)
     const exportModel = useEditorStore((state) => state.exportModel)
     const setPaletteOpen = useUiStore((state) => state.setPaletteOpen)
     const showGallery = useEditorStore((state) => state.showGallery)
@@ -282,10 +306,7 @@ export function MenuBar({home}: {home?: boolean}) {
             <span className="menubar__drag" />
             {home ? null : (
                 <Fragment>
-                    <button type="button" className="button" data-coach="save" onClick={() => void saveTree()} title={`Save (${shortcutFor('save-project') ?? ''})`}>
-                        <Save size={13} aria-hidden="true" />
-                        Save
-                    </button>
+                    <SaveButton />
                     <button
                         type="button"
                         className="button button--primary"

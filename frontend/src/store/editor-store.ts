@@ -341,7 +341,11 @@ export interface EditorStore {
     page: Page
     showGallery(): void
     /** The page listing every saved prop. */
-    showProps(): void
+    /** Opens Your props, showing only My presets when asked. */
+    showProps(onlyMyPresets?: boolean): void
+    /** True while Your props shows only My presets. */
+    onlyMyPresets: boolean
+    setOnlyMyPresets(on: boolean): void
     showEditor(): void
     /** The prop picked on Your props, whose details show beside the list. */
     pickedPropId: string | null
@@ -518,7 +522,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 currentTreeId: id,
                 treeName: name,
                 projectExtras: extras,
-                toast: {message: startingPoint ? `Saved "${name}" as a starting point` : `Saved "${name}"`, undoable: false},
+                toast: {message: startingPoint ? `Saved "${name}" to My presets` : `Saved "${name}"`, undoable: false},
             })
 
             markSaved(state.scene, state.style)
@@ -894,7 +898,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         galleryLoading: false,
         page: 'gallery',
         showGallery: () => set({page: 'gallery'}),
-        showProps: () => set({page: 'props'}),
+        showProps: (onlyMyPresets = false) => set({page: 'props', onlyMyPresets}),
+
+        onlyMyPresets: false,
+
+        setOnlyMyPresets: (on) => set({onlyMyPresets: on}),
         showEditor: () => set({page: 'editor'}),
         pickedPropId: null,
         pickProp: (id) => set({pickedPropId: id}),
@@ -1260,7 +1268,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
             set({
                 savePrompt: {
-                    title: 'Save as a starting point',
+                    title: 'Save as my preset',
                     name: copyNameOf(state.treeName, state.gallery),
                     asCopy: true,
                     startingPoint: true,
@@ -1338,7 +1346,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 set({
                     ...(get().currentTreeId === id ? {projectExtras: markedStartingPoint(get().projectExtras, on)} : {}),
                     toast: {
-                        message: on ? `"${project.name}" is now a starting point` : `"${project.name}" is no longer a starting point. It's still in Your props`,
+                        message: on ? `Added "${project.name}" to My presets` : `Took "${project.name}" off My presets. It's still in Your props`,
                         undoable: false,
                     },
                 })
