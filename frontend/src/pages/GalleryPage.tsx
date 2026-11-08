@@ -17,7 +17,7 @@ import type {SavedTree} from '../platform/library'
 import {canBackUp} from '../platform/backup'
 import {useUiStore} from '../store/ui-store'
 import {useEditorStore} from '../store/editor-store'
-import {displayName, FAMILY_ICONS, KIND_PICTURES, savedLabel} from './prop-labels'
+import {displayName, FAMILY_ICONS, savedLabel} from './prop-labels'
 import {PropPicture} from './prop-tile'
 
 /** Home shows the latest saves in one row; Your props has the rest. */
@@ -435,7 +435,8 @@ export function GalleryPage() {
                         )
                     ) : (
                         <>
-                            <div className="kind-cards" role="tablist" aria-label="Kind of prop" data-coach="gallery-kinds">
+                            {/* Tabs, not pictures: the only pictures here are presets to start from. */}
+                            <div className="kind-tabs" role="tablist" aria-label="Kind of prop" data-coach="gallery-kinds">
                                 {PROP_FAMILIES.map(({id, plural}) => {
                                     const Icon = FAMILY_ICONS[id]
                                     const count = presetGroups
@@ -447,16 +448,13 @@ export function GalleryPage() {
                                             key={id}
                                             type="button"
                                             role="tab"
-                                            className="kind-card"
+                                            className="kind-tab"
                                             aria-selected={family === id}
                                             onClick={() => setFamily(id)}
                                         >
-                                            <PresetThumb presetId={KIND_PICTURES[id]} />
-                                            <span className="kind-card__label">
-                                                <Icon size={14} aria-hidden="true" />
-                                                {plural}
-                                                <span className="kind-card__count tabular">{count}</span>
-                                            </span>
+                                            <Icon size={14} aria-hidden="true" />
+                                            {plural}
+                                            <span className="kind-tab__count tabular">{count}</span>
                                         </button>
                                     )
                                 })}
