@@ -172,7 +172,7 @@ function Menus() {
 }
 
 /** The other ways to save, under the arrow beside Save, where people look when they want to keep something. */
-const SAVE_MORE: readonly (string | null)[] = ['save-project-as', 'save-starting-point', null, 'save-to-file']
+const SAVE_MORE: readonly (string | null)[] = ['save-project-as', 'save-starting-point', null, 'save-to-file', 'save-picture']
 
 function SaveButton() {
     const saveTree = useEditorStore((state) => state.saveTree)
