@@ -440,7 +440,7 @@ export function GalleryPage() {
                                 {PROP_FAMILIES.map(({id, plural}) => {
                                     const Icon = FAMILY_ICONS[id]
                                     const count = presetGroups
-                                        .filter((group) => group.family === id && group.title !== 'Favourites')
+                                        .filter((group) => group.family === id)
                                         .reduce((sum, group) => sum + group.presets.length, 0)
 
                                     return (
