@@ -2,6 +2,47 @@
 
 What's new in each version of easy-props.
 
+## 0.4.2 (November 8, 2026)
+
+**My presets**
+
+- Save any prop as your own preset with Save as my preset…, from the arrow beside Save. Your
+  presets come first on Home and in the preset list, and picking one starts a new prop from it,
+  just like the app's own presets.
+- Edit one of your presets, rename it or take it off My presets from its tile. Your props marks
+  them, and shows only them with the My presets button.
+
+**Resize parts**
+
+- Press S, or use the new Resize button beside Turn, then drag the ring out to grow a branch,
+  root or leaf clump and in to shrink it. Hold Shift for steps of 10%.
+- The branches and leaves on a branch grow and shrink with it. Branches and roots also have a
+  Size slider.
+
+**Save a picture**
+
+- Save a picture… saves a PNG of the prop as the view shows it: the same angle, look and lines.
+  Choose 1,024 or 2,048 pixels, and a see-through background or the one in the view.
+
+**Report a problem**
+
+- Report a problem…, in the Help menu, asks a few questions and opens a GitHub issue with them
+  filled in, along with your app version, system and the prop you have open. You send it from
+  GitHub yourself, and the app sends nothing.
+
+**Smaller changes**
+
+- Save now has an arrow beside it, with Save a copy…, Save as my preset…, Save to a file… and
+  Save a picture….
+- Home picks a kind of prop from a row of tabs, so the only pictures there are presets you can
+  start from.
+- The Favourites group, which couldn't be changed, is gone. Blossom tree is now under Blossom &
+  fruit, and Spring and Autumn tree under Broadleaf.
+
+**Fixed**
+
+- Your props opens faster when you have saved palms, flowers, grass or cacti.
+
 ## 0.4.0 (November 6, 2026)
 
 **Cartoon and Comic looks**
