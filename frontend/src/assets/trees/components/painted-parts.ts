@@ -371,6 +371,16 @@ const LIMB_SPECS: readonly ParameterSpec[] = [
         step: 0.05,
         default: 1,
     },
+    {
+        kind: 'number',
+        key: 'sizeScale',
+        label: 'Size',
+        help: 'How big this part is, with the branches and leaves that grow on it.',
+        min: 0.25,
+        max: 3,
+        step: 0.05,
+        default: 1,
+    },
 ]
 
 const PROXY_MIN_RADIUS = 0.05

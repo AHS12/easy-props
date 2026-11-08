@@ -9,7 +9,7 @@ const CAMERA_HINTS: Readonly<Record<string, string>> = {
 
 /** The hint for this moment: what you can do right now. */
 export function hintFor(
-    state: Pick<EditorStore, 'status' | 'moveTool' | 'selection' | 'scene'> & Partial<Pick<EditorStore, 'turnTool'>>,
+    state: Pick<EditorStore, 'status' | 'moveTool' | 'selection' | 'scene'> & Partial<Pick<EditorStore, 'turnTool' | 'resizeTool'>>,
     scheme: string,
 ): string {
     if (state.status.message) {
@@ -26,10 +26,18 @@ export function hintFor(
         return part ? 'Drag a ring to turn the part around its base · Esc to put the tool down' : 'Click a branch, then drag a ring to turn it'
     }
 
+    if (state.resizeTool) {
+        return part
+            ? 'Drag the ring out to grow the part, in to shrink it · Shift for steps of 10% · Esc to put the tool down'
+            : 'Click a branch or leaf clump, then drag the ring to resize it'
+    }
+
     if (part) {
         return part.generatorId === 'painted-limb'
-            ? 'Drag a white handle to reshape · E to turn · F to frame · Delete to remove · Esc to deselect'
-            : 'G to move · F to frame · Delete to remove · Esc to deselect'
+            ? 'Drag a white handle to reshape · E to turn · S to resize · F to frame · Delete to remove · Esc to deselect'
+            : part.generatorId === 'painted-clump'
+              ? 'G to move · S to resize · F to frame · Delete to remove · Esc to deselect'
+              : 'G to move · F to frame · Delete to remove · Esc to deselect'
     }
 
     return `Click a part to select · ${CAMERA_HINTS[scheme] ?? CAMERA_HINTS['easy-props']}`

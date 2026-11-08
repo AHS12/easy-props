@@ -13,6 +13,8 @@ export interface LimbEdit {
     readonly offsets?: readonly Vec3[]
     readonly lengthScale?: number
     readonly thicknessScale?: number
+    /** How big it is, with everything that grows on it. */
+    readonly sizeScale?: number
     /**
      * How far it is turned around its base, in degrees about the world's X, Y
      * and Z. What grows from it turns with it.
@@ -155,6 +157,19 @@ function limbAfter(
 
             if (finite(patch.thicknessScale)) {
                 next.thicknessScale = patch.thicknessScale
+            }
+
+            if (finite(patch.sizeScale)) {
+                // The trunk is the tree: Height is how it grows.
+                if (key === 't') {
+                    return null
+                }
+
+                if (patch.sizeScale === 1) {
+                    delete next.sizeScale
+                } else {
+                    next.sizeScale = patch.sizeScale
+                }
             }
 
             if (Array.isArray(patch.turn) && patch.turn.length === 3 && patch.turn.every(finite)) {

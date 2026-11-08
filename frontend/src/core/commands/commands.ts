@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -110,6 +110,20 @@ const whyNotTurn = (state: EditorStore) => {
     }
 
     return part.parameters.key === 't' ? 'This part is the whole prop. Use Lean to tip it' : null
+}
+
+const whyNotResize = (state: EditorStore) => {
+    const part = selectedPart(state)
+
+    if (!part) {
+        return 'Select a part first'
+    }
+
+    if (part.generatorId !== 'painted-limb' && part.generatorId !== 'painted-clump') {
+        return 'Only branches, roots and leaf clumps resize'
+    }
+
+    return part.parameters.key === 't' ? 'This part is the whole prop. Use Height to size it' : null
 }
 
 /** What a New command opens on. */
@@ -344,6 +358,8 @@ export const COMMANDS: readonly Command[] = [
                 state.setMoveTool(false)
             } else if (state.turnTool) {
                 state.setTurnTool(false)
+            } else if (state.resizeTool) {
+                state.setResizeTool(false)
             } else {
                 state.deselect()
             }
@@ -410,6 +426,7 @@ export const COMMANDS: readonly Command[] = [
         run: (state) => {
             state.setMoveTool(false)
             state.setTurnTool(false)
+            state.setResizeTool(false)
         },
     },
     {
@@ -433,6 +450,17 @@ export const COMMANDS: readonly Command[] = [
         relevant: (state) => Boolean(selected(state)),
         unavailable: whyNotTurn,
         run: (state) => state.setTurnTool(!state.turnTool),
+    },
+    {
+        id: 'tool-resize',
+        label: 'Resize part',
+        group: 'Tools',
+        shortcut: 'S',
+        icon: Scale3d,
+        keywords: 'scale size bigger smaller shrink grow',
+        relevant: (state) => Boolean(selected(state)),
+        unavailable: whyNotResize,
+        run: (state) => state.setResizeTool(!state.resizeTool),
     },
     {
         id: 'frame',

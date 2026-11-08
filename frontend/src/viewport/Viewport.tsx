@@ -20,6 +20,8 @@ import {dragPlaneFor, movedSpine, selectedSpine, type PartSpine} from './scene/s
 import {createMoveGizmo, type MoveGizmo} from './scene/move-gizmo'
 import {createTurnGizmo, pickNearestRing, pointerAngle, ringAxis, toScreen, type TurnGizmo} from './scene/turn-gizmo'
 import {turnedAbout, turnOf, turnPivotOf} from '../core/scene/turning'
+import {resizedBy, resizePivotOf, sizeLimits, sizeOf} from '../core/scene/resizing'
+import {createResizeGizmo, type ResizeGizmo} from './scene/resize-gizmo'
 import type {Vec3} from '../assets/trees/painted/plan'
 import {findComponent} from '../core/scene/scene-model'
 import {Compass, type CompassAxis, type CompassHandle} from './Compass'
@@ -62,6 +64,18 @@ interface TurnState {
     latest: Vec3 | null
 }
 
+/** A resize drag: the size follows how far the pointer is from the part's base, on screen. */
+interface ResizeState {
+    readonly componentId: string
+    readonly centre: {x: number; y: number}
+    /** How far from the base the pointer was as the drag began, in pixels. */
+    readonly startDistance: number
+    readonly size: number
+    readonly limits: {readonly min: number; readonly max: number}
+    readonly before: Scene
+    latest: number | null
+}
+
 /** How a move drag is pinned to one axis. */
 interface MoveState {
     readonly componentId: string
@@ -93,6 +107,7 @@ export function Viewport() {
     const dragRef = useRef<DragState | null>(null)
     const moveRef = useRef<MoveState | null>(null)
     const turnRef = useRef<TurnState | null>(null)
+    const resizeRef = useRef<ResizeState | null>(null)
     const compassRef = useRef<CompassHandle>(null)
     const reportFaces = (viewport: ViewportScene) => {
         const counts = viewport.countFacesByMesh()
@@ -171,6 +186,8 @@ export function Viewport() {
 
         const rings: TurnGizmo = createTurnGizmo()
         viewport.scene.add(rings.group)
+        const sizer: ResizeGizmo = createResizeGizmo()
+        viewport.scene.add(sizer.group)
         // The rings hide their back halves with a clipping plane of their own.
         viewport.renderer.localClippingEnabled = true
 
@@ -194,7 +211,7 @@ export function Viewport() {
             }
 
             // Eases in and out, and calms while a part is dragged, so a handle stays under the pointer.
-            const dragging = dragRef.current !== null || moveRef.current !== null || turnRef.current !== null
+            const dragging = dragRef.current !== null || moveRef.current !== null || turnRef.current !== null || resizeRef.current !== null
             const wanted = windWanted() && !dragging ? Number(settingValue('windStrength')) : 0
             const elapsed = lastDrawn === 0 ? 0 : Math.min((now - lastDrawn) / 1000, 0.1)
 
@@ -208,6 +225,7 @@ export function Viewport() {
             handles.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             gizmo.updateScale(viewport.camera, viewport.renderer.domElement.clientHeight)
             rings.update(viewport.camera, viewport.renderer.domElement.clientHeight)
+            sizer.update(viewport.camera, viewport.renderer.domElement.clientHeight)
             compassRef.current?.update(viewport.camera)
         }
 
@@ -240,6 +258,13 @@ export function Viewport() {
                 rings.setOrigin(pivot ? new THREE.Vector3(...pivot) : null)
             }
 
+            const sizePivot = state.resizeTool ? resizePivotOf(state.scene, selected) : null
+
+            // A clump grows around its middle, which doesn't move during the drag either.
+            if (!resizeRef.current) {
+                sizer.setOrigin(sizePivot ? new THREE.Vector3(...sizePivot) : null)
+            }
+
             if (!state.moveTool || !selected) {
                 gizmo.setOrigin(null)
                 return
@@ -254,6 +279,20 @@ export function Viewport() {
         }
 
         const onPointerMove = (event: PointerEvent) => {
+            const resizing = resizeRef.current
+
+            if (resizing) {
+                const distance = Math.hypot(event.clientX - resizing.centre.x, event.clientY - resizing.centre.y)
+                const size = resizedBy(resizing.size, distance / resizing.startDistance, resizing.limits, event.shiftKey)
+
+                if (size !== (resizing.latest ?? resizing.size)) {
+                    resizing.latest = size
+                    store.getState().previewSize(resizing.componentId, size)
+                }
+
+                return
+            }
+
             const turning = turnRef.current
 
             if (turning) {
@@ -337,6 +376,10 @@ export function Viewport() {
                 rings.setHovered(pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, rings.rings()))
             }
 
+            if (store.getState().resizeTool) {
+                sizer.setHovered(pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, sizer.rings()) >= 0)
+            }
+
             // With the move tool on, the arrow under the pointer lights up,
             // so the user can see what a drag is about to grab.
             if (store.getState().moveTool) {
@@ -362,6 +405,30 @@ export function Viewport() {
             }
 
             const state = store.getState()
+
+            if (state.resizeTool && state.selection.selectedId) {
+                const grabbed = pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, sizer.rings()) >= 0
+                const pivot = grabbed ? resizePivotOf(state.scene, state.selection.selectedId) : null
+
+                if (pivot) {
+                    const centre = toScreen(new THREE.Vector3(...pivot), viewport.camera, canvas)
+                    const id = state.selection.selectedId
+
+                    sizer.setHovered(true)
+                    resizeRef.current = {
+                        componentId: id,
+                        centre,
+                        startDistance: Math.max(Math.hypot(event.clientX - centre.x, event.clientY - centre.y), 1),
+                        size: sizeOf(state.scene, id),
+                        limits: sizeLimits(state.scene, id),
+                        before: state.scene,
+                        latest: null,
+                    }
+
+                    viewport.controls.enabled = false
+                    return
+                }
+            }
 
             if (state.turnTool && state.selection.selectedId) {
                 const ring = pickNearestRing(event.clientX, event.clientY, viewport.camera, canvas, rings.rings())
@@ -474,11 +541,21 @@ export function Viewport() {
             const move = moveRef.current
             const drag = dragRef.current
             const turning = turnRef.current
+            const resizing = resizeRef.current
             pointerDownRef.current = null
+            resizeRef.current = null
             dragRef.current = null
             moveRef.current = null
             turnRef.current = null
             viewport.controls.enabled = true
+
+            if (resizing) {
+                if (resizing.latest !== null) {
+                    store.getState().commitSize(resizing.before, resizing.componentId, resizing.latest)
+                }
+
+                return
+            }
 
             if (turning) {
                 if (turning.latest) {
@@ -703,7 +780,7 @@ export function Viewport() {
                 refreshGizmo()
             }
 
-            if (state.moveTool !== previous.moveTool || state.turnTool !== previous.turnTool) {
+            if (state.moveTool !== previous.moveTool || state.turnTool !== previous.turnTool || state.resizeTool !== previous.resizeTool) {
                 refreshGizmo()
             }
         })
@@ -876,6 +953,7 @@ export function Viewport() {
             handles.dispose()
             gizmo.dispose()
             rings.dispose()
+            sizer.dispose()
             viewport.dispose()
             canvas.remove()
             sceneRef.current = null

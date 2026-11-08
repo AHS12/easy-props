@@ -229,6 +229,13 @@ export interface EditorStore {
     /** True while the turn rings are showing. One tool at a time, so turning it on puts Move away. */
     turnTool: boolean
     setTurnTool(on: boolean): void
+    /** True while the resize handle is showing. One tool at a time, as with Turn. */
+    resizeTool: boolean
+    setResizeTool(on: boolean): void
+    /** Shows a size without recording history. Used while dragging the resize ring. */
+    previewSize(componentId: string, size: number): void
+    /** Records the size a drag ended with as one undo step. */
+    commitSize(before: Scene, componentId: string, size: number): void
     /** Shows a turn without recording history. Used while dragging a ring. */
     previewTurn(componentId: string, turn: readonly number[]): void
     /** Records the turn a drag ended with as one undo step. */
@@ -595,11 +602,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         moveTool: false,
 
-        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false} : {moveTool: false}),
+        setMoveTool: (on) => set(on ? {moveTool: true, turnTool: false, resizeTool: false} : {moveTool: false}),
 
         turnTool: false,
 
-        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false} : {turnTool: false}),
+        setTurnTool: (on) => set(on ? {turnTool: true, moveTool: false, resizeTool: false} : {turnTool: false}),
+
+        resizeTool: false,
+
+        setResizeTool: (on) => set(on ? {resizeTool: true, moveTool: false, turnTool: false} : {resizeTool: false}),
+
+        previewSize: (componentId, size) => {
+            holdLowPolyCrown(true)
+            set({scene: updateComponentParameters(get().scene, componentId, {sizeScale: size})})
+        },
+
+        commitSize: (before, componentId, size) => {
+            holdLowPolyCrown(false)
+            commit('resize part', (scene) => updateComponentParameters(scene, componentId, {sizeScale: size}), before)
+        },
 
         previewTurn: (componentId, turn) => {
             holdLowPolyCrown(true)
