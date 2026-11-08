@@ -21,7 +21,7 @@ import {useUiStore} from '../store/ui-store'
 const MENUS: readonly {readonly title: string; readonly items: readonly (string | null)[]}[] = [
     {
         title: 'File',
-        items: ['new-tree', 'new-palm', 'new-bush', 'new-flower', 'new-grass', 'new-cactus', 'new-rock', null, 'home', 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'batch-export', null, 'back-up', 'restore-backup', null, 'settings'],
+        items: ['new-tree', 'new-palm', 'new-bush', 'new-flower', 'new-grass', 'new-cactus', 'new-rock', null, 'home', 'gallery', 'open-project', null, 'save-project', 'save-project-as', 'save-to-file', null, 'export-model', 'save-picture', 'batch-export', null, 'back-up', 'restore-backup', null, 'settings'],
     },
     {
         title: 'Edit',

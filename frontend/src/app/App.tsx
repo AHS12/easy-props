@@ -16,6 +16,7 @@ import {VariationGrid} from '../panels/VariationGrid'
 import {ExportDialog} from '../panels/ExportDialog'
 import {LeftPanel} from '../panels/LeftPanel'
 import {MenuBar} from '../panels/MenuBar'
+import {PictureDialog} from '../panels/PictureDialog'
 import {SaveDialog} from '../panels/SaveDialog'
 import {SettingsDialog} from '../panels/SettingsDialog'
 import {StatusBar} from '../panels/StatusBar'
@@ -205,7 +206,7 @@ export function App() {
             }
 
             // A question on screen owns the keyboard, and so do the windows.
-            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.whatsNewOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
+            if (editor.savePrompt || closeRequested || ui.confirm || ui.tourOpen || ui.whatsNewOpen || ui.pictureOpen || ui.settingsPage || editor.exportOpen || editor.batchOpen) {
                 return
             }
 
@@ -363,6 +364,7 @@ export function App() {
             <Tour />
             <Toast />
             <SaveDialog />
+            <PictureDialog />
             <ExportDialog />
             <BatchExportDialog />
             <RestoreDialog />

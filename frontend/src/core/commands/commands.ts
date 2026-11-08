@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    Bookmark, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    Bookmark, ImageDown, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -297,6 +297,14 @@ export const COMMANDS: readonly Command[] = [
         icon: Bookmark,
         keywords: 'my presets own template starting point start from reuse keep base',
         run: (state) => state.saveStartingPoint(),
+    },
+    {
+        id: 'save-picture',
+        label: 'Save a picture…',
+        group: 'File',
+        icon: ImageDown,
+        keywords: 'png image screenshot render store page devlog photo transparent see-through',
+        run: () => useUiStore.getState().setPictureOpen(true),
     },
     {
         id: 'save-to-file',

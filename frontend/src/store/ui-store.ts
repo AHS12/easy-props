@@ -46,6 +46,10 @@ interface UiStore {
     whatsNewOpen: boolean
     setWhatsNewOpen(open: boolean): void
 
+    /** True while Save a picture is asking how big and on what. */
+    pictureOpen: boolean
+    setPictureOpen(open: boolean): void
+
     /** Hides both panels: Ctrl+\. */
     panelsHidden: boolean
     togglePanels(): void
@@ -111,6 +115,9 @@ export const useUiStore = create<UiStore>((set) => ({
 
     whatsNewOpen: false,
     setWhatsNewOpen: (whatsNewOpen) => set({whatsNewOpen}),
+
+    pictureOpen: false,
+    setPictureOpen: (pictureOpen) => set({pictureOpen}),
 
     panelsHidden: false,
     togglePanels: () => set((state) => ({panelsHidden: !state.panelsHidden})),

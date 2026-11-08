@@ -82,7 +82,17 @@ export interface ViewportScene {
     /** Shows a far-away card in place of the prop, or the prop again with null. */
     setStandIn(card: StandIn | null): void
     resize(): void
+    /**
+     * A PNG of the view as it is, its longer side this many pixels. With `seeThrough`,
+     * only the prop is drawn: no sky, ground, grid or scenery. Null when it can't be drawn.
+     */
+    capture(options: CaptureOptions): string | null
     dispose(): void
+}
+
+export interface CaptureOptions {
+    readonly size: number
+    readonly seeThrough: boolean
 }
 
 const CAMERA_FOV = 45
@@ -133,6 +143,8 @@ function countFaces(root: THREE.Object3D): number {
 function createRenderer(container: HTMLElement, antialias: boolean): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
         antialias,
+        // The view always draws a sky, so this only shows in a saved picture with nothing behind the prop.
+        alpha: true,
         powerPreference: 'high-performance',
     })
 
@@ -614,6 +626,64 @@ export function createViewportScene(
 
         setStandIn(card) {
             components.setStandIn(card)
+        },
+
+        capture({size, seeThrough}) {
+            const width = container.clientWidth
+            const height = container.clientHeight
+
+            if (width === 0 || height === 0 || renderer.getContext().isContextLost()) {
+                return null
+            }
+
+            const longest = Math.min(size, renderer.capabilities.maxTextureSize)
+            const ratio = renderer.getPixelRatio()
+            const background = scene.background
+            const fog = scene.fog
+            const clear = renderer.getClearColor(new THREE.Color())
+            const clearAlpha = renderer.getClearAlpha()
+            const hidden = seeThrough
+                ? [ground, figure, collision.group, scenery?.group, ...['grid_minor', 'grid_major'].map((name) => scene.getObjectByName(name))].filter(
+                      (object): object is THREE.Object3D => object?.visible === true,
+                  )
+                : []
+            const wasMeadow = meadow
+
+            try {
+                // The same view at a finer pixel ratio, so lines and shading keep their proportions.
+                renderer.setPixelRatio(longest / Math.max(width, height))
+                renderer.setSize(width, height, false)
+
+                if (seeThrough) {
+                    scene.background = null
+                    scene.fog = null
+                    renderer.setClearColor(0x000000, 0)
+                    // The lines would outline scenery that isn't drawn.
+                    meadow = false
+
+                    for (const object of hidden) {
+                        object.visible = false
+                    }
+                }
+
+                this.draw()
+
+                return renderer.domElement.toDataURL('image/png')
+            } catch {
+                return null
+            } finally {
+                meadow = wasMeadow
+                scene.background = background
+                scene.fog = fog
+                renderer.setClearColor(clear, clearAlpha)
+
+                for (const object of hidden) {
+                    object.visible = true
+                }
+
+                renderer.setPixelRatio(ratio)
+                renderer.setSize(width, height, false)
+            }
         },
 
         resize() {

@@ -93,6 +93,26 @@ export async function saveProjectFile(
     return target
 }
 
+/** Asks where to save a picture, then writes it. Returns the path, or null if cancelled. */
+export async function savePictureFile(bytes: Uint8Array, suggestedName: string): Promise<string | null> {
+    const app = desktop()
+
+    if (!app) {
+        await writeWithBrowser(suggestedName, bytes, 'image/png')
+        return suggestedName
+    }
+
+    const target = await app.SaveFileDialog('Save a picture', suggestedName, ['*.png'])
+
+    if (!target) {
+        return null
+    }
+
+    await app.WriteFile(target, [...bytes])
+
+    return target
+}
+
 /**
  * Asks for a folder and returns it, or null if cancelled. A browser has no
  * folders to offer, so it answers with where downloads go.

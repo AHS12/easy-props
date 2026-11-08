@@ -813,6 +813,28 @@ export function Viewport() {
                 drawCalls: viewport.drawCalls(),
                 size: viewport.contentSize(),
             }),
+            picture: (options) => {
+                // A picture is of the prop, not of the tools on it.
+                const tools = [handles.group, gizmo.group, rings.group, sizer.group].filter((group) => group.visible)
+                const {selection} = store.getState()
+
+                for (const group of tools) {
+                    group.visible = false
+                }
+
+                applySelectionVisuals(viewport, {...selection, selectedId: null, hoveredId: null})
+
+                try {
+                    return viewport.capture(options)
+                } finally {
+                    for (const group of tools) {
+                        group.visible = true
+                    }
+
+                    applySelectionVisuals(viewport, store.getState().selection)
+                    viewport.draw()
+                }
+            },
         })
 
         // Settings apply at once. The scheme's listener has to be swapped, and the
