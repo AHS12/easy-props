@@ -31,6 +31,16 @@ const FEW_FRUIT_BELOW = 0.2
 const FRUIT_PLAIN_BELOW = 0.7
 /** A widened leaflet stops at about this many times the gap it has to cover. */
 const WIDEST_OVER_GAP = 1.2
+/**
+ * How far a hanging fruit sits out from the middle of its leaf card, and below
+ * it, as shares of its radius. The cards are far bigger than the fruit, so one
+ * pushed in behind its card would be hidden.
+ */
+const FRUIT_OUT = 0.7
+const FRUIT_DROP = 0.4
+/** Each fruit is the best spread of this many spots tried. */
+const FRUIT_TRIES = 6
+const STALK_COLOUR = new THREE.Color('#5b4a2c')
 
 export interface LeafBuffers {
     readonly positions: number[]
@@ -454,28 +464,96 @@ export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTree
     }
 }
 
-/** Fruit scattered over the skin of a clump, more of it underneath. */
-export function addClumpFruit(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, share = 1) {
+/** Where a leaf card holds fruit, and which way is into its clump from there. */
+export interface FruitSpot {
+    readonly point: Vec3
+    readonly inward: Vec3
+}
+
+/** A thin stalk from `from` up to `to`, swaying whole with its fruit. */
+function addStalk(buffers: LeafBuffers, from: Vec3, to: Vec3, radius: number, sides: number) {
+    const along = normalize([to[0] - from[0], to[1] - from[1], to[2] - from[2]])
+    const axisA = normalize(cross(along, Math.abs(along[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0]))
+    const axisB = cross(along, axisA)
+    const first = buffers.positions.length / 3
+
+    for (const end of [from, to]) {
+        for (let side = 0; side < sides; side++) {
+            const angle = (side / sides) * Math.PI * 2
+            const n: Vec3 = [
+                axisA[0] * Math.cos(angle) + axisB[0] * Math.sin(angle),
+                axisA[1] * Math.cos(angle) + axisB[1] * Math.sin(angle),
+                axisA[2] * Math.cos(angle) + axisB[2] * Math.sin(angle),
+            ]
+
+            pushVertex(buffers, [end[0] + n[0] * radius, end[1] + n[1] * radius, end[2] + n[2] * radius], n, STALK_COLOUR)
+        }
+    }
+
+    for (let side = 0; side < sides; side++) {
+        const next = (side + 1) % sides
+
+        buffers.indices.push(first + side, first + sides + next, first + next, first + side, first + sides + side, first + sides + next)
+    }
+}
+
+/**
+ * Fruit hanging from the leaves, each on a short stalk up into them.
+ *
+ * The spots are where the full clump's cards really are, so a lighter level
+ * puts what fruit it keeps in the same places.
+ */
+export function addHangingFruit(buffers: LeafBuffers, spots: readonly FruitSpot[], clump: Clump, tree: PaintedTreeParameters, share = 1) {
+    if (spots.length === 0) {
+        return
+    }
+
     const random = createSeededRandom(hashSeed(clump.seed, 6))
     const radius = fruitRadius(tree)
+    const placed: Vec3[] = []
 
     for (let index = 0; index < tree.fruitCount; index++) {
-        const azimuth = index * GOLDEN_ANGLE + random() * 2
-        const y = randomRange(random, -0.85, 0.45)
-        const ring = Math.sqrt(1 - y * y)
-        const reach = clump.radius * randomRange(random, 0.8, 0.98)
+        // Of a few spots tried, the one farthest from the fruit already hung.
+        let best = spots[0]
+        let bestGap = -1
+
+        for (let tried = 0; tried < FRUIT_TRIES; tried++) {
+            const spot = spots[Math.floor(random() * spots.length)]
+            const gap = placed.reduce(
+                (nearest, other) => Math.min(nearest, Math.hypot(spot.point[0] - other[0], spot.point[1] - other[1], spot.point[2] - other[2])),
+                Infinity,
+            )
+
+            if (gap > bestGap) {
+                best = spot
+                bestGap = gap
+            }
+        }
+
+        placed.push(best.point)
 
         if (share < FEW_FRUIT_BELOW && index % 3 !== 0) {
             continue
         }
 
-        addFruitBall(
+        const {point, inward} = best
+        const centre: Vec3 = [
+            point[0] - inward[0] * radius * FRUIT_OUT,
+            point[1] - inward[1] * radius * FRUIT_OUT - radius * FRUIT_DROP,
+            point[2] - inward[2] * radius * FRUIT_OUT,
+        ]
+        const first = buffers.positions.length / 3
+
+        addStalk(
             buffers,
-            [Math.cos(azimuth) * ring * reach, y * reach * clump.flatten, Math.sin(azimuth) * ring * reach],
-            radius,
-            tree,
-            share,
+            [centre[0], centre[1] + radius * 0.8, centre[2]],
+            [point[0] + inward[0] * radius * 0.6, point[1] + radius * 0.7, point[2] + inward[2] * radius * 0.6],
+            Math.max(radius * 0.09, 0.006),
+            share < FRUIT_PLAIN_BELOW ? 3 : 4,
         )
+        addFruitBall(buffers, centre, radius, tree, share)
+        // The ball marked itself; the stalk sways with it.
+        buffers.rigid.splice(buffers.rigid.length - 2, 1, first)
     }
 }
 

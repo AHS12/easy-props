@@ -233,7 +233,7 @@ function findClump(tree: PaintedTreeParameters, seed: number, key: string): Clum
 
 export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
     id: 'painted-clump',
-    version: 2,
+    version: 3,
     type: 'foliage-cluster',
     label: 'Leaf clump',
     parameters: CLUMP_SPECS,

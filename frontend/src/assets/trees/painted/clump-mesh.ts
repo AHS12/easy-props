@@ -15,7 +15,7 @@
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
-import {addClumpFruit, addStrands, leafGeometry} from './frond-mesh'
+import {addHangingFruit, addStrands, leafGeometry, type FruitSpot} from './frond-mesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'
 import {weatherPaint} from '../../shared/weather'
@@ -34,6 +34,9 @@ const MAX_CARD_GROWTH = 2.2
 const OUTLINE_AXIS = 0.99
 /** How far a grown card is pulled in, as a share of its growth, to keep its outer edge where it was. */
 const GROWTH_PULL = 0.6
+/** Fruit hangs from cards on the rim and the lower half, but not the thinned underside. */
+const FRUIT_HIGHEST = 0.6
+const FRUIT_LOWEST = -0.6
 const CORNERS: readonly (readonly [number, number])[] = [
     [-1, -1],
     [1, -1],
@@ -82,31 +85,33 @@ function isInsideOther(clumps: readonly Clump[], self: Clump, world: Vec3): bool
     return false
 }
 
-function extentOf(geometry: THREE.BufferGeometry): {min: number[]; max: number[]} {
-    geometry.computeBoundingBox()
+type Extent = {min: number[]; max: number[]}
 
-    const box = geometry.boundingBox!
-    const extent = {min: box.min.toArray(), max: box.max.toArray()}
+/** The box around a geometry's first `count` vertices. */
+function boxOf(geometry: THREE.BufferGeometry, count: number): Extent | null {
+    const position = geometry.getAttribute('position')
+    const box = new THREE.Box3()
+    const point = new THREE.Vector3()
 
-    geometry.dispose()
+    for (let i = 0; i < Math.min(count, position.count); i++) {
+        box.expandByPoint(point.fromBufferAttribute(position, i))
+    }
 
-    return extent
+    return box.isEmpty() ? null : {min: box.min.toArray(), max: box.max.toArray()}
 }
 
 /**
- * Stretches a lighter clump to the size of the full one, so losing the card at
- * an edge does not shrink the silhouette.
+ * Stretches a lighter clump's leaves to the size of the full one's, so losing
+ * the card at an edge does not shrink the silhouette. Fruit, after the first
+ * `count` vertices, stays where the full clump has it.
  */
-function fitToExtent(geometry: THREE.BufferGeometry, extent: {min: number[]; max: number[]}) {
-    geometry.computeBoundingBox()
+function fitToExtent(geometry: THREE.BufferGeometry, extent: Extent, count: number) {
+    const own = boxOf(geometry, count)
 
-    const box = geometry.boundingBox
-
-    if (!box || box.isEmpty()) {
+    if (!own) {
         return
     }
 
-    const own = {min: box.min.toArray(), max: box.max.toArray()}
     const position = geometry.getAttribute('position')
     const fit = (axis: number, value: number) => {
         const span = own.max[axis] - own.min[axis]
@@ -116,7 +121,7 @@ function fitToExtent(geometry: THREE.BufferGeometry, extent: {min: number[]; max
             : value
     }
 
-    for (let i = 0; i < position.count; i++) {
+    for (let i = 0; i < Math.min(count, position.count); i++) {
         position.setXYZ(i, fit(0, position.getX(i)), fit(1, position.getY(i)), fit(2, position.getZ(i)))
     }
 
@@ -132,6 +137,34 @@ export function buildClump(
     detail: number,
     share = 1,
 ): THREE.BufferGeometry {
+    if (share >= 1) {
+        return clumpWithFruitSpots(plan, clump, tree, detail, 1, null).geometry
+    }
+
+    // A lighter level is fitted to the full clump, and hangs fruit where it does.
+    const full = clumpWithFruitSpots(plan, clump, tree, detail, 1, null)
+    const extent = boxOf(full.geometry, full.leafCount)
+
+    full.geometry.dispose()
+
+    const built = clumpWithFruitSpots(plan, clump, tree, detail, share, extent && {extent, spots: full.spots})
+
+    if (extent) {
+        fitToExtent(built.geometry, extent, built.leafCount)
+    }
+
+    return built.geometry
+}
+
+/** A clump, how many of its vertices are leaves, and where its full self has cards to hold fruit. */
+function clumpWithFruitSpots(
+    plan: TreePlan,
+    clump: Clump,
+    tree: PaintedTreeParameters,
+    detail: number,
+    share: number,
+    full: {extent: Extent; spots: readonly FruitSpot[]} | null,
+): {geometry: THREE.BufferGeometry; leafCount: number; spots: readonly FruitSpot[]} {
     const random = createSeededRandom(clump.seed)
     const lumpSeed = (clump.seed % 1000) / 100
     const palette = resolvePalette(tree)
@@ -248,7 +281,8 @@ export function buildClump(
     // rerolls them, so stepping down a level only ever takes cards away.
     const growth = Math.min(1 / Math.sqrt(share), MAX_CARD_GROWTH)
     // And a grown card never reaches past the clump it stands in for.
-    const limit = share < 1 ? extentOf(buildClump(plan, clump, tree, detail)) : null
+    const limit = full?.extent ?? null
+    const spots: FruitSpot[] = []
     let cardNumber = 0
 
     const addCards = (
@@ -259,6 +293,7 @@ export function buildClump(
         sizeScale: number,
         valueShift: number,
         thinUnderside: boolean,
+        holdsFruit: boolean,
     ) => {
         for (let card = 0; card < count; card++) {
             // Even coverage from a Fibonacci sphere, loosened by the seed.
@@ -322,6 +357,13 @@ export function buildClump(
                 continue
             }
 
+            if (holdsFruit && d[1] <= FRUIT_HIGHEST && d[1] >= FRUIT_LOWEST) {
+                spots.push({
+                    point: local,
+                    inward: normalize([lobe.centre[0] - local[0], lobe.centre[1] - local[1], lobe.centre[2] - local[2]]),
+                })
+            }
+
             const axisA = perpendicularTo(facing)
             const axisB = cross(facing, axisA)
             const cos = Math.cos(roll) * half
@@ -367,8 +409,8 @@ export function buildClump(
     for (const lobe of lobes) {
         const count = Math.round(((4 * Math.PI * lobe.radius * lobe.radius) / (cardSize * cardSize)) * density)
 
-        addCards(lobe, Math.round(count * INNER_SHARE), 0.42, 0.74, 1.35, -0.24, false)
-        addCards(lobe, count, 0.84, 1.03, 1, 0, true)
+        addCards(lobe, Math.round(count * INNER_SHARE), 0.42, 0.74, 1.35, -0.24, false, false)
+        addCards(lobe, count, 0.84, 1.03, 1, 0, true, true)
     }
 
     const buffers = {positions, normals, colors, uvs, indices, rigid: [] as number[]}
@@ -377,15 +419,11 @@ export function buildClump(
         addStrands(buffers, clump, tree, detail, share)
     }
 
+    const leafCount = positions.length / 3
+
     if (tree.fruitCount > 0) {
-        addClumpFruit(buffers, clump, tree, share)
+        addHangingFruit(buffers, full?.spots ?? spots, clump, tree, share)
     }
 
-    const geometry = leafGeometry(buffers)
-
-    if (limit) {
-        fitToExtent(geometry, limit)
-    }
-
-    return geometry
+    return {geometry: leafGeometry(buffers), leafCount, spots}
 }
