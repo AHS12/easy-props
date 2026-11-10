@@ -35,6 +35,8 @@ import {
     type SelectionState,
 } from '../core/selection/selection'
 import {createInitialScene, createSceneFromPreset, DEFAULT_PRESET_ID, presetOfScene} from '../core/scene/initial-scene'
+import {makePieces} from '../core/scene/tree-pieces'
+import type {PieceKind} from '../assets/trees/pieces/tree-pieces'
 import {
     addComponent,
     copyComponent as copyComponentInScene,
@@ -382,6 +384,8 @@ export interface EditorStore {
     copyTree(id: string): Promise<void>
     /** Asks for a name, then saves the prop in hand as a new starting point. */
     saveStartingPoint(): void
+    /** Makes these pieces of the open tree, saves each to Your props as a prop of its own, and says which it saved. */
+    makeTreePieces(kinds: readonly PieceKind[]): Promise<readonly {id: string; name: string}[]>
     /** A new, unsaved prop made from a starting point, as a preset makes one. */
     startFromStartingPoint(id: string): Promise<void>
     /** Puts a starting point's prop in place of this one, as one step to undo, as picking a preset does. */
@@ -1261,6 +1265,29 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             } catch (error) {
                 set({toast: {message: describeFailure(error, 'save'), undoable: false}})
             }
+        },
+
+        makeTreePieces: async (kinds) => {
+            const state = get()
+            const pieces = makePieces(state.scene, state.treeName, kinds, state.style)
+            const saved: {id: string; name: string}[] = []
+
+            try {
+                for (const piece of pieces) {
+                    const id = newTreeId()
+                    const text = serializeProject({scene: piece.scene, name: piece.name, style: state.style})
+                    const thumbnail = await renderTreeThumbnail(piece.scene, {style: getStyleProfile(state.style), size: PICTURE_SIZE})
+
+                    await writeTree(id, text, thumbnail)
+                    saved.push({id, name: piece.name})
+                }
+
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+
+            return saved
         },
 
         saveStartingPoint: () => {

@@ -18,7 +18,7 @@ import * as THREE from 'three'
 import {joinChunks, packedCell as packed, sculptCells, type MeshBuffers, type SurfaceChunk} from '../../shared/surface-nets'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Limb, type TreePlan, type Vec3} from './plan'
-import {createWoodField, type WoodField} from './wood-field'
+import {createWoodField, type WoodCut, type WoodField} from './wood-field'
 import {mossFacing, weatherPaint} from '../../shared/weather'
 
 /** Below these shares of full detail, the thin wood they name is left out. */
@@ -92,7 +92,30 @@ export interface BarkContext {
     readonly sculptMin: number
     readonly isSculpted: (limb: Limb, segment: number) => boolean
     readonly sculptedSegments: readonly {a: Vec3; b: Vec3; radius: number}[]
+    /** Turns a direction into how it will face once the wood is laid where it goes. */
+    readonly orient: (v: Vec3) => Vec3
+    /** Where the wood is sawn through, for a piece cut from a tree. */
+    readonly cuts: readonly WoodCut[]
 }
+
+/**
+ * How a piece is cut from a tree: where it is sawn through, and how it will lie,
+ * so light, moss and snow can be painted for where it ends up.
+ */
+export interface PieceCut {
+    readonly cuts: readonly WoodCut[]
+    /** Turns a direction in the tree into the same direction once the piece is laid down. */
+    readonly orient: (v: Vec3) => Vec3
+}
+
+const UPRIGHT = (v: Vec3): Vec3 => v
+
+/** A cut face, pale wood in rings that follow its outline, and a rim of bark. */
+const HEARTWOOD = new THREE.Color('#e4c391')
+const RING = new THREE.Color('#a87a4a')
+/** How far apart the rings are, and how thick the bark at the rim is, against the trunk's radius. */
+const RING_SPACING = 0.11
+const RIM = 0.07
 
 /** One slice of the sculpting, which can be worked on anywhere. */
 export type BarkChunk = SurfaceChunk
@@ -331,7 +354,7 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
  * How wood is coloured at a point. Sculpted and swept wood both start from this, so
  * the place one becomes the other cannot show as a change of colour.
  */
-function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: number, n: Vec3, ink?: THREE.Color, inkShare?: number) => THREE.Color {
+function woodPainter({field, tree, orient, cell}: BarkContext): (x: number, y: number, z: number, n: Vec3, ink?: THREE.Color, inkShare?: number) => THREE.Color {
     const palette = resolvePalette(tree)
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
@@ -340,16 +363,38 @@ function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: numb
     const crease = deep.clone().multiplyScalar(CREASE_DARKNESS)
     const occlusionReach = tree.trunkRadius * OCCLUSION_REACH
 
+    const ringLight = HEARTWOOD.clone()
+    const ringDark = RING.clone()
+    const rimColour = deep.clone()
+
     // A thin limb's ink goes under the snow, so snow still lies along a twig.
-    return (x, y, z, n, ink, inkShare = 0) => {
+    return (x, y, z, inTree, ink, inkShare = 0) => {
+        // Lit, mossed and snowed on as it will lie, which for a fallen piece isn't as it grew.
+        const n = orient(inTree)
+        const cutAt = field.cutDepth(x, y, z)
+
+        if (cutAt !== null) {
+            const rim = tree.trunkRadius * RIM
+            // Rings finer than the points could carry would only flicker, so a few wide ones stand for them.
+            const ring = 0.5 + 0.5 * Math.sin((cutAt / Math.max(tree.trunkRadius * RING_SPACING, cell * 2.5)) * Math.PI * 2)
+
+            paint.copy(ringLight).lerp(ringDark, ring ** 3 * 0.75)
+
+            if (cutAt < rim) {
+                paint.lerp(rimColour, 1 - (cutAt / rim) ** 2)
+            }
+
+            return weatherPaint(paint, n[1], {snow: tree.snow, wet: tree.wet})
+        }
+
         // Lit from above, dark in the ridges and in the crooks of the joints. How
         // open a point is comes straight from the field: step out along the normal
         // and see how far the wood really is.
         const open =
             field.distance(
-                x + n[0] * occlusionReach,
-                y + n[1] * occlusionReach,
-                z + n[2] * occlusionReach,
+                x + inTree[0] * occlusionReach,
+                y + inTree[1] * occlusionReach,
+                z + inTree[2] * occlusionReach,
             ) / occlusionReach
 
         // Blotches that do not line up with the grid, so bark and moss
@@ -672,6 +717,7 @@ export function prepareBark(
     tree: PaintedTreeParameters,
     seed: number,
     detail: number,
+    piece?: PieceCut,
 ): BarkContext {
     // A lighter level can go below what a fine surface needs, so its floor rises with it.
     const floor = MIN_CELL * Math.sqrt(Math.max(FULL_FLOOR_DETAIL / detail, 1))
@@ -709,11 +755,13 @@ export function prepareBark(
         plan,
         tree,
         detail,
-        field: createWoodField(wood, tree, seed, isSculpted),
+        field: createWoodField(wood, tree, seed, isSculpted, piece?.cuts),
         cell,
         sculptMin,
         isSculpted,
         sculptedSegments,
+        orient: piece?.orient ?? UPRIGHT,
+        cuts: piece?.cuts ?? [],
     }
 }
 
@@ -764,6 +812,13 @@ export function assembleBark(
             continue
         }
 
+        // Thin wood past a saw cut went with the rest of the tree.
+        const from = limb.points[start]
+
+        if (context.cuts.some((cut) => (from[0] - cut.point[0]) * cut.normal[0] + (from[1] - cut.point[1]) * cut.normal[1] + (from[2] - cut.point[2]) * cut.normal[2] > 0)) {
+            continue
+        }
+
         sweep(
             limb,
             Math.max(start - 1, 0),
@@ -772,7 +827,7 @@ export function assembleBark(
             detail,
             field,
             (x, y, z, n, along) => {
-                ink.copy(deep).lerp(light, 0.1 + (n[1] * 0.5 + 0.5) * 0.5)
+                ink.copy(deep).lerp(light, 0.1 + (context.orient(n)[1] * 0.5 + 0.5) * 0.5)
 
                 // By how far along, not how thin: a twig is thin from its first ring,
                 // and would start as a dark spike on the paler wood it grows from.
@@ -817,8 +872,9 @@ export function buildBark(
     tree: PaintedTreeParameters,
     seed: number,
     detail: number,
+    piece?: PieceCut,
 ): THREE.BufferGeometry {
-    const context = prepareBark(plan, tree, seed, detail)
+    const context = prepareBark(plan, tree, seed, detail, piece)
     const cells = listBarkCells(context)
 
     return barkGeometry(assembleBark(context, cells, [sculptBarkCells(context, cells)]))

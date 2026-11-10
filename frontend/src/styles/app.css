@@ -2674,6 +2674,56 @@ html[data-theme='dark'] .dialog__error {
     accent-color: var(--accent-moss);
 }
 
+/* Make pieces from this tree: one row a piece, what it is under its name. */
+.pieces-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.pieces-list legend {
+    padding-bottom: 4px;
+    color: var(--text-secondary);
+    font: var(--text-label);
+    font-weight: 600;
+}
+
+.pieces-list__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font: var(--text-label);
+}
+
+.pieces-list__item[aria-disabled='true'] {
+    opacity: 0.55;
+}
+
+.pieces-list__item input {
+    margin-top: 2px;
+    accent-color: var(--accent-moss);
+}
+
+.pieces-list__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pieces-list__help {
+    color: var(--text-secondary);
+}
+
+.pieces-saved {
+    margin: 0;
+    padding-left: 18px;
+    font: var(--text-label);
+    line-height: 1.7;
+}
+
 /* ======================================================================
    Command palette
    ====================================================================== */

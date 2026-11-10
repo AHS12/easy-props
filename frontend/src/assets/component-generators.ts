@@ -21,6 +21,7 @@ import {palmFrondGenerator} from './trees/components/palm-frond'
 import {palmTrunkGenerator} from './trees/components/palm-trunk'
 import {rootGenerator} from './trees/components/root'
 import {trunkGenerator} from './trees/components/trunk'
+import {branchWoodGenerator, litterLeavesGenerator, logWoodGenerator, stumpWoodGenerator} from './trees/pieces/piece-generators'
 
 export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [branchGenerator.id]: branchGenerator,
@@ -41,6 +42,10 @@ export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [cactusBodyGenerator.id]: cactusBodyGenerator,
     [rootGenerator.id]: rootGenerator,
     [trunkGenerator.id]: trunkGenerator,
+    [stumpWoodGenerator.id]: stumpWoodGenerator,
+    [logWoodGenerator.id]: logWoodGenerator,
+    [branchWoodGenerator.id]: branchWoodGenerator,
+    [litterLeavesGenerator.id]: litterLeavesGenerator,
 }
 
 export function findComponentGenerator(id: string): PartGenerator | undefined {

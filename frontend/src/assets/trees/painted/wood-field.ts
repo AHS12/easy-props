@@ -41,6 +41,20 @@ export interface WoodField {
     valley(x: number, y: number, z: number): number
     /** How the bark pattern paints a point: positive is lighter, negative darker. */
     mark(x: number, y: number, z: number): number
+    /**
+     * How far inside the bark a point on a cut face is, or null when the point is on
+     * bark. A cut face shows the wood's rings, and these follow the wood's outline.
+     */
+    cutDepth(x: number, y: number, z: number): number | null
+}
+
+/**
+ * A flat cut through the wood, as a saw makes. Everything on the side its normal
+ * points to is taken away.
+ */
+export interface WoodCut {
+    readonly point: Vec3
+    readonly normal: Vec3
 }
 
 /** A pattern's wavelength as a share of the trunk's radius: about four grid cells. */
@@ -53,6 +67,9 @@ const JOIN_PATTERN_FADE = 1.6
 
 /** How far below the ground the wood is sliced flat, against the trunk's radius. Deeper than a root's tip reaches. */
 const BURIED_DEPTH = 0.6
+
+/** How close to a cut a point must be to count as on its face, against the trunk's radius. */
+const CUT_TOLERANCE = 0.04
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -142,6 +159,7 @@ export function createWoodField(
     tree: PaintedTreeParameters,
     seed: number,
     included: (limb: Limb, segment: number) => boolean,
+    cuts: readonly WoodCut[] = [],
 ): WoodField {
     const segments: Segment[] = []
     const grid = new Map<string, number[]>()
@@ -191,7 +209,8 @@ export function createWoodField(
         }
     }
 
-    const trunk = limbs[0]
+    // A piece cut from one branch has no trunk: nothing is ridged, flared or knotted as one.
+    const trunk = limbs[0]?.level === 0 ? limbs[0] : undefined
     const trunkTop = trunk ? trunk.points[trunk.points.length - 1][1] : 1
     const trunkAt = (y: number): {x: number; z: number; r: number} => {
         if (!trunk) {
@@ -218,7 +237,7 @@ export function createWoodField(
 
     // Knots sit on the surface of the trunk, between the roots and the fork.
     const burlRandom = createSeededRandom(hashSeed(seed, SEED_BURLS))
-    const burls = Array.from({length: tree.burls}, () => {
+    const burls = Array.from({length: trunk ? tree.burls : 0}, () => {
         const y = trunkTop * randomRange(burlRandom, 0.2, 0.85)
         const azimuth = burlRandom() * Math.PI * 2
         const at = trunkAt(y)
@@ -238,7 +257,7 @@ export function createWoodField(
         x: hollowAt.x + Math.cos(hollowAzimuth) * hollowAt.r,
         y: trunkTop * 0.3,
         z: hollowAt.z + Math.sin(hollowAzimuth) * hollowAt.r,
-        r: hollowAt.r * tree.hollow * 0.85,
+        r: trunk ? hollowAt.r * tree.hollow * 0.85 : 0,
     }
 
     const patternK = Math.PI / (PATTERN_WAVELENGTH * tree.trunkRadius * tree.patternScale)
@@ -251,9 +270,13 @@ export function createWoodField(
     // How far into a join between two limbs the last point measured was, 0 to 1. Kept
     // here rather than returned, as the distance is asked for millions of times.
     let lastJoin = 0
+    // And how far the last point was from the uncut wood, and from the cuts.
+    let lastUncut = 1
+    let lastCut = -Infinity
 
     const distance = (x: number, y: number, z: number): number => {
         lastJoin = 0
+        lastCut = -Infinity
 
         const cell = grid.get(
             cellKey(Math.floor(x / CELL), Math.floor(y / CELL), Math.floor(z / CELL)),
@@ -357,7 +380,17 @@ export function createWoodField(
 
         // A flat base, so the wood is closed however high a prop is placed, and spends
         // nothing on carrying its flare on down out of sight.
-        return Math.max(result, -y - tree.trunkRadius * BURIED_DEPTH)
+        result = Math.max(result, -y - tree.trunkRadius * BURIED_DEPTH)
+        lastUncut = result
+
+        for (const cut of cuts) {
+            lastCut = Math.max(
+                lastCut,
+                (x - cut.point[0]) * cut.normal[0] + (y - cut.point[1]) * cut.normal[1] + (z - cut.point[2]) * cut.normal[2],
+            )
+        }
+
+        return Math.max(result, lastCut)
     }
 
     return {
@@ -392,6 +425,17 @@ export function createWoodField(
             distance(x, y, z)
 
             return patternAt(x, y, z).paint * tree.patternDepth * clearOfJoin(lastJoin)
+        },
+
+        cutDepth(x, y, z) {
+            if (cuts.length === 0) {
+                return null
+            }
+
+            distance(x, y, z)
+
+            // On a cut face the cut is what holds the surface, and the wood runs on past it.
+            return lastCut > lastUncut - CUT_TOLERANCE * tree.trunkRadius ? Math.max(-lastUncut, 0) : null
         },
     }
 }

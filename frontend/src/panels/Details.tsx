@@ -6,7 +6,7 @@
  * says, and which groups are open is remembered per kind of prop.
  */
 
-import {ChevronRight, Dices, LayoutGrid, Search, Trash2, X} from 'lucide-react'
+import {Axe, ChevronRight, Dices, LayoutGrid, Search, Trash2, X} from 'lucide-react'
 import {createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ColourRow} from '../components/ColourRow'
 import {PaletteMenu} from '../components/PaletteMenu'
@@ -32,6 +32,7 @@ import type {ParameterSpec} from '../assets/shared/parameters'
 import {requestRemovePart} from '../core/commands/commands'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {findComponent} from '../core/scene/scene-model'
+import {canMakePieces} from '../core/scene/tree-pieces'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
@@ -416,6 +417,17 @@ export function Details() {
                         >
                             <LayoutGrid size={13} aria-hidden="true" />
                         </button>
+                        {canMakePieces(scene) ? (
+                            <button
+                                type="button"
+                                className="icon-button"
+                                onClick={() => useUiStore.getState().setPiecesOpen(true)}
+                                title="Make pieces from this tree: its stump, a fallen log, a fallen branch and its leaves on the ground"
+                                aria-label="Make pieces from this tree"
+                            >
+                                <Axe size={13} aria-hidden="true" />
+                            </button>
+                        ) : null}
                     </div>
                     {filterBox}
                 </header>

@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    Bookmark, ImageDown, MessageSquareWarning, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    Axe, Bookmark, ImageDown, MessageSquareWarning, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -18,6 +18,7 @@ import {PROP_FAMILIES, treePresets, type PropFamily} from '../../assets/trees/pr
 import {FAMILY_ICONS} from '../../components/kind-icons'
 import {canRedo, canUndo} from '../history/history'
 import {findComponent} from '../scene/scene-model'
+import {canMakePieces} from '../scene/tree-pieces'
 import {findBudgetTarget} from '../export/pipeline/budget'
 import {FAR_LEVEL, LEVEL_SHARES} from '../export/pipeline/types'
 import {hasUnsavedChanges, useEditorStore, type EditorStore} from '../../store/editor-store'
@@ -297,6 +298,15 @@ export const COMMANDS: readonly Command[] = [
         icon: Bookmark,
         keywords: 'my presets own template starting point start from reuse keep base',
         run: (state) => state.saveStartingPoint(),
+    },
+    {
+        id: 'make-pieces',
+        label: 'Make pieces from this tree…',
+        group: 'Prop',
+        icon: Axe,
+        keywords: 'stump log fallen branch leaf litter leaves ground pieces deadwood cut set matching',
+        unavailable: (state) => (canMakePieces(state.scene) ? null : 'Only a tree has pieces to make. Open a tree first.'),
+        run: () => useUiStore.getState().setPiecesOpen(true),
     },
     {
         id: 'save-picture',
