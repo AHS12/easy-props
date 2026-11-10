@@ -16,6 +16,7 @@ import {mossFacing, weatherPaint, type MossFrom} from '../shared/weather'
 import {colourRamp} from '../style/ramp'
 import {rampOf, STONE_ROWS, type OwnColours} from '../style/own-colours'
 import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
+import type {CrackedChunk} from './rock-damage'
 import {distanceToChunk, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
 
 export interface RockSurface {
@@ -65,7 +66,12 @@ export function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number)
         return plan.chunks
     }
 
-    return plan.chunks.slice(0, Math.max(1, Math.ceil(plan.chunks.length * PLAIN_CHUNKS))).map((chunk) => {
+    const largest = plan.chunks.slice(0, Math.max(1, Math.ceil(plan.chunks.length * PLAIN_CHUNKS)))
+    // Both halves of a cracked chunk, or neither: one alone would leave a hole.
+    const cracks = new Set(largest.map((chunk) => (chunk as CrackedChunk).crack ?? -1))
+    const kept = plan.chunks.filter((chunk) => largest.includes(chunk) || cracks.has((chunk as CrackedChunk).crack ?? -2) || (chunk as CrackedChunk).rubble)
+
+    return kept.map((chunk) => {
         const cuts = chunk.planes.filter((plane) => plane.cut !== null).length
         const keep = Math.ceil(cuts * cutShare)
 
@@ -91,6 +97,50 @@ export function fitToPlan(positions: number[], plan: RockPlan) {
         positions[i] = (positions[i] - (min[0] + max[0]) / 2) * across
         positions[i + 1] *= up
         positions[i + 2] = (positions[i + 2] - (min[2] + max[2]) / 2) * along
+    }
+}
+
+/** Where the full rock reaches, from the corners of all its chunks. */
+function outlineOf(chunks: readonly RockChunk[]): {min: number[]; max: number[]} {
+    const min = [Infinity, Infinity, Infinity]
+    const max = [-Infinity, -Infinity, -Infinity]
+
+    for (const chunk of chunks) {
+        for (const {corners} of facesOfChunk(chunk)) {
+            for (const corner of corners) {
+                for (let axis = 0; axis < 3; axis++) {
+                    min[axis] = Math.min(min[axis], corner[axis])
+                    max[axis] = Math.max(max[axis], corner[axis])
+                }
+            }
+        }
+    }
+
+    // Nothing shows below the ground.
+    min[1] = Math.max(min[1], 0)
+
+    return {min, max}
+}
+
+/**
+ * Stretches a lighter rock onto the full rock's outline, for one that isn't centred on
+ * its own middle, so losing a chunk does not change where it reaches.
+ */
+function fitToBox(positions: number[], box: {min: number[]; max: number[]}) {
+    const min = [Infinity, Infinity, Infinity]
+    const max = [-Infinity, -Infinity, -Infinity]
+
+    for (let i = 0; i < positions.length; i++) {
+        min[i % 3] = Math.min(min[i % 3], positions[i])
+        max[i % 3] = Math.max(max[i % 3], positions[i])
+    }
+
+    for (let i = 0; i < positions.length; i++) {
+        const axis = i % 3
+        const from = axis === 1 ? 0 : min[axis]
+        const to = axis === 1 ? 0 : box.min[axis]
+
+        positions[i] = to + ((positions[i] - from) * (box.max[axis] - to)) / Math.max(max[axis] - from, 1e-6)
     }
 }
 
@@ -304,7 +354,11 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     })
 
     if (detail < PLAIN_BELOW) {
-        fitToPlan(positions, plan)
+        if (plan.uneven) {
+            fitToBox(positions, outlineOf(plan.chunks))
+        } else {
+            fitToPlan(positions, plan)
+        }
     }
 
     const geometry = new THREE.BufferGeometry()

@@ -40,6 +40,21 @@ const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     'round-canopy': 0.07,
     // A column crown is mostly side branches hidden in its leaves, and the lightest level drops them.
     poplar: 0.01,
+    // A snapped tree is a bare stump of trunk, which its lightest level takes down further than most.
+    'snapped-pine': 0.08,
+    'broken-palm': 0.08,
+    'lightning-oak': 0.04,
+}
+
+/**
+ * Props whose lightest outline may be a little smaller than the rule allows. A snapped
+ * tree is a bare stump whose roots set its width, and coarse wood draws roots thinner.
+ */
+const OUTLINE_KNOWN_MISSES: Readonly<Record<string, number>> = {
+    'snapped-pine': 0.05,
+    'broken-palm': 0.04,
+    // Its tallest splinters are the first thing a lighter level smooths away.
+    'lightning-oak': 0.02,
 }
 
 interface Accessor {
@@ -353,15 +368,16 @@ describe('game-ready export', () => {
             for (let axis = 0; axis < 3; axis++) {
                 const size = box.max[axis] - box.min[axis]
 
-                expect(Math.abs(size - fullSize[axis]) / fullSize[axis], `LOD${level} axis ${axis}`).toBeLessThan(0.1)
+                expect(Math.abs(size - fullSize[axis]) / fullSize[axis], `LOD${level} axis ${axis}`).toBeLessThan(0.1 + (OUTLINE_KNOWN_MISSES[presetId] ?? 0))
             }
         }
 
         // Pivot at the base. One unit is one metre.
         const generator = findPropGenerator(preset.generatorId)!
-        const height = (generator.validate(preset.parameters).parameters as {height: number}).height
+        const {height, snapped = 0} = generator.validate(preset.parameters).parameters as {height: number; snapped?: number}
 
-        expect(fullBounds.max[1]).toBeGreaterThan(height * 0.5)
+        // A snapped tree stands as high as where it broke.
+        expect(fullBounds.max[1]).toBeGreaterThan(height * (snapped > 0 ? 0.15 : 0.5))
 
         expect(fullBounds.max[1]).toBeLessThan(height * 2)
 

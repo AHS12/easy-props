@@ -47,6 +47,7 @@ const BRANCHES = 'Branches'
 const LEAVES = 'Leaves'
 const BARK = 'Bark detail'
 const FRUIT = 'Fruit'
+const DAMAGE = 'Damage'
 
 const NUMBERS = {
     height: number(TRUNK, 'height', 'Height', 'How tall the whole tree is, up to the top of the leaves.', 0.3, 20, 0.1, 8, 'm'),
@@ -94,6 +95,10 @@ const NUMBERS = {
     moss: number(WEATHER, 'moss', 'Moss', 'Green growth on the wood.', 0, 1, 0.05, 0),
     snow: SNOW,
     wet: WET,
+
+    snapped: number(DAMAGE, 'snapped', 'Snapped top', 'Breaks the trunk off in a splintered stump, from near the top to low down. Everything above it goes.', 0, 1, 0.05, 0),
+    brokenLimbs: number(DAMAGE, 'brokenLimbs', 'Broken limbs', 'How many of the big branches end in a jagged break, and lose what grew past it.', 0, 1, 0.05, 0),
+    split: number(DAMAGE, 'split', 'Split trunk', 'A charred crack down one side of the trunk, as from lightning.', 0, 1, 0.05, 0),
     patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
     patternScale: number(BARK, 'patternScale', 'Bark size', 'How big each plate or mark on the wood is.', 0.6, 2, 0.05, 1),
 } as const
@@ -288,6 +293,9 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.moss,
     MOSS_FROM,
     NUMBERS.wet,
+    NUMBERS.snapped,
+    NUMBERS.brokenLimbs,
+    NUMBERS.split,
 ]
 
 /** Controls a form has no use for. */
@@ -306,6 +314,9 @@ const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
         'lumpiness',
         'strands',
         'strandLength',
+        // A palm has no branches to break, and its trunk is too slim to split.
+        'brokenLimbs',
+        'split',
     ],
     conifer: ['stem', 'crownShape', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
 }
@@ -402,6 +413,7 @@ const TRUNK_SECTIONS: readonly ControlSection[] = [
     section('Bark detail', 'The surface of the wood.', specsInGroup(BARK)),
     section('Bark colours', 'The colours of the wood.', [], ['barkDeep', 'barkLight']),
     section('Weather', 'Snow, moss and wet on the whole tree.', specsInGroup(WEATHER)),
+    section('Damage', 'Breaks and cracks in the wood.', specsInGroup(DAMAGE)),
 ]
 
 /**

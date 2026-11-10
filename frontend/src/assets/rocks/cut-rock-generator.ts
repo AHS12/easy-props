@@ -21,10 +21,12 @@ import {ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import {buildLowPolyRockMesh} from './low-poly-rock'
 import {buildRockMesh} from './rock-mesh'
 import {facesOfChunk, planRock, type RockKind} from './rock-plan'
+import {damageRock} from './rock-damage'
 import {MOSS_FROM, SNOW, WEATHER, WET, weatherDefaults, weatherSchema, wetSurface, type MossFrom} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const SURFACE = 'Surface'
+const DAMAGE = 'Damage'
 
 const number = (
     group: string,
@@ -98,9 +100,11 @@ const CUTS = number(SHAPE, 'cuts', 'Cut depth', 'From grazed corners to deep, sh
 const EDGES = number(SURFACE, 'edges', 'Edge softness', 'From hard edges to edges that catch the light.', 0, 1, 0.05, 0.7)
 const BEND = number(SURFACE, 'bend', 'Bend', 'How far the flat faces bend, so they look carved and not machined.', 0, 1, 0.05, 0.5)
 const MOSS = number(WEATHER, 'moss', 'Moss', 'Green caps on whatever faces the sky, or the shady side.', 0, 1, 0.05, 0.5)
+const CRACKS = number(DAMAGE, 'cracks', 'Cracks', 'Splits through the stone, from one fine crack to three open ones.', 0, 1, 0.05, 0)
+const CRUMBLE = number(DAMAGE, 'crumble', 'Crumbled edge', 'Chips gone from one side, with the broken pieces lying at its foot.', 0, 1, 0.05, 0)
 const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, VARIATION, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, VARIATION, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -117,6 +121,8 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly mossFrom: MossFrom
     readonly snow: number
     readonly wet: number
+    readonly cracks: number
+    readonly crumble: number
     readonly variation: number
     readonly palette: RockPaletteId | OwnColours
 }
@@ -134,6 +140,8 @@ export const cutRockDefaults: CutRockParameters = {
     bend: BEND.default,
     moss: MOSS.default,
     ...weatherDefaults,
+    cracks: CRACKS.default,
+    crumble: CRUMBLE.default,
     variation: VARIATION.default,
     palette: PALETTE.default,
 }
@@ -151,10 +159,15 @@ const cutRockSchema = z.object({
     bend: numberSchema(BEND),
     moss: numberSchema(MOSS),
     ...weatherSchema,
+    cracks: numberSchema(CRACKS),
+    crumble: numberSchema(CRUMBLE),
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
 })
+
+/** The rock's plan with its cracks and crumbled edge. */
+const planDamagedRock = (rock: CutRockParameters, seed: number) => damageRock(planRock(rock, seed), rock, seed)
 
 const validateCutRock = (parameters: unknown) => validateParameters<CutRockParameters>(cutRockSchema, parameters, cutRockDefaults)
 
@@ -192,7 +205,7 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
     validate: validateBody,
 
     generate({rock, seed}, {detail = 1}) {
-        const plan = planRock(rock, seed)
+        const plan = planDamagedRock(rock, seed)
 
         return {
             geometry: rock.build === 'low-poly' ? buildLowPolyRockMesh(plan, rock, detail) : buildRockMesh(plan, rock, seed, detail),
@@ -205,7 +218,7 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
 
 /** One tapered shape per chunk: it stands on the ground and narrows with the stone. */
 function chunkCollision(rock: CutRockParameters, seed: number): readonly CollisionShape[] {
-    return planRock(rock, seed).chunks.flatMap((chunk) => {
+    return planDamagedRock(rock, seed).chunks.flatMap((chunk) => {
         const corners = facesOfChunk(chunk).flatMap((face) => face.corners)
         const top = corners.reduce((highest, p) => Math.max(highest, p[1]), 0)
 

@@ -14,6 +14,7 @@ import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {weatherColours} from '../../shared/weather'
 import {buildBark, type PieceCut} from '../painted/bark-mesh'
 import {resolvePalette, type PaintedTreeParameters} from '../painted/parameters'
+import {growsOn, isHeavyLimb, isRoot, lengthOf, pointAlong, shortened} from '../painted/limb-path'
 import {normalize, planPaintedTree, type Limb, type TreePlan, type Vec3} from '../painted/plan'
 import type {WoodCut} from '../painted/wood-field'
 
@@ -57,54 +58,6 @@ function lyingFrame(along: Vec3, roll: number): Frame {
     return {along: a, up, across: cross(a, up)}
 }
 
-/** A limb cut short at `length` along it, from its start. */
-function shortened(limb: Limb, length: number): Limb {
-    const points: Vec3[] = [limb.points[0]]
-    const radii: number[] = [limb.radii[0]]
-    let run = 0
-
-    for (let index = 1; index < limb.points.length; index++) {
-        const step = Math.hypot(...sub(limb.points[index], limb.points[index - 1]))
-
-        if (run + step >= length) {
-            const t = (length - run) / Math.max(step, 1e-9)
-
-            points.push(lerp(limb.points[index - 1], limb.points[index], t))
-            radii.push(limb.radii[index - 1] + (limb.radii[index] - limb.radii[index - 1]) * t)
-            break
-        }
-
-        run += step
-        points.push(limb.points[index])
-        radii.push(limb.radii[index])
-    }
-
-    return {...limb, points, radii}
-}
-
-/** The point and direction `distance` along a limb. */
-function pointAlong(limb: Limb, distance: number): {point: Vec3; direction: Vec3; radius: number} {
-    let run = 0
-
-    for (let index = 1; index < limb.points.length; index++) {
-        const a = limb.points[index - 1]
-        const b = limb.points[index]
-        const step = Math.hypot(...sub(b, a))
-
-        if (run + step >= distance || index === limb.points.length - 1) {
-            const t = Math.min(Math.max((distance - run) / Math.max(step, 1e-9), 0), 1)
-
-            return {point: lerp(a, b, t), direction: normalize(sub(b, a)), radius: limb.radii[index - 1] + (limb.radii[index] - limb.radii[index - 1]) * t}
-        }
-
-        run += step
-    }
-
-    return {point: limb.points[0], direction: [0, 1, 0], radius: limb.radii[0]}
-}
-
-const lengthOf = (limb: Limb) => limb.points.slice(1).reduce((sum, point, index) => sum + Math.hypot(...sub(point, limb.points[index])), 0)
-
 /** The distance along a limb to the point nearest a height, for a trunk that rises. */
 function distanceToHeight(limb: Limb, height: number): number {
     let run = 0
@@ -132,8 +85,6 @@ interface WoodPiece {
     /** The point the piece is laid down about. */
     readonly centre: Vec3
 }
-
-const isRoot = (limb: Limb) => limb.key.startsWith('r')
 
 /** The tallest a stump may be cut, as a share of the trunk. */
 export const STUMP_MAX_SHARE = 0.85
@@ -186,9 +137,10 @@ function logPiece(plan: TreePlan, tree: PaintedTreeParameters, length: number, s
     }
 }
 
-/** The limbs a branch piece can be: the heavy ones off the trunk, or a conifer's spokes. */
+/** The limbs a branch piece can be: a branching tree's heavy limbs. */
 export function branchCandidates(plan: TreePlan): readonly Limb[] {
-    return plan.limbs.filter((limb) => limb.level === 1 && !isRoot(limb) && limb.points.length > 1)
+    // A conifer's spokes are bare single sticks, which make a poor fallen branch.
+    return plan.limbs.filter((limb) => isHeavyLimb(limb) && limb.key.startsWith('l'))
 }
 
 function branchPiece(plan: TreePlan, seed: number): WoodPiece | null {
@@ -203,7 +155,7 @@ function branchPiece(plan: TreePlan, seed: number): WoodPiece | null {
     const host = trunk.radii[Math.min(1, trunk.radii.length - 1)]
     const breakAt = Math.min(host * BREAK_OUT, lengthOf(limb) * 0.3)
     const base = pointAlong(limb, breakAt)
-    const twigs = plan.limbs.filter((other) => other.key.startsWith(`${limb.key}b`))
+    const twigs = plan.limbs.filter((other) => growsOn(other, limb))
     const tip = limb.points[limb.points.length - 1]
     const frame = lyingFrame(sub(tip, base.point), 0)
 

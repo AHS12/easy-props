@@ -113,6 +113,13 @@ const UPRIGHT = (v: Vec3): Vec3 => v
 /** A cut face, pale wood in rings that follow its outline, and a rim of bark. */
 const HEARTWOOD = new THREE.Color('#e4c391')
 const RING = new THREE.Color('#a87a4a')
+/** The narrowest a break's splinters may be, in grid cells. */
+const SPLINTER_CELLS = 3.5
+/** A break: fresh pale wood at the splinters' tips, darker down between them. */
+const SPLINTER = new THREE.Color('#e2c896')
+const SPLINTER_HOLLOW = new THREE.Color('#7a5a36')
+/** The inside of a trunk split by lightning. */
+const CHARRED = new THREE.Color('#1a1512')
 /** How far apart the rings are, and how thick the bark at the rim is, against the trunk's radius. */
 const RING_SPACING = 0.11
 const RIM = 0.07
@@ -371,14 +378,20 @@ function woodPainter({field, tree, orient, cell}: BarkContext): (x: number, y: n
     return (x, y, z, inTree, ink, inkShare = 0) => {
         // Lit, mossed and snowed on as it will lie, which for a fallen piece isn't as it grew.
         const n = orient(inTree)
-        const cutAt = field.cutDepth(x, y, z)
+        const face = field.cutFace(x, y, z)
 
-        if (cutAt !== null) {
+        if (face !== null) {
+            const cutAt = face.depth
             const rim = tree.trunkRadius * RIM
-            // Rings finer than the points could carry would only flicker, so a few wide ones stand for them.
-            const ring = 0.5 + 0.5 * Math.sin((cutAt / Math.max(tree.trunkRadius * RING_SPACING, cell * 2.5)) * Math.PI * 2)
 
-            paint.copy(ringLight).lerp(ringDark, ring ** 3 * 0.75)
+            if (face.broken) {
+                paint.copy(SPLINTER).lerp(SPLINTER_HOLLOW, (1 - face.rise) ** 2 * 0.7)
+            } else {
+                // Rings finer than the points could carry would only flicker, so a few wide ones stand for them.
+                const ring = 0.5 + 0.5 * Math.sin((cutAt / Math.max(tree.trunkRadius * RING_SPACING, cell * 2.5)) * Math.PI * 2)
+
+                paint.copy(ringLight).lerp(ringDark, ring ** 3 * 0.75)
+            }
 
             if (cutAt < rim) {
                 paint.lerp(rimColour, 1 - (cutAt / rim) ** 2)
@@ -431,6 +444,13 @@ function woodPainter({field, tree, orient, cell}: BarkContext): (x: number, y: n
 
         if (ink && inkShare > 0) {
             paint.lerp(ink, inkShare)
+        }
+
+        // Inside a split the wood is burnt black.
+        const charred = field.charred(x, y, z)
+
+        if (charred > 0) {
+            paint.lerp(CHARRED, charred * 0.9)
         }
 
         // Snow lies on top of the moss, but not down in the creases.
@@ -726,18 +746,31 @@ export function prepareBark(
     const coarse = Math.max((tree.trunkRadius * CELL_SHARE) / Math.sqrt(detail * tree.barkDetail), floor)
     // With no leaves to carry a level, the wood takes the whole saving.
     const bareScale = plan.clumps.length === 0 && detail < 0.15 ? 1.6 : 1
-    const slim = trunkRadius > SLIM_TRUNK_MIN && plan.clumps.some((clump) => clump.kind === 'frond')
+    // A palm snapped below its crown is still a palm.
+    const slim = trunkRadius > SLIM_TRUNK_MIN && (plan.clumps.some((clump) => clump.kind === 'frond') || tree.form === 'palm')
     const cell = slim ? Math.min(coarse, (trunkRadius / SCULPT_MIN_CELLS) * 0.9) : coarse * bareScale
     const sculptMin = cell * SCULPT_MIN_CELLS
     // A thick root stays sculpted to its end. Swept, its thin end would be a dark spike
     // lying on the ground, and stopping short would change the tree's footprint per level.
     const isThickRoot = (limb: Limb) => limb.key.startsWith('r') && limb.radii[0] >= sculptMin
+    // A broken limb stays sculpted up to its break, so every level carves the break
+    // rather than ending the wood in a thin point short of it.
+    const endsInBreak = (limb: Limb) => {
+        const [x, y, z] = limb.points[limb.points.length - 1]
+
+        return (plan.cuts ?? []).some((cut) => Math.hypot(x - cut.point[0], y - cut.point[1], z - cut.point[2]) < (cut.reach ?? Infinity))
+    }
     const isSculpted = (limb: Limb, segment: number) =>
-        limb.level < 3 && (isThickRoot(limb) || Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin)
+        limb.level < 3 && (isThickRoot(limb) || (limb.level <= 1 && endsInBreak(limb)) || Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin)
     const wood = narrowTrunkTop(plan.limbs, tree).map((limb) =>
         isThickRoot(limb) ? {...limb, radii: limb.radii.map((radius) => Math.max(radius, sculptMin))} : limb,
     )
     const sculptedSegments: {a: Vec3; b: Vec3; radius: number}[] = []
+    // A piece's saw cuts, and the tree's own breaks. A break's splinters are never
+    // narrower than the grid can carry, or a lighter level would lose them and come out short.
+    const cuts = [...(plan.cuts ?? []), ...(piece?.cuts ?? [])].map((cut) =>
+        cut.jag && cut.grain !== undefined && cut.grain < cell * SPLINTER_CELLS ? {...cut, grain: cell * SPLINTER_CELLS} : cut,
+    )
 
     for (const limb of wood) {
         for (let segment = 0; segment < limb.points.length - 1; segment++) {
@@ -755,13 +788,13 @@ export function prepareBark(
         plan,
         tree,
         detail,
-        field: createWoodField(wood, tree, seed, isSculpted, piece?.cuts),
+        field: createWoodField(wood, tree, seed, isSculpted, cuts, plan.split ?? null),
         cell,
         sculptMin,
         isSculpted,
         sculptedSegments,
         orient: piece?.orient ?? UPRIGHT,
-        cuts: piece?.cuts ?? [],
+        cuts,
     }
 }
 
@@ -812,18 +845,34 @@ export function assembleBark(
             continue
         }
 
-        // Thin wood past a saw cut went with the rest of the tree.
-        const from = limb.points[start]
+        // Thin wood stops where a cut goes through it: what was past it went with the rest of the tree.
+        const past = (point: Vec3) =>
+            context.cuts.some(
+                (cut) =>
+                    (cut.reach === undefined || Math.hypot(point[0] - cut.point[0], point[1] - cut.point[1], point[2] - cut.point[2]) < cut.reach) &&
+                    (point[0] - cut.point[0]) * cut.normal[0] + (point[1] - cut.point[1]) * cut.normal[1] + (point[2] - cut.point[2]) * cut.normal[2] > 0,
+            )
+        let end = limb.points.length
 
-        if (context.cuts.some((cut) => (from[0] - cut.point[0]) * cut.normal[0] + (from[1] - cut.point[1]) * cut.normal[1] + (from[2] - cut.point[2]) * cut.normal[2] > 0)) {
+        if (context.cuts.length > 0) {
+            end = start
+
+            while (end < limb.points.length && !past(limb.points[end])) {
+                end++
+            }
+        }
+
+        if (end - start < 2) {
             continue
         }
 
+        const kept = end === limb.points.length ? limb : {...limb, points: limb.points.slice(0, end), radii: limb.radii.slice(0, end)}
+
         sweep(
-            limb,
+            kept,
             Math.max(start - 1, 0),
             start,
-            start === 0 ? hostRadius(limb, plan.limbs) * BASE_IN_HOST : Infinity,
+            start === 0 ? hostRadius(kept, plan.limbs) * BASE_IN_HOST : Infinity,
             detail,
             field,
             (x, y, z, n, along) => {

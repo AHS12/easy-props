@@ -308,6 +308,27 @@ const rockPresets: readonly TreePreset[] = [
     rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and warm', 409, {kind: 'cliff', width: 16, height: 6, depth: 11, chunks: 14, moss: 0, palette: 'redrock'}),
 ]
 
+/**
+ * Broken versions of presets above, as the same tree or rock with damage done, so
+ * each stays recognisably the one it came from.
+ */
+function damagedPresets(): readonly TreePreset[] {
+    const all = [...paintedPresets, ...foliagePresets, ...rockPresets]
+    const from = (baseId: string, id: string, name: string, sub: string, category: PresetCategory, changes: Readonly<Record<string, number | string>>): TreePreset => {
+        const base = all.find((preset) => preset.id === baseId)!
+
+        return {...base, id, name, sub, category, parameters: {...base.parameters, ...changes}}
+    }
+
+    return [
+        from('oak', 'lightning-oak', 'Lightning oak', 'Struck, split and burnt', 'Old & bare', {snapped: 0.3, split: 1}),
+        from('scots-pine', 'snapped-pine', 'Snapped pine', 'Broken off in a storm', 'Old & bare', {snapped: 0.45}),
+        from('date-palm', 'broken-palm', 'Broken palm', 'Its crown gone', 'Palms & tropical', {snapped: 0.35}),
+        from('saguaro', 'fallen-saguaro', 'Fallen saguaro', 'An arm lying at its foot', 'Cacti', {fallenArms: 1}),
+        from('mossy-boulder', 'cracked-boulder', 'Cracked boulder', 'Split, with rubble at its foot', 'Boulders', {cracks: 0.8, crumble: 0.5, moss: 0.4}),
+    ]
+}
+
 export const treePresets: readonly TreePreset[] = [
     {
         id: 'round-canopy',
@@ -365,6 +386,7 @@ export const treePresets: readonly TreePreset[] = [
     ...paintedPresets,
     ...foliagePresets,
     ...rockPresets,
+    ...damagedPresets(),
 ]
 
 /**

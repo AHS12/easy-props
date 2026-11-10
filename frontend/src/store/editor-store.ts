@@ -42,6 +42,7 @@ import {
     copyComponent as copyComponentInScene,
     moveComponent as moveComponentInScene,
     removeComponent,
+    breakComponent,
     restoreComponentDefault,
     setAssetSeed,
     setComponentPosition as setComponentPositionInScene,
@@ -279,6 +280,8 @@ export interface EditorStore {
     copyComponent(componentId: string): void
     /** Removes a part and everything hanging off it. */
     deleteComponent(componentId: string): void
+    /** Breaks a heavy limb partway, leaving a jagged stub. */
+    breakLimb(componentId: string): void
     /** Puts a part back to the generator's defaults. */
     restoreComponent(componentId: string): void
     /** Puts the tree back to the preset it came from. */
@@ -850,6 +853,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     announcement: 'Copied part',
                 }))
             }
+        },
+
+        breakLimb: (componentId) => {
+            commit('break branch', (scene) => breakComponent(scene, componentId))
+            set({toast: {message: 'Broke the branch', undoable: true}})
         },
 
         deleteComponent: (componentId) => {

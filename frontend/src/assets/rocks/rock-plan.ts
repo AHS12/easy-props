@@ -43,6 +43,11 @@ export interface RockChunk {
 export interface RockPlan {
     /** Largest first. */
     readonly chunks: readonly RockChunk[]
+    /**
+     * True when it isn't centred on its own middle, as when rubble lies to one side.
+     * A lighter level is then left as it is, not stretched back to the size.
+     */
+    readonly uneven?: boolean
     readonly width: number
     readonly height: number
     readonly depth: number

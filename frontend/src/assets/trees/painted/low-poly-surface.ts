@@ -136,7 +136,7 @@ export function buildLowPolyWood(plan: TreePlan, tree: PaintedTreeParameters, se
         .filter((limb, _index, kept) => limb.level === 0 || growsFrom(limb, kept))
     // The shape, not the carving: no ridges, knots, hollow or pattern on a low-poly tree.
     const plain: PaintedTreeParameters = {...tree, ridgeDepth: 0, burls: 0, hollow: 0, roughness: 0, patternDepth: 0, barkPattern: 'none'}
-    const wood = createWoodField(limbs, plain, seed, () => true)
+    const wood = createWoodField(limbs, plain, seed, () => true, plan.cuts, plan.split ?? null)
     const boxes = limbs.flatMap((limb) =>
         limb.points.slice(1).map((b, index) => {
             const a = limb.points[index]

@@ -6,7 +6,7 @@
  * says, and which groups are open is remembered per kind of prop.
  */
 
-import {Axe, ChevronRight, Dices, LayoutGrid, Search, Trash2, X} from 'lucide-react'
+import {Axe, ChevronRight, Dices, LayoutGrid, Search, Trash2, X, Zap} from 'lucide-react'
 import {createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ColourRow} from '../components/ColourRow'
 import {PaletteMenu} from '../components/PaletteMenu'
@@ -33,6 +33,7 @@ import {requestRemovePart} from '../core/commands/commands'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {findComponent} from '../core/scene/scene-model'
 import {canMakePieces} from '../core/scene/tree-pieces'
+import {canBreakPart} from '../assets/trees/painted/edits'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
@@ -665,6 +666,17 @@ export function Details() {
                         Copy
                     </button>
                 )}
+                {asset && canBreakPart(component, String(asset.parameters.edits ?? '')) ? (
+                    <button
+                        type="button"
+                        className="text-button"
+                        title="Break this branch partway, leaving a jagged stub"
+                        onClick={() => useEditorStore.getState().breakLimb(component.id)}
+                    >
+                        <Zap size={13} aria-hidden="true" />
+                        Break
+                    </button>
+                ) : null}
                 {canRemove ? (
                     <button
                         type="button"

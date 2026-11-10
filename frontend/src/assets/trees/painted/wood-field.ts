@@ -9,6 +9,7 @@
 
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import type {PaintedTreeParameters} from './parameters'
+import type {Split} from './damage'
 import type {Limb, Vec3} from './plan'
 
 /** How wide a fillet is, as a share of the thinner limb's radius. */
@@ -42,10 +43,21 @@ export interface WoodField {
     /** How the bark pattern paints a point: positive is lighter, negative darker. */
     mark(x: number, y: number, z: number): number
     /**
-     * How far inside the bark a point on a cut face is, or null when the point is on
-     * bark. A cut face shows the wood's rings, and these follow the wood's outline.
+     * Where a point on a cut face is, or null when the point is on bark: how far inside
+     * the bark it is, so rings can follow the wood's outline, and for a break, how far
+     * out of the break's middle it stands, 0 to 1, so splinters can be painted.
      */
-    cutDepth(x: number, y: number, z: number): number | null
+    cutFace(x: number, y: number, z: number): CutFace | null
+    /** How charred a point is, 0 to 1: the inside of a split trunk. */
+    charred(x: number, y: number, z: number): number
+}
+
+export interface CutFace {
+    readonly depth: number
+    /** A break rather than a saw cut. */
+    readonly broken: boolean
+    /** How far out a splinter stands, 0 in the break's hollows and 1 at its tips. */
+    readonly rise: number
 }
 
 /**
@@ -55,6 +67,50 @@ export interface WoodField {
 export interface WoodCut {
     readonly point: Vec3
     readonly normal: Vec3
+    /**
+     * How far splinters stand out of a break, in metres. Left out, a flat saw cut.
+     * They run along the normal, as wood breaks along its grain.
+     */
+    readonly jag?: number
+    /** How far apart the splinters are, in metres. */
+    readonly grain?: number
+    /** How far round its point the cut reaches. Left out, it cuts everything on its side. */
+    readonly reach?: number
+}
+
+/** A cut with what's needed to work out its splinters, ready to be asked millions of times. */
+interface PreparedCut extends WoodCut {
+    readonly u: Vec3
+    readonly v: Vec3
+    readonly k: number
+}
+
+function prepareCut(cut: WoodCut): PreparedCut {
+    const n = cut.normal
+    const other: Vec3 = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
+    const along = n[0] * other[0] + n[1] * other[1] + n[2] * other[2]
+    const raw: Vec3 = [other[0] - n[0] * along, other[1] - n[1] * along, other[2] - n[2] * along]
+    const length = Math.hypot(raw[0], raw[1], raw[2]) || 1
+    const u: Vec3 = [raw[0] / length, raw[1] / length, raw[2] / length]
+    const v: Vec3 = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]]
+
+    return {...cut, u, v, k: (Math.PI * 2) / Math.max(cut.grain ?? 1, 1e-3)}
+}
+
+/** How far a break's splinters stand out at a point of its face, 0 to 1: a few long tips, crossed. */
+function splinterAt(cut: PreparedCut, x: number, y: number, z: number): number {
+    const dx = x - cut.point[0]
+    const dy = y - cut.point[1]
+    const dz = z - cut.point[2]
+    const a = (dx * cut.u[0] + dy * cut.u[1] + dz * cut.u[2]) * cut.k
+    const b = (dx * cut.v[0] + dy * cut.v[1] + dz * cut.v[2]) * cut.k
+    const across = 0.5 + 0.5 * Math.sin(a + 1.7 * Math.sin(b * 0.83 + 0.4))
+    const along = 0.5 + 0.5 * Math.sin(b * 1.31 + 1.3 * Math.sin(a * 0.71 + 1.1))
+    // And one tall splinter in the middle, broad enough for every level to keep, so a
+    // lighter level of a broken tree is as tall as the full one.
+    const middle = Math.max(0, 1 - Math.hypot(a, b) / Math.PI) ** 2
+
+    return Math.max((across * along) ** 1.5, middle)
 }
 
 /** A pattern's wavelength as a share of the trunk's radius: about four grid cells. */
@@ -67,6 +123,9 @@ const JOIN_PATTERN_FADE = 1.6
 
 /** How far below the ground the wood is sliced flat, against the trunk's radius. Deeper than a root's tip reaches. */
 const BURIED_DEPTH = 0.6
+
+/** How wide a split opens at its widest, against the trunk's radius there: wide enough for the grid to carry. */
+const SPLIT_WIDTH = 0.42
 
 /** How close to a cut a point must be to count as on its face, against the trunk's radius. */
 const CUT_TOLERANCE = 0.04
@@ -160,7 +219,9 @@ export function createWoodField(
     seed: number,
     included: (limb: Limb, segment: number) => boolean,
     cuts: readonly WoodCut[] = [],
+    split: Split | null = null,
 ): WoodField {
+    const prepared = cuts.map(prepareCut)
     const segments: Segment[] = []
     const grid = new Map<string, number[]>()
 
@@ -267,16 +328,37 @@ export function createWoodField(
         return barkPatternAt(tree.barkPattern, patternK, x, y, z, at.x, at.z)
     }
 
+    /** How far a point is from the split's open wedge: negative inside it. Infinity where there's none. */
+    const splitAt = (x: number, y: number, z: number): {slot: number; open: boolean} => {
+        if (!split || y < split.low || y > split.high) {
+            return {slot: Infinity, open: false}
+        }
+
+        const at = trunkAt(y)
+        const shape = Math.sin((Math.PI * (y - split.low)) / (split.high - split.low))
+        const cos = Math.cos(split.azimuth)
+        const sin = Math.sin(split.azimuth)
+        const lateral = Math.abs(-(x - at.x) * sin + (z - at.z) * cos)
+        const along = (x - at.x) * cos + (z - at.z) * sin
+        const floor = at.r * (1 - split.depth * shape)
+
+        return {slot: Math.max(lateral - at.r * SPLIT_WIDTH * shape, floor - along), open: along > floor - at.r * 0.15}
+    }
+
     // How far into a join between two limbs the last point measured was, 0 to 1. Kept
     // here rather than returned, as the distance is asked for millions of times.
     let lastJoin = 0
     // And how far the last point was from the uncut wood, and from the cuts.
     let lastUncut = 1
     let lastCut = -Infinity
+    let lastCutBy: PreparedCut | null = null
+    let lastRise = 0
 
     const distance = (x: number, y: number, z: number): number => {
         lastJoin = 0
         lastCut = -Infinity
+        lastCutBy = null
+        lastRise = 0
 
         const cell = grid.get(
             cellKey(Math.floor(x / CELL), Math.floor(y / CELL), Math.floor(z / CELL)),
@@ -378,16 +460,32 @@ export function createWoodField(
             result = -smoothMin(-result, inside, hollow.r * 0.5)
         }
 
+        if (split) {
+            result = Math.max(result, -splitAt(x, y, z).slot)
+        }
+
         // A flat base, so the wood is closed however high a prop is placed, and spends
         // nothing on carrying its flare on down out of sight.
         result = Math.max(result, -y - tree.trunkRadius * BURIED_DEPTH)
         lastUncut = result
 
-        for (const cut of cuts) {
-            lastCut = Math.max(
-                lastCut,
-                (x - cut.point[0]) * cut.normal[0] + (y - cut.point[1]) * cut.normal[1] + (z - cut.point[2]) * cut.normal[2],
-            )
+        for (const cut of prepared) {
+            const dx = x - cut.point[0]
+            const dy = y - cut.point[1]
+            const dz = z - cut.point[2]
+
+            if (cut.reach !== undefined && dx * dx + dy * dy + dz * dz > cut.reach * cut.reach) {
+                continue
+            }
+
+            const rise = cut.jag ? splinterAt(cut, x, y, z) : 0
+            const d = dx * cut.normal[0] + dy * cut.normal[1] + dz * cut.normal[2] - rise * (cut.jag ?? 0)
+
+            if (d > lastCut) {
+                lastCut = d
+                lastCutBy = cut
+                lastRise = rise
+            }
         }
 
         return Math.max(result, lastCut)
@@ -427,15 +525,25 @@ export function createWoodField(
             return patternAt(x, y, z).paint * tree.patternDepth * clearOfJoin(lastJoin)
         },
 
-        cutDepth(x, y, z) {
-            if (cuts.length === 0) {
+        charred(x, y, z) {
+            const {slot, open} = splitAt(x, y, z)
+
+            return open ? clamp01(1 - Math.abs(slot) / (tree.trunkRadius * 0.3)) : 0
+        },
+
+        cutFace(x, y, z) {
+            if (prepared.length === 0) {
                 return null
             }
 
             distance(x, y, z)
 
             // On a cut face the cut is what holds the surface, and the wood runs on past it.
-            return lastCut > lastUncut - CUT_TOLERANCE * tree.trunkRadius ? Math.max(-lastUncut, 0) : null
+            if (!lastCutBy || lastCut <= lastUncut - CUT_TOLERANCE * tree.trunkRadius) {
+                return null
+            }
+
+            return {depth: Math.max(-lastUncut, 0), broken: (lastCutBy.jag ?? 0) > 0, rise: lastRise}
         },
     }
 }
