@@ -49,6 +49,7 @@ agree on the term first, or rethink the control.
 | Terrain slope, ground normal, incline | **Slope** / **Downhill** | In the view only: tilts the ground, not the prop. Degrees are shown |
 | Derived props, deadwood, debris | **Pieces** of a tree: **Stump**, **Fallen log**, **Fallen branch**, **Leaf litter** | "Make pieces from this tree…" in the Prop menu. Never "asset variants" or "debris" |
 | Damage, destruction, decay | **Damage**: **Snapped top**, **Broken limbs**, **Split trunk**, **Break** (one limb), **Cracks**, **Crumbled edge**, **Fallen arms** | A section of its own on trees, rocks and cacti, and a **Damaged** choice in Show me more beside **New seeds**. Never "destruction" or "fracture" |
+| Peduncle, pedicel, fruit drop | **Stalk**, **Hanging** | What fruit hangs from. **Hanging** sets how far: "from snug to dangling". Never "stem" for fruit, which flowers use |
 
 ## Button voice
 

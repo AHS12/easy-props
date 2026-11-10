@@ -23,7 +23,24 @@ export type {BarkToneId, Palette, PaletteId}
 
 
 /** Which rules lay the tree out: a branching crown, a palm's fronds, or a conifer's tiers. */
-export type FruitKind = 'coconut' | 'apple' | 'orange' | 'lemon' | 'plum'
+export type FruitKind =
+    | 'apple'
+    | 'pear'
+    | 'cherry'
+    | 'plum'
+    | 'peach'
+    | 'orange'
+    | 'lemon'
+    | 'lime'
+    | 'mango'
+    | 'fig'
+    | 'pomegranate'
+    | 'olive'
+    | 'grapes'
+    | 'date'
+    | 'banana'
+    | 'cone'
+    | 'coconut'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
@@ -84,6 +101,7 @@ const NUMBERS = {
 
     fruitCount: number(FRUIT, 'fruitCount', 'Fruit', 'How much fruit each clump carries. On a palm, how many in the whole crown.', 0, 12, 1, 0, 'count'),
     fruitSize: number(FRUIT, 'fruitSize', 'Fruit size', 'How big each fruit is.', 0.5, 2, 0.05, 1),
+    fruitHang: number(FRUIT, 'fruitHang', 'Hanging', 'How far the fruit hangs below the leaves on its stalk, from snug to dangling.', 0, 1, 0.05, 0.3),
 
     colourVariation: number('Colours', 'colourVariation', 'Variation', 'How much the colour changes from clump to clump.', 0, 1, 0.05, 0.35),
 
@@ -169,11 +187,23 @@ const FRUIT_KIND = {
     label: 'Kind of fruit',
     help: 'What the tree carries.',
     options: [
-        {value: 'coconut', label: 'Coconut'},
         {value: 'apple', label: 'Apple'},
+        {value: 'pear', label: 'Pear'},
+        {value: 'cherry', label: 'Cherries'},
+        {value: 'plum', label: 'Plum'},
+        {value: 'peach', label: 'Peach'},
         {value: 'orange', label: 'Orange'},
         {value: 'lemon', label: 'Lemon'},
-        {value: 'plum', label: 'Plum'},
+        {value: 'lime', label: 'Lime'},
+        {value: 'mango', label: 'Mango'},
+        {value: 'fig', label: 'Fig'},
+        {value: 'pomegranate', label: 'Pomegranate'},
+        {value: 'olive', label: 'Olives'},
+        {value: 'grapes', label: 'Grapes'},
+        {value: 'date', label: 'Dates'},
+        {value: 'banana', label: 'Bananas'},
+        {value: 'cone', label: 'Pine cones'},
+        {value: 'coconut', label: 'Coconut'},
     ],
     default: 'apple',
 } as const satisfies ChoiceParameter<FruitKind>
@@ -379,7 +409,9 @@ export function controlsForTree(
                 !hidden.includes(spec.key) &&
                 (hasPattern || spec.key !== 'patternDepth') &&
                 (Number(values.moss ?? 0) > 0 || spec.key !== 'mossFrom') &&
-                (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize')) &&
+                (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize' && spec.key !== 'fruitHang')) &&
+                // Cones stand up from the leaves, so they don't hang.
+                (values.fruitKind !== 'cone' || spec.key !== 'fruitHang') &&
                 (values.palette !== 'custom' || spec.key !== 'barkTone'),
         )
         .map((spec) => (labels[spec.key] ? {...spec, label: labels[spec.key]} : spec))
@@ -431,12 +463,61 @@ export function sectionsForPart(generatorId: string, type: string): readonly Con
 
 
 
-export const FRUIT_COLOURS: Readonly<Record<FruitKind, {deep: string; light: string}>> = {
-    coconut: {deep: '#3c2a1a', light: '#8a6a3c'},
-    apple: {deep: '#8f1420', light: '#ee4a3a'},
-    orange: {deep: '#c05a10', light: '#ffb238'},
-    lemon: {deep: '#b89a10', light: '#fff06a'},
-    plum: {deep: '#2c1248', light: '#8a4ab8'},
+/**
+ * How a fruit is built. Ball, egg, pear and long are one rounded body; pair is
+ * two on joined stalks; bunch packs small pieces on one stalk; hand is fingers
+ * turned up round a stalk's end; cone is a cone of scales standing up from the leaves.
+ */
+export type FruitShape = 'ball' | 'egg' | 'pear' | 'long' | 'pair' | 'bunch' | 'hand' | 'cone'
+
+export interface FruitLook {
+    readonly deep: string
+    readonly light: string
+    readonly shape: FruitShape
+    /** Its size against an apple's. For a pair, bunch or hand, each piece's. */
+    readonly size: number
+    /** How long it is against how wide. */
+    readonly length: number
+    /** Above 1, its ends come to a point. */
+    readonly point: number
+    /** How long its stalk grows as it hangs lower, in its own widths. */
+    readonly stalk: number
+    /** A small leaf on its stalk. */
+    readonly leaf: boolean
+    /** A small crown at its far end, as on a pomegranate. */
+    readonly crown?: boolean
+}
+
+const fruit = (shape: FruitShape, deep: string, light: string, look: Partial<FruitLook> = {}): FruitLook => ({
+    shape,
+    deep,
+    light,
+    size: 1,
+    length: 1,
+    point: 1,
+    stalk: 0.5,
+    leaf: false,
+    ...look,
+})
+
+export const FRUIT_KINDS: Readonly<Record<FruitKind, FruitLook>> = {
+    apple: fruit('ball', '#8f1420', '#ee4a3a', {length: 0.92, leaf: true}),
+    pear: fruit('pear', '#8a6416', '#f0d048', {length: 1.45, stalk: 0.7}),
+    cherry: fruit('pair', '#4a0410', '#d42032', {size: 0.42, stalk: 3}),
+    plum: fruit('egg', '#2c1248', '#8a4ab8', {size: 0.9, length: 1.15}),
+    peach: fruit('ball', '#c0482a', '#ffc070', {size: 1.05, stalk: 0.3}),
+    orange: fruit('ball', '#c05a10', '#ffb238', {size: 1.05, stalk: 0.4, leaf: true}),
+    lemon: fruit('egg', '#b89a10', '#fff06a', {length: 1.35, point: 1.6, leaf: true}),
+    lime: fruit('ball', '#3d6a12', '#9ccf3a', {size: 0.8, stalk: 0.4}),
+    mango: fruit('long', '#b8501a', '#f2c23a', {size: 1.1, length: 1.6, point: 1.1, stalk: 2, leaf: true}),
+    fig: fruit('pear', '#4a1a44', '#a8608e', {size: 0.75, length: 1.25, stalk: 0.3}),
+    pomegranate: fruit('ball', '#7a0e14', '#d8463a', {size: 1.1, stalk: 0.4, crown: true}),
+    olive: fruit('egg', '#1e2412', '#6a7a2a', {size: 0.4, length: 1.35, stalk: 0.6}),
+    grapes: fruit('bunch', '#2a1240', '#7a4aa8', {size: 0.36, stalk: 1.2}),
+    date: fruit('bunch', '#7a3a10', '#e8962e', {size: 0.34, length: 1.6, stalk: 3}),
+    banana: fruit('hand', '#6a7a12', '#e8d84a', {size: 0.36, length: 3.2, stalk: 1.2}),
+    cone: fruit('cone', '#3e2410', '#9a6a3a', {size: 0.9, length: 1.7, stalk: 0.3}),
+    coconut: fruit('ball', '#3c2a1a', '#8a6a3c', {stalk: 0.3}),
 }
 
 /** The keys that hold the user's own colours, in the palette's order. */

@@ -15,7 +15,9 @@
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
-import {addHangingFruit, addStrands, leafGeometry, type FruitSpot} from './frond-mesh'
+import {addStrands} from './frond-mesh'
+import {addHangingFruit, type FruitSpot} from './fruit-mesh'
+import {leafGeometry} from './leaf-buffers'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'
 import {weatherPaint} from '../../shared/weather'
@@ -157,7 +159,7 @@ export function buildClump(
 }
 
 /** A clump, how many of its vertices are leaves, and where its full self has cards to hold fruit. */
-function clumpWithFruitSpots(
+export function clumpWithFruitSpots(
     plan: TreePlan,
     clump: Clump,
     tree: PaintedTreeParameters,

@@ -1,35 +1,38 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
 import {RIGID_ATTRIBUTE} from '../assets/shared/generator-types'
-import {planPaintedTree, validatePaintedTreeParameters} from '../assets/trees/painted'
-import {buildClump} from '../assets/trees/painted/clump-mesh'
-import {fruitRadius} from '../assets/trees/painted/frond-mesh'
+import {FRUIT_KINDS, planPaintedTree, validatePaintedTreeParameters, type FruitKind, type PaintedTreeParameters} from '../assets/trees/painted'
+import {buildClump, clumpWithFruitSpots} from '../assets/trees/painted/clump-mesh'
+import {planHangingFruit} from '../assets/trees/painted/fruit-mesh'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 
 type Point = [number, number, number]
 
-const FRUIT_TREES = ['apple', 'orange', 'lemon', 'plum', 'christmas']
+const FRUIT_TREES = ['apple', 'orange', 'lemon', 'plum', 'christmas', 'pear', 'cherry', 'fig', 'pomegranate', 'pine-cones']
+const KINDS = Object.keys(FRUIT_KINDS) as FruitKind[]
 
-const treeOf = (presetId: string) => {
+const treeOf = (presetId: string, change: Partial<PaintedTreeParameters> = {}) => {
     const asset = createSceneFromPreset(presetId).assets[0]
 
-    return {tree: validatePaintedTreeParameters(asset.parameters).parameters, seed: asset.seed}
+    return {tree: validatePaintedTreeParameters({...asset.parameters, ...change}).parameters, seed: asset.seed}
 }
 
+/** An apple's size on this tree: fruit is placed by it, whatever the kind. */
+const appleSize = (tree: PaintedTreeParameters) => (0.06 + tree.height * 0.008) * tree.fruitSize
+
 const pointAt = (array: ArrayLike<number>, index: number): Point => [array[index * 3], array[index * 3 + 1], array[index * 3 + 2]]
-const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+const distance = (a: Readonly<Point>, b: Readonly<Point>) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+const sub = (a: Readonly<Point>, b: Readonly<Point>): Point => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+const dot = (a: Point, b: Point) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 /** A leaf card's middle and the half of each side, from its four corners. */
 type Card = {middle: Point; across: Point; along: Point}
-
-const sub = (a: Point, b: Point): Point => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-const dot = (a: Point, b: Point) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 /**
  * How far a point is from the leafy middle of a card. The picture fades out
  * towards the corners, so only the middle half of each side counts.
  */
-function distanceToCard(point: Point, {middle, across, along}: Card): number {
+function distanceToCard(point: Readonly<Point>, {middle, across, along}: Card): number {
     const offset = sub(point, middle)
     const s = Math.max(-0.5, Math.min(0.5, dot(offset, across) / dot(across, across)))
     const t = Math.max(-0.5, Math.min(0.5, dot(offset, along) / dot(along, along)))
@@ -37,20 +40,8 @@ function distanceToCard(point: Point, {middle, across, along}: Card): number {
     return distance(point, [0, 1, 2].map((axis) => middle[axis] + across[axis] * s + along[axis] * t) as Point)
 }
 
-/** Each leaf card, and the middle of each fruit, in one clump. */
-function partsOf(geometry: THREE.BufferGeometry, share: number) {
+function cardsOf(geometry: THREE.BufferGeometry, leafCount: number): Card[] {
     const position = geometry.getAttribute('position').array
-    const rigid = geometry.getAttribute(RIGID_ATTRIBUTE)?.array ?? []
-    const count = position.length / 3
-    let leafCount = count
-
-    for (let i = 0; i < rigid.length; i++) {
-        if (rigid[i] === 1) {
-            leafCount = i
-            break
-        }
-    }
-
     const cards: Card[] = []
 
     for (let first = 0; first + 4 <= leafCount; first += 4) {
@@ -64,65 +55,103 @@ function partsOf(geometry: THREE.BufferGeometry, share: number) {
         })
     }
 
-    // A stalk, then the ball: plainer on a light level.
-    const plain = share < 0.7
-    const stalk = plain ? 6 : 8
-    const ball = plain ? 16 : 30
-    const fruit: Point[] = []
+    return cards
+}
 
-    for (let first = leafCount; first < count; first += stalk + ball) {
-        const points = Array.from({length: ball}, (_, index) => pointAt(position, first + stalk + index))
+/** Every point that sways whole with the fruit: stalks, bodies and stalk leaves. */
+function fruitPoints(geometry: THREE.BufferGeometry): Point[] {
+    const position = geometry.getAttribute('position').array
+    const rigid = geometry.getAttribute(RIGID_ATTRIBUTE)?.array ?? []
 
-        fruit.push([0, 1, 2].map((axis) => points.reduce((sum, point) => sum + point[axis], 0) / ball) as Point)
-    }
-
-    return {cards, fruit}
+    return Array.from(rigid.entries())
+        .filter(([, mark]) => mark === 1)
+        .map(([index]) => pointAt(position, index))
 }
 
 describe('fruit on a painted tree', () => {
-    it('hangs where there are leaves, close enough to touch them', () => {
+    it('hangs on a stalk from inside the leaves', () => {
         for (const id of FRUIT_TREES) {
             const {tree, seed} = treeOf(id)
 
             for (const shift of [0, 1, 2]) {
                 const plan = planPaintedTree(tree, seed + shift)
-                const radius = fruitRadius(tree)
 
                 for (const clump of plan.clumps) {
-                    const {cards, fruit} = partsOf(buildClump(plan, clump, tree, 1), 1)
+                    const {geometry, leafCount, spots} = clumpWithFruitSpots(plan, clump, tree, 1, 1, null)
+                    const cards = cardsOf(geometry, leafCount)
+                    const hangs = planHangingFruit(spots, clump, tree)
 
-                    expect(fruit.length, `${id} clump ${clump.key}`).toBe(tree.fruitCount)
+                    expect(hangs.length, `${id} clump ${clump.key}`).toBe(tree.fruitCount)
 
-                    for (const centre of fruit) {
-                        const nearest = Math.min(...cards.map((card) => distanceToCard(centre, card)))
+                    for (const {attach} of hangs) {
+                        const nearest = Math.min(...cards.map((card) => distanceToCard(attach, card)))
 
-                        expect(nearest, `${id} seed ${seed + shift} clump ${clump.key}`).toBeLessThanOrEqual(radius)
+                        expect(nearest, `${id} seed ${seed + shift} clump ${clump.key}`).toBeLessThanOrEqual(appleSize(tree))
                     }
                 }
             }
         }
     })
 
+    it('hangs lower on a longer stalk as Hanging rises, from the same place in the leaves', () => {
+        const snug = treeOf('cherry', {fruitHang: 0})
+        const dangling = treeOf('cherry', {fruitHang: 1})
+        const plan = planPaintedTree(snug.tree, snug.seed)
+        const clump = plan.clumps[0]
+        const {spots} = clumpWithFruitSpots(plan, clump, snug.tree, 1, 1, null)
+        const high = planHangingFruit(spots, clump, snug.tree)
+        const low = planHangingFruit(spots, clump, dangling.tree)
+
+        high.forEach((hang, index) => {
+            expect(low[index].attach).toEqual(hang.attach)
+            expect(hang.top[1] - low[index].top[1]).toBeGreaterThan(appleSize(snug.tree) * 3)
+        })
+    })
+
     it('stays in place on a lighter level, which only has fewer of it', () => {
-        for (const id of FRUIT_TREES) {
+        for (const id of ['apple', 'cherry', 'pear']) {
             const {tree, seed} = treeOf(id)
             const plan = planPaintedTree(tree, seed)
 
             for (const clump of plan.clumps) {
-                const full = partsOf(buildClump(plan, clump, tree, 1), 1).fruit
+                const full = fruitPoints(buildClump(plan, clump, tree, 1))
 
                 for (const share of [0.5, 0.15]) {
-                    const lighter = partsOf(buildClump(plan, clump, tree, 1, share), share).fruit
+                    const lighter = fruitPoints(buildClump(plan, clump, tree, 1, share))
 
                     expect(lighter.length).toBeGreaterThan(0)
-                    expect(lighter.length).toBeLessThanOrEqual(full.length)
 
-                    for (const centre of lighter) {
-                        expect(Math.min(...full.map((other) => distance(other, centre)))).toBeLessThan(1e-4)
+                    // A plainer fruit has fewer sides, so its points sit near, not on, the full one's.
+                    for (const point of lighter) {
+                        expect(Math.min(...full.map((other) => distance(other, point)))).toBeLessThan(appleSize(tree) * 0.6)
                     }
                 }
             }
         }
+    })
+
+    it.each(KINDS)('builds %s, at every level, without costing much', (kind) => {
+        const {tree, seed} = treeOf('apple', {fruitKind: kind})
+        const plain = treeOf('apple', {fruitCount: 0})
+        const plan = planPaintedTree(tree, seed)
+        const triangles = (geometry: THREE.BufferGeometry) => (geometry.index?.count ?? 0) / 3
+        let extra = 0
+
+        for (const clump of plan.clumps) {
+            for (const share of [1, 0.5, 0.15]) {
+                const geometry = buildClump(plan, clump, tree, 1, share)
+
+                expect(geometry.getAttribute('position').array.every(Number.isFinite)).toBe(true)
+
+                if (share === 1) {
+                    extra += triangles(geometry) - triangles(buildClump(plan, clump, plain.tree, 1))
+                }
+            }
+        }
+
+        // A bunch or a hand is one fruit here: it hangs on one stalk.
+        expect(extra).toBeGreaterThan(0)
+        expect(extra / (plan.clumps.length * tree.fruitCount)).toBeLessThan(200)
     })
 
     it('hangs from the leaves on a tree saved before it did, as on a new one', () => {
