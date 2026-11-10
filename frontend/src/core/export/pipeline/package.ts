@@ -75,7 +75,8 @@ export async function buildExport(
         }
 
         // Only the full level is seen up close, where a small relief shows its pixels.
-        const merged = mergeParts(parts, name, pivot, extent, level === 0, comic)
+        // Larger pictures only where they're seen up close.
+        const merged = mergeParts(parts, name, pivot, extent, level === 0, comic, level === 0 ? (settings.pictureSize ?? 512) : 512, settings.setName)
 
         // Drawn from what ships at full detail, before joining lets go of it.
         if (level === 0 && far) {

@@ -5,18 +5,20 @@
  * and the rest of the app in your hands. The status bar keeps count meanwhile.
  */
 
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {SHADING_MODE_LABELS} from '../assets/style/shading'
 import {presetGroups} from '../assets/trees/presets'
 import {MAX_VARIATIONS, propsOf, type BatchChoice} from '../core/export/batch-items'
-import {GODOT_IMPORT_NOTE, loadExportPreferences, LOOK_HELP, MATERIALS_HELP, saveExportPreferences} from '../core/export/export-preferences'
+import {GODOT_IMPORT_NOTE, loadExportPreferences, LOOK_HELP, MATERIALS_HELP, PICTURE_SIZE_HELP, PICTURE_SIZE_OPTIONS, saveExportPreferences} from '../core/export/export-preferences'
 import {findBudgetTarget} from '../core/export/pipeline/budget'
-import {ENGINE_LABELS, EXPORT_LOOKS, folderNameOf, type EngineId} from '../core/export/pipeline/types'
+import {ENGINE_LABELS, EXPORT_LOOKS, folderNameOf, type EngineId, type PictureSize} from '../core/export/pipeline/types'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
 import {chooseFolder, desktopJoin, isDesktop, showFolder, writeFilesTo} from '../platform/desktop'
 import {useEditorStore} from '../store/editor-store'
 import {Dialog, Select, Switch} from '../components/controls'
 import {Row} from '../components/PropertyRow'
+import type {ColourGroup, SetColours} from '../core/export/set-colours'
+import {SetColoursSection} from './SetColoursSection'
 
 const ENGINES = Object.keys(ENGINE_LABELS) as EngineId[]
 const LEVEL_CHOICES = [1, 2, 3]
@@ -62,6 +64,7 @@ export function BatchExportDialog() {
     const gallery = useEditorStore((state) => state.gallery)
     const budgetTarget = useEditorStore((state) => state.budgetTarget)
     const refreshGallery = useEditorStore((state) => state.refreshGallery)
+    const style = useEditorStore((state) => state.style)
 
     const [preferences, setPreferences] = useState(loadExportPreferences)
     const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
@@ -69,6 +72,10 @@ export function BatchExportDialog() {
     const [subfolder, setSubfolder] = useState('')
     const [kitSaved, setKitSaved] = useState<string | null>(null)
     const [kitError, setKitError] = useState<string | null>(null)
+    const [asSet, setAsSet] = useState(false)
+    const [setName, setSetName] = useState('My set')
+    const [setColours, setSetColours] = useState<{groups: readonly ColourGroup[]; colours: SetColours}>({groups: [], colours: {}})
+    const onSet = useCallback((groups: readonly ColourGroup[], colours: SetColours) => setSetColours({groups, colours}), [])
     const picked = useEditorStore((state) => state.batchPicked)
     const savedIds = useEditorStore((state) => state.batchSavedIds)
 
@@ -153,7 +160,13 @@ export function BatchExportDialog() {
 
         change({folder})
 
-        startBatch(choices, variations, {...preferences, folder}, subfolder)
+        startBatch(
+            choices,
+            variations,
+            {...preferences, folder},
+            subfolder,
+            asSet ? {name: setName.trim() || 'My set', groups: setColours.groups, colours: setColours.colours} : undefined,
+        )
     }
 
     const choices = [...chosen].flatMap((key): BatchChoice[] => {
@@ -170,9 +183,11 @@ export function BatchExportDialog() {
     const total = choices.reduce((sum, choice) => sum + propsOf(choice, variations), 0)
     const inside = folderNameOf(subfolder)
     const base = inside ? desktopJoin(preferences.folder, inside) : preferences.folder
-    const destination = preferences.folderPerProp && isDesktop()
-        ? `Each prop gets a folder of its own in ${base}.`
-        : `Files go in ${base}.`
+    const destination = asSet
+        ? `The set goes in ${desktopJoin(preferences.folder, folderNameOf(setName) || 'my_set')}.`
+        : preferences.folderPerProp && isDesktop()
+          ? `Each prop gets a folder of its own in ${base}.`
+          : `Files go in ${base}.`
     const summary = batch?.summary
 
     return (
@@ -325,6 +340,14 @@ export function BatchExportDialog() {
                                 options={EXPORT_LOOKS.map((id) => ({value: id, label: SHADING_MODE_LABELS[id]}))}
                             />
                         </Row>
+                        <Row label="Picture size" help={PICTURE_SIZE_HELP}>
+                            <Select
+                                label="Picture size"
+                                value={String(preferences.pictureSize)}
+                                onChange={(next) => change({pictureSize: Number(next) as PictureSize})}
+                                options={PICTURE_SIZE_OPTIONS}
+                            />
+                        </Row>
                         {preferences.engine === 'godot' ? (
                             <Row label="Materials" help={MATERIALS_HELP}>
                                 <Switch label="Materials" value={preferences.materials} onChange={(next) => change({materials: next})} />
@@ -352,7 +375,14 @@ export function BatchExportDialog() {
                                 Choose…
                             </button>
                         </Row>
-                        {isDesktop() ? (
+                        <Row
+                            label="Export as a set"
+                            help="One folder for all of them, every prop in the same colours, and materials named so your engine can share one between files."
+                        >
+                            <Switch label="Export as a set" value={asSet} onChange={setAsSet} />
+                        </Row>
+                        {asSet ? <SetColoursSection choices={choices} style={style} name={setName} onName={setSetName} onSet={onSet} /> : null}
+                        {isDesktop() && !asSet ? (
                             <>
                                 <Row label="Subfolder" help="Puts the whole batch in a new folder inside the one above. Leave it empty to write straight into it.">
                                     <input

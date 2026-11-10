@@ -55,7 +55,9 @@ import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences}
 import {describeChanges, makeItFit} from '../core/export/make-it-fit'
 import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
 import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/export/pipeline/budget'
-import {folderNameOf} from '../core/export/pipeline/types'
+import {exportNameOf, folderNameOf} from '../core/export/pipeline/types'
+import type {ColourGroup, SetColours} from '../core/export/set-colours'
+import {setEntryOf, setListFile, type SetEntry} from '../core/export/set-list'
 import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {markedStartingPoint, parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
@@ -176,6 +178,13 @@ export interface ToastAction {
 }
 
 /** How far a batch has got. It has a summary once it has finished. */
+/** A batch exported as one set: in one folder, matched to one set of colours. */
+export interface ExportSet {
+    readonly name: string
+    readonly groups: readonly ColourGroup[]
+    readonly colours: SetColours
+}
+
 export interface BatchState {
     readonly done: number
     readonly total: number
@@ -319,8 +328,11 @@ export interface EditorStore {
     closeBatch(): void
     /** The batch running or just finished, or null. */
     batch: BatchState | null
-    /** `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch. */
-    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string): void
+    /**
+     * `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch.
+     * A set goes in a folder of its own name, its props in its colours, and ends with a list.
+     */
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string, set?: ExportSet): void
     cancelBatch(): void
     clearBatch(): void
     /** Which detail level the viewport is showing. */
@@ -1496,8 +1508,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatchWithSaved: (batchSavedIds) => set({batchSavedIds, batchPicked: null, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, folder: chosen, folderPerProp}, subfolder = '') => {
-            const inside = folderNameOf(subfolder)
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, pictureSize, folder: chosen, folderPerProp}, subfolder = '', exportSet) => {
+            const inside = folderNameOf(exportSet ? exportSet.name : subfolder)
+            const setName = exportSet ? exportNameOf(exportSet.name) : undefined
+            const entries: SetEntry[] = []
             const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
 
@@ -1510,19 +1524,35 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 style: state.style,
                 appVersion: APP_VERSION,
                 readInSavedProp: readTree,
+                colours: exportSet?.colours,
             })
 
             batchController = controller
             set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind, join, far, look, materials},
+                settings: {engine, levels, collision, wind, join, far, look, materials, pictureSize, setName},
                 budget: state.budgetTarget,
                 signal: controller.signal,
-                write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),
+                write: (files, name) => {
+                    if (exportSet) {
+                        entries.push(setEntryOf(name, files))
+
+                        return writeFilesTo(folder, files)
+                    }
+
+                    return folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)
+                },
                 onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
-            }).then((summary) => {
+            }).then(async (summary) => {
                 batchController = null
+
+                if (exportSet && setName && entries.length > 0) {
+                    await writeFilesTo(folder, [setListFile(setName, entries, exportSet.groups, exportSet.colours)]).catch(() =>
+                        get().notify("The set's list couldn't be written. Its props were."),
+                    )
+                }
+
                 set({
                     batch: {done: summary.exported, total: summary.total, current: null, summary, folder},
                     // The panel may be long closed, so the news comes back with it.

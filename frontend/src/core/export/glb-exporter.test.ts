@@ -6,6 +6,7 @@ import {findPropGenerator} from '../../assets/prop-generators'
 import {treePresets} from '../../assets/trees/presets'
 import {createEmptyScene} from '../scene/scene-model'
 import {createSceneFromPreset} from '../scene/initial-scene'
+import {updateTreeParameters} from '../scene/scene-ops'
 import {findBudgetTarget} from './pipeline/budget'
 import {MAX_COLLISION_SHAPES} from './pipeline/collision'
 import {mergeParts} from './pipeline/merge'
@@ -250,6 +251,40 @@ describe('game-ready export', () => {
             expect(material.normalScale.y).toBeLessThan(0)
         }
     }, 60000)
+
+    it('writes a rock’s grain as a picture and relief, and none for a rock without it', async () => {
+        const rockFile = async (grain: number) => {
+            const scene = createSceneFromPreset('mossy-boulder')
+            const [asset] = scene.assets
+            const withGrain = updateTreeParameters(scene, asset.id, {grain}, STYLE)
+            const files = await buildExport(sceneExportSource(withGrain, STYLE, 'test'), {name: 'rock', engine: 'godot', levels: 1, collision: false, wind: false})
+
+            return readGLB(fileNamed(files, 'rock.glb').bytes).json
+        }
+        const grained = await rockFile(0.6)
+        const plain = await rockFile(0)
+        const [material] = grained.materials! as {normalTexture?: unknown}[]
+
+        expect(material.normalTexture).toBeDefined()
+        expect((grained.images ?? []).length).toBe(2)
+        expect(grained.meshes![0].primitives[0].attributes.TEXCOORD_0).toBeDefined()
+        expect((plain.materials![0] as {normalTexture?: unknown}).normalTexture).toBeUndefined()
+        expect((plain.images ?? []).length).toBe(1)
+    }, 60000)
+
+    it('draws bark and stone again at a larger Picture size, with the same marks', async () => {
+        const widthsAt = async (presetId: string, pictureSize: number) => {
+            const parts = await sceneExportSource(createSceneFromPreset(presetId), STYLE, 'test').buildAtDetail(1)
+
+            return mergeParts(parts, 'prop', [0, 0, 0], undefined, true, false, pictureSize)
+                .filter(({material}) => material.normalMap)
+                .map(({material}) => [(material.map!.image as {width: number}).width, (material.normalMap!.image as {width: number}).width])
+        }
+
+        expect(await widthsAt('blossom-tree', 512)).toEqual([[512, 512]])
+        expect(await widthsAt('blossom-tree', 1024)).toEqual([[1024, 1024]])
+        expect(await widthsAt('mossy-boulder', 2048)).toEqual([[2048, 2048]])
+    }, 120000)
 
     describe.each(['plain', 'godot', 'unreal'] as const)('with parts joined for %s', (engine) => {
         const exportBoth = async (levels: number) => {

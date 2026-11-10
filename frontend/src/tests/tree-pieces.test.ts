@@ -11,8 +11,8 @@ import type {Scene} from '../core/scene/scene-model'
 
 const STYLE = getStyleProfile('low-poly')
 
-function geometryOf(scene: Scene, detail = 0.5): THREE.BufferGeometry {
-    const [component] = scene.assets[0].components
+function partOf(scene: Scene, detail = 0.5, which = 0) {
+    const component = scene.assets[0].components[which]
     const generator = findComponentGenerator(component.generatorId)!
 
     return generator.generate(generator.validate(component.parameters).parameters, {
@@ -20,8 +20,10 @@ function geometryOf(scene: Scene, detail = 0.5): THREE.BufferGeometry {
         seed: component.seed,
         style: STYLE,
         detail,
-    }).geometry
+    })
 }
+
+const geometryOf = (scene: Scene, detail = 0.5): THREE.BufferGeometry => partOf(scene, detail).geometry
 
 const boxOf = (geometry: THREE.BufferGeometry) => {
     geometry.computeBoundingBox()
@@ -63,6 +65,31 @@ describe('pieces from a tree', () => {
         expect(box.max.y).toBeLessThan(0.6 * 1.15)
         // Wider than the trunk: the roots spread out round it.
         expect(box.max.x - box.min.x).toBeGreaterThan(tree.trunkRadius * 3)
+    })
+
+    it('caps a stump’s sawn top with fine rings, on a picture of their own', () => {
+        const [stump] = makePieces(createSceneFromPreset('oak'), 'Old oak', ['stump'], 'low-poly')
+        const wood = boxOf(geometryOf(stump.scene))
+        const ends = partOf(stump.scene, 0.5, 1)
+        const box = boxOf(ends.geometry)
+
+        expect(stump.scene.assets[0].components).toHaveLength(2)
+        expect(ends.surface?.map).toBeDefined()
+        expect(ends.surface?.map).not.toBe(partOf(stump.scene).surface?.map)
+        // Flat, at the top of the stump, just off the sawn wood.
+        expect(box.max.y - box.min.y).toBeLessThan(0.01)
+        expect(Math.abs(box.max.y - wood.max.y)).toBeLessThan(0.05)
+    })
+
+    it('caps both ends of a log where they lie', () => {
+        const [log] = makePieces(createSceneFromPreset('oak'), 'Old oak', ['log'], 'low-poly')
+        const wood = boxOf(geometryOf(log.scene))
+        const box = boxOf(partOf(log.scene, 0.5, 1).geometry)
+
+        // One cap at each end of the log, along its length.
+        expect(box.max.x - box.min.x).toBeGreaterThan((wood.max.x - wood.min.x) * 0.9)
+        expect(box.min.y).toBeGreaterThan(wood.min.y - 0.05)
+        expect(box.max.y).toBeLessThan(wood.max.y + 0.05)
     })
 
     it('lays a log down on the ground, with moss on it', () => {

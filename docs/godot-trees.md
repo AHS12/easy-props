@@ -10,7 +10,8 @@ For someone who has done this before:
 
 1. Export with **Engine: Godot** and **Wind data** on.
 2. Drag the exported folder into Godot's FileSystem panel.
-3. For each `_LOD` file: **Import** tab, untick **Meshes > Generate LODs**, press **Reimport**.
+3. Once per project, in **Project Settings > Import Defaults > Scene**: set **Import Script** to
+   `easy_props_import.gd`, untick **Meshes > Generate LODs**, then reimport the files.
 4. Copy in `wood.gdshader` and `leaves.gdshader` once per project.
 5. Make a wood and a leaves `ShaderMaterial`, and put the `_1.png` image in the leaves' **Dab Texture**.
 6. Add the tree to a scene, turn on **Editable Children**, and set each mesh's **Surface Material Override**.
@@ -38,15 +39,22 @@ choose. You only need it once per Godot project. The same files are in
 
 ## 2. Import into Godot
 
-1. Drag the exported folder into the **FileSystem** panel.
-2. Click `name_LOD0.glb` and open the **Import** tab, next to the Scene tab.
-3. Untick **Meshes > Generate LODs**.
-4. Check that **Meshes > Light Baking** is not **Static Lightmaps**, which would replace the wind data.
-5. Click **Reimport**.
-6. Repeat for the other `_LOD` files.
+1. Drag the exported folder into the **FileSystem** panel. With **Materials** on when you
+   exported, `easy_props_import.gd` is in it. Otherwise, copy it in from the engine kit.
+2. Once per project, open **Project > Project Settings > Import Defaults** and choose
+   **Scene**. Set **Import Script > Path** to `easy_props_import.gd`, untick **Meshes >
+   Generate LODs**, and press **Save**. Every prop you import after this is set up right.
+3. Check that **Meshes > Light Baking** is not **Static Lightmaps**, which would replace the
+   wind data.
+4. Select the exported files, open the **Import** tab, and click **Reimport**.
 
-**Do not skip step 3.** Godot's automatic LODs delete leaf cards, so most of the crown
-disappears until the camera is close. The file cannot turn this off for you.
+**Do not skip step 2.**
+
+- From Godot 4.7, a GLB's materials import with the colours easy-props paints on the tree
+  turned off, so the tree is white. The import script turns them back on, every time the
+  file is imported. Godot 4.6 turns them on itself.
+- Godot's automatic LODs delete leaf cards, so most of the crown disappears until the camera
+  is close. The file cannot turn this off for you.
 
 Import also creates two images beside each GLB:
 
@@ -109,6 +117,7 @@ in step.
 | What you see | Cause | Fix |
 |---|---|---|
 | Leaves only appear when the camera is close | Godot's automatic LODs | Untick **Generate LODs** and reimport |
+| The whole tree is white | Godot 4.7 or later, without the import script | Set the import script as in step 2, and reimport |
 | Leaves are big solid polygons | **Dab Texture** is empty or has the wrong image | Set it to the `_1.png` image |
 | A `_0.png` looks blank | Nothing is wrong | It is the wood's plain white image |
 | Nothing moves | Exported without wind, or the materials are not applied | Re-export with **Wind data** on, and check **Surface Material Override** |

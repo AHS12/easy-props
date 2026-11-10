@@ -12,7 +12,8 @@
 import * as THREE from 'three'
 import {createSeededRandom, randomRange} from './random'
 
-const SIZE = 512
+/** The picture's size in the app. An export can ask for it larger: the same strokes, sharper. */
+export const PICTURE_SIZE = 512
 const BASE = 236
 const STROKES = 700
 const DARKEST = 205
@@ -57,18 +58,20 @@ interface Strokes {
     readonly heights: Float32Array
 }
 
-const strokes = new Map<BarkPrint, Strokes>()
-/** One per pattern and slider stop. They are few and made when first asked for, so they are all kept. */
+const strokes = new Map<string, Strokes>()
+/** One per pattern, slider stop and size. They are few and made when first asked for, so they are all kept. */
 const textures = new Map<string, THREE.DataTexture>()
-const reliefs = new Map<BarkPrint, THREE.DataTexture>()
+const reliefs = new Map<string, THREE.DataTexture>()
 
 /** Plates of bark with cracks between, as cells around scattered points that wrap at the edges. */
-function crackPlates(): Strokes {
-    const values = new Uint8Array(SIZE * SIZE)
-    const heights = new Float32Array(SIZE * SIZE)
+function crackPlates(size: number): Strokes {
+    // Everything measured in pixels grows with the picture, so a larger one is the same plates.
+    const scale = size / PICTURE_SIZE
+    const values = new Uint8Array(size * size)
+    const heights = new Float32Array(size * size)
     const random = createSeededRandom(TEXTURE_SEED)
-    const cellWide = SIZE / PLATE_CELLS_ACROSS
-    const cellTall = SIZE / PLATE_CELLS_DOWN
+    const cellWide = size / PLATE_CELLS_ACROSS
+    const cellTall = size / PLATE_CELLS_DOWN
     const plates = Array.from({length: PLATE_CELLS_ACROSS * PLATE_CELLS_DOWN}, (_, index) => ({
         x: ((index % PLATE_CELLS_ACROSS) + random()) * cellWide,
         y: (Math.floor(index / PLATE_CELLS_ACROSS) + random()) * cellTall,
@@ -76,10 +79,10 @@ function crackPlates(): Strokes {
         level: random() * 0.7,
     }))
 
-    for (let y = 0; y < SIZE; y++) {
+    for (let y = 0; y < size; y++) {
         const row = Math.floor(y / cellTall)
 
-        for (let x = 0; x < SIZE; x++) {
+        for (let x = 0; x < size; x++) {
             const column = Math.floor(x / cellWide)
             let nearest = Infinity
             let second = Infinity
@@ -95,7 +98,7 @@ function crackPlates(): Strokes {
                     const dx = Math.abs(candidate.x - x)
                     const dy = Math.abs(candidate.y - y)
                     // Stretched upright, the way plates of bark grow.
-                    const distance = Math.hypot(Math.min(dx, SIZE - dx), Math.min(dy, SIZE - dy) * 0.6)
+                    const distance = Math.hypot(Math.min(dx, size - dx), Math.min(dy, size - dy) * 0.6)
 
                     if (distance < nearest) {
                         second = nearest
@@ -107,25 +110,28 @@ function crackPlates(): Strokes {
                 }
             }
 
-            const inCrack = second - nearest < PLATE_CRACK
+            const inCrack = second - nearest < PLATE_CRACK * scale
 
-            values[y * SIZE + x] = inCrack ? 198 : plate.value
-            heights[y * SIZE + x] = inCrack ? -0.6 : plate.level + Math.min(1, (second - nearest) / 40) * MAX_DOME
+            values[y * size + x] = inCrack ? 198 : plate.value
+            heights[y * size + x] = inCrack ? -0.6 : plate.level + Math.min(1, (second - nearest) / (40 * scale)) * MAX_DOME
         }
     }
 
     return {values, heights}
 }
 
-function brushStrokes(recipe: StrokeRecipe): Strokes {
-    const values = new Uint8Array(SIZE * SIZE).fill(BASE)
-    const heights = new Float32Array(SIZE * SIZE)
+function brushStrokes(recipe: StrokeRecipe, size: number): Strokes {
+    const scale = size / PICTURE_SIZE
+    const values = new Uint8Array(size * size).fill(BASE)
+    const heights = new Float32Array(size * size)
     const random = createSeededRandom(TEXTURE_SEED)
 
-    const stroke = (value: number, long: number, wide: number) => {
+    const stroke = (value: number, longAt512: number, wideAt512: number) => {
+        const long = longAt512 * scale
+        const wide = wideAt512 * scale
         const level = random() * 0.7
-        const cx = random() * SIZE
-        const cy = random() * SIZE
+        const cx = random() * size
+        const cy = random() * size
         const turn = recipe.turn + randomRange(random, -recipe.stray, recipe.stray)
         const cos = Math.cos(turn)
         const sin = Math.sin(turn)
@@ -137,11 +143,11 @@ function brushStrokes(recipe: StrokeRecipe): Strokes {
                 const v = (-x * sin + y * cos) / wide
 
                 if (u * u + v * v <= 1) {
-                    const px = (Math.round(cx + x) + SIZE) % SIZE
-                    const py = (Math.round(cy + y) + SIZE) % SIZE
+                    const px = (Math.round(cx + x) + size) % size
+                    const py = (Math.round(cy + y) + size) % size
 
-                    values[py * SIZE + px] = value
-                    heights[py * SIZE + px] = level + Math.sqrt(1 - u * u - v * v) * Math.min(wide * 0.12, MAX_DOME)
+                    values[py * size + px] = value
+                    heights[py * size + px] = level + Math.sqrt(1 - u * u - v * v) * Math.min(wideAt512 * 0.12, MAX_DOME)
                 }
             }
         }
@@ -160,12 +166,13 @@ function brushStrokes(recipe: StrokeRecipe): Strokes {
     return {values, heights}
 }
 
-function strokesOf(print: BarkPrint): Strokes {
-    let made = strokes.get(print)
+function strokesOf(print: BarkPrint, size: number): Strokes {
+    const key = `${print}:${size}`
+    let made = strokes.get(key)
 
     if (!made) {
-        made = print === 'plated' ? crackPlates() : brushStrokes(RECIPES[print])
-        strokes.set(print, made)
+        made = print === 'plated' ? crackPlates(size) : brushStrokes(RECIPES[print], size)
+        strokes.set(key, made)
     }
 
     return made
@@ -187,23 +194,23 @@ function configured(texture: THREE.DataTexture): THREE.DataTexture {
  * Rounds off a stroke's cliff by a pixel or two. Left sharp, its edge is a staircase of
  * whole pixels, and light picks out every step as a row of dots.
  */
-function softened(heights: Float32Array): Float32Array {
+function softened(heights: Float32Array, size: number): Float32Array {
     let from = heights
 
-    for (let pass = 0; pass < RELIEF_SOFTENING; pass++) {
+    for (let pass = 0; pass < Math.round(RELIEF_SOFTENING * (size / PICTURE_SIZE)); pass++) {
         const to = new Float32Array(from.length)
 
-        for (let y = 0; y < SIZE; y++) {
-            for (let x = 0; x < SIZE; x++) {
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
                 let sum = 0
 
                 for (let down = -1; down <= 1; down++) {
                     for (let across = -1; across <= 1; across++) {
-                        sum += from[((y + down + SIZE) % SIZE) * SIZE + (x + across + SIZE) % SIZE]
+                        sum += from[((y + down + size) % size) * size + (x + across + size) % size]
                     }
                 }
 
-                to[y * SIZE + x] = sum / 9
+                to[y * size + x] = sum / 9
             }
         }
 
@@ -217,23 +224,26 @@ function softened(heights: Float32Array): Float32Array {
  * The same strokes as light sees them: where one plate ends on another there is a
  * small cliff, so the edges catch the sun whatever the colour strength is.
  */
-export function getBarkRelief(print: BarkPrint = 'none'): THREE.DataTexture {
-    const cached = reliefs.get(print)
+export function getBarkRelief(print: BarkPrint = 'none', size = PICTURE_SIZE): THREE.DataTexture {
+    const key = `${print}:${size}`
+    const cached = reliefs.get(key)
 
     if (cached) {
         return cached
     }
 
-    const heights = softened(strokesOf(print).heights)
-    const data = new Uint8Array(SIZE * SIZE * 4).fill(255)
-    const at = (x: number, y: number) => heights[((y + SIZE) % SIZE) * SIZE + (x + SIZE) % SIZE]
+    // A height step across one pixel is that much smaller in a larger picture, so it's steeper per pixel.
+    const steepness = RELIEF_STEEPNESS * (size / PICTURE_SIZE)
+    const heights = softened(strokesOf(print, size).heights, size)
+    const data = new Uint8Array(size * size * 4).fill(255)
+    const at = (x: number, y: number) => heights[((y + size) % size) * size + (x + size) % size]
 
-    for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-            const dx = (at(x - 1, y) - at(x + 1, y)) * RELIEF_STEEPNESS
-            const dy = (at(x, y - 1) - at(x, y + 1)) * RELIEF_STEEPNESS
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            const dx = (at(x - 1, y) - at(x + 1, y)) * steepness
+            const dy = (at(x, y - 1) - at(x, y + 1)) * steepness
             const scale = 1 / Math.hypot(dx, dy, 1)
-            const pixel = (y * SIZE + x) * 4
+            const pixel = (y * size + x) * 4
 
             data[pixel] = Math.round((dx * scale * 0.5 + 0.5) * 255)
             data[pixel + 1] = Math.round((dy * scale * 0.5 + 0.5) * 255)
@@ -241,23 +251,24 @@ export function getBarkRelief(print: BarkPrint = 'none'): THREE.DataTexture {
         }
     }
 
-    const relief = configured(new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat))
+    const relief = configured(new THREE.DataTexture(data, size, size, THREE.RGBAFormat))
 
-    reliefs.set(print, relief)
+    relief.userData.atSize = (larger: number) => getBarkRelief(print, larger)
+    reliefs.set(key, relief)
 
     return relief
 }
 
-export function getBarkTexture(strength = 1, print: BarkPrint = 'none'): THREE.DataTexture {
-    const key = `${print}:${strength}`
+export function getBarkTexture(strength = 1, print: BarkPrint = 'none', size = PICTURE_SIZE): THREE.DataTexture {
+    const key = `${print}:${strength}:${size}`
     const cached = textures.get(key)
 
     if (cached) {
         return cached
     }
 
-    const {values} = strokesOf(print)
-    const data = new Uint8Array(SIZE * SIZE * 4).fill(255)
+    const {values} = strokesOf(print, size)
+    const data = new Uint8Array(size * size * 4).fill(255)
 
     for (let index = 0; index < values.length; index++) {
         const value = Math.max(0, Math.round(255 - (255 - values[index]) * strength))
@@ -267,9 +278,12 @@ export function getBarkTexture(strength = 1, print: BarkPrint = 'none'): THREE.D
         data[index * 4 + 2] = value
     }
 
-    const texture = new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat)
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
 
     texture.colorSpace = THREE.SRGBColorSpace
+    // What it shows, so files in a set that share it can share a material.
+    texture.name = `bark_${print}_${Math.round(strength * 100)}`
+    texture.userData.atSize = (larger: number) => getBarkTexture(strength, print, larger)
     configured(texture)
     textures.set(key, texture)
 

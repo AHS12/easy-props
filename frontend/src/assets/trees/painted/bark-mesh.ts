@@ -111,7 +111,7 @@ export interface PieceCut {
 const UPRIGHT = (v: Vec3): Vec3 => v
 
 /** A cut face, pale wood in rings that follow its outline, and a rim of bark. */
-const HEARTWOOD = new THREE.Color('#e4c391')
+export const HEARTWOOD = new THREE.Color('#e4c391')
 const RING = new THREE.Color('#a87a4a')
 /** The narrowest a break's splinters may be, in grid cells. */
 const SPLINTER_CELLS = 3.5

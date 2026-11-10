@@ -21,7 +21,15 @@ import {palmFrondGenerator} from './trees/components/palm-frond'
 import {palmTrunkGenerator} from './trees/components/palm-trunk'
 import {rootGenerator} from './trees/components/root'
 import {trunkGenerator} from './trees/components/trunk'
-import {branchWoodGenerator, litterLeavesGenerator, logWoodGenerator, stumpWoodGenerator} from './trees/pieces/piece-generators'
+import {
+    branchEndsGenerator,
+    branchWoodGenerator,
+    litterLeavesGenerator,
+    logEndsGenerator,
+    logWoodGenerator,
+    stumpEndsGenerator,
+    stumpWoodGenerator,
+} from './trees/pieces/piece-generators'
 
 export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [branchGenerator.id]: branchGenerator,
@@ -45,6 +53,9 @@ export const componentGenerators: Readonly<Record<string, PartGenerator>> = {
     [stumpWoodGenerator.id]: stumpWoodGenerator,
     [logWoodGenerator.id]: logWoodGenerator,
     [branchWoodGenerator.id]: branchWoodGenerator,
+    [stumpEndsGenerator.id]: stumpEndsGenerator,
+    [logEndsGenerator.id]: logEndsGenerator,
+    [branchEndsGenerator.id]: branchEndsGenerator,
     [litterLeavesGenerator.id]: litterLeavesGenerator,
 }
 

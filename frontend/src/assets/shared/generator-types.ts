@@ -53,6 +53,8 @@ export interface PaintedSurface {
      * pointer something to land on and the selection something to outline.
      */
     readonly proxy?: boolean
+    /** What an export calls this part's mesh, when it's neither wood nor leaves, such as a log's sawn ends. */
+    readonly exportName?: string
 }
 
 export interface GenerationContext {

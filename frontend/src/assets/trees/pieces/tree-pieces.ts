@@ -11,10 +11,10 @@
 import * as THREE from 'three'
 import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
-import {weatherColours} from '../../shared/weather'
-import {buildBark, type PieceCut} from '../painted/bark-mesh'
+import {weatherColours, weatherPaint} from '../../shared/weather'
+import {buildBark, HEARTWOOD, prepareBark, type PieceCut} from '../painted/bark-mesh'
 import {resolvePalette, type PaintedTreeParameters} from '../painted/parameters'
-import {growsOn, isHeavyLimb, isRoot, lengthOf, pointAlong, shortened} from '../painted/limb-path'
+import {distanceAlong, growsOn, isHeavyLimb, isRoot, lengthOf, pointAlong, shortened} from '../painted/limb-path'
 import {normalize, planPaintedTree, type Limb, type TreePlan, type Vec3} from '../painted/plan'
 import type {WoodCut} from '../painted/wood-field'
 
@@ -167,8 +167,13 @@ function branchPiece(plan: TreePlan, seed: number): WoodPiece | null {
     }
 }
 
-/** Lays a piece built where it grew down where it goes: its base on the ground, at the origin. */
-function layDown(geometry: THREE.BufferGeometry, piece: WoodPiece): THREE.BufferGeometry {
+/**
+ * Lays a piece built where it grew down where it goes: its base on the ground, at the
+ * origin. Gives back how it was moved, so its cut ends can be laid the same way.
+ */
+function layDown(geometry: THREE.BufferGeometry, piece: WoodPiece): THREE.Matrix4 {
+    const placement = new THREE.Matrix4()
+
     if (piece.frame) {
         const {along, up, across} = piece.frame
         const turn = new THREE.Matrix4().set(
@@ -178,20 +183,41 @@ function layDown(geometry: THREE.BufferGeometry, piece: WoodPiece): THREE.Buffer
             0, 0, 0, 1,
         )
 
-        geometry.applyMatrix4(new THREE.Matrix4().makeTranslation(-piece.centre[0], -piece.centre[1], -piece.centre[2]))
-        geometry.applyMatrix4(turn)
+        placement.multiplyMatrices(turn, new THREE.Matrix4().makeTranslation(-piece.centre[0], -piece.centre[1], -piece.centre[2]))
+        geometry.applyMatrix4(placement)
         geometry.computeBoundingBox()
 
         const box = geometry.boundingBox!
         const thickness = box.max.y - box.min.y
+        const settle = new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y - thickness * SETTLE * 0.25, -(box.min.z + box.max.z) / 2)
 
-        geometry.translate(-(box.min.x + box.max.x) / 2, -box.min.y - thickness * SETTLE * 0.25, -(box.min.z + box.max.z) / 2)
+        geometry.applyMatrix4(settle)
+        placement.premultiply(settle)
     }
 
     geometry.computeBoundingBox()
     geometry.computeBoundingSphere()
 
-    return geometry
+    return placement
+}
+
+/**
+ * How each piece was laid down, by everything that decides it. The cut ends are their
+ * own part, and lie where the wood does without building the wood a second time.
+ */
+const placements = new Map<string, THREE.Matrix4>()
+const PLACEMENTS_KEPT = 24
+
+const placementKey = (kind: PieceKind, source: PieceSource, options: PieceOptions, seed: number, detail: number) =>
+    JSON.stringify([kind, source.tree, source.treeSeed, options.height, options.length, seed, detail])
+
+function keepPlacement(key: string, placement: THREE.Matrix4) {
+    placements.delete(key)
+    placements.set(key, placement)
+
+    if (placements.size > PLACEMENTS_KEPT) {
+        placements.delete(placements.keys().next().value!)
+    }
 }
 
 /** The tree a piece comes from, with the piece's own weather in place of the tree's. */
@@ -210,14 +236,12 @@ export function canMakePiece(kind: PieceKind, source: PieceSource): boolean {
     return kind === 'branch' ? branchCandidates(plan).length > 0 : plan.limbs.length > 0
 }
 
-/** The wood of a stump, log or branch, laid where it goes. Empty when the tree has nothing to make it from. */
-export function buildWoodPiece(
-    kind: Exclude<PieceKind, 'litter'>,
-    source: PieceSource,
-    options: {readonly height: number; readonly length: number},
-    seed: number,
-    detail: number,
-): THREE.BufferGeometry {
+interface PieceOptions {
+    readonly height: number
+    readonly length: number
+}
+
+function woodPieceOf(kind: Exclude<PieceKind, 'litter'>, source: PieceSource, options: PieceOptions, seed: number): WoodPiece | null {
     const plan = planPaintedTree(source.tree, source.treeSeed)
     const piece =
         kind === 'stump'
@@ -226,11 +250,151 @@ export function buildWoodPiece(
               ? logPiece(plan, source.tree, options.length, seed)
               : branchPiece(plan, seed)
 
-    if (!piece || piece.plan.limbs.length === 0) {
+    return piece && piece.plan.limbs.length > 0 ? piece : null
+}
+
+/** The wood of a stump, log or branch, laid where it goes. Empty when the tree has nothing to make it from. */
+export function buildWoodPiece(kind: Exclude<PieceKind, 'litter'>, source: PieceSource, options: PieceOptions, seed: number, detail: number): THREE.BufferGeometry {
+    const piece = woodPieceOf(kind, source, options, seed)
+
+    if (!piece) {
         return new THREE.BufferGeometry()
     }
 
-    return layDown(buildBark(piece.plan, source.tree, source.treeSeed, detail, piece.piece), piece)
+    const geometry = buildBark(piece.plan, source.tree, source.treeSeed, detail, piece.piece)
+
+    keepPlacement(placementKey(kind, source, options, seed, detail), layDown(geometry, piece))
+
+    return geometry
+}
+
+/** How far a cut end stands off the sawn wood, in grid cells: enough never to flicker. */
+const END_LIFT = 0.15
+/** How thick the bark is at a cut's rim, against the trunk's radius, and at most against the cut's own. */
+const END_RIM = 0.07
+const END_RIM_MOST = 0.12
+/** The picture's rings reach this far out, against the trunk's radius, so every cut of one tree has rings the same width. */
+const END_PICTURE_REACH = 1.1
+
+/** Two directions across a cut, square to each other, with `a` × `b` along its normal. */
+function acrossCut(n: Vec3): [Vec3, Vec3] {
+    const helper: Vec3 = Math.abs(n[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0]
+    const a = normalize(cross(helper, n))
+
+    return [a, cross(n, a)]
+}
+
+/**
+ * The sawn faces of a stump, log or branch, as flat caps carrying the end-grain picture:
+ * rings far finer than the wood's own points could hold. Each follows the wood's outline
+ * on its cut, inside the bark at its rim, and lies just off the sawn wood.
+ */
+export function buildCutEnds(kind: Exclude<PieceKind, 'litter'>, source: PieceSource, options: PieceOptions, seed: number, detail: number): THREE.BufferGeometry {
+    const piece = woodPieceOf(kind, source, options, seed)
+
+    if (!piece) {
+        return new THREE.BufferGeometry()
+    }
+
+    const key = placementKey(kind, source, options, seed, detail)
+
+    if (!placements.has(key)) {
+        buildWoodPiece(kind, source, options, seed, detail).dispose()
+    }
+
+    const {field, cell} = prepareBark(piece.plan, source.tree, source.treeSeed, detail, piece.piece)
+    const tree = source.tree
+    const limb = piece.plan.limbs[0]
+    const segments = Math.max(16, Math.round(64 * Math.sqrt(detail)))
+    const positions: number[] = []
+    const normals: number[] = []
+    const colors: number[] = []
+    const uvs: number[] = []
+    const indices: number[] = []
+
+    for (const cut of piece.piece.cuts) {
+        const n = normalize(cut.normal)
+        const [a, b] = acrossCut(n)
+        const radius = pointAlong(limb, distanceAlong(limb, cut.point).along).radius
+        // Sampled just inside the kept wood, where the cut's own plane doesn't count.
+        const inside = (r: number, along: Vec3): number =>
+            field.distance(
+                cut.point[0] + along[0] * r - n[0] * cell * 0.5,
+                cut.point[1] + along[1] * r - n[1] * cell * 0.5,
+                cut.point[2] + along[2] * r - n[2] * cell * 0.5,
+            )
+        const solid = inside(0, a) < 0
+        const reaches = Array.from({length: segments}, (_, index) => {
+            const angle = (index / segments) * Math.PI * 2
+            const along: Vec3 = [a[0] * Math.cos(angle) + b[0] * Math.sin(angle), a[1] * Math.cos(angle) + b[1] * Math.sin(angle), a[2] * Math.cos(angle) + b[2] * Math.sin(angle)]
+
+            // Thin wood swept as a tube isn't in the field: its cut is round.
+            if (!solid) {
+                return {along, r: radius}
+            }
+
+            let low = 0
+            let high = radius * 0.5
+
+            while (inside(high, along) < 0 && high < radius * 3) {
+                low = high
+                high += radius * 0.25
+            }
+
+            for (let step = 0; step < 14; step++) {
+                const middle = (low + high) / 2
+
+                if (inside(middle, along) < 0) {
+                    low = middle
+                } else {
+                    high = middle
+                }
+            }
+
+            return {along, r: low}
+        })
+        const rim = Math.min(tree.trunkRadius * END_RIM, radius * END_RIM_MOST)
+        const widest = Math.max(...reaches.map(({r}) => r))
+        const pictureReach = Math.max(tree.trunkRadius * END_PICTURE_REACH, widest * 1.02)
+        const lift = cell * END_LIFT
+        const centre: Vec3 = [cut.point[0] + n[0] * lift, cut.point[1] + n[1] * lift, cut.point[2] + n[2] * lift]
+        // Weather falls on the cut as the piece lies, not as the tree stood.
+        const colour = weatherPaint(HEARTWOOD.clone(), piece.piece.orient(n)[1], {snow: tree.snow, wet: tree.wet})
+        const first = positions.length / 3
+        const vertex = (p: Vec3) => {
+            const offset: Vec3 = [p[0] - cut.point[0], p[1] - cut.point[1], p[2] - cut.point[2]]
+
+            positions.push(p[0], p[1], p[2])
+            normals.push(n[0], n[1], n[2])
+            colors.push(colour.r, colour.g, colour.b)
+            uvs.push(0.5 + dot(offset, a) / (2 * pictureReach), 0.5 + dot(offset, b) / (2 * pictureReach))
+        }
+
+        vertex(centre)
+
+        for (const {along, r} of reaches) {
+            const out = Math.max(r - rim, r * 0.5)
+
+            vertex([centre[0] + along[0] * out, centre[1] + along[1] * out, centre[2] + along[2] * out])
+        }
+
+        for (let index = 0; index < segments; index++) {
+            indices.push(first, first + 1 + index, first + 1 + ((index + 1) % segments))
+        }
+    }
+
+    const geometry = new THREE.BufferGeometry()
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+    geometry.setIndex(indices)
+    geometry.applyMatrix4(placements.get(key) ?? new THREE.Matrix4())
+    geometry.computeBoundingBox()
+    geometry.computeBoundingSphere()
+
+    return geometry
 }
 
 /** How a fallen leaf dries: towards this brown, as much as Dryness says. */

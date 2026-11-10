@@ -42,6 +42,9 @@ agree on the term first, or rethink the control.
 | Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
 | Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
 | Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
+| End cap, cross-section texture | **Cut ends** | The sawn faces of a stump, log or branch, with their rings |
+| Texture resolution | **Picture size** | In Export: 512, 1024 or 2048. Never "texture" or "resolution" |
+| Material atlas, shared material, palette sync | **Export as a set**, **Set colours** | In Export many. Never "atlas" or "material instance" |
 | Wetness, roughness, specular | **Wet** | "Darker and shinier, as after rain or in a swamp." Never "roughness" or "gloss" |
 | Terrain slope, ground normal, incline | **Slope** / **Downhill** | In the view only: tilts the ground, not the prop. Degrees are shown |
 | Derived props, deadwood, debris | **Pieces** of a tree: **Stump**, **Fallen log**, **Fallen branch**, **Leaf litter** | "Make pieces from this tree…" in the Prop menu. Never "asset variants" or "debris" |

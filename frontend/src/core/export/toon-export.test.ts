@@ -110,7 +110,7 @@ describe('materials beside the files', () => {
     }
 
     it('come with a Godot export, for the look chosen', async () => {
-        expect(await namesOf('godot', 'lit', true)).toEqual(expect.arrayContaining(['wood.gdshader', 'leaves.gdshader']))
+        expect(await namesOf('godot', 'lit', true)).toEqual(expect.arrayContaining(['wood.gdshader', 'leaves.gdshader', 'easy_props_import.gd']))
         expect(await namesOf('godot', 'cel', true)).toEqual(
             expect.arrayContaining(['wood_comic.gdshader', 'leaves_comic.gdshader', 'outline.gdshader']),
         )

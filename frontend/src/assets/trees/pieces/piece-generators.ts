@@ -18,7 +18,8 @@ import {MOSS_FROM, SNOW, WEATHER, WET, weatherSchema, wetSurface, type MossFrom}
 import type {StyleProfile} from '../../style/style-profiles'
 import {getBarkRelief, getBarkTexture, getDabTexture} from '../painted'
 import {paintedTreeDefaults, validatePaintedTreeParameters, type PaintedTreeParameters} from '../painted/parameters'
-import {buildLitter, buildWoodPiece, type PieceKind, type PieceSource} from './tree-pieces'
+import {getEndGrainRelief, getEndGrainTexture} from '../../shared/end-grain-texture'
+import {buildCutEnds, buildLitter, buildWoodPiece, type PieceKind, type PieceSource} from './tree-pieces'
 
 const SHAPE = 'Shape'
 
@@ -164,9 +165,35 @@ function woodPart(kind: Exclude<PieceKind, 'litter'>): PartGenerator<PieceBodyPa
     }
 }
 
+/** The sawn ends of a piece, with fine rings on a picture of their own. */
+function endsPart(kind: Exclude<PieceKind, 'litter'>): PartGenerator<PieceBodyParameters> {
+    return {
+        id: `tree-${kind}-ends`,
+        version: 1,
+        type: 'bark',
+        label: 'Cut ends',
+        parameters: [],
+        scalesWithDetail: true,
+        createDefaultParameters: () => ({piece: pieceDefaults, seed: 0}),
+        validate: validateBody,
+
+        generate({piece, seed}, {style, detail = 1}): GeneratedPart {
+            return {
+                geometry: buildCutEnds(kind, sourceOf(piece), {height: piece.height, length: piece.length}, seed, detailOf(style) * detail),
+                material: 'painted',
+                role: 'solid',
+                surface: wetSurface({vertexColors: true, map: getEndGrainTexture(), normalMap: getEndGrainRelief(), exportName: 'ends'}, piece.wet),
+            }
+        },
+    }
+}
+
 export const stumpWoodGenerator = woodPart('stump')
 export const logWoodGenerator = woodPart('log')
 export const branchWoodGenerator = woodPart('branch')
+export const stumpEndsGenerator = endsPart('stump')
+export const logEndsGenerator = endsPart('log')
+export const branchEndsGenerator = endsPart('branch')
 
 export const litterLeavesGenerator: PartGenerator<PieceBodyParameters> = {
     id: 'tree-litter-leaves',
@@ -196,6 +223,7 @@ function pieceGenerator(
     part: PartGenerator<PieceBodyParameters>,
     own: readonly ParameterSpec[],
     extra: Partial<PropGenerator<PieceParameters>> = {},
+    ends?: PartGenerator<PieceBodyParameters>,
 ): PropGenerator<PieceParameters> {
     const specs = [...own, ...(kind === 'litter' ? [SNOW, WET] : WEATHER_SPECS)]
 
@@ -224,6 +252,21 @@ function pieceGenerator(
                     seed,
                     slot: `${kind}-body`,
                 },
+                ...(ends
+                    ? [
+                          {
+                              id: `cmp-${kind}-ends`,
+                              type: ends.type,
+                              generatorId: ends.id,
+                              generatorVersion: ends.version,
+                              parentId: null,
+                              transform: IDENTITY_TRANSFORM,
+                              parameters: {piece: parameters, seed},
+                              seed,
+                              slot: `${kind}-ends`,
+                          },
+                      ]
+                    : []),
             ]
         },
         ...extra,
@@ -237,9 +280,9 @@ function stumpCollision(piece: PieceParameters): readonly CollisionShape[] {
     return [{start: [0, 0, 0], end: [0, piece.height, 0], startRadius: tree.trunkRadius * 1.2, endRadius: tree.trunkRadius}]
 }
 
-export const stumpGenerator = pieceGenerator('stump', 'Stump', stumpWoodGenerator, [HEIGHT], {collision: stumpCollision})
-export const logGenerator = pieceGenerator('log', 'Log', logWoodGenerator, [LENGTH])
-export const branchPieceGenerator = pieceGenerator('branch', 'Fallen branch', branchWoodGenerator, [])
+export const stumpGenerator = pieceGenerator('stump', 'Stump', stumpWoodGenerator, [HEIGHT], {collision: stumpCollision}, stumpEndsGenerator)
+export const logGenerator = pieceGenerator('log', 'Log', logWoodGenerator, [LENGTH], {}, logEndsGenerator)
+export const branchPieceGenerator = pieceGenerator('branch', 'Fallen branch', branchWoodGenerator, [], {}, branchEndsGenerator)
 export const litterGenerator = pieceGenerator('litter', 'Leaf litter', litterLeavesGenerator, [WIDTH, DEPTH, AMOUNT, DRYNESS])
 
 export const PIECE_GENERATORS: Readonly<Record<PieceKind, PropGenerator<PieceParameters>>> = {

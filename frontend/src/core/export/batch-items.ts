@@ -15,6 +15,7 @@ import {createSceneFromPreset} from '../scene/initial-scene'
 import type {Scene} from '../scene/scene-model'
 import {updateTreeParameters} from '../scene/scene-ops'
 import type {PropVersion} from '../scene/variations'
+import {inSetColours, type SetColours} from './set-colours'
 import type {BatchItem} from './pipeline/batch'
 import {exportNameOf} from './pipeline/types'
 import {sceneExportSource} from './scene-source'
@@ -32,6 +33,26 @@ export interface BatchItemContext {
     readonly style: StyleProfileId
     readonly appVersion: string
     readInSavedProp(id: string): Promise<string>
+    /** A set's colours, which every prop is built in. Left out, each keeps its own. */
+    readonly colours?: SetColours
+}
+
+/**
+ * The first prop a choice makes, as a scene, and its style: what a set's colours and
+ * previews are worked out from. A choice of versions gives each of them.
+ */
+export async function choiceScenes(choice: BatchChoice, context: Omit<BatchItemContext, 'appVersion'>): Promise<{scene: Scene; style: StyleProfileId}[]> {
+    if (choice.kind === 'versions') {
+        return choice.versions.map((version) => ({scene: versionScene(choice.scene, version, context.style), style: context.style}))
+    }
+
+    if (choice.kind === 'preset') {
+        return [{scene: createSceneFromPreset(choice.id), style: context.style}]
+    }
+
+    const project = parseProject(await context.readInSavedProp(choice.id))
+
+    return [{scene: project.scene, style: project.style as StyleProfileId}]
 }
 
 export const MAX_VARIATIONS = 50
@@ -92,34 +113,22 @@ export function batchItems(
             items.push({
                 name: `${base}_${String(number).padStart(2, '0')}`,
                 async load() {
-                    if (choice.kind === 'versions') {
-                        const style = context.style
+                    // In a set, every prop is built again in the set's colours.
+                    const source = (scene: Scene, style: StyleProfileId) =>
+                        sceneExportSource(context.colours ? inSetColours(scene, context.colours, style) : scene, getStyleProfile(style), context.appVersion)
 
-                        return sceneExportSource(
-                            versionScene(choice.scene, choice.versions[variation], style),
-                            getStyleProfile(style),
-                            context.appVersion,
-                        )
+                    if (choice.kind === 'versions') {
+                        return source(versionScene(choice.scene, choice.versions[variation], context.style), context.style)
                     }
 
                     if (choice.kind === 'preset') {
-                        const style = context.style
-
-                        return sceneExportSource(
-                            reseeded(createSceneFromPreset(choice.id), variation, style),
-                            getStyleProfile(style),
-                            context.appVersion,
-                        )
+                        return source(reseeded(createSceneFromPreset(choice.id), variation, context.style), context.style)
                     }
 
                     const project = parseProject(await context.readInSavedProp(choice.id))
                     const style = project.style as StyleProfileId
 
-                    return sceneExportSource(
-                        reseeded(project.scene, variation, style),
-                        getStyleProfile(style),
-                        context.appVersion,
-                    )
+                    return source(reseeded(project.scene, variation, style), style)
                 },
             })
         }

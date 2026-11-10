@@ -5,6 +5,7 @@
  */
 
 import godotLeaves from '../../../engine-kits/godot/leaves.gdshader?raw'
+import godotImport from '../../../engine-kits/godot/easy_props_import.gd?raw'
 import godotGuide from '../../../engine-kits/godot/README.md?raw'
 import godotWood from '../../../engine-kits/godot/wood.gdshader?raw'
 import unrealGuide from '../../../engine-kits/unreal/README.md?raw'
@@ -17,6 +18,7 @@ type KitEngine = Exclude<EngineId, 'plain'>
 const KITS: Readonly<Record<KitEngine, Readonly<Record<string, string>>>> = {
     godot: {
         'README.md': godotGuide,
+        'easy_props_import.gd': godotImport,
         'wood.gdshader': godotWood,
         'leaves.gdshader': godotLeaves,
         'wood_cartoon.gdshader': godotToonShader('cartoon', 'wood'),
@@ -35,11 +37,14 @@ export const KIT_LABELS: Readonly<Record<KitEngine, string>> = {
 
 export const kitFolder = (engine: KitEngine) => `easy-props-${engine}-kit`
 
-/** The Godot materials a look needs: wood and leaves that move in the wind, and lines for the toon looks. */
+/**
+ * The Godot materials a look needs: wood and leaves that move in the wind, and lines for the
+ * toon looks. And the import script, without which Godot 4.7 brings the props in white.
+ */
 const GODOT_MATERIALS: Readonly<Record<ExportLook, readonly string[]>> = {
-    lit: ['wood.gdshader', 'leaves.gdshader'],
-    cartoon: ['wood_cartoon.gdshader', 'leaves_cartoon.gdshader', 'outline.gdshader'],
-    cel: ['wood_comic.gdshader', 'leaves_comic.gdshader', 'outline.gdshader'],
+    lit: ['wood.gdshader', 'leaves.gdshader', 'easy_props_import.gd'],
+    cartoon: ['wood_cartoon.gdshader', 'leaves_cartoon.gdshader', 'outline.gdshader', 'easy_props_import.gd'],
+    cel: ['wood_comic.gdshader', 'leaves_comic.gdshader', 'outline.gdshader', 'easy_props_import.gd'],
 }
 
 export function godotMaterialFiles(look: ExportLook): readonly ExportFile[] {
