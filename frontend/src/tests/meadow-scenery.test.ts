@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {findPreset} from '../assets/trees/presets'
-import {SCENERY_BUSHES, SCENERY_ROCKS, SCENERY_TREES} from '../viewport/scene/meadow-scenery'
+import * as THREE from 'three'
+import {createMeadowScenery, SCENERY_BUSHES, SCENERY_ROCKS, SCENERY_TREES} from '../viewport/scene/meadow-scenery'
 
 // The cliff is a far wall, so only what stands in the open is measured.
 const footprints = [
@@ -23,6 +24,21 @@ describe('the demo scenes', () => {
                 expect(Math.hypot(tree.x - other.x, tree.z - other.z)).toBeGreaterThan(other.radius)
             }
         }
+    })
+
+    it('gives its rocks the grain a new rock has', () => {
+        const scenery = createMeadowScenery()
+        const grained: THREE.Mesh[] = []
+
+        scenery.group.traverse((object) => {
+            if (object instanceof THREE.Mesh && (object.material as THREE.MeshStandardMaterial).normalMap) {
+                grained.push(object)
+            }
+        })
+
+        expect(grained).toHaveLength(SCENERY_ROCKS.length)
+        expect(grained.every((rock) => rock.geometry.getAttribute('uv') !== undefined)).toBe(true)
+        scenery.dispose()
     })
 
     it('only uses trees that exist', () => {
