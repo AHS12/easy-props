@@ -42,6 +42,7 @@ agree on the term first, or rethink the control.
 | Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
 | Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
 | Wetness, roughness, specular | **Wet** | "Darker and shinier, as after rain or in a swamp." Never "roughness" or "gloss" |
+| Terrain slope, ground normal, incline | **Slope** / **Downhill** | In the view only: tilts the ground, not the prop. Degrees are shown |
 
 ## Button voice
 

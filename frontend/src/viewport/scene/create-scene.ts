@@ -60,6 +60,8 @@ export interface ViewportScene {
     frameComponent(componentId: string | null): void
     setBackdrop(backdrop: Backdrop, colour: string): void
     setGridVisible(visible: boolean): void
+    /** Tilts the ground by this many degrees, falling towards `downhill` degrees around the prop. Only the view. */
+    setGroundSlope(degrees: number, downhill: number): void
     setShadowsAllowed(allowed: boolean): void
     setFieldOfView(degrees: number): void
     /** Draws at this share of the screen's resolution. */
@@ -232,25 +234,30 @@ function addLighting(scene: THREE.Scene): Lights {
 function addGround(scene: THREE.Scene): THREE.MeshStandardMaterial {
     const material = new THREE.MeshStandardMaterial({color: new THREE.Color(VIEWPORT_COLORS.ground), roughness: 1})
     const ground = new THREE.Mesh(new THREE.CircleGeometry(50, 64), material)
+    // The ground and its grid turn together about the prop's base, to show a slope.
+    const tilt = new THREE.Group()
+
+    tilt.name = 'ground_tilt'
+    scene.add(tilt)
 
     ground.rotation.x = -Math.PI / 2
     ground.receiveShadow = true
     ground.name = 'ground'
-    scene.add(ground)
+    tilt.add(ground)
 
     const minor = new THREE.GridHelper(40, 40, VIEWPORT_COLORS.grid, VIEWPORT_COLORS.grid)
     minor.position.y = 0.002
     minor.material.transparent = true
     minor.material.opacity = 0.38
     minor.name = 'grid_minor'
-    scene.add(minor)
+    tilt.add(minor)
 
     const major = new THREE.GridHelper(100, 10, VIEWPORT_COLORS.gridMajor, VIEWPORT_COLORS.gridMajor)
     major.position.y = 0.004
     major.material.transparent = true
     major.material.opacity = 0.55
     major.name = 'grid_major'
-    scene.add(major)
+    tilt.add(major)
 
     return material
 }
@@ -360,6 +367,21 @@ export function createViewportScene(
     /** The centre and radius the shadow camera has to cover. */
     const bounds = new THREE.Box3()
     const sphere = new THREE.Sphere()
+
+    let slope = {degrees: 0, downhill: 0}
+    const groundTilt = scene.getObjectByName('ground_tilt')!
+    const UP = new THREE.Vector3(0, 1, 0)
+
+    /** Tilts the ground through the prop's base, falling the way Downhill says. The demos stay level. */
+    const applySlope = () => {
+        const fall = THREE.MathUtils.degToRad(meadow ? 0 : slope.degrees)
+        const towards = THREE.MathUtils.degToRad(slope.downhill)
+        const facing = new THREE.Vector3(Math.sin(fall) * Math.sin(towards), Math.cos(fall), Math.sin(fall) * Math.cos(towards))
+
+        groundTilt.quaternion.setFromUnitVectors(UP, facing)
+        groundTilt.updateMatrixWorld(true)
+        renderer.shadowMap.needsUpdate = true
+    }
 
     const showGrid = () => {
         for (const name of ['grid_minor', 'grid_major']) {
@@ -531,6 +553,7 @@ export function createViewportScene(
             groundMaterial.color.set(meadow ? VIEWPORT_COLORS.meadowGround : bright ? VIEWPORT_COLORS.studioSkyGround : VIEWPORT_COLORS.ground)
             applyLighting()
             showGrid()
+            applySlope()
 
             // Built the first time it is wanted: most people never open it.
             if (meadow && !scenery) {
@@ -549,6 +572,11 @@ export function createViewportScene(
         setGridVisible(visible) {
             gridWanted = visible
             showGrid()
+        },
+
+        setGroundSlope(degrees, downhill) {
+            slope = {degrees, downhill}
+            applySlope()
         },
 
         setShadowsAllowed(allowed) {

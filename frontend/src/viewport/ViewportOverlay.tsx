@@ -4,7 +4,7 @@
 
 import {Dropdown, Popover} from '@heroui/react'
 import {
-    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Scale3d, Shrub, Sprout, Sun, TreeDeciduous, TreePine, Wind,
+    Box, BrickWall, Camera, ChevronDown, Flower2, Frame, Gem, Grid2x2, Info, Layers, Maximize, Minimize, Mountain, MousePointer2, Move, Paintbrush, PenTool, PersonStanding, Rotate3d, Scale3d, Shrub, Sprout, Sun, TreeDeciduous, TreePine, TriangleRight, Wind,
 } from 'lucide-react'
 import {useEffect, useState, type ReactNode} from 'react'
 import {PropertyRow} from '../components/PropertyRow'
@@ -194,6 +194,55 @@ function LightingButton() {
                         step={0.05}
                         onChange={(value) => setLighting({...lighting, shadowStrength: value})}
                     />
+                </Popover.Dialog>
+            </Popover.Content>
+        </Popover>
+    )
+}
+
+/** Tilts the view's ground, to see how a prop sits on a hillside. Only the view changes. */
+function GroundButton() {
+    const slope = Number(useSetting('groundSlope'))
+    const downhill = Number(useSetting('groundDownhill'))
+    const backdrop = String(useSetting('backdrop'))
+    const demo = backdrop === 'meadow' || backdrop === 'grove'
+    const setValue = useSettingsStore.getState().setValue
+    const setSlope = (value: number) => {
+        // The demos are level scenes, so a slope shows on the plain ground.
+        if (value > 0 && demo) {
+            setValue('backdrop', 'studio-sky')
+        }
+
+        setValue('groundSlope', value)
+    }
+
+    return (
+        <Popover>
+            <Popover.Trigger>
+                <Tooltip text="Slope" placement="bottom" always>
+                    <button type="button" className="tool" aria-label="Slope" aria-pressed={slope > 0 && !demo}>
+                        <TriangleRight size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip>
+            </Popover.Trigger>
+            <Popover.Content className="sun-panel" placement="bottom end" offset={6}>
+                <Popover.Dialog aria-label="Slope">
+                    <PropertyRow label="Slope" value={slope} min={0} max={35} step={1} unit="°" resetTo={0} onChange={setSlope} />
+                    <PropertyRow
+                        label="Downhill"
+                        value={downhill}
+                        min={0}
+                        max={355}
+                        step={5}
+                        unit="°"
+                        resetTo={0}
+                        onChange={(value) => setValue('groundDownhill', value)}
+                    />
+                    <p className="sun-panel__caption">
+                        {demo && slope > 0
+                            ? 'The demo scenes are level. Choose Studio to see the slope.'
+                            : 'Tilts the ground, to see how the prop sits on a hillside. The prop keeps its shape.'}
+                    </p>
                 </Popover.Dialog>
             </Popover.Content>
         </Popover>
@@ -439,6 +488,7 @@ export function ViewportOverlay() {
                         />
                     </span>
                     <LightingButton />
+                    <GroundButton />
                     <WindButton />
                     <ToolMenu
                         label="Camera angle"
