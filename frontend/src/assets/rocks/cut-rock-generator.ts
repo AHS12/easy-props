@@ -22,6 +22,7 @@ import {buildLowPolyRockMesh} from './low-poly-rock'
 import {buildRockMesh} from './rock-mesh'
 import {facesOfChunk, planRock, type RockKind} from './rock-plan'
 import {damageRock} from './rock-damage'
+import {getStoneRelief, getStoneTexture} from '../shared/stone-texture'
 import {MOSS_FROM, SNOW, WEATHER, WET, weatherDefaults, weatherSchema, wetSurface, type MossFrom} from '../shared/weather'
 
 const SHAPE = 'Shape'
@@ -87,7 +88,7 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
 }
 
 /** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain']
 
 const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
@@ -103,8 +104,10 @@ const MOSS = number(WEATHER, 'moss', 'Moss', 'Green caps on whatever faces the s
 const CRACKS = number(DAMAGE, 'cracks', 'Cracks', 'Splits through the stone, from one fine crack to three open ones.', 0, 1, 0.05, 0)
 const CRUMBLE = number(DAMAGE, 'crumble', 'Crumbled edge', 'Chips gone from one side, with the broken pieces lying at its foot.', 0, 1, 0.05, 0)
 const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face differs from the next.', 0, 1, 0.05, 0.5)
+/** On for new rocks. A saved file without it opens with none, so a saved rock looks as it did. */
+const GRAIN = number(SURFACE, 'grain', 'Grain', 'Fine speckle, small pits and hairline cracks in the stone, seen up close.', 0, 1, 0.05, 0.6)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, VARIATION, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -124,6 +127,7 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly cracks: number
     readonly crumble: number
     readonly variation: number
+    readonly grain: number
     readonly palette: RockPaletteId | OwnColours
 }
 
@@ -143,6 +147,7 @@ export const cutRockDefaults: CutRockParameters = {
     cracks: CRACKS.default,
     crumble: CRUMBLE.default,
     variation: VARIATION.default,
+    grain: GRAIN.default,
     palette: PALETTE.default,
 }
 
@@ -162,6 +167,7 @@ const cutRockSchema = z.object({
     cracks: numberSchema(CRACKS),
     crumble: numberSchema(CRUMBLE),
     variation: numberSchema(VARIATION),
+    grain: numberSchema(GRAIN),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
 })
@@ -211,7 +217,12 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
             geometry: rock.build === 'low-poly' ? buildLowPolyRockMesh(plan, rock, detail) : buildRockMesh(plan, rock, seed, detail),
             material: 'painted',
             role: 'solid',
-            surface: wetSurface({vertexColors: true}, rock.wet),
+            surface: wetSurface(
+                rock.build === 'low-poly' || rock.grain <= 0
+                    ? {vertexColors: true}
+                    : {vertexColors: true, map: getStoneTexture(rock.grain), normalMap: getStoneRelief(rock.grain)},
+                rock.wet,
+            ),
         }
     },
 }

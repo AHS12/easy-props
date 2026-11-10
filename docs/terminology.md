@@ -41,6 +41,7 @@ agree on the term first, or rethink the control.
 | Weather, surface layers, decals | **Weather** | The section holding **Snow** and **Wet** on every kind of prop, and **Moss** and **Moss grows** on trees and rocks |
 | Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
 | Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
+| Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
 | Wetness, roughness, specular | **Wet** | "Darker and shinier, as after rain or in a swamp." Never "roughness" or "gloss" |
 | Terrain slope, ground normal, incline | **Slope** / **Downhill** | In the view only: tilts the ground, not the prop. Degrees are shown |
 | Derived props, deadwood, debris | **Pieces** of a tree: **Stump**, **Fallen log**, **Fallen branch**, **Leaf litter** | "Make pieces from this tree…" in the Prop menu. Never "asset variants" or "debris" |

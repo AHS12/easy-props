@@ -17,7 +17,7 @@ import {colourRamp} from '../style/ramp'
 import {rampOf, STONE_ROWS, type OwnColours} from '../style/own-colours'
 import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import type {CrackedChunk} from './rock-damage'
-import {distanceToChunk, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
+import {distanceToChunk, dot, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
 
 export interface RockSurface {
     /** Softness of the edges, 0 to 1. */
@@ -33,6 +33,8 @@ export interface RockSurface {
     readonly snow?: number
     readonly wet?: number
     readonly mossFrom?: MossFrom
+    /** How strong the stone picture is, 0 to 1. Left out or 0, no picture, and the mesh is as it was. */
+    readonly grain?: number
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -57,6 +59,8 @@ const PLAIN_CHUNKS = 0.75
 /** The shares of its cuts a plain rock tries, keeping whichever lands nearest its target. */
 export const PLAIN_CUTS: readonly number[] = [0.15, 0.25, 0.35, 0.45, 0.6, 0.8, 1]
 const WELD = 500
+/** How many metres one stone picture covers, so grain is the same size on a pebble and a cliff. */
+const PICTURE_METRES = 1.6
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -142,6 +146,16 @@ function fitToBox(positions: number[], box: {min: number[]; max: number[]}) {
 
         positions[i] = to + ((positions[i] - from) * (box.max[axis] - to)) / Math.max(max[axis] - from, 1e-6)
     }
+}
+
+/** Two directions along a face, square to each other: the picture's across and up. */
+function faceAxes(n: Vec3): [Vec3, Vec3] {
+    // Up the face where it can, so grain on a standing face runs the way it would.
+    const helper: Vec3 = Math.abs(n[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0]
+    const across = normalize([helper[1] * n[2] - helper[2] * n[1], helper[2] * n[0] - helper[0] * n[2], helper[0] * n[1] - helper[1] * n[0]])
+    const up: Vec3 = [n[1] * across[2] - n[2] * across[1], n[2] * across[0] - n[0] * across[2], n[0] * across[1] - n[1] * across[0]]
+
+    return [across, up]
 }
 
 export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number, detail: number): THREE.BufferGeometry {
@@ -230,7 +244,9 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     const positions: number[] = []
     const normals: number[] = []
     const colors: number[] = []
+    const uvs: number[] = []
     const indices: number[] = []
+    const pictured = (surface.grain ?? 0) > 0
 
     const paint = rockPainter(plan, chunks, surface)
 
@@ -260,6 +276,7 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
             )
 
         for (const {plane, corners} of faces) {
+            const [across, up] = faceAxes(plane.n)
             const count = corners.length
             const middle: Vec3 = [
                 corners.reduce((sum, p) => sum + p[0], 0) / count,
@@ -286,6 +303,12 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                     positions.push(moved[0], moved[1], moved[2])
                     normals.push(n[0], n[1], n[2])
                     colors.push(colour.r, colour.g, colour.b)
+
+                    // Flat on the face's own plane: no point is shared with the next face,
+                    // so the picture never stretches round a corner.
+                    if (pictured) {
+                        uvs.push(dot(p, across) / PICTURE_METRES, dot(p, up) / PICTURE_METRES)
+                    }
                     written.set(slot, index)
                 }
 
@@ -366,6 +389,11 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+
+    if (pictured) {
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+    }
+
     geometry.setIndex(indices)
     geometry.computeBoundingSphere()
 

@@ -248,11 +248,55 @@ export function parseProject(text: string): LoadedProject {
     return {
         // The envelope is checked above; parameters belong to the generators,
         // which validate them when they build.
-        scene: parsed.scene as unknown as Scene,
+        scene: withEarlierLooks(parsed.scene as unknown as Scene),
         name: parsed.name ?? DEFAULT_NAME,
         style: parsed.style,
         presetId: parsed.preset ?? null,
         extras,
+    }
+}
+
+/**
+ * Settings that start on for new props, but a file saved before they existed must open
+ * without, so it looks as it did. The key missing is what marks such a file, so the
+ * file version stays as it is and older builds still open what this one saves.
+ */
+const EARLIER_LOOKS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+    // Rocks gained Grain after 0.4.2.
+    'cut-rock': {grain: 0},
+}
+
+function filledIn(values: unknown, earlier: Readonly<Record<string, number>>): unknown {
+    if (!isObject(values)) {
+        return values
+    }
+
+    const missing = Object.entries(earlier).filter(([key]) => !(key in values))
+
+    return missing.length === 0 ? values : {...values, ...Object.fromEntries(missing)}
+}
+
+function withEarlierLooks(scene: Scene): Scene {
+    return {
+        ...scene,
+        assets: scene.assets.map((asset) => {
+            const earlier = EARLIER_LOOKS[asset.generatorId]
+
+            if (!earlier) {
+                return asset
+            }
+
+            return {
+                ...asset,
+                parameters: filledIn(asset.parameters, earlier) as typeof asset.parameters,
+                // A rock's body carries the rock's settings too.
+                components: asset.components.map((component) =>
+                    isObject(component.parameters) && isObject(component.parameters.rock)
+                        ? {...component, parameters: {...component.parameters, rock: filledIn(component.parameters.rock, earlier)}}
+                        : component,
+                ),
+            }
+        }),
     }
 }
 
