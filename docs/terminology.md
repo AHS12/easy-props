@@ -38,6 +38,10 @@ agree on the term first, or rethink the control.
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
 | User template, starting point | **My presets** / **my preset** | A saved prop new props start from. "Save as my preset…", "Add to My presets". The app's own are just **presets** |
+| Weather, surface layers, decals | **Weather** | The section holding **Snow** and **Wet** on every kind of prop, and **Moss** and **Moss grows** on trees and rocks |
+| Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
+| Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
+| Wetness, roughness, specular | **Wet** | "Darker and shinier, as after rain or in a swamp." Never "roughness" or "gloss" |
 
 ## Button voice
 

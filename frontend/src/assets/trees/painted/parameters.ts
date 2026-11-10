@@ -16,6 +16,7 @@ import {
     type ValidationResult,
 } from '../../shared/parameters'
 import {BARK_TONES, PALETTES, type BarkToneId, type Palette, type PaletteId} from '../../style/palettes'
+import {MOSS_FROM, SNOW, WEATHER, WET, type MossFrom} from '../../shared/weather'
 
 export {BARK_TONES, PALETTES}
 export type {BarkToneId, Palette, PaletteId}
@@ -90,7 +91,9 @@ const NUMBERS = {
     roughness: number(BARK, 'roughness', 'Roughness', 'Uneven bumps across the wood.', 0, 1, 0.05, 0.2),
     burls: number(BARK, 'burls', 'Burls', 'Round knots growing out of the trunk.', 0, 8, 1, 0, 'count'),
     hollow: number(BARK, 'hollow', 'Hollow', 'Carves an opening into the trunk.', 0, 1, 0.05, 0),
-    moss: number(BARK, 'moss', 'Moss', 'Green growth on the upper sides of the wood.', 0, 1, 0.05, 0),
+    moss: number(WEATHER, 'moss', 'Moss', 'Green growth on the wood.', 0, 1, 0.05, 0),
+    snow: SNOW,
+    wet: WET,
     patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
     patternScale: number(BARK, 'patternScale', 'Bark size', 'How big each plate or mark on the wood is.', 0.6, 2, 0.05, 1),
 } as const
@@ -281,7 +284,10 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.roughness,
     NUMBERS.burls,
     NUMBERS.hollow,
+    NUMBERS.snow,
     NUMBERS.moss,
+    MOSS_FROM,
+    NUMBERS.wet,
 ]
 
 /** Controls a form has no use for. */
@@ -320,6 +326,7 @@ const HIDDEN_WHEN_LOW_POLY: readonly string[] = [
     'burls',
     'hollow',
     'moss',
+    'mossFrom',
 ]
 
 /** What a shared control means on a form that reuses it for something else. */
@@ -360,6 +367,7 @@ export function controlsForTree(
             (spec) =>
                 !hidden.includes(spec.key) &&
                 (hasPattern || spec.key !== 'patternDepth') &&
+                (Number(values.moss ?? 0) > 0 || spec.key !== 'mossFrom') &&
                 (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize')) &&
                 (values.palette !== 'custom' || spec.key !== 'barkTone'),
         )
@@ -393,6 +401,7 @@ const TRUNK_SECTIONS: readonly ControlSection[] = [
     ),
     section('Bark detail', 'The surface of the wood.', specsInGroup(BARK)),
     section('Bark colours', 'The colours of the wood.', [], ['barkDeep', 'barkLight']),
+    section('Weather', 'Snow, moss and wet on the whole tree.', specsInGroup(WEATHER)),
 ]
 
 /**
@@ -440,6 +449,7 @@ export type PaintedTreeParameters = {
         readonly fruitKind: FruitKind
         readonly barkPattern: BarkPattern
         readonly barkTone: BarkToneId
+        readonly mossFrom: MossFrom
         /**
          * Hand edits to single parts, as JSON.
          *
@@ -478,6 +488,7 @@ const paintedTreeSchema = z.object({
     fruitKind: choiceSchema(FRUIT_KIND),
     barkPattern: choiceSchema(BARK_PATTERN),
     barkTone: choiceSchema(BARK_TONE),
+    mossFrom: choiceSchema(MOSS_FROM),
     barkDeep: colour(PALETTES.blossom.barkDeep),
     barkLight: colour(PALETTES.blossom.barkLight),
     leafDeep: colour(PALETTES.blossom.leafDeep),
@@ -498,6 +509,7 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
     fruitKind: FRUIT_KIND.default,
     barkPattern: BARK_PATTERN.default,
     barkTone: BARK_TONE.default,
+    mossFrom: MOSS_FROM.default,
     ...PALETTES.blossom,
     edits: '',
 }

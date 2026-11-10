@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three'
+import {mossFacing, weatherPaint, type MossFrom} from '../shared/weather'
 import {colourRamp} from '../style/ramp'
 import {rampOf, STONE_ROWS, type OwnColours} from '../style/own-colours'
 import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
@@ -27,6 +28,10 @@ export interface RockSurface {
     /** How far one face strays from the next, 0 to 1. */
     readonly variation: number
     readonly palette: RockPaletteId | OwnColours
+    /** Left out, none of these: a rock in the meadow has no weather. */
+    readonly snow?: number
+    readonly wet?: number
+    readonly mossFrom?: MossFrom
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -113,7 +118,7 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
 
 /**
  * The colour of the stone at a point on a face: darker in a seam between chunks
- * and near the ground, mossy where it faces the sky.
+ * and near the ground, mossy where it faces the sky or the shade, under any snow.
  */
 export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surface: RockSurface) {
     const size = (plan.width + plan.height + plan.depth) / 3
@@ -122,8 +127,9 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
     const mossAbove = surface.moss > 0 ? 1 - surface.moss * MOSS_REACH : Infinity
     const seamReach = size * SEAM_REACH
     const groundReach = plan.height * GROUND_REACH
+    const weather = {snow: surface.snow ?? 0, wet: surface.wet ?? 0, mossFrom: surface.mossFrom ?? 'sky'}
 
-    return (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
+    const paintStone = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
         let seam = Infinity
 
         chunks.forEach((other, index) => {
@@ -134,7 +140,7 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
 
         const shade = (clamp01(seam / seamReach) * 0.35 + 0.65) * (clamp01(p[1] / groundReach) * 0.3 + 0.7)
 
-        if (plane.n[1] > mossAbove) {
+        if (mossFacing(plane.n[0], plane.n[1], plane.n[2], weather.mossFrom) > mossAbove) {
             return moss(onEdge ? 0.75 : (0.3 + plane.tone * 0.45) * shade)
         }
 
@@ -149,6 +155,10 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
 
         return stone(value * shade)
     }
+
+    // Snow and wet lie over moss and stone alike.
+    return (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color =>
+        weatherPaint(paintStone(p, plane, chunkIndex, onEdge), plane.n[1], weather, plane.tone * 2 - 1)
 }
 
 function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {

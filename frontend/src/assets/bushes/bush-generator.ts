@@ -21,6 +21,7 @@ import {FLOWER_ROWS, LEAF_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours}
 import {BUSH_RAMPS, PETAL_RAMPS, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildBushCore, buildBushLeaves, type BushBuild, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
 import {buildLowPolyBushBody, buildLowPolyBushFlowers} from './low-poly-bush'
+import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const LEAVES = 'Leaves'
@@ -129,7 +130,7 @@ const VARIATION = number(LEAVES, 'variation', 'Variation', 'How much one mass di
 const FLOWERS = number(FLOWERS_GROUP, 'flowers', 'Flowers', 'How thickly it flowers. They gather in drifts on its upper part.', 0, 1, 0.05, 0)
 const FLOWER_SIZE = number(FLOWERS_GROUP, 'flowerSize', 'Flower size', 'How large each flower is.', 0.02, 0.3, 0.01, 0.1, 'm')
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs, SNOW, WET]
 
 export const bushDefaults: BushParameters = {
     build: BUILD.default,
@@ -147,6 +148,7 @@ export const bushDefaults: BushParameters = {
     flowers: FLOWERS.default,
     flowerSize: FLOWER_SIZE.default,
     flowerColour: FLOWER_COLOUR.default,
+    ...snowAndWetDefaults,
 }
 
 const bushSchema = z.object({
@@ -165,6 +167,7 @@ const bushSchema = z.object({
     flowers: numberSchema(FLOWERS),
     flowerSize: numberSchema(FLOWER_SIZE),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...snowAndWetSchema,
     ...OWN_LEAVES.schema,
     ...OWN_FLOWERS.schema,
 })
@@ -206,10 +209,10 @@ export const bushCoreGenerator: PartGenerator<BushPartParameters> = {
 
     generate({bush, seed}, {detail = 1}) {
         return {
-            geometry: bush.build === 'low-poly' ? buildLowPolyBushBody(bush, seed, detail) : buildBushCore(bush, seed, detail),
+            geometry: weatherGeometry(bush.build === 'low-poly' ? buildLowPolyBushBody(bush, seed, detail) : buildBushCore(bush, seed, detail), bush),
             material: 'painted',
             role: 'solid',
-            surface: {vertexColors: true},
+            surface: wetSurface({vertexColors: true}, bush.wet),
         }
     },
 }
@@ -231,14 +234,19 @@ export const bushLeavesGenerator: PartGenerator<BushPartParameters> = {
     generate({bush, seed}, {detail = 1}) {
         // Flowers alone, as real shapes, so nothing is cut out of a picture.
         if (bush.build === 'low-poly') {
-            return {geometry: buildLowPolyBushFlowers(bush, seed, detail), material: 'painted', role: 'foliage', surface: {vertexColors: true}}
+            return {
+                geometry: weatherGeometry(buildLowPolyBushFlowers(bush, seed, detail), bush),
+                material: 'painted',
+                role: 'foliage',
+                surface: wetSurface({vertexColors: true}, bush.wet),
+            }
         }
 
         return {
-            geometry: buildBushLeaves(bush, seed, detail),
+            geometry: weatherGeometry(buildBushLeaves(bush, seed, detail), bush),
             material: 'painted',
             role: 'foliage',
-            surface: {vertexColors: true, map: getLeafTexture(), alphaTest: 0.5, receiveShadow: false},
+            surface: wetSurface({vertexColors: true, map: getLeafTexture(), alphaTest: 0.5, receiveShadow: false}, bush.wet),
         }
     },
 }

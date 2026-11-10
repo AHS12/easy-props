@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three'
+import {weatherColours} from '../../shared/weather'
 import {RIGID_ATTRIBUTE} from '../../shared/generator-types'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {FRUIT_COLOURS, resolvePalette, type PaintedTreeParameters} from './parameters'
@@ -501,6 +502,8 @@ export function buildFrond(
     } else {
         addFeather(buffers, path, clump, tree, detail, paint, random, share, widen)
     }
+
+    weatherColours(buffers.colors, buffers.normals, tree)
 
     // Coconuts sit in a ring where the fronds meet the trunk, so a frond carries
     // its share of them. The count is for the whole crown.

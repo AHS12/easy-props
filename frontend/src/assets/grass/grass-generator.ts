@@ -20,6 +20,7 @@ import {FLOWER_ROWS, GRASS_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours
 import {GRASS_RAMPS, PETAL_RAMPS, type GrassPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildGrassMesh, type GrassBuild, type GrassParameters} from './blade-mesh'
 import {buildLowPolyGrassMesh} from './low-poly-grass'
+import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const BLADES = 'Blades'
@@ -103,7 +104,7 @@ const VARIATION = number(COLOUR, 'variation', 'Variation', 'How much one clump d
 
 const FLOWERS = number(COLOUR, 'flowers', 'Flowers', 'How many flowers stand among the blades, in drifts.', 0, 120, 1, 0)
 
-const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, ...OWN_GRASS.specs, FLOWERS, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, COUNT, CLUMPS, GATHER, LEAN, SCATTER, BLADE_WIDTH, SMOOTHNESS, TALL, DRYNESS, VARIATION, PALETTE, ...OWN_GRASS.specs, FLOWERS, FLOWER_COLOUR, ...OWN_FLOWERS.specs, SNOW, WET]
 
 export const grassDefaults: GrassParameters = {
     build: BUILD.default,
@@ -122,6 +123,7 @@ export const grassDefaults: GrassParameters = {
     palette: PALETTE.default,
     flowers: FLOWERS.default,
     flowerColour: FLOWER_COLOUR.default,
+    ...snowAndWetDefaults,
 }
 
 const grassSchema = z.object({
@@ -141,6 +143,7 @@ const grassSchema = z.object({
     palette: choiceSchema(PALETTE),
     flowers: numberSchema(FLOWERS),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...snowAndWetSchema,
     ...OWN_GRASS.schema,
     ...OWN_FLOWERS.schema,
 })
@@ -182,10 +185,10 @@ export const grassBodyGenerator: PartGenerator<GrassBodyParameters> = {
 
     generate({grass, seed}, {detail = 1}) {
         return {
-            geometry: grass.build === 'low-poly' ? buildLowPolyGrassMesh(grass, seed, detail) : buildGrassMesh(grass, seed, detail),
+            geometry: weatherGeometry(grass.build === 'low-poly' ? buildLowPolyGrassMesh(grass, seed, detail) : buildGrassMesh(grass, seed, detail), grass),
             material: 'painted',
             role: 'foliage',
-            surface: {vertexColors: true, receiveShadow: false},
+            surface: wetSurface({vertexColors: true, receiveShadow: false}, grass.wet),
         }
     },
 }

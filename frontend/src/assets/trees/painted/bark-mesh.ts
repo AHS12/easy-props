@@ -19,6 +19,7 @@ import {joinChunks, packedCell as packed, sculptCells, type MeshBuffers, type Su
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Limb, type TreePlan, type Vec3} from './plan'
 import {createWoodField, type WoodField} from './wood-field'
+import {mossFacing, weatherPaint} from '../../shared/weather'
 
 /** Below these shares of full detail, the thin wood they name is left out. */
 const TWIGS_DROPPED_BELOW = 0.2
@@ -330,7 +331,7 @@ export function sculptBarkCells(context: BarkContext, cells: Int32Array): BarkCh
  * How wood is coloured at a point. Sculpted and swept wood both start from this, so
  * the place one becomes the other cannot show as a change of colour.
  */
-function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: number, n: Vec3) => THREE.Color {
+function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: number, n: Vec3, ink?: THREE.Color, inkShare?: number) => THREE.Color {
     const palette = resolvePalette(tree)
     const deep = new THREE.Color(palette.barkDeep)
     const light = new THREE.Color(palette.barkLight)
@@ -339,7 +340,8 @@ function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: numb
     const crease = deep.clone().multiplyScalar(CREASE_DARKNESS)
     const occlusionReach = tree.trunkRadius * OCCLUSION_REACH
 
-    return (x, y, z, n) => {
+    // A thin limb's ink goes under the snow, so snow still lies along a twig.
+    return (x, y, z, n, ink, inkShare = 0) => {
         // Lit from above, dark in the ridges and in the crooks of the joints. How
         // open a point is comes straight from the field: step out along the normal
         // and see how far the wood really is.
@@ -370,8 +372,8 @@ function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: numb
             ),
         )
 
-        // Moss settles on what faces the sky, and more of it low down.
-        const mossHere = tree.moss * Math.max(0, n[1] * 1.4 + blotch * 0.9 + 0.1)
+        // Moss settles on what faces the sky, or the shady side, and more of it low down.
+        const mossHere = tree.moss * Math.max(0, mossFacing(n[0], n[1], n[2], tree.mossFrom) * 1.4 + blotch * 0.9 + 0.1)
 
         paint.lerp(moss, Math.min(1, mossHere))
 
@@ -380,7 +382,14 @@ function woodPainter({field, tree}: BarkContext): (x: number, y: number, z: numb
         const shut = 1 - Math.min(1, Math.max(0, open))
         const inCrease = Math.min(1, Math.max(0, (shut + field.valley(x, y, z) * 0.5 - CREASE_FROM) / CREASE_SPAN))
 
-        return paint.lerp(crease, inCrease * inCrease * (3 - 2 * inCrease) * CREASE_STRENGTH)
+        paint.lerp(crease, inCrease * inCrease * (3 - 2 * inCrease) * CREASE_STRENGTH)
+
+        if (ink && inkShare > 0) {
+            paint.lerp(ink, inkShare)
+        }
+
+        // Snow lies on top of the moss, but not down in the creases.
+        return weatherPaint(paint, n[1] - shut * 0.6, tree, blotch)
     }
 }
 
@@ -767,7 +776,7 @@ export function assembleBark(
 
                 // By how far along, not how thin: a twig is thin from its first ring,
                 // and would start as a dark spike on the paler wood it grows from.
-                const paint = paintWood(x, y, z, n).lerp(ink, along ** INK_CURVE)
+                const paint = paintWood(x, y, z, n, ink, along ** INK_CURVE)
 
                 buffers.colors.push(paint.r, paint.g, paint.b)
             },

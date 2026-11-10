@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three'
+import type {SnowAndWet} from '../shared/weather'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {FLOWER_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {FLOWER_CENTRE, PETAL_RAMPS, STEM_RAMP, type PetalPaletteId} from '../style/palettes'
@@ -15,7 +16,7 @@ import {colourRamp} from '../style/ramp'
 export type PlantKind = 'daisy' | 'cup' | 'spike' | 'plume'
 export type PlantBuild = 'painted' | 'low-poly'
 
-export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_ROWS>> {
+export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly kind: PlantKind
     readonly width: number
     readonly height: number

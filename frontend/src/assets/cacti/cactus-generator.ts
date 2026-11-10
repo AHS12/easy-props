@@ -16,6 +16,7 @@ import {
 import {CACTUS_ROWS, FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {CACTUS_COLOURS, CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildCactusMesh, type CactusBuild, type CactusKind, type CactusParameters} from './cactus-mesh'
+import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const SURFACE = 'Ridges & spines'
@@ -97,7 +98,7 @@ const RIB_DEPTH = number(SURFACE, 'ribDepth', 'Ridge depth', 'How deep the valle
 const SPINES = number(SURFACE, 'spines', 'Spines', 'How thickly spines grow. 0 leaves it smooth.', 0, 1, 0.05, 0.6)
 const FLOWER_COUNT = number(FLOWERS, 'flowers', 'Flowers', 'How many flowers open on top.', 0, 16, 1, 0, 'count')
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, ...OWN_FLOWERS.specs, PALETTE, ...OWN_CACTUS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, HEIGHT, THICKNESS, LEAN, ARMS, ARM_HEIGHT, PADS, RIBS, RIB_DEPTH, SPINES, FLOWER_COUNT, FLOWER_COLOUR, ...OWN_FLOWERS.specs, PALETTE, ...OWN_CACTUS.specs, SNOW, WET]
 
 /** Controls a kind has no use for. */
 const HIDDEN_BY_KIND: Readonly<Record<CactusKind, readonly string[]>> = {
@@ -121,6 +122,7 @@ export const cactusDefaults: CactusParameters = {
     flowers: FLOWER_COUNT.default,
     palette: PALETTE.default,
     flowerColour: FLOWER_COLOUR.default,
+    ...snowAndWetDefaults,
 }
 
 const whole = (spec: NumberParameter) => numberSchema(spec).transform((value) => Math.round(value))
@@ -140,6 +142,7 @@ const cactusSchema = z.object({
     flowers: whole(FLOWER_COUNT),
     palette: choiceSchema(PALETTE),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...snowAndWetSchema,
     ...OWN_CACTUS.schema,
     ...OWN_FLOWERS.schema,
 })
@@ -182,10 +185,10 @@ export const cactusBodyGenerator: PartGenerator<CactusBodyParameters> = {
 
     generate({cactus, seed}, {detail = 1}) {
         return {
-            geometry: buildCactusMesh(cactus, seed, detail),
+            geometry: weatherGeometry(buildCactusMesh(cactus, seed, detail), cactus),
             material: 'painted',
             role: 'solid',
-            surface: {vertexColors: true},
+            surface: wetSurface({vertexColors: true}, cactus.wet),
         }
     },
 }

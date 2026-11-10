@@ -281,7 +281,7 @@ export function mergeParts(
             material: new THREE.MeshStandardMaterial({
                 name: meshName,
                 color: 0xffffff,
-                roughness: surface ? 1 : ROUGHNESS,
+                roughness: surface ? (surface.roughness ?? 1) : ROUGHNESS,
                 metalness: METALNESS,
                 vertexColors: true,
                 map: surface?.map ?? whiteTexture(),

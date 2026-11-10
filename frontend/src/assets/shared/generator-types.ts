@@ -44,6 +44,8 @@ export interface PaintedSurface {
     /** Fine relief for light to catch. Needs a `map`, whose texture coordinates it shares. */
     readonly normalMap?: THREE.Texture
     readonly alphaTest?: number
+    /** How rough it is, 0 shiny to 1 matt. Left out, fully matt. Lower when it's wet. */
+    readonly roughness?: number
     /** False for leaves, where a shadow map would only speckle soft shading. */
     readonly receiveShadow?: boolean
     /**

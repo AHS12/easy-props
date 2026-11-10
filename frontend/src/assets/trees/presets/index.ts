@@ -231,6 +231,7 @@ const paintedPresets: readonly TreePreset[] = [
     painted('Old & bare', 'bleached', 'Bleached snag', 'Desert bones', 352, {palette: 'olive', barkTone: 'bone', height: 6, spread: 5, trunkRadius: 0.32, clumpCount: 0, gnarl: 0.9, limbCount: 3, branchCount: 2, twigCount: 1, corkscrew: 0.5, ridgeTwist: 2, rootCount: 4, rootLength: 1.4}),
     painted('Old & bare', 'burnt', 'Burnt stump tree', 'After the fire', 353, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 0.6, height: 5.5, spread: 4, trunkRadius: 0.45, clumpCount: 0, limbCount: 3, branchCount: 2, twigCount: 0, hollow: 0.6, roughness: 0.7}),
     painted('Old & bare', 'winter', 'Winter tree', 'Asleep and full of twigs', 354, {palette: 'spring', barkTone: 'oak', height: 9, spread: 9, trunkRadius: 0.42, clumpCount: 0, branchCount: 5, twigCount: 4, gnarl: 0.55, limbCount: 6}),
+    painted('Old & bare', 'snowy-winter', 'Snowy winter tree', 'Bare, with snow along its limbs', 354, {palette: 'spring', barkTone: 'oak', height: 9, spread: 9, trunkRadius: 0.42, clumpCount: 0, branchCount: 5, twigCount: 4, gnarl: 0.55, limbCount: 6, snow: 0.85}),
     painted('Old & bare', 'ancient', 'Ancient giant', 'Roots, burls and moss', 355, {palette: 'spring', barkTone: 'oak', height: 11, spread: 14, trunkRadius: 1.15, flare: 0.8, rootCount: 11, rootLength: 1.7, burls: 6, hollow: 0.45, moss: 0.65, ridgeDepth: 0.28, ridgeTwist: 1.3, gnarl: 0.8, limbCount: 7, clumpCount: 15, forkHeight: 0.3}),
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
 
@@ -247,6 +248,7 @@ const paintedPresets: readonly TreePreset[] = [
     bush('white-bush', 'White blossom', 'Pale flowers over dark leaves', 367, {width: 2.2, height: 1.5, depth: 2, lobes: 5, leafSize: 0.16, palette: 'pine', flowers: 0.7, flowerSize: 0.065, flowerColour: 'white'}),
     bush('gold-bush', 'Golden shrub', 'Low, with yellow flowers', 368, {kind: 'spreading', width: 3, height: 1.2, depth: 2.6, lobes: 7, leafSize: 0.18, flowers: 0.6, flowerSize: 0.06, flowerColour: 'gold'}),
     bush('autumn-bush', 'Autumn bush', 'Low and red', 363, {width: 2.4, height: 1.5, depth: 2.2, lobes: 5, leafSize: 0.17, palette: 'maple'}),
+    bush('snowy-bush', 'Snowy bush', 'Evergreen under fresh snow', 377, {width: 2.2, height: 1.5, depth: 2, lobes: 6, leafSize: 0.17, palette: 'pine', snow: 0.7}),
     painted('Shrubs & saplings', 'sapling', 'Young sapling', 'Thin and just started', 364, {palette: 'spring', height: 3.2, spread: 2.6, trunkRadius: 0.1, forkHeight: 0.5, limbAngle: 55, limbCount: 3, branchCount: 2, twigCount: 1, clumpCount: 5, clumpSize: 0.9, rootCount: 0, flare: 0.1, ridgeDepth: 0}),
     painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
 
@@ -292,10 +294,12 @@ const foliagePresets: readonly TreePreset[] = [
 const rockPresets: readonly TreePreset[] = [
     rock('Boulders', 'boulder', 'Boulder', 'Heavy, with stones at its feet', 401, {}),
     rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old, with a green cap', 421, {width: 3.4, depth: 3, moss: 0.7, chunks: 3, faces: 0.8}),
+    rock('Boulders', 'snowy-boulder', 'Snowy boulder', 'A cap of fresh snow', 422, {width: 3, height: 1.9, depth: 2.6, chunks: 3, faces: 0.7, moss: 0, snow: 0.7, palette: 'basalt'}),
     rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, chunks: 2, faces: 0.8, cuts: 1, edges: 0.35, moss: 0, palette: 'granite'}),
     rock('Outcrops', 'grassy-outcrop', 'Grassy outcrop', 'Stepping up a slope', 410, {kind: 'outcrop', width: 6, height: 2.6, depth: 3.5, chunks: 5, moss: 0.85}),
     rock('Outcrops', 'low-ledge', 'Low ledge', 'A long shelf of stone', 411, {kind: 'outcrop', width: 8, height: 1.3, depth: 3, chunks: 7, moss: 0.7, palette: 'slate'}),
     rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, chunks: 1, faces: 0.45, cuts: 0.5, moss: 0.3}),
+    rock('Stones', 'damp-stone', 'Damp stone', 'Wet, with moss on its shady side', 413, {width: 1.1, height: 0.7, depth: 0.9, chunks: 2, faces: 0.5, cuts: 0.45, moss: 0.75, mossFrom: 'shade', wet: 0.5, palette: 'slate'}),
     rock('Stones', 'river-stone', 'River stone', 'Worn nearly round', 405, {width: 0.7, height: 0.25, depth: 0.5, chunks: 1, faces: 0.7, cuts: 0.2, edges: 1, moss: 0, palette: 'slate'}),
     rock('Stones', 'step-stone', 'Stepping stone', 'A flat slab for a path', 412, {width: 1, height: 0.14, depth: 0.8, chunks: 1, faces: 0.35, cuts: 0.45, moss: 0, variation: 0.3}),
     rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {kind: 'pillar', width: 1, height: 3, depth: 0.7, chunks: 1, moss: 0.35}),

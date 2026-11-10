@@ -18,6 +18,7 @@ import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
 import {addClumpFruit, addStrands, leafGeometry} from './frond-mesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'
+import {weatherPaint} from '../../shared/weather'
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 /** How much of a shading normal comes from the whole crown, not the clump. */
@@ -225,7 +226,8 @@ export function buildClump(
         }
     }
 
-    const paintValue = (value: number) => {
+    /** `up` is how far the clump faces the sky here, for snow, which settles on its upper half. */
+    const paintValue = (value: number, up: number, blotch: number) => {
         const v = Math.min(1, Math.max(0, value))
 
         if (v < 0.5) {
@@ -234,6 +236,7 @@ export function buildClump(
             paint.copy(mid).lerp(light, (v - 0.5) * 2)
         }
 
+        weatherPaint(paint, up, tree, blotch)
         colors.push(paint.r, paint.g, paint.b)
     }
 
@@ -352,7 +355,8 @@ export function buildClump(
                 positions.push(corner[0], corner[1], corner[2])
                 normals.push(n[0], n[1], n[2])
                 uvs.push(u0 + ((a + 1) / 2) * size, v0 + ((b + 1) / 2) * size)
-                paintValue(value + jitter + valueShift)
+                // The inner cards are under the outer ones, so they hold less snow.
+                paintValue(value + jitter + valueShift, n[1] + valueShift * 1.5, jitter * 8)
             }
 
             indices.push(base, base + 1, base + 2, base, base + 2, base + 3)

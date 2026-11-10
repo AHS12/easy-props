@@ -17,6 +17,7 @@
  */
 
 import * as THREE from 'three'
+import type {SnowAndWet} from '../shared/weather'
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {BLOOM_CELL, LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
@@ -32,7 +33,7 @@ export type BushBuild = 'painted' | 'low-poly'
 /** Solid hides everything behind it. Open has twigs and sky inside. */
 export type BushInside = 'solid' | 'open'
 
-export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
+export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly build: BushBuild
     readonly kind: BushKind
     readonly width: number

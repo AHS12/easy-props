@@ -21,6 +21,7 @@ import {ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import {buildLowPolyRockMesh} from './low-poly-rock'
 import {buildRockMesh} from './rock-mesh'
 import {facesOfChunk, planRock, type RockKind} from './rock-plan'
+import {MOSS_FROM, SNOW, WEATHER, WET, weatherDefaults, weatherSchema, wetSurface, type MossFrom} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const SURFACE = 'Surface'
@@ -96,10 +97,10 @@ const FACES = number(SHAPE, 'faces', 'Faces', 'How many flat faces each chunk is
 const CUTS = number(SHAPE, 'cuts', 'Cut depth', 'From grazed corners to deep, sharp cuts.', 0, 1, 0.05, 0.65)
 const EDGES = number(SURFACE, 'edges', 'Edge softness', 'From hard edges to edges that catch the light.', 0, 1, 0.05, 0.7)
 const BEND = number(SURFACE, 'bend', 'Bend', 'How far the flat faces bend, so they look carved and not machined.', 0, 1, 0.05, 0.5)
-const MOSS = number(SURFACE, 'moss', 'Moss', 'Green caps on whatever faces the sky.', 0, 1, 0.05, 0.5)
+const MOSS = number(WEATHER, 'moss', 'Moss', 'Green caps on whatever faces the sky, or the shady side.', 0, 1, 0.05, 0.5)
 const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face differs from the next.', 0, 1, 0.05, 0.5)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, MOSS, VARIATION, PALETTE, ...STONE.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, BEND, VARIATION, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -113,6 +114,9 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly edges: number
     readonly bend: number
     readonly moss: number
+    readonly mossFrom: MossFrom
+    readonly snow: number
+    readonly wet: number
     readonly variation: number
     readonly palette: RockPaletteId | OwnColours
 }
@@ -129,6 +133,7 @@ export const cutRockDefaults: CutRockParameters = {
     edges: EDGES.default,
     bend: BEND.default,
     moss: MOSS.default,
+    ...weatherDefaults,
     variation: VARIATION.default,
     palette: PALETTE.default,
 }
@@ -145,6 +150,7 @@ const cutRockSchema = z.object({
     edges: numberSchema(EDGES),
     bend: numberSchema(BEND),
     moss: numberSchema(MOSS),
+    ...weatherSchema,
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
@@ -192,7 +198,7 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
             geometry: rock.build === 'low-poly' ? buildLowPolyRockMesh(plan, rock, detail) : buildRockMesh(plan, rock, seed, detail),
             material: 'painted',
             role: 'solid',
-            surface: {vertexColors: true},
+            surface: wetSurface({vertexColors: true}, rock.wet),
         }
     },
 }
@@ -246,7 +252,7 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
 
     shownControls(values) {
         // Style is a switch over the view. A low-poly rock has hard, flat faces.
-        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : [])]
+        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : []), ...(Number(values.moss ?? MOSS.default) > 0 ? [] : ['mossFrom'])]
 
         return specs.filter((spec) => !hidden.includes(spec.key))
     },

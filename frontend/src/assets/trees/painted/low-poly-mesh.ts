@@ -8,6 +8,7 @@
  */
 
 import * as THREE from 'three'
+import {weatherPaint} from '../../shared/weather'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {addFruitBall, addStrands, buildFrond, emptyLeafBuffers, fruitRadius, leafColours, leafGeometry, type LeafBuffers} from './frond-mesh'
 import type {PaintedTreeParameters} from './parameters'
@@ -149,7 +150,7 @@ export function buildLowPolyClump(
         const value =
             0.1 + 0.75 * up * up * (3 - 2 * up) + 0.15 * (height * 0.5 + 0.5) + clumpShift + randomRange(random, -0.06, 0.06) * (0.5 + tree.colourVariation)
 
-        pushFace(faces, a, b, c, paint(value))
+        pushFace(faces, a, b, c, weatherPaint(paint(value), n[1], tree, Math.sin(at * 7.13)))
     }
 
     const buffers = emptyLeafBuffers()

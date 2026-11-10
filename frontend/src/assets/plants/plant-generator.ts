@@ -17,6 +17,7 @@ import {FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../s
 import {PETAL_RAMPS, type PetalPaletteId} from '../style/palettes'
 import {buildLowPolyPlantMesh} from './low-poly-plant'
 import {buildPlantMesh, type PlantBuild, type PlantKind, type PlantParameters} from './plant-mesh'
+import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const FLOWER = 'Flower'
@@ -86,7 +87,7 @@ const LEAN = number(SHAPE, 'lean', 'Lean', 'How far the stems bend over.', 0, 1,
 const LEAVES = number(SHAPE, 'leaves', 'Leaves', 'Leaves at the foot of each stem.', 0, 6, 1, 2)
 const HEAD_SIZE = number(FLOWER, 'headSize', 'Flower size', 'Across a flower, or how long a spike or plume is.', 0.01, 1, 0.01, 0.07, 'm')
 
-const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs, SNOW, WET]
 
 export const plantDefaults: PlantParameters = {
     build: BUILD.default,
@@ -98,6 +99,7 @@ export const plantDefaults: PlantParameters = {
     headSize: HEAD_SIZE.default,
     leaves: LEAVES.default,
     palette: PALETTE.default,
+    ...snowAndWetDefaults,
 }
 
 const plantSchema = z.object({
@@ -110,6 +112,7 @@ const plantSchema = z.object({
     headSize: numberSchema(HEAD_SIZE),
     leaves: numberSchema(LEAVES),
     palette: choiceSchema(PALETTE),
+    ...snowAndWetSchema,
     ...OWN_FLOWERS.schema,
 })
 
@@ -150,10 +153,10 @@ export const plantBodyGenerator: PartGenerator<PlantBodyParameters> = {
 
     generate({plant, seed}, {detail = 1}) {
         return {
-            geometry: plant.build === 'low-poly' ? buildLowPolyPlantMesh(plant, seed, detail) : buildPlantMesh(plant, seed, detail),
+            geometry: weatherGeometry(plant.build === 'low-poly' ? buildLowPolyPlantMesh(plant, seed, detail) : buildPlantMesh(plant, seed, detail), plant),
             material: 'painted',
             role: 'foliage',
-            surface: {vertexColors: true, receiveShadow: false},
+            surface: wetSurface({vertexColors: true, receiveShadow: false}, plant.wet),
         }
     },
 }
