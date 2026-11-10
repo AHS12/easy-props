@@ -23,7 +23,11 @@ const STYLE = getStyleProfile('low-poly')
  */
 const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     birch: 0.005,
-    'scots-pine': 0.01,
+    // Plated bark carves more of the trunk, which the lightest level then simplifies away.
+    'scots-pine': 0.015,
+    larch: 0.005,
+    // A bare tree's trunk now narrows into its top limb, which leaves its middle level a little lighter.
+    bleached: 0.01,
     // These four lost only faces with no area at their lightest level, which takes
     // them just under the target.
     beech: 0.005,

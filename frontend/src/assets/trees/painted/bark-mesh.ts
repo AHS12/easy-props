@@ -51,6 +51,8 @@ const TUBE_TUCK = 0.8
  * would show through the branch's side, all the more where that has few sides.
  */
 const BASE_IN_HOST = 0.5
+/** How far down a branching trunk's top narrows into the limb that carries on, against its radius there. */
+const TRUNK_TOP_REACH = 4
 /** How far either side of a join the sculpted wood is shaded fully, then partly, as a plain limb, against the radius. */
 const JOIN_SHADE_FULL = 1
 const JOIN_SHADE_REACH = 1.8
@@ -605,6 +607,57 @@ function sweep(
     }
 }
 
+/**
+ * Narrows the top of a branching tree's trunk into the heavy limb that carries on from it.
+ *
+ * The trunk stops thicker than any limb that leaves its top, so sculpted, it ended in a
+ * round knob with the thinner limb growing out of its side, which read as a cut.
+ */
+function narrowTrunkTop(limbs: readonly Limb[], tree: PaintedTreeParameters): readonly Limb[] {
+    const [trunk] = limbs
+
+    if (tree.form !== 'crown' || trunk.level !== 0) {
+        return limbs
+    }
+
+    const last = trunk.points.length - 1
+    const top = trunk.points[last]
+    const topRadius = trunk.radii[last]
+    let carry = 0
+
+    for (const limb of limbs) {
+        const [x, y, z] = limb.points[0]
+
+        // A moved limb no longer leaves the top, and a root never does.
+        if (limb.level === 1 && !limb.key.startsWith('r') && Math.hypot(x - top[0], y - top[1], z - top[2]) < topRadius) {
+            carry = Math.max(carry, limb.radii[0])
+        }
+    }
+
+    if (carry === 0 || carry >= topRadius) {
+        return limbs
+    }
+
+    const reach = topRadius * TRUNK_TOP_REACH
+    const radii = [...trunk.radii]
+    let fromTop = 0
+
+    for (let index = last; index >= 0 && fromTop < reach; index--) {
+        if (index < last) {
+            const [ax, ay, az] = trunk.points[index]
+            const [bx, by, bz] = trunk.points[index + 1]
+
+            fromTop += Math.hypot(bx - ax, by - ay, bz - az)
+        }
+
+        const t = Math.min(fromTop / reach, 1)
+
+        radii[index] = Math.min(radii[index], carry + (radii[index] - carry) * t * t * (3 - 2 * t))
+    }
+
+    return [{...trunk, radii}, ...limbs.slice(1)]
+}
+
 export function prepareBark(
     plan: TreePlan,
     tree: PaintedTreeParameters,
@@ -626,7 +679,7 @@ export function prepareBark(
     const isThickRoot = (limb: Limb) => limb.key.startsWith('r') && limb.radii[0] >= sculptMin
     const isSculpted = (limb: Limb, segment: number) =>
         limb.level < 3 && (isThickRoot(limb) || Math.max(limb.radii[segment], limb.radii[segment + 1]) >= sculptMin)
-    const wood = plan.limbs.map((limb) =>
+    const wood = narrowTrunkTop(plan.limbs, tree).map((limb) =>
         isThickRoot(limb) ? {...limb, radii: limb.radii.map((radius) => Math.max(radius, sculptMin))} : limb,
     )
     const sculptedSegments: {a: Vec3; b: Vec3; radius: number}[] = []

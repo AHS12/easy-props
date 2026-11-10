@@ -48,6 +48,9 @@ const PATTERN_WAVELENGTH = 1.25
 /** How far a pattern carves, as a share of the local radius, at full depth. */
 const PATTERN_CARVE = 0.2
 
+/** How quickly the pattern fades going into a join: at 1 it is gone only at the very middle. */
+const JOIN_PATTERN_FADE = 1.6
+
 /** How far below the ground the wood is sliced flat, against the trunk's radius. Deeper than a root's tip reaches. */
 const BURIED_DEPTH = 0.6
 
@@ -112,6 +115,18 @@ function barkPatternAt(
         case 'none':
             return {carve: 0, paint: 0}
     }
+}
+
+/**
+ * How much of the bark pattern shows at a point, by how far into a join it is.
+ *
+ * In the narrow crotch between two limbs a carved mark reads as a hole, and the wood
+ * left beside it as a sliver, so the pattern fades out where limbs blend.
+ */
+const clearOfJoin = (join: number) => {
+    const t = clamp01(join * JOIN_PATTERN_FADE)
+
+    return 1 - t * t * (3 - 2 * t)
 }
 
 const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`
@@ -233,7 +248,13 @@ export function createWoodField(
         return barkPatternAt(tree.barkPattern, patternK, x, y, z, at.x, at.z)
     }
 
+    // How far into a join between two limbs the last point measured was, 0 to 1. Kept
+    // here rather than returned, as the distance is asked for millions of times.
+    let lastJoin = 0
+
     const distance = (x: number, y: number, z: number): number => {
+        lastJoin = 0
+
         const cell = grid.get(
             cellKey(Math.floor(x / CELL), Math.floor(y / CELL), Math.floor(z / CELL)),
         )
@@ -298,7 +319,10 @@ export function createWoodField(
             const d = limbDistances[index]
             const r = limbRadii[index]
 
-            result = smoothMin(result, d, Math.max(BLEND * Math.min(r, radius), 1e-6))
+            const k = Math.max(BLEND * Math.min(r, radius), 1e-6)
+
+            lastJoin = Math.max(lastJoin, Math.max(k - Math.abs(result - d), 0) / k)
+            result = smoothMin(result, d, k)
             radius = Math.max(r, radius)
         }
 
@@ -321,7 +345,7 @@ export function createWoodField(
         }
 
         if (tree.barkPattern !== 'none') {
-            result -= radius * PATTERN_CARVE * tree.patternDepth * patternAt(x, y, z).carve
+            result -= radius * PATTERN_CARVE * tree.patternDepth * patternAt(x, y, z).carve * clearOfJoin(lastJoin)
         }
 
         if (hollow.r > 0.001) {
@@ -361,7 +385,13 @@ export function createWoodField(
         },
 
         mark(x, y, z) {
-            return tree.barkPattern === 'none' ? 0 : patternAt(x, y, z).paint * tree.patternDepth
+            if (tree.barkPattern === 'none') {
+                return 0
+            }
+
+            distance(x, y, z)
+
+            return patternAt(x, y, z).paint * tree.patternDepth * clearOfJoin(lastJoin)
         },
     }
 }
