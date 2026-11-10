@@ -13,6 +13,8 @@ import {generatePropComponents} from '../../assets/prop-generators'
 import {parseProject} from '../project/project-document'
 import {createSceneFromPreset} from '../scene/initial-scene'
 import type {Scene} from '../scene/scene-model'
+import {updateTreeParameters} from '../scene/scene-ops'
+import type {PropVersion} from '../scene/variations'
 import type {BatchItem} from './pipeline/batch'
 import {exportNameOf} from './pipeline/types'
 import {sceneExportSource} from './scene-source'
@@ -20,11 +22,11 @@ import {sceneExportSource} from './scene-source'
 export type BatchChoice =
     | {readonly kind: 'preset'; readonly id: string}
     | {readonly kind: 'saved'; readonly id: string; readonly name: string}
-    /** The open prop, once on each of these seeds, as picked from Show me more. */
-    | {readonly kind: 'seeds'; readonly name: string; readonly scene: Scene; readonly seeds: readonly number[]}
+    /** The open prop, once in each of these versions, as picked from Show me more. */
+    | {readonly kind: 'versions'; readonly name: string; readonly scene: Scene; readonly versions: readonly PropVersion[]}
 
-/** How many props a choice makes: a list of seeds makes one each, whatever the variations. */
-export const propsOf = (choice: BatchChoice, variations: number) => (choice.kind === 'seeds' ? choice.seeds.length : variations)
+/** How many props a choice makes: a list of versions makes one each, whatever the variations. */
+export const propsOf = (choice: BatchChoice, variations: number) => (choice.kind === 'versions' ? choice.versions.length : variations)
 
 export interface BatchItemContext {
     readonly style: StyleProfileId
@@ -56,6 +58,17 @@ export function withSeed(scene: Scene, seed: (current: number) => number, style:
     }
 }
 
+/** The prop in one version from Show me more: on its seed, damaged as it says. */
+export function versionScene(scene: Scene, version: PropVersion, style: StyleProfileId): Scene {
+    const asset = scene.assets[0]
+
+    if (!version.damage || !asset) {
+        return withSeed(scene, () => version.seed, style)
+    }
+
+    return updateTreeParameters(withSeed(scene, () => version.seed, style), asset.id, version.damage, getStyleProfile(style))
+}
+
 const reseeded = (scene: Scene, variation: number, style: StyleProfileId) =>
     withSeed(scene, (seed) => variationSeed(seed, variation), style)
 
@@ -79,11 +92,11 @@ export function batchItems(
             items.push({
                 name: `${base}_${String(number).padStart(2, '0')}`,
                 async load() {
-                    if (choice.kind === 'seeds') {
+                    if (choice.kind === 'versions') {
                         const style = context.style
 
                         return sceneExportSource(
-                            withSeed(choice.scene, () => choice.seeds[variation], style),
+                            versionScene(choice.scene, choice.versions[variation], style),
                             getStyleProfile(style),
                             context.appVersion,
                         )

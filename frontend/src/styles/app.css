@@ -2546,6 +2546,12 @@ html[data-theme='dark'] .dialog__error {
     background: var(--surface-sunken);
 }
 
+.variation-modes {
+    display: flex;
+    gap: 6px;
+    margin-bottom: var(--space-2);
+}
+
 .variation-frame {
     position: relative;
 }

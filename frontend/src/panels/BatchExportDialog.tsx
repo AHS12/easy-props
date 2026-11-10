@@ -253,10 +253,10 @@ export function BatchExportDialog() {
                     }}
                 >
                     <div className="checklists">
-                        {picked?.kind === 'seeds' ? (
+                        {picked?.kind === 'versions' ? (
                             <Checklist
                                 title="Picked in Show me more"
-                                entries={[{key: PICKED, label: `${picked.name}, ${picked.seeds.length} ${picked.seeds.length === 1 ? 'version' : 'versions'}`}]}
+                                entries={[{key: PICKED, label: `${picked.name}, ${picked.versions.length} ${picked.versions.length === 1 ? 'version' : 'versions'}`}]}
                                 chosen={chosen}
                                 onToggle={toggle}
                             />
