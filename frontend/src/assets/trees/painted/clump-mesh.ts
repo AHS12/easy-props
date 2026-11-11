@@ -38,6 +38,18 @@ const OUTLINE_AXIS = 0.99
 const GROWTH_PULL = 0.6
 /** Fruit hangs from cards on the rim and the lower half, but not the thinned underside. */
 const FRUIT_HIGHEST = 0.6
+/**
+ * Broad leaves: the share of outer cards that become sprays, how many leaves a
+ * spray has, how far they droop, and how long they are against a card.
+ */
+const SPRAY_SHARE = 0.4
+const SPRAY_LEAVES = 5
+const SPRAY_DROOP = 0.8
+const SPRAY_LENGTH = 1.4
+/** The most a spray grows on a lighter level: real leaves grown as far as cards would look like spikes. */
+const MAX_SPRAY_GROWTH = 1.3
+/** Below this share of its detail a Broad clump is plain cards: far off, a leaf's shape can't be seen, and the few sprays left would be stretched to fill it. */
+const SPRAYS_FROM = 0.3
 const FRUIT_LOWEST = -0.6
 const CORNERS: readonly (readonly [number, number])[] = [
     [-1, -1],
@@ -287,6 +299,77 @@ export function clumpWithFruitSpots(
     const spots: FruitSpot[] = []
     let cardNumber = 0
 
+    /** Keeps a point inside the full clump, as every card's corners are. */
+    const clamp = (point: [number, number, number]) => {
+        if (limit) {
+            for (let axis = 0; axis < 3; axis++) {
+                point[axis as 0 | 1 | 2] = Math.min(limit.max[axis], Math.max(limit.min[axis], point[axis]))
+            }
+        }
+
+        return point
+    }
+
+    /**
+     * A spray of real leaves at a twig's end, fanned out round `out` and
+     * drooping, in place of a card. Shaded as the cards are, so it takes the
+     * light with the rest of the clump. It sits on the solid middle of a dab,
+     * and takes no random numbers, so a dropped spray never moves the next.
+     */
+    const addSpray = (
+        at: Vec3,
+        out: Vec3,
+        roll: number,
+        half: number,
+        lobeCentre: Vec3,
+        [u0, v0, size]: readonly [number, number, number],
+        jitter: number,
+    ) => {
+        const axisA = perpendicularTo(out)
+        const axisB = cross(out, axisA)
+        const leaves = share < 0.5 ? SPRAY_LEAVES - 1 : SPRAY_LEAVES
+        const u = u0 + size / 2
+        const v = v0 + size / 2
+
+        for (let leaf = 0; leaf < leaves; leaf++) {
+            const angle = roll + (leaf / leaves) * Math.PI * 2 + Math.sin(roll * 5 + leaf * 2.3) * 0.35
+            const fan: Vec3 = [
+                axisA[0] * Math.cos(angle) + axisB[0] * Math.sin(angle),
+                axisA[1] * Math.cos(angle) + axisB[1] * Math.sin(angle),
+                axisA[2] * Math.cos(angle) + axisB[2] * Math.sin(angle),
+            ]
+            const along = normalize([fan[0] + out[0] * 0.35, fan[1] + out[1] * 0.35 - SPRAY_DROOP, fan[2] + out[2] * 0.35])
+            const length = half * SPRAY_LENGTH * (0.85 + 0.15 * Math.sin(roll * 3 + leaf))
+            const across = normalize(cross(along, out))
+            const width = length * 0.15
+            const middle: Vec3 = [at[0] + along[0] * length * 0.45, at[1] + along[1] * length * 0.45, at[2] + along[2] * length * 0.45]
+            const corners: [number, number, number][] = [
+                [at[0], at[1], at[2]],
+                [middle[0] + across[0] * width, middle[1] + across[1] * width, middle[2] + across[2] * width],
+                // The tip hangs a little lower than the leaf points, as a heavy leaf does.
+                [at[0] + along[0] * length, at[1] + along[1] * length - length * 0.15, at[2] + along[2] * length],
+                [middle[0] - across[0] * width, middle[1] - across[1] * width, middle[2] - across[2] * width],
+            ]
+            // Darker at the stalk, lighter towards the tip, and lightest along the edges, for the gloss.
+            const lift = [-0.14, 0.06, 0.1, 0.06]
+            const base = positions.length / 3
+
+            corners.forEach((corner, index) => {
+                clamp(corner)
+
+                const {n, value} = shade(corner, lobeCentre)
+
+                positions.push(corner[0], corner[1], corner[2])
+                normals.push(n[0], n[1], n[2])
+                uvs.push(u, v)
+                paintValue(value + jitter + lift[index], n[1], jitter * 8)
+            })
+
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+            indices.push(base, base + 2, base + 1, base, base + 3, base + 2)
+        }
+    }
+
     const addCards = (
         lobe: {centre: Vec3; radius: number},
         count: number,
@@ -296,6 +379,7 @@ export function clumpWithFruitSpots(
         valueShift: number,
         thinUnderside: boolean,
         holdsFruit: boolean,
+        sprays = false,
     ) => {
         for (let card = 0; card < count; card++) {
             // Even coverage from a Fibonacci sphere, loosened by the seed.
@@ -366,6 +450,11 @@ export function clumpWithFruitSpots(
                 })
             }
 
+            if (sprays) {
+                addSpray(local, d, roll, plainHalf * Math.min(growth, MAX_SPRAY_GROWTH), lobe.centre, dabCell(0), jitter)
+                continue
+            }
+
             const axisA = perpendicularTo(facing)
             const axisB = cross(facing, axisA)
             const cos = Math.cos(roll) * half
@@ -412,7 +501,12 @@ export function clumpWithFruitSpots(
         const count = Math.round(((4 * Math.PI * lobe.radius * lobe.radius) / (cardSize * cardSize)) * density)
 
         addCards(lobe, Math.round(count * INNER_SHARE), 0.42, 0.74, 1.35, -0.24, false, false)
-        addCards(lobe, count, 0.84, 1.03, 1, 0, true, true)
+        if (tree.leafStyle === 'broad' && share >= SPRAYS_FROM) {
+            // One spray covers more than a card, so fewer of them.
+            addCards(lobe, Math.round(count * SPRAY_SHARE), 0.84, 1.03, 1, 0, true, true, true)
+        } else {
+            addCards(lobe, count, 0.84, 1.03, 1, 0, true, true)
+        }
     }
 
     const buffers = {positions, normals, colors, uvs, indices, rigid: [] as number[]}

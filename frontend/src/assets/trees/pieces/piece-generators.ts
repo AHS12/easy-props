@@ -215,7 +215,7 @@ export const litterLeavesGenerator: PartGenerator<PieceBodyParameters> = {
             geometry: buildLitter(source, piece, seed, detail),
             material: 'painted',
             role: 'foliage',
-            surface: wetSurface({vertexColors: true, map: leafStyle === 'painted' ? getDabTexture() : getTreeLeafTexture(leafStyle), alphaTest: 0.5, receiveShadow: true}, piece.wet),
+            surface: wetSurface({vertexColors: true, map: leafStyle === 'painted' || leafStyle === 'broad' ? getDabTexture() : getTreeLeafTexture(leafStyle), alphaTest: 0.5, receiveShadow: true}, piece.wet),
         }
     },
 }

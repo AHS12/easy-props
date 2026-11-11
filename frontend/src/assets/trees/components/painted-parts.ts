@@ -230,9 +230,15 @@ const CLUMP_SPECS: readonly ParameterSpec[] = [
     },
 ]
 
-/** What a clump's cards are printed with. Palms keep the dabs: their fronds sample only its solid middle. */
+/**
+ * What a clump's cards are printed with. Palms keep the dabs: their fronds
+ * sample only its solid middle. So do Broad leaves, which are real shapes; only
+ * the cards under them are printed.
+ */
 const leafPicture = (tree: PaintedTreeParameters) =>
-    tree.leafStyle === 'painted' || tree.form === 'palm' ? getDabTexture() : getTreeLeafTexture(tree.leafStyle)
+    tree.leafStyle === 'painted' || tree.leafStyle === 'broad' || tree.form === 'palm' ? getDabTexture() : getTreeLeafTexture(tree.leafStyle)
+/** Broad leaves are glossy, as a mango's or a laurel's are. */
+const BROAD_ROUGHNESS = 0.55
 
 function findClump(tree: PaintedTreeParameters, seed: number, key: string): Clump | undefined {
     return planPaintedTree(tree, seed).clumps.find((clump) => clump.key === key)
@@ -359,7 +365,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
                   )
                 : new THREE.BufferGeometry(),
             material: 'painted',
-            surface: wetSurface({vertexColors: true, map: leafPicture(tree), alphaTest: 0.5, receiveShadow: false}, tree.wet),
+            surface: wetSurface({vertexColors: true, map: leafPicture(tree), alphaTest: 0.5, receiveShadow: false, ...(tree.leafStyle === 'broad' && tree.form !== 'palm' ? {roughness: BROAD_ROUGHNESS} : {})}, tree.wet),
             role: 'foliage',
         }
     },

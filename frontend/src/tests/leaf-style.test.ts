@@ -86,6 +86,32 @@ describe('leaf styles', () => {
         expect(keys({build: 'low-poly'})).not.toContain('leafStyle')
     })
 
+    it('build Broad as real leaves over the cards, glossy, at a cost Make it fit can bring down', () => {
+        const triangles = (parts: ReturnType<typeof clumpsOf>) => parts.reduce((sum, part) => sum + (part.geometry.index?.count ?? 0) / 3, 0)
+        const painted = clumpsOf('oak')
+        const broad = clumpsOf('oak', {leafStyle: 'broad'})
+
+        expect(broad[0].surface?.map).toBe(getDabTexture())
+        expect(broad[0].surface?.roughness).toBeLessThan(1)
+        expect(painted[0].surface?.roughness ?? 1).toBe(1)
+        // Real leaves cost more than cards, but not runaway more.
+        expect(triangles(broad) / triangles(painted)).toBeGreaterThan(1.1)
+        expect(triangles(broad) / triangles(painted)).toBeLessThan(2.2)
+        // Thinning the leaves is what Make it fit reaches for first.
+        expect(triangles(clumpsOf('oak', {leafStyle: 'broad', fullness: 0.4}))).toBeLessThan(triangles(broad) * 0.8)
+    })
+
+    it('thin Broad leaves out on a lighter level', () => {
+        const asset = createSceneFromPreset('mango').assets[0]
+        const part = asset.components.find((component) => component.generatorId === 'painted-clump')!
+        const parameters = paintedClumpGenerator.validate(part.parameters).parameters
+        const at = (detail: number) =>
+            (paintedClumpGenerator.generate(parameters, {random: createSeededRandom(part.seed), seed: part.seed, style: DETAILED, detail}).geometry.index?.count ?? 0) / 3
+
+        expect(at(0.5)).toBeLessThan(at(1) * 0.75)
+        expect(at(0.15)).toBeLessThan(at(0.5))
+    })
+
     it('carry over to the leaf litter made from a tree', () => {
         const tree = {...createSceneFromPreset('oak').assets[0].parameters, leafStyle: 'lobed'}
         const litter = litterLeavesGenerator.generate({piece: {...pieceDefaults, tree: JSON.stringify(tree)}, seed: 3}, {random: createSeededRandom(3), seed: 3, style: DETAILED})

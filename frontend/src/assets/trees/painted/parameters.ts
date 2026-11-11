@@ -44,8 +44,11 @@ export type FruitKind =
     | 'coconut'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
-/** What a crown's leaf cards are printed with: brush dabs, or one of the leaf shapes. */
-export type LeafStyle = 'painted' | PrintedLeafStyle
+/**
+ * What a crown's leaves look like: cards printed with brush dabs or leaf shapes,
+ * or, for Broad, real leaves big enough to be seen one by one.
+ */
+export type LeafStyle = 'painted' | PrintedLeafStyle | 'broad'
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
 export type CrownShape = 'natural' | 'round' | 'wide' | 'umbrella' | 'column' | 'cone' | 'teardrop'
 /** Painted is soft leaf cards and sculpted bark. Low-poly is the same tree in a few hard-edged blocks. */
@@ -195,6 +198,7 @@ const LEAF_STYLE = {
         {value: 'lobed', label: 'Lobed'},
         {value: 'feathery', label: 'Feathery'},
         {value: 'needles', label: 'Needles'},
+        {value: 'broad', label: 'Broad'},
     ],
     default: 'painted',
 } as const satisfies ChoiceParameter<LeafStyle>
