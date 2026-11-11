@@ -177,7 +177,7 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
 /** Moss on any stone, shadow to highlight. */
 export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
 
-export type PetalPaletteId = 'white' | 'pink' | 'flame' | 'gold' | 'violet' | 'cream'
+export type PetalPaletteId = 'white' | 'pink' | 'flame' | 'gold' | 'violet' | 'cream' | 'red' | 'blue'
 
 /** Petals, deep to light. */
 export const PETAL_RAMPS: Readonly<Record<PetalPaletteId, readonly string[]>> = {
@@ -187,6 +187,8 @@ export const PETAL_RAMPS: Readonly<Record<PetalPaletteId, readonly string[]>> = 
     gold: ['#c47c10', '#eeb420', '#ffe670'],
     violet: ['#5c2ca0', '#9460d8', '#d8bcf8'],
     cream: ['#a8945c', '#dccb92', '#fbf3d0'],
+    red: ['#6a0610', '#c41424', '#ff6a5a'],
+    blue: ['#2c4a9c', '#5c86d8', '#bcd2f8'],
 }
 
 /** Stems and the leaves at their foot, root to tip. */

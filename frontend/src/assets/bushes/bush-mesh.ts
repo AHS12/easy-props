@@ -19,7 +19,7 @@
 import * as THREE from 'three'
 import type {SnowAndWet} from '../shared/weather'
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import {BLOOM_CELL, LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
+import {BLOOM_CELL, LEAF_VARIANTS, leafCell, type BloomKind, type BushLeafStyle} from '../shared/leaf-texture'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {colourRamp} from '../style/ramp'
 import {FLOWER_ROWS, LEAF_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
@@ -50,8 +50,12 @@ export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS
     readonly variation: number
     readonly palette: BushPaletteId | OwnColours
     readonly inside: BushInside
+    /** What its leaves look like up close. */
+    readonly leafStyle: BushLeafStyle
     /** How thickly it flowers, 0 to 1. */
     readonly flowers: number
+    /** What kind of bloom, or berries, it carries. */
+    readonly bloom: BloomKind
     /** Half the width of a flower, in metres. */
     readonly flowerSize: number
     readonly flowerColour: PetalPaletteId | OwnColours

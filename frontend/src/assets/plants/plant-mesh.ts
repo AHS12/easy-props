@@ -15,6 +15,11 @@ import {colourRamp} from '../style/ramp'
 
 export type PlantKind = 'daisy' | 'cup' | 'spike' | 'plume'
 export type PlantBuild = 'painted' | 'low-poly'
+/**
+ * Grass-like strips from the foot, wide upright straps, pairs climbing the
+ * stem, a rosette of round leaves at the foot, or finely cut feathery leaves.
+ */
+export type PlantLeafKind = 'grass' | 'straps' | 'stem' | 'rosette' | 'feathery'
 
 export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly kind: PlantKind
@@ -25,8 +30,9 @@ export interface PlantParameters extends Partial<OwnColourValues<typeof FLOWER_R
     readonly lean: number
     /** Across a flower, or how long a spike or plume is, in metres. */
     readonly headSize: number
-    /** Leaves at the foot of each stem. */
+    /** Leaves on each stem. */
     readonly leaves: number
+    readonly leafKind: PlantLeafKind
     readonly palette: PetalPaletteId | OwnColours
     readonly build: PlantBuild
 }
@@ -289,6 +295,100 @@ function addPlume(buffers: PlantBuffers, path: StemPath, length: number, paint: 
     }
 }
 
+/** Leaves of every kind but grass-like, for one stem. */
+function addShapedLeaves(
+    buffers: PlantBuffers,
+    plant: PlantParameters,
+    stem: Stem,
+    path: StemPath,
+    stemWidth: number,
+    growth: number,
+    green: (value: number) => THREE.Color,
+) {
+    const random = createSeededRandom(hashSeed(stem.seed, 2))
+    const count = Math.round(plant.leaves)
+    const size = plant.headSize * growth
+    const up: Vec3 = [0, 1, 0]
+    const origin: Vec3 = [0, 0, 0]
+
+    switch (plant.leafKind) {
+        case 'straps':
+            // A few wide blades standing nearly upright, as on a tulip or an iris.
+            for (let leaf = 0; leaf < count; leaf++) {
+                const strap = stemPath(
+                    stem.x,
+                    stem.z,
+                    stem.facing + (leaf / Math.max(count, 1)) * Math.PI * 2 + randomRange(random, -0.4, 0.4),
+                    stem.height * randomRange(random, 0.45, 0.7),
+                    randomRange(random, 0.12, 0.3),
+                )
+
+                addStrip(buffers, strap, size * 0.75 + stemWidth, 3, (t) => green(0.15 + t * 0.75), true)
+            }
+
+            break
+        case 'stem':
+            // Pairs climbing the stem, turning a quarter each time.
+            for (let pair = 0; pair < count; pair++) {
+                const t = 0.18 + (pair / Math.max(count, 1)) * 0.55
+                const at = path.point(t)
+                const turn = pair % 2 === 0 ? path.side : normalize(cross(path.tangent(t), path.side))
+                const length = size * (0.75 - t * 0.35) + stemWidth * 2
+
+                for (const sign of [1, -1]) {
+                    const out = normalize([turn[0] * sign, turn[1] * sign + 0.4, turn[2] * sign])
+
+                    addKite(buffers, at, along(at, out, length), along(origin, normalize(cross(out, up)), length * 0.22), 0.4, up, green(0.25), green(0.75 + random() * 0.15))
+                }
+            }
+
+            break
+        case 'rosette': {
+            // Round leaves lying low around the foot, as on a primrose.
+            const leaves = count > 0 ? count + 2 : 0
+
+            for (let leaf = 0; leaf < leaves; leaf++) {
+                const facing = (leaf / leaves) * Math.PI * 2 + randomRange(random, -0.25, 0.25)
+                const length = size * randomRange(random, 1, 1.4) + stemWidth * 2
+                const out = normalize([Math.cos(facing), 0.18, Math.sin(facing)])
+                const root: Vec3 = [stem.x, 0.01, stem.z]
+
+                addKite(buffers, root, along(root, out, length), along(origin, normalize(cross(out, up)), length * 0.38), 0.55, up, green(0.15), green(0.45 + random() * 0.15))
+            }
+
+            break
+        }
+        case 'feathery':
+            // A thin rib with small leaflets in pairs along it, as on a cosmos or yarrow.
+            for (let leaf = 0; leaf < count; leaf++) {
+                const rib = stemPath(
+                    stem.x,
+                    stem.z,
+                    stem.facing + randomRange(random, -3, 3),
+                    stem.height * randomRange(random, 0.3, 0.5),
+                    randomRange(random, 0.5, 1),
+                )
+
+                addStrip(buffers, rib, stemWidth * 0.8, LEAF_PIECES, (t) => green(0.2 + t * 0.6), true)
+
+                for (let step = 1; step <= 4; step++) {
+                    const t = step / 5
+                    const at = rib.point(t)
+                    const tangent = rib.tangent(t)
+                    const length = size * 0.32 * (1 - t * 0.5) + stemWidth
+
+                    for (const sign of [1, -1]) {
+                        const out = normalize([rib.side[0] * sign + tangent[0] * 0.6, 0.3 + tangent[1] * 0.6, rib.side[2] * sign + tangent[2] * 0.6])
+
+                        addKite(buffers, at, along(at, out, length), along(origin, normalize(cross(out, up)), length * 0.18), 0.5, up, green(0.3), green(0.8))
+                    }
+                }
+            }
+
+            break
+    }
+}
+
 function planStems(plant: PlantParameters, seed: number): readonly Stem[] {
     const radius = plant.width / 2
 
@@ -367,16 +467,21 @@ export function buildPlantMesh(plant: PlantParameters, seed: number, detail: num
 
             addStrip(buffers, path, stemWidth, STEM_PIECES, (t) => green(0.2 + t * 0.5), false)
 
-            for (let leaf = 0; leaf < Math.round(plant.leaves); leaf++) {
-                const leafPath = stemPath(
-                    stem.x,
-                    stem.z,
-                    stem.facing + randomRange(random, -3, 3),
-                    stem.height * randomRange(random, 0.3, 0.55),
-                    randomRange(random, 0.5, 1),
-                )
+            if (plant.leafKind === 'grass') {
+                for (let leaf = 0; leaf < Math.round(plant.leaves); leaf++) {
+                    const leafPath = stemPath(
+                        stem.x,
+                        stem.z,
+                        stem.facing + randomRange(random, -3, 3),
+                        stem.height * randomRange(random, 0.3, 0.55),
+                        randomRange(random, 0.5, 1),
+                    )
 
-                addStrip(buffers, leafPath, plant.headSize * 0.45 * growth + stemWidth, LEAF_PIECES, (t) => green(0.15 + t * 0.8), true)
+                    addStrip(buffers, leafPath, plant.headSize * 0.45 * growth + stemWidth, LEAF_PIECES, (t) => green(0.15 + t * 0.8), true)
+                }
+            } else {
+                // Their own numbers, so the head on top is the same whatever the leaves.
+                addShapedLeaves(buffers, plant, stem, path, stemWidth, growth, green)
             }
 
             const tip = path.point(1)

@@ -16,7 +16,7 @@ import {
 import {FLOWER_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours} from '../style/own-colours'
 import {PETAL_RAMPS, type PetalPaletteId} from '../style/palettes'
 import {buildLowPolyPlantMesh} from './low-poly-plant'
-import {buildPlantMesh, type PlantBuild, type PlantKind, type PlantParameters} from './plant-mesh'
+import {buildPlantMesh, type PlantBuild, type PlantKind, type PlantLeafKind, type PlantParameters} from './plant-mesh'
 import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
@@ -84,10 +84,25 @@ const WIDTH = number(SHAPE, 'width', 'Width', 'How wide the clump is.', 0.05, 6,
 const HEIGHT = number(SHAPE, 'height', 'Height', 'How tall its tallest stem stands.', 0.05, 4, 0.05, 0.5, 'm')
 const STEMS = number(SHAPE, 'stems', 'Stems', 'How many flowers there are.', 1, 80, 1, 18)
 const LEAN = number(SHAPE, 'lean', 'Lean', 'How far the stems bend over.', 0, 1, 0.05, 0.25)
-const LEAVES = number(SHAPE, 'leaves', 'Leaves', 'Leaves at the foot of each stem.', 0, 6, 1, 2)
+const LEAVES = number(SHAPE, 'leaves', 'Leaves', 'How many leaves each stem has, or pairs of them up the stem.', 0, 6, 1, 2)
+const LEAF_KIND: ChoiceParameter<PlantLeafKind> = {
+    kind: 'choice',
+    group: SHAPE,
+    key: 'leafKind',
+    label: 'Kind of leaves',
+    help: 'Grass-like strips from the foot, wide upright straps, pairs up the stem, a rosette at the foot, or finely cut leaves.',
+    default: 'grass',
+    options: [
+        {value: 'grass', label: 'Grass-like'},
+        {value: 'straps', label: 'Straps'},
+        {value: 'stem', label: 'Up the stem'},
+        {value: 'rosette', label: 'Broad at the foot'},
+        {value: 'feathery', label: 'Feathery'},
+    ],
+}
 const HEAD_SIZE = number(FLOWER, 'headSize', 'Flower size', 'Across a flower, or how long a spike or plume is.', 0.01, 1, 0.01, 0.07, 'm')
 
-const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, STEMS, LEAN, LEAVES, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs, SNOW, WET]
+const specs: readonly ParameterSpec[] = [BUILD, WIDTH, HEIGHT, STEMS, LEAN, LEAVES, LEAF_KIND, KIND, HEAD_SIZE, PALETTE, ...OWN_FLOWERS.specs, SNOW, WET]
 
 export const plantDefaults: PlantParameters = {
     build: BUILD.default,
@@ -98,6 +113,7 @@ export const plantDefaults: PlantParameters = {
     lean: LEAN.default,
     headSize: HEAD_SIZE.default,
     leaves: LEAVES.default,
+    leafKind: LEAF_KIND.default,
     palette: PALETTE.default,
     ...snowAndWetDefaults,
 }
@@ -111,6 +127,7 @@ const plantSchema = z.object({
     lean: numberSchema(LEAN),
     headSize: numberSchema(HEAD_SIZE),
     leaves: numberSchema(LEAVES),
+    leafKind: choiceSchema(LEAF_KIND),
     palette: choiceSchema(PALETTE),
     ...snowAndWetSchema,
     ...OWN_FLOWERS.schema,
@@ -181,9 +198,9 @@ export const plantGenerator: PropGenerator<PlantParameters> = {
 
     validate: validatePlant,
 
-    shownControls() {
-        // Style is a switch over the view.
-        return specs.filter((spec) => spec.key !== 'build')
+    shownControls(values) {
+        // Style is a switch over the view. Low-poly flowers keep grass-like leaves, folded.
+        return specs.filter((spec) => spec.key !== 'build' && (values.build !== 'low-poly' || spec.key !== 'leafKind'))
     },
 
     // Nothing stops a player walking through flowers.
