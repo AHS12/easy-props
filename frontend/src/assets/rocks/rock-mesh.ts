@@ -41,6 +41,11 @@ export interface RockSurface {
      * faces, 0 to 1. Left out or 0, the rock is built as it was before it existed.
      */
     readonly rounded?: number
+    /**
+     * How far a carved rock's chunks run together into one stone, 0 to 1: the light and
+     * colour carry over their seams, and every chunk rounds a little more.
+     */
+    readonly blend?: number
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -77,6 +82,14 @@ const MOSS_SOFTNESS = 0.14
 const MOSS_PATCHES = 0.34
 /** How much darker stone is just where moss begins. */
 const MOSS_RIM = 0.12
+/** At full Blend, how much rounder the light gets, and how much of a chunk's light the whole rock takes over. */
+const BLEND_ROUNDING = 0.4
+const BLEND_WHOLE = 0.35
+/** How much of a seam's darkness full Blend takes away, leaving a crease. */
+const BLEND_SEAM = 0.75
+/** A carved rock's contact with the ground: a short, strong dark band. */
+const CONTACT_REACH = 0.1
+const CONTACT_DARK = 0.42
 /** Below this share of its detail, a rock has no edge rings. */
 const RINGS_FROM = 0.7
 /** A carved rock keeps a single wide edge down to this share, leaning this far. */
@@ -269,8 +282,9 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
     const weather = {snow: surface.snow ?? 0, wet: surface.wet ?? 0, mossFrom: surface.mossFrom ?? 'sky'}
     const patchScale = 1 / (size * PATCH_SIZE)
     const stoneColour = new THREE.Color()
+    const blend = clamp01(surface.blend ?? 0)
 
-    const shadeAt = (p: Vec3, chunkIndex: number) => {
+    const seamAt = (p: Vec3, chunkIndex: number) => {
         let seam = Infinity
 
         chunks.forEach((other, index) => {
@@ -279,11 +293,22 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
             }
         })
 
-        return (clamp01(seam / seamReach) * 0.35 + 0.65) * (clamp01(p[1] / groundReach) * 0.3 + 0.7)
+        return seam
+    }
+
+    const shadeAt = (p: Vec3, chunkIndex: number) =>
+        (clamp01(seamAt(p, chunkIndex) / seamReach) * 0.35 + 0.65) * (clamp01(p[1] / groundReach) * 0.3 + 0.7)
+
+    // Blend eases a seam to a crease, and the rock sits heavy in a short dark band at the ground.
+    const carvedShadeAt = (p: Vec3, chunkIndex: number) => {
+        const seamDark = (1 - clamp01(seamAt(p, chunkIndex) / seamReach)) * 0.35 * (1 - blend * BLEND_SEAM)
+        const contact = 1 - (1 - smoothstep(0, plan.height * CONTACT_REACH, p[1])) * CONTACT_DARK
+
+        return (1 - seamDark) * contact * (clamp01(p[1] / groundReach) * 0.12 + 0.88)
     }
 
     const paintCarved = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean, {n, at}: CarvedPoint): THREE.Color => {
-        const shade = shadeAt(p, chunkIndex)
+        const shade = carvedShadeAt(p, chunkIndex)
         const patch = valueNoise3(p[0] * patchScale, p[1] * patchScale, p[2] * patchScale, seed)
         const fine = valueNoise3(p[0] * patchScale * 2.7, p[1] * patchScale * 2.7, p[2] * patchScale * 2.7, seed + 7)
         const height = clamp01(p[1] / plan.height)
@@ -345,6 +370,11 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     const rounded = clamp01(surface.rounded ?? 0)
     // Rounded light is what marks a rock built since it existed, so one saved before stays exactly as it was.
     const carved = rounded > 0
+    const blend = carved ? clamp01(surface.blend ?? 0) : 0
+    const rounding = rounded + (1 - rounded) * blend * BLEND_ROUNDING
+    // The whole rock's body, from every chunk at full detail, so each level leans the same way.
+    const wholeBody = roundBody(plan.chunks.flatMap((chunk) => facesOfChunk(chunk)))
+    const seamReach = size * SEAM_REACH * 1.5
     // A carved rock steps down through one plain wide edge before it has none.
     const withRings = detail >= (carved ? CARVED_RINGS_FROM : RINGS_FROM) && surface.edges > 0
     const fullyCarved = carved && detail >= RINGS_FROM
@@ -385,11 +415,28 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
             }
         }
 
+        // A carved pebble of rubble is too small for an edge: its rounded light alone softens it.
+        const pebble = (chunk as CrackedChunk).rubble === true
+        const carvedFully = fullyCarved && !pebble
         const body = roundBody(faces)
+        const others = chunks.filter((_, index) => index !== chunkIndex)
         const roundedLight = (n: Vec3, p: Vec3): Vec3 => {
-            const towards = body(p)
+            let towards = body(p)
 
-            return normalize([n[0] * (1 - rounded) + towards[0] * rounded, n[1] * (1 - rounded) + towards[1] * rounded, n[2] * (1 - rounded) + towards[2] * rounded])
+            if (blend > 0) {
+                // Near a seam both chunks take the whole rock's light, so the seam softens.
+                const seam = others.reduce((nearest, other) => Math.min(nearest, Math.abs(distanceToChunk(other, p))), Infinity)
+                const whole = blend * (BLEND_WHOLE + (1 - BLEND_WHOLE) * (1 - clamp01(seam / seamReach)))
+                const rock = wholeBody(p)
+
+                towards = normalize([towards[0] * (1 - whole) + rock[0] * whole, towards[1] * (1 - whole) + rock[1] * whole, towards[2] * (1 - whole) + rock[2] * whole])
+            }
+
+            return normalize([
+                n[0] * (1 - rounding) + towards[0] * rounding,
+                n[1] * (1 - rounding) + towards[1] * rounding,
+                n[2] * (1 - rounding) + towards[2] * rounding,
+            ])
         }
 
         const hidden = (a: Vec3, b: Vec3, c: Vec3) =>
@@ -416,10 +463,10 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
             // towards the faces around it. A carved face has a two-row edge that turns
             // the light a step at a time, and a ring inside so the light can roll across it.
             // Between, a carved rock gives only its larger faces an edge.
-            const edged = withRings && (fullyCarved || !carved || radius > size * PLAIN_EDGE_FROM)
+            const edged = withRings && !(carved && pebble) && (carvedFully || !carved || radius > size * PLAIN_EDGE_FROM)
             const rings: readonly {at: number; lean: number}[] = !edged
                 ? [{at: 1, lean: 0}]
-                : fullyCarved
+                : carvedFully
                   ? [
                         {at: 1, lean: 1},
                         {at: 1 - share * 0.45, lean: CARVED_EDGE_LEAN},

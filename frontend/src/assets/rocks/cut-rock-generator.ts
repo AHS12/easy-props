@@ -88,7 +88,7 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
 }
 
 /** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend']
 
 const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
@@ -107,9 +107,12 @@ const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face d
 /** On for new rocks. A saved file without it opens with none, so a saved rock looks as it did. */
 /** On for new rocks. A saved file without it opens with none, so a saved rock is built exactly as it was. */
 const ROUNDED = number(SURFACE, 'rounded', 'Rounded light', 'How the light falls: flat on each face, or rolling over the whole stone like a pebble. The faces and outline stay as they are.', 0, 1, 0.05, 0.5)
+/** On for new rocks. A saved file without it opens with none. */
+const BLEND = number(SURFACE, 'blend', 'Blend', 'How far the chunks run together into one stone, so where they meet reads as a crease and not a cut.', 0, 1, 0.05, 0.6)
+const RUBBLE = number(SHAPE, 'rubble', 'Rubble', 'Small stones of the same rock lying round its foot.', 0, 1, 0.05, 0)
 const GRAIN = number(SURFACE, 'grain', 'Grain', 'Fine speckle, small pits and hairline cracks in the stone, seen up close.', 0, 1, 0.05, 0.6)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, EDGES, ROUNDED, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -131,6 +134,8 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly variation: number
     readonly grain: number
     readonly rounded: number
+    readonly blend: number
+    readonly rubble: number
     readonly palette: RockPaletteId | OwnColours
 }
 
@@ -152,6 +157,8 @@ export const cutRockDefaults: CutRockParameters = {
     variation: VARIATION.default,
     grain: GRAIN.default,
     rounded: ROUNDED.default,
+    blend: BLEND.default,
+    rubble: RUBBLE.default,
     palette: PALETTE.default,
 }
 
@@ -173,12 +180,16 @@ const cutRockSchema = z.object({
     variation: numberSchema(VARIATION),
     grain: numberSchema(GRAIN),
     rounded: numberSchema(ROUNDED),
+    blend: numberSchema(BLEND),
+    rubble: numberSchema(RUBBLE),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
 })
 
 /** The rock's plan with its cracks and crumbled edge. */
-const planDamagedRock = (rock: CutRockParameters, seed: number) => damageRock(planRock(rock, seed), rock, seed)
+// Only a carved rock's chunks draw in: a low-poly or saved one keeps its layout.
+const planDamagedRock = (rock: CutRockParameters, seed: number) =>
+    damageRock(planRock({...rock, huddle: rock.build !== 'low-poly' && rock.rounded > 0 ? rock.blend : 0}, seed), rock, seed)
 
 const validateCutRock = (parameters: unknown) => validateParameters<CutRockParameters>(cutRockSchema, parameters, cutRockDefaults)
 

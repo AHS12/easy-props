@@ -20,10 +20,17 @@ export interface RockDamage {
     readonly cracks: number
     /** How much of one edge has crumbled away, 0 to 1. */
     readonly crumble: number
+    /** How many small stones lie scattered round the foot, 0 to 1. Left out, none. */
+    readonly rubble?: number
 }
 
 const SEED_CRACKS = 61
 const SEED_CRUMBLE = 62
+const SEED_RUBBLE = 63
+/** How many stones full Rubble scatters, and how small they are against the rock's size. */
+const RUBBLE_STONES = 9
+const SCATTER_SMALL = 0.04
+const SCATTER_LARGE = 0.1
 /** How wide a crack opens, against the rock's size. */
 const CRACK_GAP = 0.012
 /** A chunk has to stand at least this share of its thickness either side of a crack to split. */
@@ -144,7 +151,29 @@ function crumble(chunks: readonly CrackedChunk[], plan: RockPlan, amount: number
     return [...chipped, ...lying]
 }
 
-export const isRockDamaged = (damage: RockDamage): boolean => damage.cracks > 0 || damage.crumble > 0
+/** Small stones of the same rock lying round its foot, each against the stone on its side. */
+function scatter(chunks: readonly CrackedChunk[], plan: RockPlan, amount: number, random: () => number): CrackedChunk[] {
+    const size = sizeOf(plan)
+    const foot = chunks.flatMap(cornersOf).filter((corner) => corner[1] < plan.height * 0.3)
+    const stones = 1 + Math.round(amount * (RUBBLE_STONES - 1))
+    const lying: CrackedChunk[] = []
+
+    for (let stone = 0; stone < stones; stone++) {
+        // Spread round the rock, never two in one place.
+        const azimuth = ((stone + randomRange(random, 0.1, 0.9)) / stones) * Math.PI * 2
+        const towards: Vec3 = [Math.cos(azimuth), 0, Math.sin(azimuth)]
+        const edge = Math.max(...foot.map((corner) => dot(towards, corner)))
+        const radius = size * randomRange(random, SCATTER_SMALL, SCATTER_LARGE)
+        const out = edge + radius * randomRange(random, 0.1, 1.8)
+        const at: Vec3 = [towards[0] * out, radius * 0.4, towards[2] * out]
+
+        lying.push(rubble(at, radius, createSeededRandom(hashSeed(Math.round(random() * 1e6), stone))) as CrackedChunk)
+    }
+
+    return [...chunks, ...lying]
+}
+
+export const isRockDamaged = (damage: RockDamage): boolean => damage.cracks > 0 || damage.crumble > 0 || (damage.rubble ?? 0) > 0
 
 /** The plan with its damage done. Undamaged, the same plan. */
 export function damageRock(plan: RockPlan, damage: RockDamage, seed: number): RockPlan {
@@ -167,5 +196,11 @@ export function damageRock(plan: RockPlan, damage: RockDamage, seed: number): Ro
         chunks = crumble(chunks, plan, damage.crumble, createSeededRandom(hashSeed(seed, SEED_CRUMBLE)))
     }
 
-    return {...plan, chunks, uneven: damage.crumble > 0}
+    const rubbled = damage.rubble ?? 0
+
+    if (rubbled > 0) {
+        chunks = scatter(chunks, plan, rubbled, createSeededRandom(hashSeed(seed, SEED_RUBBLE)))
+    }
+
+    return {...plan, chunks, uneven: damage.crumble > 0 || rubbled > 0}
 }

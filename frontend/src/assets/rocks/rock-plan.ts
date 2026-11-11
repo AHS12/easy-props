@@ -22,6 +22,8 @@ export interface RockPlanParameters {
     readonly faces: number
     /** How deep those planes reach, 0 to 1. */
     readonly cuts: number
+    /** How far a boulder's smaller chunks draw in against the main one, 0 to 1. Left out, none. */
+    readonly huddle?: number
 }
 
 export interface RockPlane {
@@ -247,17 +249,21 @@ function makeChunk(recipe: ChunkRecipe, cutCount: number, cuts: number, random: 
     return {centre, planes}
 }
 
-function boulderRecipes(count: number, random: RandomSource): ChunkRecipe[] {
+/** How much nearer the main stone a boulder's smaller chunks sit at full huddle. */
+const HUDDLE_IN = 0.3
+
+function boulderRecipes(count: number, random: RandomSource, huddle = 0): ChunkRecipe[] {
     const recipes: ChunkRecipe[] = [{centre: [0, 0.42, 0], radii: [0.5, 0.6, 0.5], cutShare: 1, upright: 1}]
 
     for (let i = 1; i < count; i++) {
         const azimuth = i * GOLDEN_ANGLE + random()
         // Far enough out to read as its own stone, near enough to lean on the rock.
-        const out = randomRange(random, 0.38, 0.46)
+        // Drawn in afterwards, so the same numbers are taken either way.
+        const out = randomRange(random, 0.38, 0.46) * (1 - huddle * HUDDLE_IN)
         const size = randomRange(random, 0.2, 0.28)
 
         recipes.push({
-            centre: [Math.cos(azimuth) * out, randomRange(random, 0.12, 0.22), Math.sin(azimuth) * out],
+            centre: [Math.cos(azimuth) * out, randomRange(random, 0.12, 0.22) + huddle * 0.04, Math.sin(azimuth) * out],
             radii: [size, randomRange(random, 0.2, 0.3), size],
             cutShare: SMALL_CHUNK_CUTS,
             upright: 1,
@@ -330,7 +336,7 @@ function cliffRecipes(count: number, random: RandomSource): ChunkRecipe[] {
     return recipes
 }
 
-const RECIPES: Readonly<Record<RockKind, (count: number, random: RandomSource) => ChunkRecipe[]>> = {
+const RECIPES: Readonly<Record<RockKind, (count: number, random: RandomSource, huddle?: number) => ChunkRecipe[]>> = {
     boulder: boulderRecipes,
     outcrop: outcropRecipes,
     pillar: pillarRecipes,
@@ -359,7 +365,7 @@ function stretched(chunk: RockChunk, offset: Vec3, scale: Vec3, sink: number): R
 
 export function planRock(rock: RockPlanParameters, seed: number): RockPlan {
     const count = Math.max(1, Math.round(rock.chunks))
-    const recipes = RECIPES[rock.kind](count, createSeededRandom(hashSeed(seed, SEED_LAYOUT)))
+    const recipes = RECIPES[rock.kind](count, createSeededRandom(hashSeed(seed, SEED_LAYOUT)), rock.huddle ?? 0)
     const mainCuts = MIN_CUTS + rock.faces * (MAX_CUTS - MIN_CUTS)
     const unit = recipes.map((recipe, index) =>
         // Each chunk has its own stream, so one more chunk does not reshape the others.
