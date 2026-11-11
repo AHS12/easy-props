@@ -41,6 +41,7 @@ agree on the term first, or rethink the control.
 | Weather, surface layers, decals | **Weather** | The section holding **Snow** and **Wet** on every kind of prop, and **Moss** and **Moss grows** on trees and rocks |
 | Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
 | Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
+| Smooth shading, rounded normals | **Rounded light** | On rocks: light rolls over the stone like a pebble, the faces stay flat. Never "normals" or "smooth shading" |
 | Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
 | End cap, cross-section texture | **Cut ends** | The sawn faces of a stump, log or branch, with their rings |
 | Texture resolution | **Picture size** | In Export: 512, 1024 or 2048. Never "texture" or "resolution" |

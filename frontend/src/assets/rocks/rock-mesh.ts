@@ -35,6 +35,11 @@ export interface RockSurface {
     readonly mossFrom?: MossFrom
     /** How strong the stone picture is, 0 to 1. Left out or 0, no picture, and the mesh is as it was. */
     readonly grain?: number
+    /**
+     * How far the light follows a smooth rounded body around each chunk, not its flat
+     * faces, 0 to 1. Left out or 0, the rock is built as it was before it existed.
+     */
+    readonly rounded?: number
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -46,6 +51,15 @@ const MAX_EDGE_SHARE = 0.45
 /** How far an edge's normal leans towards the faces around it. */
 const EDGE_LEAN = 0.55
 const EDGE_LIGHT = 0.09
+/** A carved rock's edge, wider and in two rows: the inner row leans this far. */
+const CARVED_EDGE_WIDTH = 0.1
+const CARVED_EDGE_LEAN = 0.45
+/** Where the ring inside a carved face sits, as a share of the way out to its edge. */
+const INNER_RING = 0.5
+/** Only a face wider than this share of the rock's size gets that ring. */
+const INNER_FROM = 0.14
+/** How far a carved face swells at full Bend, as a share of its size. */
+const PILLOW = 0.1
 /** Moss starts on the flattest stone and creeps down the slopes as it grows. */
 const MOSS_REACH = 0.6
 /** How far darkness reaches from a seam or the ground, as a share of the size and the height. */
@@ -53,6 +67,11 @@ const SEAM_REACH = 0.1
 const GROUND_REACH = 0.25
 /** Below this share of its detail, a rock has no edge rings. */
 const RINGS_FROM = 0.7
+/** A carved rock keeps a single wide edge down to this share, leaning this far. */
+const CARVED_RINGS_FROM = 0.3
+const CARVED_PLAIN_LEAN = 0.75
+/** There, only a face wider than this share of the rock's size keeps its edge. */
+const PLAIN_EDGE_FROM = 0.11
 /** Below this, it keeps its largest chunks and its first cuts only. */
 export const PLAIN_BELOW = 0.25
 const PLAIN_CHUNKS = 0.75
@@ -65,12 +84,12 @@ const PICTURE_METRES = 1.6
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 /** A lighter level drops the small chunks and the last cuts of the rest. */
-export function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number): readonly RockChunk[] {
+export function chunksAtDetail(plan: RockPlan, detail: number, cutShare: number, chunkShare = PLAIN_CHUNKS): readonly RockChunk[] {
     if (detail >= PLAIN_BELOW) {
         return plan.chunks
     }
 
-    const largest = plan.chunks.slice(0, Math.max(1, Math.ceil(plan.chunks.length * PLAIN_CHUNKS)))
+    const largest = plan.chunks.slice(0, Math.max(1, Math.ceil(plan.chunks.length * chunkShare)))
     // Both halves of a cracked chunk, or neither: one alone would leave a hole.
     const cracks = new Set(largest.map((chunk) => (chunk as CrackedChunk).crack ?? -1))
     const kept = plan.chunks.filter((chunk) => largest.includes(chunk) || cracks.has((chunk as CrackedChunk).crack ?? -2) || (chunk as CrackedChunk).rubble)
@@ -158,6 +177,29 @@ function faceAxes(n: Vec3): [Vec3, Vec3] {
     return [across, up]
 }
 
+/**
+ * The way out of a smooth egg fitted round a chunk's corners, at any point: the light a
+ * pebble of the same size would have there.
+ */
+function roundBody(faces: readonly {corners: readonly Vec3[]}[]): (p: Vec3) => Vec3 {
+    const min = [Infinity, Infinity, Infinity]
+    const max = [-Infinity, -Infinity, -Infinity]
+
+    for (const {corners} of faces) {
+        for (const corner of corners) {
+            for (let axis = 0; axis < 3; axis++) {
+                min[axis] = Math.min(min[axis], corner[axis])
+                max[axis] = Math.max(max[axis], corner[axis])
+            }
+        }
+    }
+
+    const centre = [0, 1, 2].map((axis) => (min[axis] + max[axis]) / 2)
+    const squared = [0, 1, 2].map((axis) => Math.max(((max[axis] - min[axis]) / 2) ** 2, 1e-6))
+
+    return (p) => normalize([(p[0] - centre[0]) / squared[0], (p[1] - centre[1]) / squared[1], (p[2] - centre[2]) / squared[2]])
+}
+
 export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number, detail: number): THREE.BufferGeometry {
     if (detail >= PLAIN_BELOW) {
         return meshAt(plan, surface, seed, detail, 1)
@@ -169,11 +211,14 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
 
     full.dispose()
 
-    for (const cutShare of PLAIN_CUTS) {
-        const geometry = meshAt(plan, surface, seed, detail, cutShare)
+    // A carved rock's full level is heavier, so its lightest may need every chunk to reach its share.
+    for (const chunkShare of (surface.rounded ?? 0) > 0 ? [PLAIN_CHUNKS, 1] : [PLAIN_CHUNKS]) {
+        for (const cutShare of PLAIN_CUTS) {
+            const geometry = meshAt(plan, surface, seed, detail, cutShare, chunkShare)
 
-        if (Math.abs(geometry.index!.count / 3 - target) < Math.abs(best.index!.count / 3 - target)) {
-            best = geometry
+            if (Math.abs(geometry.index!.count / 3 - target) < Math.abs(best.index!.count / 3 - target)) {
+                best = geometry
+            }
         }
     }
 
@@ -225,11 +270,16 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
         weatherPaint(paintStone(p, plane, chunkIndex, onEdge), plane.n[1], weather, plane.tone * 2 - 1)
 }
 
-function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number): THREE.BufferGeometry {
+function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number, chunkShare = PLAIN_CHUNKS): THREE.BufferGeometry {
     const size = (plan.width + plan.height + plan.depth) / 3
-    const chunks = chunksAtDetail(plan, detail, cutShare)
-    const withRings = detail >= RINGS_FROM && surface.edges > 0
-    const edgeWidth = surface.edges * EDGE_WIDTH * size ** 0.6
+    const chunks = chunksAtDetail(plan, detail, cutShare, chunkShare)
+    const rounded = clamp01(surface.rounded ?? 0)
+    // Rounded light is what marks a rock built since it existed, so one saved before stays exactly as it was.
+    const carved = rounded > 0
+    // A carved rock steps down through one plain wide edge before it has none.
+    const withRings = detail >= (carved ? CARVED_RINGS_FROM : RINGS_FROM) && surface.edges > 0
+    const fullyCarved = carved && detail >= RINGS_FROM
+    const edgeWidth = surface.edges * (carved ? CARVED_EDGE_WIDTH : EDGE_WIDTH) * size ** 0.6
 
     const waves = WARP_WAVES / size
     const reach = surface.bend * WARP_REACH * size
@@ -266,6 +316,13 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
             }
         }
 
+        const body = roundBody(faces)
+        const roundedLight = (n: Vec3, p: Vec3): Vec3 => {
+            const towards = body(p)
+
+            return normalize([n[0] * (1 - rounded) + towards[0] * rounded, n[1] * (1 - rounded) + towards[1] * rounded, n[2] * (1 - rounded) + towards[2] * rounded])
+        }
+
         const hidden = (a: Vec3, b: Vec3, c: Vec3) =>
             chunks.some(
                 (other, index) =>
@@ -284,24 +341,49 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                 corners.reduce((sum, p) => sum + p[2], 0) / count,
             ]
             const radius = corners.reduce((sum, p) => sum + Math.hypot(p[0] - middle[0], p[1] - middle[1], p[2] - middle[2]), 0) / count
-            const keep = 1 - Math.min(MAX_EDGE_SHARE, edgeWidth / Math.max(radius, 1e-6))
-            const inner = corners.map((p): Vec3 => [
-                middle[0] + (p[0] - middle[0]) * keep,
-                middle[1] + (p[1] - middle[1]) * keep,
-                middle[2] + (p[2] - middle[2]) * keep,
-            ])
+            const share = Math.min(MAX_EDGE_SHARE, edgeWidth / Math.max(radius, 1e-6))
+            const keep = 1 - share
+            // How far in from its corners each ring sits, and how far its light leans
+            // towards the faces around it. A carved face has a two-row edge that turns
+            // the light a step at a time, and a ring inside so the light can roll across it.
+            // Between, a carved rock gives only its larger faces an edge.
+            const edged = withRings && (fullyCarved || !carved || radius > size * PLAIN_EDGE_FROM)
+            const rings: readonly {at: number; lean: number}[] = !edged
+                ? [{at: 1, lean: 0}]
+                : fullyCarved
+                  ? [
+                        {at: 1, lean: 1},
+                        {at: 1 - share * 0.45, lean: CARVED_EDGE_LEAN},
+                        {at: keep, lean: 0},
+                        // A small face is too small for the light to roll across.
+                        ...(radius > size * INNER_FROM ? [{at: keep * INNER_RING, lean: 0}] : []),
+                    ]
+                  : [
+                        {at: 1, lean: carved ? CARVED_PLAIN_LEAN : EDGE_LEAN},
+                        {at: keep, lean: 0},
+                    ]
+            const ringPoints = rings.map(({at}) =>
+                at === 1
+                    ? corners
+                    : corners.map((p): Vec3 => [middle[0] + (p[0] - middle[0]) * at, middle[1] + (p[1] - middle[1]) * at, middle[2] + (p[2] - middle[2]) * at]),
+            )
+            const pillow = carved ? surface.bend * PILLOW * radius : 0
             // A vertex is written only if a triangle that stays uses it.
             const written = new Map<string, number>()
-            const vertex = (slot: string, p: Vec3, n: Vec3, onEdge: boolean) => {
+            const vertex = (slot: string, p: Vec3, n: Vec3, onEdge: boolean, at = 0) => {
                 let index = written.get(slot)
 
                 if (index === undefined) {
-                    const moved = warp(p)
+                    // A carved face swells a little towards its middle; its edges stay put,
+                    // so it still meets the next face.
+                    const rise = pillow * (1 - at * at)
+                    const moved = warp(rise > 0 ? [p[0] + plane.n[0] * rise, p[1] + plane.n[1] * rise, p[2] + plane.n[2] * rise] : p)
                     const colour = paint(p, plane, chunkIndex, onEdge)
+                    const lit = carved ? roundedLight(n, p) : n
 
                     index = positions.length / 3
                     positions.push(moved[0], moved[1], moved[2])
-                    normals.push(n[0], n[1], n[2])
+                    normals.push(lit[0], lit[1], lit[2])
                     colors.push(colour.r, colour.g, colour.b)
 
                     // Flat on the face's own plane: no point is shared with the next face,
@@ -314,23 +396,23 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
 
                 return index
             }
-            const outerNormal = (p: Vec3): Vec3 => {
+            const outerNormal = (p: Vec3, lean: number): Vec3 => {
+                if (lean === 0) {
+                    return plane.n
+                }
+
                 const out = normalize(leaning.get(keyOf(p)) ?? plane.n)
 
-                return normalize([
-                    plane.n[0] * (1 - EDGE_LEAN) + out[0] * EDGE_LEAN,
-                    plane.n[1] * (1 - EDGE_LEAN) + out[1] * EDGE_LEAN,
-                    plane.n[2] * (1 - EDGE_LEAN) + out[2] * EDGE_LEAN,
-                ])
+                return normalize([plane.n[0] * (1 - lean) + out[0] * lean, plane.n[1] * (1 - lean) + out[1] * lean, plane.n[2] * (1 - lean) + out[2] * lean])
             }
 
             if (detail < PLAIN_BELOW) {
                 for (let i = 1; i < count - 1; i++) {
                     if (!hidden(corners[0], corners[i], corners[i + 1])) {
                         indices.push(
-                            vertex('o0', corners[0], plane.n, false),
-                            vertex(`o${i}`, corners[i], plane.n, false),
-                            vertex(`o${i + 1}`, corners[i + 1], plane.n, false),
+                            vertex('o0', corners[0], plane.n, false, 1),
+                            vertex(`o${i}`, corners[i], plane.n, false, 1),
+                            vertex(`o${i + 1}`, corners[i + 1], plane.n, false, 1),
                         )
                     }
                 }
@@ -338,39 +420,31 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                 continue
             }
 
+            // A point on ring r: its corner's normal leans as far as the ring says, and only
+            // the outermost ring of an edged face counts as edge.
+            const ringVertex = (r: number, i: number) => {
+                return vertex(`${r}:${i}`, ringPoints[r][i], outerNormal(corners[i], rings[r].lean), edged && r === 0, rings[r].at)
+            }
+            const last = rings.length - 1
+
             for (let i = 0; i < count; i++) {
                 const j = (i + 1) % count
 
-                if (withRings) {
-                    if (!hidden(corners[i], corners[j], inner[j])) {
-                        indices.push(
-                            vertex(`o${i}`, corners[i], outerNormal(corners[i]), true),
-                            vertex(`o${j}`, corners[j], outerNormal(corners[j]), true),
-                            vertex(`i${j}`, inner[j], plane.n, false),
-                        )
+                for (let r = 0; r < last; r++) {
+                    const outer = ringPoints[r]
+                    const inner = ringPoints[r + 1]
+
+                    if (!hidden(outer[i], outer[j], inner[j])) {
+                        indices.push(ringVertex(r, i), ringVertex(r, j), ringVertex(r + 1, j))
                     }
 
-                    if (!hidden(corners[i], inner[j], inner[i])) {
-                        indices.push(
-                            vertex(`o${i}`, corners[i], outerNormal(corners[i]), true),
-                            vertex(`i${j}`, inner[j], plane.n, false),
-                            vertex(`i${i}`, inner[i], plane.n, false),
-                        )
+                    if (!hidden(outer[i], inner[j], inner[i])) {
+                        indices.push(ringVertex(r, i), ringVertex(r + 1, j), ringVertex(r + 1, i))
                     }
+                }
 
-                    if (!hidden(inner[i], inner[j], middle)) {
-                        indices.push(
-                            vertex(`i${i}`, inner[i], plane.n, false),
-                            vertex(`i${j}`, inner[j], plane.n, false),
-                            vertex('m', middle, plane.n, false),
-                        )
-                    }
-                } else if (!hidden(corners[i], corners[j], middle)) {
-                    indices.push(
-                        vertex(`o${i}`, corners[i], plane.n, false),
-                        vertex(`o${j}`, corners[j], plane.n, false),
-                        vertex('m', middle, plane.n, false),
-                    )
+                if (!hidden(ringPoints[last][i], ringPoints[last][j], middle)) {
+                    indices.push(ringVertex(last, i), ringVertex(last, j), vertex('m', middle, plane.n, false))
                 }
             }
         }
