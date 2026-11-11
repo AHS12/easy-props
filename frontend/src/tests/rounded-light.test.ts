@@ -44,12 +44,12 @@ describe('rounded light on rocks', () => {
     })
 
     it('at 0 builds a rock exactly as it was before Rounded light existed', () => {
-        // Taken from the rocks as they were built before, at every level.
-        expect(fingerprint(rockOf('boulder', {rounded: 0}))).toBe('0366de1122e02e56693e8c80974116b905baa5f8')
-        expect(fingerprint(rockOf('boulder', {rounded: 0}, 0.5))).toBe('7a15fb5df2f5ea4304961fc6419d832f37407669')
-        expect(fingerprint(rockOf('boulder', {rounded: 0}, 0.2))).toBe('8830f0b4d889ede088a3bd6e789e6dfc0a4ac83f')
-        expect(fingerprint(rockOf('cracked-boulder', {rounded: 0}))).toBe('507a45b9194f6894d9e9cf432c954e03f7107f23')
-        expect(fingerprint(rockOf('cliff-face', {rounded: 0}))).toBe('62b56ae6d78f9a04e3dda50ddf6cd92465704c76')
+        // Taken from the rocks as they were built before, at every level, in the stone they had then.
+        expect(fingerprint(rockOf('boulder', {rounded: 0, palette: 'lavender'}))).toBe('0366de1122e02e56693e8c80974116b905baa5f8')
+        expect(fingerprint(rockOf('boulder', {rounded: 0, palette: 'lavender'}, 0.5))).toBe('7a15fb5df2f5ea4304961fc6419d832f37407669')
+        expect(fingerprint(rockOf('boulder', {rounded: 0, palette: 'lavender'}, 0.2))).toBe('8830f0b4d889ede088a3bd6e789e6dfc0a4ac83f')
+        expect(fingerprint(rockOf('cracked-boulder', {rounded: 0, palette: 'lavender'}))).toBe('507a45b9194f6894d9e9cf432c954e03f7107f23')
+        expect(fingerprint(rockOf('cliff-face', {rounded: 0, palette: 'lavender'}))).toBe('62b56ae6d78f9a04e3dda50ddf6cd92465704c76')
     })
 
     it('rolls the light across a face, where before it was one direction', () => {

@@ -77,7 +77,7 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
     key: 'palette',
     label: 'Stone',
     help: 'The colours of the stone, shadow to highlight.',
-    default: 'lavender',
+    default: 'greystone',
     options: [
         ...(Object.keys(ROCK_RAMPS) as RockPaletteId[]).map((value) => ({
             value,

@@ -12,10 +12,11 @@
  */
 
 import * as THREE from 'three'
+import {valueNoise3} from '../shared/geometry-utils'
 import {mossFacing, weatherPaint, type MossFrom} from '../shared/weather'
 import {colourRamp} from '../style/ramp'
 import {rampOf, STONE_ROWS, type OwnColours} from '../style/own-colours'
-import {MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
+import {CALM_MOSS_RAMP, MOSS_RAMP, ROCK_RAMPS, type RockPaletteId} from '../style/palettes'
 import type {CrackedChunk} from './rock-damage'
 import {distanceToChunk, dot, facesOfChunk, normalize, type RockChunk, type RockPlan, type RockPlane, type Vec3} from './rock-plan'
 
@@ -65,6 +66,17 @@ const MOSS_REACH = 0.6
 /** How far darkness reaches from a seam or the ground, as a share of the size and the height. */
 const SEAM_REACH = 0.1
 const GROUND_REACH = 0.25
+/** A carved rock's colour: how large its soft patches are against its size, and how strong. */
+const PATCH_SIZE = 0.45
+const PATCH_LIGHT = 0.1
+/** How much of a face's own tone a carved rock keeps, fading to none at its edges. */
+const CARVED_FACE_TONE = 0.4
+/** How soft the line where moss gives way to stone is, in facing. */
+const MOSS_SOFTNESS = 0.14
+/** How far the patches push moss up or down a slope. */
+const MOSS_PATCHES = 0.34
+/** How much darker stone is just where moss begins. */
+const MOSS_RIM = 0.12
 /** Below this share of its detail, a rock has no edge rings. */
 const RINGS_FROM = 0.7
 /** A carved rock keeps a single wide edge down to this share, leaning this far. */
@@ -225,20 +237,40 @@ export function buildRockMesh(plan: RockPlan, surface: RockSurface, seed: number
     return best
 }
 
+/** Where a carved rock's colour is read: the light at the point, and how far out towards its face's edge it sits. */
+export interface CarvedPoint {
+    readonly n: Vec3
+    /** 0 at the middle of a face, 1 on its edge. */
+    readonly at: number
+}
+
+const smoothstep = (from: number, to: number, value: number) => {
+    const t = clamp01((value - from) / (to - from))
+
+    return t * t * (3 - 2 * t)
+}
+
 /**
  * The colour of the stone at a point on a face: darker in a seam between chunks
  * and near the ground, mossy where it faces the sky or the shade, under any snow.
+ *
+ * Given where a carved rock's point is, the colour runs across the whole rock: from
+ * the point's own light, its height and soft patches in space, so two faces meeting
+ * at an edge share their colour there, and moss fades in and creeps over edges.
  */
-export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surface: RockSurface) {
+export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surface: RockSurface, seed = 0) {
     const size = (plan.width + plan.height + plan.depth) / 3
     const stone = colourRamp(rampOf(surface.palette, ROCK_RAMPS, surface, STONE_ROWS))
     const moss = colourRamp(MOSS_RAMP)
+    const calmMoss = colourRamp(CALM_MOSS_RAMP)
     const mossAbove = surface.moss > 0 ? 1 - surface.moss * MOSS_REACH : Infinity
     const seamReach = size * SEAM_REACH
     const groundReach = plan.height * GROUND_REACH
     const weather = {snow: surface.snow ?? 0, wet: surface.wet ?? 0, mossFrom: surface.mossFrom ?? 'sky'}
+    const patchScale = 1 / (size * PATCH_SIZE)
+    const stoneColour = new THREE.Color()
 
-    const paintStone = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
+    const shadeAt = (p: Vec3, chunkIndex: number) => {
         let seam = Infinity
 
         chunks.forEach((other, index) => {
@@ -247,7 +279,42 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
             }
         })
 
-        const shade = (clamp01(seam / seamReach) * 0.35 + 0.65) * (clamp01(p[1] / groundReach) * 0.3 + 0.7)
+        return (clamp01(seam / seamReach) * 0.35 + 0.65) * (clamp01(p[1] / groundReach) * 0.3 + 0.7)
+    }
+
+    const paintCarved = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean, {n, at}: CarvedPoint): THREE.Color => {
+        const shade = shadeAt(p, chunkIndex)
+        const patch = valueNoise3(p[0] * patchScale, p[1] * patchScale, p[2] * patchScale, seed)
+        const fine = valueNoise3(p[0] * patchScale * 2.7, p[1] * patchScale * 2.7, p[2] * patchScale * 2.7, seed + 7)
+        const height = clamp01(p[1] / plan.height)
+        // A face keeps some tone of its own in its middle, none where it meets the next.
+        const tone = (plane.tone - 0.5) * 0.56 * surface.variation * CARVED_FACE_TONE * (1 - at * at)
+        const value =
+            0.36 +
+            (n[1] * 0.5 + 0.5) * 0.24 +
+            tone +
+            height * 0.18 +
+            patch * PATCH_LIGHT +
+            fine * PATCH_LIGHT * 0.4 +
+            // A painted light line along the top edges only.
+            (onEdge ? EDGE_LIGHT * clamp01(n[1] * 1.6) : 0)
+        const facing =
+            mossFacing(n[0], n[1], n[2], weather.mossFrom) + patch * MOSS_PATCHES + fine * MOSS_PATCHES * 0.4 + (weather.mossFrom === 'sky' ? (height - 0.5) * 0.12 : 0)
+        const mossy = surface.moss > 0 ? smoothstep(mossAbove - MOSS_SOFTNESS, mossAbove + MOSS_SOFTNESS, facing) : 0
+        // Stone darkens a little just where the moss begins.
+        const rim = mossy * (1 - mossy) * 4
+
+        stoneColour.copy(stone(value * shade * (1 - MOSS_RIM * rim)))
+
+        if (mossy <= 0) {
+            return stoneColour
+        }
+
+        return stoneColour.lerp(calmMoss((0.12 + (patch * 0.5 + 0.5) * 0.4 + (fine * 0.5 + 0.5) * 0.15 + n[1] * 0.12 + tone) * shade), mossy)
+    }
+
+    const paintStone = (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color => {
+        const shade = shadeAt(p, chunkIndex)
 
         if (mossFacing(plane.n[0], plane.n[1], plane.n[2], weather.mossFrom) > mossAbove) {
             return moss(onEdge ? 0.75 : (0.3 + plane.tone * 0.45) * shade)
@@ -266,8 +333,10 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
     }
 
     // Snow and wet lie over moss and stone alike.
-    return (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean): THREE.Color =>
-        weatherPaint(paintStone(p, plane, chunkIndex, onEdge), plane.n[1], weather, plane.tone * 2 - 1)
+    return (p: Vec3, plane: RockPlane, chunkIndex: number, onEdge: boolean, carved?: CarvedPoint): THREE.Color =>
+        carved
+            ? weatherPaint(paintCarved(p, plane, chunkIndex, onEdge, carved), carved.n[1], weather, valueNoise3(p[0] * patchScale, p[1] * patchScale, p[2] * patchScale, seed + 3))
+            : weatherPaint(paintStone(p, plane, chunkIndex, onEdge), plane.n[1], weather, plane.tone * 2 - 1)
 }
 
 function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: number, cutShare: number, chunkShare = PLAIN_CHUNKS): THREE.BufferGeometry {
@@ -298,7 +367,7 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     const indices: number[] = []
     const pictured = (surface.grain ?? 0) > 0
 
-    const paint = rockPainter(plan, chunks, surface)
+    const paint = rockPainter(plan, chunks, surface, seed)
 
     chunks.forEach((chunk, chunkIndex) => {
         const faces = facesOfChunk(chunk)
@@ -378,8 +447,8 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                     // so it still meets the next face.
                     const rise = pillow * (1 - at * at)
                     const moved = warp(rise > 0 ? [p[0] + plane.n[0] * rise, p[1] + plane.n[1] * rise, p[2] + plane.n[2] * rise] : p)
-                    const colour = paint(p, plane, chunkIndex, onEdge)
                     const lit = carved ? roundedLight(n, p) : n
+                    const colour = paint(p, plane, chunkIndex, onEdge, carved ? {n: lit, at} : undefined)
 
                     index = positions.length / 3
                     positions.push(moved[0], moved[1], moved[2])

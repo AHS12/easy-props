@@ -86,14 +86,15 @@ describe('cut rocks', () => {
             let best = 0
 
             for (let i = 0; i < colours.count; i++) {
-                best = Math.max(best, colours.getY(i) - colours.getZ(i))
+                // Greener than both red and blue, as moss is and warm grey stone is not.
+                best = Math.max(best, Math.min(colours.getY(i) - colours.getZ(i), colours.getY(i) - colours.getX(i)))
             }
 
             return best
         }
 
         expect(greenest(0)).toBeLessThan(0.05)
-        expect(greenest(1)).toBeGreaterThan(0.2)
+        expect(greenest(1)).toBeGreaterThan(0.12)
     })
 
     it('adding a chunk leaves the others as they were', () => {

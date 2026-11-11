@@ -161,7 +161,7 @@ export const BARK_TONES: Readonly<
     bone: {barkDeep: '#6b6358', barkLight: '#e8e0cf'},
 }
 
-export type RockPaletteId = 'lavender' | 'slate' | 'granite' | 'sandstone' | 'redrock' | 'basalt' | 'frost'
+export type RockPaletteId = 'greystone' | 'lavender' | 'slate' | 'granite' | 'sandstone' | 'redrock' | 'basalt' | 'frost'
 
 /** Stone for cut rocks, shadow to highlight. The shadow shifts hue, as a palette's does. */
 export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
@@ -172,10 +172,16 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
     redrock: ['#4a2438', '#94483f', '#cb7c58', '#f2c49a'],
     basalt: ['#14162a', '#30334e', '#565a78', '#9599b4'],
     frost: ['#3c5583', '#7c9fc9', '#bcd6ec', '#f4fbff'],
+    // A warm grey, the commonest stone in a stylised forest, and the one new rocks start with.
+    // Last, so own colours saved with a row missing still fill it from Lavender.
+    greystone: ['#434445', '#747677', '#a9aaaa', '#e4e5e4'],
 }
 
 /** Moss on any stone, shadow to highlight. */
 export const MOSS_RAMP: readonly string[] = ['#3a7a12', '#68a820', '#a2d63e']
+
+/** Moss on a carved rock: calmer greens, with the bright lime kept for its lightest touches. */
+export const CALM_MOSS_RAMP: readonly string[] = ['#284618', '#3f6624', '#5d8a30', '#a2d63e']
 
 export type PetalPaletteId = 'white' | 'pink' | 'flame' | 'gold' | 'violet' | 'cream' | 'red' | 'blue'
 
