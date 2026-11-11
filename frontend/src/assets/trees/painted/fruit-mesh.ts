@@ -176,7 +176,10 @@ export function addOneFruit(
     paint: ((value: number) => THREE.Color) | null,
     share = 1,
 ) {
-    const look = FRUIT_KINDS[tree.fruitKind]
+    const kind = FRUIT_KINDS[tree.fruitKind]
+    // A mixed kind picks its colour from where the fruit hangs, so it takes no random numbers.
+    const pick = kind.mixed?.[Math.floor(Math.abs(Math.sin(hang.top[0] * 12.9898 + hang.top[2] * 78.233) * 43758.5453) % kind.mixed.length)]
+    const look = pick ? {...kind, deep: pick[0], light: pick[1]} : kind
     const radius = fruitRadius(tree)
     const plain = share < FRUIT_PLAIN_BELOW
     // Fruit far smaller than an apple, like cherries and olives, needs few sides.

@@ -259,7 +259,8 @@ export const bushCoreGenerator: PartGenerator<BushPartParameters> = {
 
 export const bushLeavesGenerator: PartGenerator<BushPartParameters> = {
     id: 'bush-leaves',
-    version: 1,
+    // 2: flowers gather towards the top, not in bands across it.
+    version: 2,
     type: 'bush-leaves',
     label: 'Leaves',
     parameters: [],

@@ -553,7 +553,8 @@ export function placeCards(shape: BushShape, bush: BushParameters, seed: number)
             [a.x + (b.x - a.x) * r + (c.x - a.x) * s, a.y + (b.y - a.y) * r + (c.y - a.y) * s, a.z + (b.z - a.z) * r + (c.z - a.z) * s],
             0,
         )
-        const drift = Math.sin(point[0] * wave + 1) * Math.sin(point[2] * wave * 1.2) + Math.sin(point[1] * wave * 1.4)
+        // Patchy drifts across it, thickest towards the top, where the light is.
+        const drift = Math.sin(point[0] * wave + 1) * Math.sin(point[2] * wave * 1.2) + (point[1] / bush.height - 0.5) * 2
 
         if (point[1] > bush.height * FLOWER_FROM && drift > -0.2) {
             cards.push({point, normal: shape.gradient(point[0], point[1], point[2]), seed: cardSeed, priority: random(), flower: true, deep: false})

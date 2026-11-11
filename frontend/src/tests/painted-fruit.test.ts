@@ -79,12 +79,19 @@ describe('fruit on a painted tree', () => {
                 for (const clump of plan.clumps) {
                     const {geometry, leafCount, spots} = clumpWithFruitSpots(plan, clump, tree, 1, 1, null)
                     const cards = cardsOf(geometry, leafCount)
+                    const position = geometry.getAttribute('position').array
+                    // Broad leaves are narrow, so their points count as well as their middles.
+                    const points = Array.from({length: leafCount}, (_, index) => pointAt(position, index))
                     const hangs = planHangingFruit(spots, clump, tree)
 
                     expect(hangs.length, `${id} clump ${clump.key}`).toBe(tree.fruitCount)
 
                     for (const {attach} of hangs) {
-                        const nearest = Math.min(...cards.map((card) => distanceToCard(attach, card)))
+                        let nearest = Math.min(...cards.map((card) => distanceToCard(attach, card)))
+
+                        for (const point of points) {
+                            nearest = Math.min(nearest, distance(point, attach))
+                        }
 
                         expect(nearest, `${id} seed ${seed + shift} clump ${clump.key}`).toBeLessThanOrEqual(appleSize(tree))
                     }
@@ -152,6 +159,28 @@ describe('fruit on a painted tree', () => {
         // A bunch or a hand is one fruit here: it hangs on one stalk.
         expect(extra).toBeGreaterThan(0)
         expect(extra / (plan.clumps.length * tree.fruitCount)).toBeLessThan(200)
+    })
+
+    it('hangs baubles in mixed colours on Festive fir', () => {
+        const {tree, seed} = treeOf('christmas')
+        const plan = planPaintedTree(tree, seed)
+        const colours = new Set<string>()
+
+        for (const clump of plan.clumps) {
+            const geometry = buildClump(plan, clump, tree, 1)
+            const colour = geometry.getAttribute('color').array
+            const rigid = geometry.getAttribute(RIGID_ATTRIBUTE)!.array
+
+            rigid.forEach((mark, index) => {
+                // The lightest point of each bauble is its own colour; the stalks are all one brown.
+                if (mark === 1 && colour[index * 3] + colour[index * 3 + 1] + colour[index * 3 + 2] > 2) {
+                    colours.add([0, 1, 2].map((axis) => colour[index * 3 + axis].toFixed(1)).join())
+                }
+            })
+        }
+
+        expect(tree.fruitKind).toBe('bauble')
+        expect(colours.size).toBeGreaterThan(2)
     })
 
     it('shows Hanging with the other fruit controls, but not for cones, which stand up', () => {

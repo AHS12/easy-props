@@ -75,9 +75,13 @@ describe('a set’s files', () => {
         const apple = materialsInGlb(glb(await exportIn('apple', 'forest')))
         const alone = materialsInGlb(glb(await exportIn('oak')))
 
-        // Both have plated bark and leaves, so both name them alike.
-        expect(oak).toContain('forest_leaves')
-        expect(apple).toContain('forest_leaves')
+        const olive = materialsInGlb(glb(await exportIn('olive', 'forest')))
+
+        // Both have plated bark, so both name it alike. Leaves are named by their picture:
+        // lobed oak, round apple, and painted olive each have their own.
+        expect(oak).toContain('forest_leaves_lobed')
+        expect(apple).toContain('forest_leaves_round')
+        expect(olive).toContain('forest_leaves')
         expect(oak.find((name) => name.startsWith('forest_bark_plated'))).toBeDefined()
         expect(oak.find((name) => name.startsWith('forest_bark_plated'))).toBe(apple.find((name) => name.startsWith('forest_bark_plated')))
         expect(alone).toEqual(['oak_wood', 'oak_leaves'])
@@ -91,7 +95,7 @@ describe('a set’s files', () => {
 
         expect(list.set).toBe('forest')
         expect(list.props.map((prop: {name: string}) => prop.name)).toEqual(['oak_01', 'apple_01'])
-        expect(list.materials).toContain('forest_leaves')
+        expect(list.materials).toContain('forest_leaves_lobed')
         expect(list.colours).toContainEqual({setting: 'Tree: Palette', colour: 'Forest green'})
     }, 60000)
 })

@@ -114,6 +114,33 @@ function addKite(
     pushBothSides(buffers, a, c, d)
 }
 
+/** How many points go round a rounded leaf's edge. */
+const ROUND_LEAF_EDGE = 8
+
+/**
+ * A rounded leaf from `base` to `tip`, `across` being half its width: an oval
+ * fanned from its middle, narrowing a little to its stalk.
+ */
+function addRoundLeaf(buffers: PlantBuffers, base: Vec3, tip: Vec3, across: Vec3, n: Vec3, middleColour: THREE.Color, edgeColour: THREE.Color) {
+    const half: Vec3 = [(tip[0] - base[0]) / 2, (tip[1] - base[1]) / 2, (tip[2] - base[2]) / 2]
+    const middle = along(base, half, 1)
+    const centre = pushVertex(buffers, middle, n, middleColour)
+    const first = buffers.positions.length / 3
+
+    for (let point = 0; point < ROUND_LEAF_EDGE; point++) {
+        const angle = (point / ROUND_LEAF_EDGE) * Math.PI * 2
+        const lengthwise = Math.cos(angle)
+        // Narrower towards the stalk, as a primrose leaf is.
+        const width = Math.sin(angle) * (lengthwise < 0 ? 0.7 : 1)
+
+        pushVertex(buffers, along(along(middle, half, lengthwise), across, width), n, edgeColour)
+    }
+
+    for (let point = 0; point < ROUND_LEAF_EDGE; point++) {
+        pushBothSides(buffers, centre, first + point, first + ((point + 1) % ROUND_LEAF_EDGE))
+    }
+}
+
 export interface StemPath {
     point(t: number): Vec3
     tangent(t: number): Vec3
@@ -353,7 +380,7 @@ function addShapedLeaves(
                 const out = normalize([Math.cos(facing), 0.18, Math.sin(facing)])
                 const root: Vec3 = [stem.x, 0.01, stem.z]
 
-                addKite(buffers, root, along(root, out, length), along(origin, normalize(cross(out, up)), length * 0.38), 0.55, up, green(0.15), green(0.45 + random() * 0.15))
+                addRoundLeaf(buffers, root, along(root, out, length), along(origin, normalize(cross(out, up)), length * 0.4), up, green(0.15), green(0.45 + random() * 0.15))
             }
 
             break

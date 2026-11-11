@@ -42,6 +42,7 @@ export type FruitKind =
     | 'banana'
     | 'cone'
     | 'coconut'
+    | 'bauble'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
 /**
@@ -227,6 +228,7 @@ const FRUIT_KIND = {
         {value: 'banana', label: 'Bananas'},
         {value: 'cone', label: 'Pine cones'},
         {value: 'coconut', label: 'Coconut'},
+        {value: 'bauble', label: 'Baubles'},
     ],
     default: 'apple',
 } as const satisfies ChoiceParameter<FruitKind>
@@ -514,6 +516,8 @@ export interface FruitLook {
     readonly leaf: boolean
     /** A small crown at its far end, as on a pomegranate. */
     readonly crown?: boolean
+    /** Colours to pick from, one per fruit, deep and light, as baubles are mixed. */
+    readonly mixed?: readonly (readonly [string, string])[]
 }
 
 const fruit = (shape: FruitShape, deep: string, light: string, look: Partial<FruitLook> = {}): FruitLook => ({
@@ -546,6 +550,16 @@ export const FRUIT_KINDS: Readonly<Record<FruitKind, FruitLook>> = {
     banana: fruit('hand', '#6a7a12', '#e8d84a', {size: 0.36, length: 3.2, stalk: 1.2}),
     cone: fruit('cone', '#3e2410', '#9a6a3a', {size: 0.9, length: 1.7, stalk: 0.3}),
     coconut: fruit('ball', '#3c2a1a', '#8a6a3c', {stalk: 0.3}),
+    bauble: fruit('ball', '#8a0a14', '#ff5a4a', {
+        size: 0.85,
+        stalk: 0.35,
+        mixed: [
+            ['#8a0a14', '#ff5a4a'],
+            ['#9a6a08', '#ffe27a'],
+            ['#14307a', '#6aa0ff'],
+            ['#8a8a96', '#ffffff'],
+        ],
+    }),
 }
 
 /** The keys that hold the user's own colours, in the palette's order. */

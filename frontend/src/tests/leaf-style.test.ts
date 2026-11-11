@@ -35,7 +35,10 @@ const alphaAt = (texture: THREE.DataTexture, u: number, v: number) => {
 describe('leaf styles', () => {
     it('start as painted, on new trees and on trees saved before there was a choice', () => {
         expect(validatePaintedTreeParameters({}).parameters.leafStyle).toBe('painted')
-        expect(validatePaintedTreeParameters(createSceneFromPreset('oak').assets[0].parameters).parameters.leafStyle).toBe('painted')
+        const saved = {...createSceneFromPreset('olive').assets[0].parameters}
+
+        delete saved.leafStyle
+        expect(validatePaintedTreeParameters(saved).parameters.leafStyle).toBe('painted')
     })
 
     it.each(STYLES)('print %s leaves on every card variant, with a solid middle and a cut-out edge', (style) => {
@@ -63,7 +66,7 @@ describe('leaf styles', () => {
     })
 
     it.each(STYLES)('print %s on a crown’s cards without changing their shape', (style) => {
-        const painted = clumpsOf('oak')
+        const painted = clumpsOf('oak', {leafStyle: 'painted'})
         const styled = clumpsOf('oak', {leafStyle: style})
 
         styled.forEach((part, index) => {
@@ -88,7 +91,7 @@ describe('leaf styles', () => {
 
     it('build Broad as real leaves over the cards, glossy, at a cost Make it fit can bring down', () => {
         const triangles = (parts: ReturnType<typeof clumpsOf>) => parts.reduce((sum, part) => sum + (part.geometry.index?.count ?? 0) / 3, 0)
-        const painted = clumpsOf('oak')
+        const painted = clumpsOf('oak', {leafStyle: 'painted'})
         const broad = clumpsOf('oak', {leafStyle: 'broad'})
 
         expect(broad[0].surface?.map).toBe(getDabTexture())

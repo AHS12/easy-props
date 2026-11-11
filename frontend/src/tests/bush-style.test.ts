@@ -78,6 +78,30 @@ describe('bush leaf styles and blooms', () => {
         expect(leavesOf('heather').surface?.map).toBe(getLeafTexture('scales', 'bell'))
     })
 
+    it('gather flowers on the top of a bush, where the light is', () => {
+        for (const id of ['flower-bush', 'hydrangea', 'wild-rose', 'white-bush']) {
+            const leaves = leavesOf(id).geometry
+            const position = leaves.getAttribute('position').array
+            const uv = leaves.getAttribute('uv').array
+            const bush = bushGenerator.validate(createSceneFromPreset(id).assets[0].parameters).parameters
+            let high = 0
+            let low = 0
+
+            for (let index = 0; index < uv.length / 2; index++) {
+                // Flowers are printed from the bloom cell, the atlas's upper right.
+                if (uv[index * 2] > 0.5 && uv[index * 2 + 1] > 0.5) {
+                    if (position[index * 3 + 1] > bush.height * 0.7) {
+                        high++
+                    } else {
+                        low++
+                    }
+                }
+            }
+
+            expect(high, id).toBeGreaterThan(low * 0.6)
+        }
+    })
+
     it('hide both choices on a low-poly bush, which has no printed leaves', () => {
         const keys = (build: string) =>
             bushGenerator.shownControls!({...createSceneFromPreset('round-bush').assets[0].parameters, build}).map((spec) => spec.key)
