@@ -46,6 +46,8 @@ export interface RockSurface {
      * colour carry over their seams, and every chunk rounds a little more.
      */
     readonly blend?: number
+    /** How many of a carved rock's larger faces dip into soft hollows, 0 to 1. Left out, none. */
+    readonly dents?: number
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -87,6 +89,11 @@ const BLEND_ROUNDING = 0.4
 const BLEND_WHOLE = 0.35
 /** How much of a seam's darkness full Blend takes away, leaving a crease. */
 const BLEND_SEAM = 0.75
+/** At full Dents, the share of large faces that dip, how deep against the face's size, how far their light turns and how much darker they are. */
+const DENT_SHARE = 0.6
+const DENT_DEPTH = 0.08
+const DENT_TILT = 0.18
+const DENT_SHADE = 0.22
 /** A carved rock's contact with the ground: a short, strong dark band. */
 const CONTACT_REACH = 0.1
 const CONTACT_DARK = 0.42
@@ -484,6 +491,11 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                     : corners.map((p): Vec3 => [middle[0] + (p[0] - middle[0]) * at, middle[1] + (p[1] - middle[1]) * at, middle[2] + (p[2] - middle[2]) * at]),
             )
             const pillow = carved ? surface.bend * PILLOW * radius : 0
+            // Which faces dip is read from the face's own number, so it stays the same at every setting.
+            const dents = clamp01(surface.dents ?? 0)
+            const dented = carvedFully && dents > 0 && radius > size * INNER_FROM && (plane.tone * 7.31) % 1 < dents * DENT_SHARE
+            const dip = dented ? DENT_DEPTH * radius * (0.6 + dents * 0.4) : 0
+            const hollow = dented ? 0.6 + dents * 0.4 : 0
             // A vertex is written only if a triangle that stays uses it.
             const written = new Map<string, number>()
             const vertex = (slot: string, p: Vec3, n: Vec3, onEdge: boolean, at = 0) => {
@@ -492,10 +504,22 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
                 if (index === undefined) {
                     // A carved face swells a little towards its middle; its edges stay put,
                     // so it still meets the next face.
-                    const rise = pillow * (1 - at * at)
-                    const moved = warp(rise > 0 ? [p[0] + plane.n[0] * rise, p[1] + plane.n[1] * rise, p[2] + plane.n[2] * rise] : p)
-                    const lit = carved ? roundedLight(n, p) : n
+                    // A dented face dips instead, its light turning in towards the hollow.
+                    const rise = (pillow - dip) * (1 - at * at)
+                    const moved = warp(rise !== 0 ? [p[0] + plane.n[0] * rise, p[1] + plane.n[1] * rise, p[2] + plane.n[2] * rise] : p)
+                    const smooth = carved ? roundedLight(n, p) : n
+                    const lit = dented
+                        ? normalize([
+                              smooth[0] + ((middle[0] - p[0]) / radius) * DENT_TILT * hollow,
+                              smooth[1] + ((middle[1] - p[1]) / radius) * DENT_TILT * hollow,
+                              smooth[2] + ((middle[2] - p[2]) / radius) * DENT_TILT * hollow,
+                          ])
+                        : smooth
                     const colour = paint(p, plane, chunkIndex, onEdge, carved ? {n: lit, at} : undefined)
+
+                    if (dented) {
+                        colour.multiplyScalar(1 - DENT_SHADE * hollow * (1 - at * at))
+                    }
 
                     index = positions.length / 3
                     positions.push(moved[0], moved[1], moved[2])

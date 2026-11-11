@@ -88,7 +88,7 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
 }
 
 /** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend', 'dents']
 
 const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
@@ -109,10 +109,12 @@ const VARIATION = number(SURFACE, 'variation', 'Variation', 'How much one face d
 const ROUNDED = number(SURFACE, 'rounded', 'Rounded light', 'How the light falls: flat on each face, or rolling over the whole stone like a pebble. The faces and outline stay as they are.', 0, 1, 0.05, 0.5)
 /** On for new rocks. A saved file without it opens with none. */
 const BLEND = number(SURFACE, 'blend', 'Blend', 'How far the chunks run together into one stone, so where they meet reads as a crease and not a cut.', 0, 1, 0.05, 0.6)
+/** On for new rocks. A saved file without it opens with none. */
+const DENTS = number(SHAPE, 'dents', 'Dents', 'Soft hollows worn into some of the larger faces.', 0, 1, 0.05, 0.3)
 const RUBBLE = number(SHAPE, 'rubble', 'Rubble', 'Small stones of the same rock lying round its foot.', 0, 1, 0.05, 0)
 const GRAIN = number(SURFACE, 'grain', 'Grain', 'Fine speckle, small pits and hairline cracks in the stone, seen up close.', 0, 1, 0.05, 0.6)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, DENTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -136,6 +138,7 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly rounded: number
     readonly blend: number
     readonly rubble: number
+    readonly dents: number
     readonly palette: RockPaletteId | OwnColours
 }
 
@@ -159,6 +162,7 @@ export const cutRockDefaults: CutRockParameters = {
     rounded: ROUNDED.default,
     blend: BLEND.default,
     rubble: RUBBLE.default,
+    dents: DENTS.default,
     palette: PALETTE.default,
 }
 
@@ -182,6 +186,7 @@ const cutRockSchema = z.object({
     rounded: numberSchema(ROUNDED),
     blend: numberSchema(BLEND),
     rubble: numberSchema(RUBBLE),
+    dents: numberSchema(DENTS),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
 })

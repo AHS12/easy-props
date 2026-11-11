@@ -61,7 +61,8 @@ describe('cut rocks', () => {
     })
 
     it('leaves nothing hidden inside another chunk', () => {
-        const rock = {...cutRockDefaults, bend: 0, chunks: 4}
+        // Flat faces: bending and dents move points off their planes on purpose.
+        const rock = {...cutRockDefaults, bend: 0, dents: 0, chunks: 4}
         const plan = planRock(rock, 5)
         const geometry = buildRockMesh(plan, rock, 5, 1)
         const position = geometry.getAttribute('position')

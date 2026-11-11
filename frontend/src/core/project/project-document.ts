@@ -262,8 +262,8 @@ export function parseProject(text: string): LoadedProject {
  * file version stays as it is and older builds still open what this one saves.
  */
 const EARLIER_LOOKS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
-    // Rocks gained Grain after 0.4.2, then Rounded light and Blend.
-    'cut-rock': {grain: 0, rounded: 0, blend: 0},
+    // Rocks gained Grain after 0.4.2, then Rounded light, Blend and Dents.
+    'cut-rock': {grain: 0, rounded: 0, blend: 0, dents: 0},
 }
 
 function filledIn(values: unknown, earlier: Readonly<Record<string, number>>): unknown {

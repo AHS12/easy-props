@@ -116,3 +116,47 @@ describe('rubble', () => {
         expect(faces(1, 0.12)).toBeGreaterThan(faces(0, 0.12))
     })
 })
+
+describe('dents', () => {
+    const mossy = (changes: Partial<CutRockParameters> = {}): CutRockParameters => ({...(findPreset('mossy-boulder')!.parameters as unknown as CutRockParameters), ...changes})
+    const mossySeed = findPreset('mossy-boulder')!.seed
+    const build = (rock: CutRockParameters) => buildRockMesh(planRock(rock, mossySeed), rock, mossySeed, 1)
+
+    it('are on for new rocks, hidden on a low-poly one, and none on a saved one', () => {
+        expect(cutRockDefaults.dents).toBe(0.3)
+        expect(cutRockGenerator.shownControls!({...cutRockDefaults, build: 'low-poly'}).map((spec) => spec.key)).not.toContain('dents')
+
+        const document = JSON.parse(serializeProject({scene: createSceneFromPreset('boulder'), style: 'low-poly'})) as {
+            scene: {assets: {parameters: Record<string, unknown>}[]}
+        }
+
+        delete document.scene.assets[0].parameters.dents
+        expect(parseProject(JSON.stringify(document)).scene.assets[0].parameters.dents).toBe(0)
+    })
+
+    it('hollow some faces darker and deeper, at no cost in faces', () => {
+        const flat = build(mossy({dents: 0}))
+        const dented = build(mossy({dents: 1}))
+        const total = (geometry: THREE.BufferGeometry) => {
+            const colour = geometry.getAttribute('color')
+            let sum = 0
+
+            for (let index = 0; index < colour.count; index++) {
+                sum += brightness(colour, index)
+            }
+
+            return sum
+        }
+
+        expect(dented.index!.count).toBe(flat.index!.count)
+        expect(total(dented)).toBeLessThan(total(flat))
+        expect(Array.from(dented.getAttribute('position').array)).not.toEqual(Array.from(flat.getAttribute('position').array))
+    })
+
+    it('leave a rock saved before Rounded light alone', () => {
+        const before = build(mossy({rounded: 0, dents: 0}))
+        const after = build(mossy({rounded: 0, dents: 1}))
+
+        expect(Array.from(after.getAttribute('position').array)).toEqual(Array.from(before.getAttribute('position').array))
+    })
+})
