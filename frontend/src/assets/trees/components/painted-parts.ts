@@ -11,6 +11,7 @@
  */
 
 import * as THREE from 'three'
+import {getTreeLeafTexture} from '../../shared/tree-leaf-texture'
 import {wetSurface} from '../../shared/weather'
 import type {PartGenerator} from '../../shared/generator-types'
 import type {ParameterSpec, ValidationResult} from '../../shared/parameters'
@@ -77,6 +78,7 @@ function validateKeyed(parameters: unknown): ValidationResult<PaintedKeyedParame
 const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
     'fullness',
     'leafSize',
+    'leafStyle',
     'lumpiness',
     'strands',
     'strandLength',
@@ -228,6 +230,10 @@ const CLUMP_SPECS: readonly ParameterSpec[] = [
     },
 ]
 
+/** What a clump's cards are printed with. Palms keep the dabs: their fronds sample only its solid middle. */
+const leafPicture = (tree: PaintedTreeParameters) =>
+    tree.leafStyle === 'painted' || tree.form === 'palm' ? getDabTexture() : getTreeLeafTexture(tree.leafStyle)
+
 function findClump(tree: PaintedTreeParameters, seed: number, key: string): Clump | undefined {
     return planPaintedTree(tree, seed).clumps.find((clump) => clump.key === key)
 }
@@ -315,6 +321,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
             tree.fruitHang,
             tree.fullness,
             tree.leafSize,
+            tree.leafStyle,
             tree.lumpiness,
             tree.colourVariation,
             tree.snow,
@@ -352,7 +359,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
                   )
                 : new THREE.BufferGeometry(),
             material: 'painted',
-            surface: wetSurface({vertexColors: true, map: getDabTexture(), alphaTest: 0.5, receiveShadow: false}, tree.wet),
+            surface: wetSurface({vertexColors: true, map: leafPicture(tree), alphaTest: 0.5, receiveShadow: false}, tree.wet),
             role: 'foliage',
         }
     },

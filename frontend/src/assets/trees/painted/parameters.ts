@@ -17,6 +17,7 @@ import {
 } from '../../shared/parameters'
 import {BARK_TONES, PALETTES, type BarkToneId, type Palette, type PaletteId} from '../../style/palettes'
 import {MOSS_FROM, SNOW, WEATHER, WET, type MossFrom} from '../../shared/weather'
+import type {PrintedLeafStyle} from '../../shared/tree-leaf-texture'
 
 export {BARK_TONES, PALETTES}
 export type {BarkToneId, Palette, PaletteId}
@@ -43,6 +44,8 @@ export type FruitKind =
     | 'coconut'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
+/** What a crown's leaf cards are printed with: brush dabs, or one of the leaf shapes. */
+export type LeafStyle = 'painted' | PrintedLeafStyle
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
 export type CrownShape = 'natural' | 'round' | 'wide' | 'umbrella' | 'column' | 'cone' | 'teardrop'
 /** Painted is soft leaf cards and sculpted bark. Low-poly is the same tree in a few hard-edged blocks. */
@@ -180,6 +183,22 @@ const FROND_STYLE = {
     default: 'feather',
 } as const satisfies ChoiceParameter<FrondStyle>
 
+const LEAF_STYLE = {
+    kind: 'choice',
+    group: LEAVES,
+    key: 'leafStyle',
+    label: 'Leaf style',
+    help: 'What the leaves look like up close: soft brush dabs, or leaves with a shape of their own.',
+    options: [
+        {value: 'painted', label: 'Painted'},
+        {value: 'round', label: 'Round'},
+        {value: 'lobed', label: 'Lobed'},
+        {value: 'feathery', label: 'Feathery'},
+        {value: 'needles', label: 'Needles'},
+    ],
+    default: 'painted',
+} as const satisfies ChoiceParameter<LeafStyle>
+
 const FRUIT_KIND = {
     kind: 'choice',
     group: FRUIT,
@@ -302,12 +321,14 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.lumpiness,
     NUMBERS.fullness,
     NUMBERS.leafSize,
+    LEAF_STYLE,
     FROND_STYLE,
     NUMBERS.strands,
     NUMBERS.strandLength,
     NUMBERS.fruitCount,
     FRUIT_KIND,
     NUMBERS.fruitSize,
+    NUMBERS.fruitHang,
     PALETTE,
     BARK_TONE,
     NUMBERS.colourVariation,
@@ -347,12 +368,15 @@ const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
         // A palm has no branches to break, and its trunk is too slim to split.
         'brokenLimbs',
         'split',
+        // Its fronds are real leaf shapes, not printed cards.
+        'leafStyle',
     ],
     conifer: ['stem', 'crownShape', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
 }
 
 /** Controls a low-poly tree has no use for: its bark is plain blocks and its leaves are not cards. */
 const HIDDEN_WHEN_LOW_POLY: readonly string[] = [
+    'leafStyle',
     'ridgeTwist',
     'ridgeDepth',
     'ridgeCount',
@@ -539,6 +563,7 @@ export type PaintedTreeParameters = {
         readonly form: TreeForm
         readonly crownShape: CrownShape
         readonly frondStyle: FrondStyle
+        readonly leafStyle: LeafStyle
         readonly fruitKind: FruitKind
         readonly barkPattern: BarkPattern
         readonly barkTone: BarkToneId
@@ -578,6 +603,7 @@ const paintedTreeSchema = z.object({
     form: choiceSchema(FORM),
     crownShape: choiceSchema(CROWN_SHAPE),
     frondStyle: choiceSchema(FROND_STYLE),
+    leafStyle: choiceSchema(LEAF_STYLE),
     fruitKind: choiceSchema(FRUIT_KIND),
     barkPattern: choiceSchema(BARK_PATTERN),
     barkTone: choiceSchema(BARK_TONE),
@@ -599,6 +625,7 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
     form: FORM.default,
     crownShape: CROWN_SHAPE.default,
     frondStyle: FROND_STYLE.default,
+    leafStyle: LEAF_STYLE.default,
     fruitKind: FRUIT_KIND.default,
     barkPattern: BARK_PATTERN.default,
     barkTone: BARK_TONE.default,

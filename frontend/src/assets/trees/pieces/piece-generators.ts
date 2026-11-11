@@ -16,6 +16,7 @@ import type {CollisionShape, GeneratedPart, PartGenerator, PropGenerator} from '
 import {numberSchema, validateParameters, type NumberParameter, type ParameterSpec} from '../../shared/parameters'
 import {MOSS_FROM, SNOW, WEATHER, WET, weatherSchema, wetSurface, type MossFrom} from '../../shared/weather'
 import type {StyleProfile} from '../../style/style-profiles'
+import {getTreeLeafTexture} from '../../shared/tree-leaf-texture'
 import {getBarkRelief, getBarkTexture, getDabTexture} from '../painted'
 import {paintedTreeDefaults, validatePaintedTreeParameters, type PaintedTreeParameters} from '../painted/parameters'
 import {getEndGrainRelief, getEndGrainTexture} from '../../shared/end-grain-texture'
@@ -206,11 +207,15 @@ export const litterLeavesGenerator: PartGenerator<PieceBodyParameters> = {
     validate: validateBody,
 
     generate({piece, seed}, {detail = 1}) {
+        const source = sourceOf(piece)
+        // The leaves that fell look like the ones still on the tree.
+        const {leafStyle} = source.tree
+
         return {
-            geometry: buildLitter(sourceOf(piece), piece, seed, detail),
+            geometry: buildLitter(source, piece, seed, detail),
             material: 'painted',
             role: 'foliage',
-            surface: wetSurface({vertexColors: true, map: getDabTexture(), alphaTest: 0.5, receiveShadow: true}, piece.wet),
+            surface: wetSurface({vertexColors: true, map: leafStyle === 'painted' ? getDabTexture() : getTreeLeafTexture(leafStyle), alphaTest: 0.5, receiveShadow: true}, piece.wet),
         }
     },
 }

@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
 import {RIGID_ATTRIBUTE} from '../assets/shared/generator-types'
-import {FRUIT_KINDS, planPaintedTree, validatePaintedTreeParameters, type FruitKind, type PaintedTreeParameters} from '../assets/trees/painted'
+import {controlsForTree, FRUIT_KINDS, paintedTreeParameterSpecs, planPaintedTree, validatePaintedTreeParameters, type FruitKind, type PaintedTreeParameters} from '../assets/trees/painted'
 import {buildClump, clumpWithFruitSpots} from '../assets/trees/painted/clump-mesh'
 import {planHangingFruit} from '../assets/trees/painted/fruit-mesh'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
@@ -152,6 +152,15 @@ describe('fruit on a painted tree', () => {
         // A bunch or a hand is one fruit here: it hangs on one stalk.
         expect(extra).toBeGreaterThan(0)
         expect(extra / (plan.clumps.length * tree.fruitCount)).toBeLessThan(200)
+    })
+
+    it('shows Hanging with the other fruit controls, but not for cones, which stand up', () => {
+        const keys = (presetId: string) =>
+            controlsForTree(paintedTreeParameterSpecs, createSceneFromPreset(presetId).assets[0].parameters).map((spec) => spec.key)
+
+        expect(keys('apple')).toContain('fruitHang')
+        expect(keys('pine-cones')).not.toContain('fruitHang')
+        expect(keys('oak')).not.toContain('fruitHang')
     })
 
     it('hangs from the leaves on a tree saved before it did, as on a new one', () => {
