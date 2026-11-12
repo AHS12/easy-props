@@ -296,6 +296,8 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
     const stoneColour = new THREE.Color()
     const blend = clamp01(surface.blend ?? 0)
     const layers = clamp01(surface.layers ?? 0)
+    // A rounder stone has softer edges, so its painted edge line fades with it, or it would draw the facets back in.
+    const edgeLine = EDGE_LIGHT * (1 - clamp01((surface.rounded ?? 0) + (1 - (surface.rounded ?? 0)) * blend * BLEND_ROUNDING))
     const bandScale = (3 + layers * (BANDS - 3)) / plan.height
 
     const seamAt = (p: Vec3, chunkIndex: number) => {
@@ -338,7 +340,7 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
             // Bands of stone, tilted a little so they don't look ruled.
             (layers > 0 ? valueNoise3(0.5, (p[1] + p[0] * 0.06 + p[2] * 0.03) * bandScale, 0.5, seed + 11) * BAND_LIGHT * layers : 0) +
             // A painted light line along the top edges only.
-            (onEdge ? EDGE_LIGHT * clamp01(n[1] * 1.6) : 0)
+            (onEdge ? edgeLine * clamp01(n[1] * 1.6) : 0)
         const facing =
             mossFacing(n[0], n[1], n[2], weather.mossFrom) + patch * MOSS_PATCHES + fine * MOSS_PATCHES * 0.4 + (weather.mossFrom === 'sky' ? (height - 0.5) * 0.12 : 0)
         const mossy = surface.moss > 0 ? smoothstep(mossAbove - MOSS_SOFTNESS, mossAbove + MOSS_SOFTNESS, facing) : 0
