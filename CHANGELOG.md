@@ -2,6 +2,59 @@
 
 What's new in each version of easy-props.
 
+## 0.4.5 (November 12, 2026)
+
+**Rocks look like stone**
+
+- Normal rocks no longer look like cut gems. Light rolls over each rock like a pebble, while
+  the faces and the outline stay crisp.
+- Edges are wider and softer, and the colour runs across the whole rock, so faces no longer
+  change colour at every edge. Moss fades in softly and creeps over edges, in calmer greens.
+- Worn hollows and faint bands of stone are new options, and the default stone is a warm grey.
+- Chunks of a boulder sit closer together and read as one stone, with a heavy dark band at the
+  foot. Small stones can be scattered round the foot with Rubble.
+- Cliffs stack in courses with a flat ledge on top, and outcrops and cliffs can lean out over
+  their feet with Overhang.
+- New rocks: Round boulder, Overhang, Cracked slab, Mossy rubble and Riverbank stones.
+- Lichen adds small pale patches to bare stone, with no extra faces.
+- Rocks you saved before these changes look exactly as they did.
+
+**Trees and fruit**
+
+- Fruit hangs from the leaves on a short stalk, and no longer floats. Each kind has its own
+  shape: balls, pears, cherries, grapes, dates, banana hands and pine cones.
+- A Hanging slider lowers fruit from snug to dangling.
+- New fruit trees: Pear, Cherry, Fig, Pomegranate and Cone pine. Festive fir carries baubles.
+- Leaves come in Round, Lobed, Feathery and Needles styles. Broad trees carry real drooping
+  sprays of leaves, and there is a new Mango tree.
+- Presets wear the leaves of their own species.
+
+**Bushes and flowers**
+
+- Bushes have leaf styles and five kinds of flower. Flowers sit on top of the bush, where the
+  light is.
+- Six new bushes: Box hedge, Holly, Juniper, Laurel, Hydrangea and Heather.
+- Flowers have a choice of leaves: Grass-like, Straps, Up the stem, Broad at the foot and
+  Feathery.
+
+**Damage and age**
+
+- Trees can be snapped at the top, with broken limbs or a split trunk. Rocks can be cracked
+  and crumbled at one edge, with the pieces lying at their foot.
+- Pieces from a tree: a stump, a fallen log, a fallen branch and leaf litter.
+
+**Weather and detail**
+
+- Every prop can have snow, wet, and moss on one side.
+- Rocks carry fine grain up close.
+- Truer bark on 21 tree presets, and cleaner branch joins.
+- Tilt the ground in the view to check a prop on a slope.
+
+**Export**
+
+- Cut ends, Picture size and Export as a set are new in export, and a Godot 4.7 import fix
+  keeps the colours easy-props paints on props.
+
 ## 0.4.2 (November 8, 2026)
 
 **My presets**
