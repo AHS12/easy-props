@@ -36,6 +36,8 @@ export interface RockSurface {
     readonly mossFrom?: MossFrom
     /** How strong the stone picture is, 0 to 1. Left out or 0, no picture, and the mesh is as it was. */
     readonly grain?: number
+    /** How much lichen the stone picture shows, 0 to 1. Left out or 0, none. Lichen needs the picture, so the rock is pictured. */
+    readonly lichen?: number
     /**
      * How far the light follows a smooth rounded body around each chunk, not its flat
      * faces, 0 to 1. Left out or 0, the rock is built as it was before it existed.
@@ -413,7 +415,7 @@ function meshAt(plan: RockPlan, surface: RockSurface, seed: number, detail: numb
     const colors: number[] = []
     const uvs: number[] = []
     const indices: number[] = []
-    const pictured = (surface.grain ?? 0) > 0
+    const pictured = (surface.grain ?? 0) > 0 || (surface.lichen ?? 0) > 0
 
     const paint = rockPainter(plan, chunks, surface, seed)
 

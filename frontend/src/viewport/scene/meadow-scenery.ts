@@ -124,7 +124,7 @@ export function createMeadowScenery(): MeadowScenery {
     const stone = new THREE.MeshStandardMaterial({
         vertexColors: true,
         roughness: 1,
-        map: getStoneTexture(cutRockDefaults.grain),
+        map: getStoneTexture(cutRockDefaults.grain, undefined, cutRockDefaults.lichen),
         normalMap: getStoneRelief(cutRockDefaults.grain),
     })
     const zero = new THREE.Matrix4().makeScale(0, 0, 0)

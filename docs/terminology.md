@@ -47,6 +47,7 @@ agree on the term first, or rethink the control.
 | Strata, courses | **Layers** | On rocks: bands of stone laid one on another; a cliff stacks in courses with a ledge on top |
 | Undercut, cantilever | **Overhang** | On outcrops and cliffs: how far they lean out over their feet |
 | Scatter, debris | **Rubble** | On rocks: small stones lying round the foot |
+| Lichen, moss on bare stone | **Lichen** | On rocks: small pale patches on bare stone, seen up close |
 | Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
 | End cap, cross-section texture | **Cut ends** | The sawn faces of a stump, log or branch, with their rings |
 | Texture resolution | **Picture size** | In Export: 512, 1024 or 2048. Never "texture" or "resolution" |

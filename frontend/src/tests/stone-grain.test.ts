@@ -29,7 +29,8 @@ describe('grain on rocks', () => {
     })
 
     it('leaves the stone exactly as it was when there is none', () => {
-        const plain = rockPart({grain: 0})
+        // Lichen is on by default, so it is turned off here to leave a rock with no picture at all.
+        const plain = rockPart({grain: 0, lichen: 0})
         const grained = rockPart({grain: 0.6})
 
         expect(plain.surface?.map).toBeUndefined()

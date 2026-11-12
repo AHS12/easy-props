@@ -88,7 +88,7 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
 }
 
 /** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend', 'dents', 'layers', 'overhang']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'lichen', 'rounded', 'blend', 'dents', 'layers', 'overhang']
 /** Only these kinds lean out over their feet. */
 const OVERHANGING: readonly RockKind[] = ['outcrop', 'cliff']
 
@@ -117,9 +117,11 @@ const DENTS = number(SHAPE, 'dents', 'Dents', 'Soft hollows worn into some of th
 const LAYERS = number(SHAPE, 'layers', 'Layers', 'Bands of stone laid one on another. A cliff stacks in courses with a ledge on top, and every rock shows faint stripes.', 0, 1, 0.05, 0.4)
 const OVERHANG = number(SHAPE, 'overhang', 'Overhang', 'How far an outcrop or cliff leans out over its feet, on the side that faces you.', 0, 1, 0.05, 0.3)
 const RUBBLE = number(SHAPE, 'rubble', 'Rubble', 'Small stones of the same rock lying round its foot.', 0, 1, 0.05, 0)
+/** On for new rocks. A saved file without it opens with none, so a saved rock looks as it did. */
+const LICHEN = number(SURFACE, 'lichen', 'Lichen', 'Small pale patches of lichen on bare stone, seen up close.', 0, 1, 0.05, 0.3)
 const GRAIN = number(SURFACE, 'grain', 'Grain', 'Fine speckle, small pits and hairline cracks in the stone, seen up close.', 0, 1, 0.05, 0.6)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, LAYERS, OVERHANG, DENTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, LAYERS, OVERHANG, DENTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, LICHEN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -140,6 +142,7 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly crumble: number
     readonly variation: number
     readonly grain: number
+    readonly lichen: number
     readonly rounded: number
     readonly blend: number
     readonly rubble: number
@@ -166,6 +169,7 @@ export const cutRockDefaults: CutRockParameters = {
     crumble: CRUMBLE.default,
     variation: VARIATION.default,
     grain: GRAIN.default,
+    lichen: LICHEN.default,
     rounded: ROUNDED.default,
     blend: BLEND.default,
     rubble: RUBBLE.default,
@@ -192,6 +196,7 @@ const cutRockSchema = z.object({
     crumble: numberSchema(CRUMBLE),
     variation: numberSchema(VARIATION),
     grain: numberSchema(GRAIN),
+    lichen: numberSchema(LICHEN),
     rounded: numberSchema(ROUNDED),
     blend: numberSchema(BLEND),
     rubble: numberSchema(RUBBLE),
@@ -257,9 +262,13 @@ export const cutRockBodyGenerator: PartGenerator<CutRockBodyParameters> = {
             material: 'painted',
             role: 'solid',
             surface: wetSurface(
-                rock.build === 'low-poly' || rock.grain <= 0
+                rock.build === 'low-poly' || (rock.grain <= 0 && rock.lichen <= 0)
                     ? {vertexColors: true}
-                    : {vertexColors: true, map: getStoneTexture(rock.grain), normalMap: getStoneRelief(rock.grain)},
+                    : {
+                          vertexColors: true,
+                          map: getStoneTexture(rock.grain, undefined, rock.lichen),
+                          ...(rock.grain > 0 ? {normalMap: getStoneRelief(rock.grain)} : {}),
+                      },
                 rock.wet,
             ),
         }

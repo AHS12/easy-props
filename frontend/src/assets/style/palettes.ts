@@ -174,7 +174,7 @@ export const ROCK_RAMPS: Readonly<Record<RockPaletteId, readonly string[]>> = {
     frost: ['#3c5583', '#7c9fc9', '#bcd6ec', '#f4fbff'],
     // A warm grey, the commonest stone in a stylised forest, and the one new rocks start with.
     // Last, so own colours saved with a row missing still fill it from Lavender.
-    greystone: ['#434445', '#747677', '#a9aaaa', '#e4e5e4'],
+    greystone: ['#363738', '#5f6162', '#8a8c8c', '#b9baba'],
 }
 
 /** Moss on any stone, shadow to highlight. */

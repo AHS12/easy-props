@@ -33,6 +33,12 @@ const CRACK_DARK = 0.24
 const PIT_DEPTH = 1.6
 const CRACK_DEPTH = 0.6
 const RELIEF_STEEPNESS = 1.6
+/** Lichen: pale patches on bare stone, printed as a yellow-green tint that darkens the stone. */
+const LICHEN_CELLS = 7
+const LICHEN_TINT: readonly [number, number, number] = [0.8, 0.9, 0.5]
+/** Spots begin above LICHEN_FROM and are whole by LICHEN_TO; the Lichen setting scales them. */
+const LICHEN_FROM = 0.72
+const LICHEN_TO = 0.8
 
 interface Grain {
     /** How dark each pixel is, 0 to 1. */
@@ -41,6 +47,7 @@ interface Grain {
 }
 
 const grains = new Map<number, Grain>()
+const lichens = new Map<number, Float32Array>()
 const textures = new Map<string, THREE.DataTexture>()
 const reliefs = new Map<string, THREE.DataTexture>()
 
@@ -157,6 +164,18 @@ function makeGrain(size: number): Grain {
     return {darkness, heights}
 }
 
+/** Where lichen patches are, 0 to 1, from their own noise so the grain does not change. */
+function lichenOf(size: number): Float32Array {
+    let made = lichens.get(size)
+
+    if (!made) {
+        made = mottle(LICHEN_CELLS, createSeededRandom(TEXTURE_SEED + 7), size)
+        lichens.set(size, made)
+    }
+
+    return made
+}
+
 function grainOf(size: number): Grain {
     let made = grains.get(size)
 
@@ -183,10 +202,14 @@ function configured(texture: THREE.DataTexture): THREE.DataTexture {
 /** Grain as a slider stop, so each stop is made once. */
 const stopOf = (strength: number) => Math.round(Math.min(Math.max(strength, 0), 1) * 20) / 20
 
-/** The stone picture at a Grain strength, 0 to 1. Nearly white, to multiply the stone's colours. */
-export function getStoneTexture(strength: number, size = PICTURE_SIZE): THREE.DataTexture {
+/**
+ * The stone picture at a Grain strength, 0 to 1, with lichen at a strength too. Nearly white,
+ * to multiply the stone's colours. Lichen left at 0 is the picture it always was.
+ */
+export function getStoneTexture(strength: number, size = PICTURE_SIZE, lichen = 0): THREE.DataTexture {
     const stop = stopOf(strength)
-    const key = `${stop}:${size}`
+    const lichenStop = stopOf(lichen)
+    const key = lichenStop > 0 ? `${stop}:${size}:${lichenStop}` : `${stop}:${size}`
     const cached = textures.get(key)
 
     if (cached) {
@@ -194,6 +217,7 @@ export function getStoneTexture(strength: number, size = PICTURE_SIZE): THREE.Da
     }
 
     const {darkness} = grainOf(size)
+    const spots = lichenStop > 0 ? lichenOf(size) : null
     const data = new Uint8Array(size * size * 4).fill(255)
     // Mottling darkens and lightens about a middle, so the stone keeps its own value overall.
     const middle = 0.06
@@ -204,14 +228,22 @@ export function getStoneTexture(strength: number, size = PICTURE_SIZE): THREE.Da
         data[index * 4] = value
         data[index * 4 + 1] = value
         data[index * 4 + 2] = value
+
+        if (spots) {
+            const cover = smooth(Math.min(1, Math.max(0, (spots[index] - LICHEN_FROM) / (LICHEN_TO - LICHEN_FROM)))) * lichenStop
+
+            for (let channel = 0; channel < 3; channel++) {
+                data[index * 4 + channel] = Math.round(data[index * 4 + channel] * (1 - cover * (1 - LICHEN_TINT[channel])))
+            }
+        }
     }
 
     const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
 
     texture.colorSpace = THREE.SRGBColorSpace
     // What it shows, so files in a set that share it can share a material.
-    texture.name = `stone_${Math.round(stop * 100)}`
-    texture.userData.atSize = (larger: number) => getStoneTexture(strength, larger)
+    texture.name = lichenStop > 0 ? `stone_${Math.round(stop * 100)}_lichen_${Math.round(lichenStop * 100)}` : `stone_${Math.round(stop * 100)}`
+    texture.userData.atSize = (larger: number) => getStoneTexture(strength, larger, lichen)
     configured(texture)
     textures.set(key, texture)
 
