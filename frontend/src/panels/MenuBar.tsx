@@ -33,7 +33,7 @@ const MENUS: readonly {readonly title: string; readonly items: readonly (string 
     },
     {
         title: 'Prop',
-        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'save-starting-point', null, 'style-low-poly', 'style-detailed'],
+        items: ['randomize', 'show-more', 'use-seed', 'copy-seed', 'restore-tree', null, 'save-starting-point', 'make-pieces', null, 'style-low-poly', 'style-detailed'],
     },
     {
         title: 'Help',

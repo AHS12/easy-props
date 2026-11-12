@@ -5,17 +5,22 @@
  */
 
 import {BUDGET_TARGETS, DEFAULT_BUDGET_TARGET, type BudgetTargetId} from './pipeline/budget'
-import {ENGINE_LABELS, EXPORT_LOOKS, type EngineId, type ExportLook} from './pipeline/types'
+import {ENGINE_LABELS, EXPORT_LOOKS, PICTURE_SIZES, type EngineId, type ExportLook, type PictureSize} from './pipeline/types'
 
-export const APP_VERSION = '0.4.2'
+export const APP_VERSION = '0.4.5'
 
 /** What Godot needs told. Its own simplifying deletes leaf cards, and a file cannot turn it off. */
 export const GODOT_IMPORT_NOTE =
-    'In Godot, turn off automatic LODs or the leaves disappear: select each LOD file, open the Import tab, untick Meshes > Generate LODs, then press Reimport.'
+    'In Godot, once per project: Project Settings > Import Defaults > Scene, set Import Script to easy_props_import.gd and untick Meshes > Generate LODs, then reimport. Without the script, Godot 4.7 brings props in white. With automatic LODs, the leaves disappear.'
 
 /** What each look asks of the engine, in the user's words. */
 export const LOOK_HELP =
     'How your game will draw the prop. Cartoon and Comic need the materials in the engine kit. Comic also makes the colours in the files flat.'
+
+export const PICTURE_SIZE_HELP =
+    'How sharp bark, stone and cut ends are up close. Larger pictures make larger files. Only the closest level uses them.'
+
+export const PICTURE_SIZE_OPTIONS = PICTURE_SIZES.map((size) => ({value: String(size), label: `${size}`}))
 
 export const MATERIALS_HELP = 'Puts the Godot materials for this look beside the files: wood and leaves that move in the wind, and lines for Cartoon and Comic.'
 
@@ -34,6 +39,8 @@ export interface ExportPreferences {
     readonly look: ExportLook
     /** The look's Godot materials, written beside the files. */
     readonly materials: boolean
+    /** How many pixels across the closest level's pictures are. */
+    readonly pictureSize: PictureSize
     readonly folder: string
     /** Off once someone ticks Don't ask again, since replacing is the usual case while tuning a prop. */
     readonly askBeforeReplacing: boolean
@@ -50,6 +57,7 @@ const DEFAULTS: ExportPreferences = {
     far: true,
     look: 'lit',
     materials: true,
+    pictureSize: 512,
     folder: '',
     askBeforeReplacing: true,
     folderPerProp: false,
@@ -68,6 +76,7 @@ export function loadExportPreferences(): ExportPreferences {
             far: typeof raw.far === 'boolean' ? raw.far : DEFAULTS.far,
             look: raw.look && EXPORT_LOOKS.includes(raw.look) ? raw.look : DEFAULTS.look,
             materials: typeof raw.materials === 'boolean' ? raw.materials : DEFAULTS.materials,
+            pictureSize: PICTURE_SIZES.includes(raw.pictureSize as PictureSize) ? (raw.pictureSize as PictureSize) : DEFAULTS.pictureSize,
             folder: typeof raw.folder === 'string' ? raw.folder : DEFAULTS.folder,
             askBeforeReplacing: typeof raw.askBeforeReplacing === 'boolean' ? raw.askBeforeReplacing : DEFAULTS.askBeforeReplacing,
             folderPerProp: typeof raw.folderPerProp === 'boolean' ? raw.folderPerProp : DEFAULTS.folderPerProp,

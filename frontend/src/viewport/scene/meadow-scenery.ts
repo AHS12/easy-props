@@ -17,6 +17,7 @@ import {plantDefaults} from '../../assets/plants/plant-generator'
 import {cutRockDefaults, type CutRockParameters} from '../../assets/rocks/cut-rock-generator'
 import {buildRockMesh} from '../../assets/rocks/rock-mesh'
 import {planRock} from '../../assets/rocks/rock-plan'
+import {getStoneRelief, getStoneTexture} from '../../assets/shared/stone-texture'
 import {getLeafTexture} from '../../assets/shared/leaf-texture'
 import {createSeededRandom, randomRange} from '../../assets/shared/random'
 import {getStyleProfile} from '../../assets/style/style-profiles'
@@ -119,6 +120,13 @@ export function createMeadowScenery(): MeadowScenery {
     const geometries: THREE.BufferGeometry[] = []
     const solid = new THREE.MeshStandardMaterial({vertexColors: true, roughness: 1})
     const leaves = new THREE.MeshStandardMaterial({vertexColors: true, roughness: 1, map: getLeafTexture(), alphaTest: 0.5})
+    // The rocks wear the grain a new rock gets, as the rock props do.
+    const stone = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 1,
+        map: getStoneTexture(cutRockDefaults.grain, undefined, cutRockDefaults.lichen),
+        normalMap: getStoneRelief(cutRockDefaults.grain),
+    })
     const zero = new THREE.Matrix4().makeScale(0, 0, 0)
     const instanced: {mesh: THREE.InstancedMesh; places: readonly Placed[]}[] = []
     const single: {mesh: THREE.Object3D; x: number; z: number; radius: number}[] = []
@@ -182,7 +190,7 @@ export function createMeadowScenery(): MeadowScenery {
     const addRock = (x: number, z: number, seed: number, rock: Partial<typeof cutRockDefaults>) => {
         const whole = {...cutRockDefaults, ...rock}
 
-        addSolid(new THREE.Mesh(keep(buildRockMesh(planRock(whole, seed), whole, seed, 1)), solid), x, z, Math.max(whole.width, whole.depth) / 2, 0)
+        addSolid(new THREE.Mesh(keep(buildRockMesh(planRock(whole, seed), whole, seed, 1)), stone), x, z, Math.max(whole.width, whole.depth) / 2, 0)
     }
 
     for (const {width, height, seed, x, z, open} of SCENERY_BUSHES) {
@@ -359,6 +367,7 @@ export function createMeadowScenery(): MeadowScenery {
 
             solid.dispose()
             leaves.dispose()
+            stone.dispose()
 
             for (const material of extras) {
                 material.dispose()

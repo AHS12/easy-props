@@ -71,7 +71,15 @@ export interface ExportSettings {
     readonly look?: ExportLook
     /** Puts the look's Godot materials beside the files. Only Godot has them. */
     readonly materials?: boolean
+    /** How many pixels across the closest level's pictures are. 512, the app's own, when absent. */
+    readonly pictureSize?: PictureSize
+    /** Part of a set: its materials are named after the set and what they look like, so files can share them. */
+    readonly setName?: string
 }
+
+/** The sizes a picture can be exported at. Further levels keep the app's 512. */
+export const PICTURE_SIZES = [512, 1024, 2048] as const
+export type PictureSize = (typeof PICTURE_SIZES)[number]
 
 export interface ExportFile {
     readonly name: string

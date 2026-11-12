@@ -865,6 +865,7 @@ export function Viewport() {
             viewport.setFieldOfView(Number(values.fov))
             viewport.setBackdrop(values.backdrop as Backdrop, String(values.backdropColour))
             viewport.setGridVisible(values.grid === true)
+            viewport.setGroundSlope(Number(values.groundSlope), Number(values.groundDownhill))
             viewport.setRenderScale(Number(values.renderScale) / 100)
             schemeOff()
             schemeOff = applyCameraScheme(viewport.controls, canvas, values.cameraScheme as CameraScheme)

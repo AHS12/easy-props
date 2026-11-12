@@ -531,7 +531,8 @@ describe('painted tree', () => {
             }
         })
 
-        it.each(presets.map((preset) => [preset.id, preset] as const))('%s is as tall as it says', (_, preset) => {
+        // A snapped tree is shorter than its Height by design: that's where it broke.
+        it.each(presets.filter((preset) => !Number(preset.parameters.snapped)).map((preset) => [preset.id, preset] as const))('%s is as tall as it says', (_, preset) => {
             const tree = validated(preset)
             const plan = planPaintedTree(tree, preset.seed)
             const top = Math.max(

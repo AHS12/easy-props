@@ -15,6 +15,7 @@
  */
 
 import * as THREE from 'three'
+import {weatherPaint} from '../../shared/weather'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {cellsAround, lowPolySurface, smin, withGradient} from '../../shared/low-poly-remesh'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
@@ -135,7 +136,7 @@ export function buildLowPolyWood(plan: TreePlan, tree: PaintedTreeParameters, se
         .filter((limb, _index, kept) => limb.level === 0 || growsFrom(limb, kept))
     // The shape, not the carving: no ridges, knots, hollow or pattern on a low-poly tree.
     const plain: PaintedTreeParameters = {...tree, ridgeDepth: 0, burls: 0, hollow: 0, roughness: 0, patternDepth: 0, barkPattern: 'none'}
-    const wood = createWoodField(limbs, plain, seed, () => true)
+    const wood = createWoodField(limbs, plain, seed, () => true, plan.cuts, plan.split ?? null)
     const boxes = limbs.flatMap((limb) =>
         limb.points.slice(1).map((b, index) => {
             const a = limb.points[index]
@@ -162,7 +163,7 @@ export function buildLowPolyWood(plan: TreePlan, tree: PaintedTreeParameters, se
         // Plain wood, a little lighter on faces turned up, each face a shade of its own.
         const value = 0.42 + 0.22 * n[1] + randomRange(random, -0.1, 0.1) * (0.5 + tree.colourVariation)
 
-        pushFace(out, a, b, c, paint.copy(deep).lerp(light, Math.min(Math.max(value, 0), 1)))
+        pushFace(out, a, b, c, weatherPaint(paint.copy(deep).lerp(light, Math.min(Math.max(value, 0), 1)), n[1], tree, Math.sin(at * 12.9898)))
     }
 
     return facesToGeometry(out)

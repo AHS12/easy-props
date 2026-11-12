@@ -11,6 +11,8 @@
  */
 
 import * as THREE from 'three'
+import {getTreeLeafTexture} from '../../shared/tree-leaf-texture'
+import {wetSurface} from '../../shared/weather'
 import type {PartGenerator} from '../../shared/generator-types'
 import type {ParameterSpec, ValidationResult} from '../../shared/parameters'
 import type {StyleProfile} from '../../style/style-profiles'
@@ -76,6 +78,7 @@ function validateKeyed(parameters: unknown): ValidationResult<PaintedKeyedParame
 const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
     'fullness',
     'leafSize',
+    'leafStyle',
     'lumpiness',
     'strands',
     'strandLength',
@@ -83,6 +86,7 @@ const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
     'fruitCount',
     'fruitKind',
     'fruitSize',
+    'fruitHang',
     'colourVariation',
     'barkTone',
     'leafDeep',
@@ -92,7 +96,7 @@ const LEAF_ONLY_KEYS: readonly (keyof PaintedTreeParameters)[] = [
 
 export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     id: 'painted-bark',
-    version: 6,
+    version: 7,
     type: 'bark',
     label: 'Bark',
     // The tree's controls live on the tree: one rebuild, one undo step.
@@ -132,17 +136,20 @@ export const paintedBarkGenerator: PartGenerator<PaintedPartParameters> = {
     dress(geometry, {tree}) {
         // Plain blocks: their colour is in the faces, with nothing printed over it.
         if (tree.build === 'low-poly') {
-            return {geometry, material: 'painted', surface: {vertexColors: true}, role: 'solid'}
+            return {geometry, material: 'painted', surface: wetSurface({vertexColors: true}, tree.wet), role: 'solid'}
         }
 
         return {
             geometry,
             material: 'painted',
-            surface: {
-                vertexColors: true,
-                map: getBarkTexture(tree.brushStrokes, tree.barkPattern),
-                normalMap: getBarkRelief(tree.barkPattern),
-            },
+            surface: wetSurface(
+                {
+                    vertexColors: true,
+                    map: getBarkTexture(tree.brushStrokes, tree.barkPattern),
+                    normalMap: getBarkRelief(tree.barkPattern),
+                },
+                tree.wet,
+            ),
             role: 'solid',
         }
     },
@@ -223,13 +230,23 @@ const CLUMP_SPECS: readonly ParameterSpec[] = [
     },
 ]
 
+/**
+ * What a clump's cards are printed with. Palms keep the dabs: their fronds
+ * sample only its solid middle. So do Broad leaves, which are real shapes; only
+ * the cards under them are printed.
+ */
+const leafPicture = (tree: PaintedTreeParameters) =>
+    tree.leafStyle === 'painted' || tree.leafStyle === 'broad' || tree.form === 'palm' ? getDabTexture() : getTreeLeafTexture(tree.leafStyle)
+/** Broad leaves are glossy, as a mango's or a laurel's are. */
+const BROAD_ROUGHNESS = 0.55
+
 function findClump(tree: PaintedTreeParameters, seed: number, key: string): Clump | undefined {
     return planPaintedTree(tree, seed).clumps.find((clump) => clump.key === key)
 }
 
 export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
     id: 'painted-clump',
-    version: 2,
+    version: 3,
     type: 'foliage-cluster',
     label: 'Leaf clump',
     parameters: CLUMP_SPECS,
@@ -307,10 +324,14 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
             tree.fruitCount,
             tree.fruitKind,
             tree.fruitSize,
+            tree.fruitHang,
             tree.fullness,
             tree.leafSize,
+            tree.leafStyle,
             tree.lumpiness,
             tree.colourVariation,
+            tree.snow,
+            tree.wet,
             palette.leafDeep,
             palette.leafMid,
             palette.leafLight,
@@ -328,7 +349,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
                 geometry: clump ? buildLowPolyClump(plan, clump, tree, seed, context.detail ?? 1, context.detail ?? 1) : new THREE.BufferGeometry(),
                 material: 'painted',
                 // Gems, fronds and strands are all real shapes, so nothing is cut out of a picture.
-                surface: {vertexColors: true},
+                surface: wetSurface({vertexColors: true}, tree.wet),
                 role: 'foliage',
             }
         }
@@ -344,7 +365,7 @@ export const paintedClumpGenerator: PartGenerator<PaintedKeyedParameters> = {
                   )
                 : new THREE.BufferGeometry(),
             material: 'painted',
-            surface: {vertexColors: true, map: getDabTexture(), alphaTest: 0.5, receiveShadow: false},
+            surface: wetSurface({vertexColors: true, map: leafPicture(tree), alphaTest: 0.5, receiveShadow: false, ...(tree.leafStyle === 'broad' && tree.form !== 'palm' ? {roughness: BROAD_ROUGHNESS} : {})}, tree.wet),
             role: 'foliage',
         }
     },

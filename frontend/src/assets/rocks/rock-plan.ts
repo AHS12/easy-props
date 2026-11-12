@@ -22,6 +22,19 @@ export interface RockPlanParameters {
     readonly faces: number
     /** How deep those planes reach, 0 to 1. */
     readonly cuts: number
+    /** How far a boulder's smaller chunks draw in against the main one, 0 to 1. Left out, none. */
+    readonly huddle?: number
+    /** How far a cliff is stacked in courses, each resting on the one below, 0 to 1. Left out, none. */
+    readonly courses?: number
+    /** How far the fronts of a cliff's or outcrop's chunks are cut back under their tops, 0 to 1. Left out, none. */
+    readonly undercut?: number
+}
+
+/** What a carved rock changes in the layout. All none, the layout is exactly as it was. */
+interface Layout {
+    readonly huddle: number
+    readonly courses: number
+    readonly undercut: number
 }
 
 export interface RockPlane {
@@ -43,6 +56,11 @@ export interface RockChunk {
 export interface RockPlan {
     /** Largest first. */
     readonly chunks: readonly RockChunk[]
+    /**
+     * True when it isn't centred on its own middle, as when rubble lies to one side.
+     * A lighter level is then left as it is, not stretched back to the size.
+     */
+    readonly uneven?: boolean
     readonly width: number
     readonly height: number
     readonly depth: number
@@ -179,7 +197,16 @@ interface ChunkRecipe {
     readonly upright: number
     /** A sloping plane across the top, for moss to sit on. */
     readonly cap?: Vec3
+    /** Where a chunk resting on another stops, with a face of its own underneath. Left out, it stands on the ground. */
+    readonly base?: number
+    /** How far its front is cut back under its top, 0 to 1. */
+    readonly undercut?: number
 }
+
+/** At full Overhang, how far a front is cut back, and how far each course steps out past the one below. */
+const UNDERCUT_DEPTH = 0.22
+const UNDERCUT_LEAN = 0.8
+const COURSE_STEP = 0.07
 
 /** A cut never faces far downwards, or the stone is undercut and stands on a point. */
 const planted = (n: Vec3): Vec3 => normalize([n[0], Math.max(n[1], LOWEST_FACE), n[2]])
@@ -195,7 +222,8 @@ function makeChunk(recipe: ChunkRecipe, cutCount: number, cuts: number, random: 
     const bounds: readonly Vec3[] = [across, along, [-across[0], 0, -across[2]], [-along[0], 0, -along[2]], [0, 1, 0]]
     const planes: RockPlane[] = bounds.map((n) => ({n, d: reach(n), tone: random(), cut: null}))
 
-    planes.push({n: [0, -1, 0], d: centre[1], tone: 0, cut: null, ground: true})
+    // A chunk resting on another has a face underneath, seen where it overhangs.
+    planes.push(recipe.base === undefined ? {n: [0, -1, 0], d: centre[1], tone: 0, cut: null, ground: true} : {n: [0, -1, 0], d: centre[1] - recipe.base, tone: 0.5, cut: null})
 
     if (cap) {
         const n = normalize(cap)
@@ -239,20 +267,34 @@ function makeChunk(recipe: ChunkRecipe, cutCount: number, cuts: number, random: 
         planes.push({n, d, tone: random(), cut})
     }
 
+    // Last, so a chunk with none takes exactly the numbers it always did.
+    const undercut = recipe.undercut ?? 0
+
+    if (undercut > 0) {
+        // Facing the front and down: the foot is cut back and the top stands out over it.
+        const n = normalize([randomRange(random, -0.3, 0.3), -undercut * UNDERCUT_LEAN, 1])
+
+        planes.push({n, d: reach(n) * (1 - UNDERCUT_DEPTH * undercut), tone: random(), cut: null})
+    }
+
     return {centre, planes}
 }
 
-function boulderRecipes(count: number, random: RandomSource): ChunkRecipe[] {
+/** How much nearer the main stone a boulder's smaller chunks sit at full huddle. */
+const HUDDLE_IN = 0.3
+
+function boulderRecipes(count: number, random: RandomSource, {huddle}: Layout): ChunkRecipe[] {
     const recipes: ChunkRecipe[] = [{centre: [0, 0.42, 0], radii: [0.5, 0.6, 0.5], cutShare: 1, upright: 1}]
 
     for (let i = 1; i < count; i++) {
         const azimuth = i * GOLDEN_ANGLE + random()
         // Far enough out to read as its own stone, near enough to lean on the rock.
-        const out = randomRange(random, 0.38, 0.46)
+        // Drawn in afterwards, so the same numbers are taken either way.
+        const out = randomRange(random, 0.38, 0.46) * (1 - huddle * HUDDLE_IN)
         const size = randomRange(random, 0.2, 0.28)
 
         recipes.push({
-            centre: [Math.cos(azimuth) * out, randomRange(random, 0.12, 0.22), Math.sin(azimuth) * out],
+            centre: [Math.cos(azimuth) * out, randomRange(random, 0.12, 0.22) + huddle * 0.04, Math.sin(azimuth) * out],
             radii: [size, randomRange(random, 0.2, 0.3), size],
             cutShare: SMALL_CHUNK_CUTS,
             upright: 1,
@@ -263,7 +305,7 @@ function boulderRecipes(count: number, random: RandomSource): ChunkRecipe[] {
 }
 
 /** Stepping up a slope, flat enough on top to carry moss. */
-function outcropRecipes(count: number, random: RandomSource): ChunkRecipe[] {
+function outcropRecipes(count: number, random: RandomSource, {undercut}: Layout): ChunkRecipe[] {
     return Array.from({length: count}, (_, i) => {
         const t = count === 1 ? 0.35 : i / (count - 1)
         const height = Math.max(0.25, 1 - Math.abs(t - 0.35) * 1.05) * randomRange(random, 0.85, 1)
@@ -274,6 +316,8 @@ function outcropRecipes(count: number, random: RandomSource): ChunkRecipe[] {
             cutShare: 1 - t * (1 - SMALL_CHUNK_CUTS),
             upright: 0.55,
             cap: [randomRange(random, -0.35, 0.35), 1, randomRange(random, 0, 0.45)],
+            // The taller steps lean out furthest.
+            undercut: undercut * height,
         } satisfies ChunkRecipe
     })
 }
@@ -299,8 +343,51 @@ function pillarRecipes(count: number, random: RandomSource): ChunkRecipe[] {
     return recipes
 }
 
+/**
+ * A carved cliff: the mass behind, and wedges in rough courses in front, each resting on
+ * the one below and stepping out past it, the top one cut flat for a ledge to walk on.
+ */
+function coursedCliffRecipes(count: number, random: RandomSource, {courses, undercut}: Layout): ChunkRecipe[] {
+    const recipes: ChunkRecipe[] = [
+        {centre: [0, 0.46, -0.1], radii: [0.5, 0.52, 0.36], cutShare: 1.6, upright: 0.45, cap: [randomRange(random, -0.15, 0.15), 1, randomRange(random, 0.1, 0.35)]},
+    ]
+    const wedges = count - 1
+    const rows = Math.max(1, Math.min(wedges, 1 + Math.round(courses * 2)))
+
+    for (let row = 0; row < rows; row++) {
+        const first = Math.ceil((row * wedges) / rows)
+        const inRow = Math.ceil(((row + 1) * wedges) / rows) - first
+        const bottom = (row / rows) * 0.92
+        const top = row === rows - 1 ? randomRange(random, 0.88, 1) : ((row + 1) / rows) * 0.92
+        const ledge = row === rows - 1
+
+        for (let k = 0; k < inRow; k++) {
+            const x = -0.46 + ((k + random()) / inRow) * 0.92
+            const edge = Math.abs(x) * 2
+            const height = (top - bottom) * (ledge ? 1 - edge * edge * 0.4 : randomRange(random, 0.9, 1.1))
+
+            recipes.push({
+                centre: [x, bottom + height * 0.5, randomRange(random, 0.02, 0.1) + undercut * COURSE_STEP * row],
+                radii: [randomRange(random, 0.09, 0.17) * (rows > 1 ? 1.3 : 1), height * 0.56, randomRange(random, 0.14, 0.2)],
+                cutShare: SMALL_CHUNK_CUTS,
+                upright: 0.55,
+                // The top course is cut nearly flat, so moss and snow lie on it.
+                cap: ledge ? [randomRange(random, -0.25, 0.25), 1, randomRange(random, 0, 0.4)] : [randomRange(random, -1.2, 1.2), 1, randomRange(random, 0.6, 1.6)],
+                base: row > 0 ? bottom : undefined,
+                undercut,
+            })
+        }
+    }
+
+    return recipes
+}
+
 /** One large mass with wedges standing against it, so it reads as a wall and not a row of posts. */
-function cliffRecipes(count: number, random: RandomSource): ChunkRecipe[] {
+function cliffRecipes(count: number, random: RandomSource, layout: Layout): ChunkRecipe[] {
+    if (layout.courses > 0 || layout.undercut > 0) {
+        return coursedCliffRecipes(count, random, layout)
+    }
+
     const recipes: ChunkRecipe[] = [
         {centre: [0, 0.46, -0.1], radii: [0.5, 0.52, 0.36], cutShare: 1.6, upright: 0.45, cap: [randomRange(random, -0.3, 0.3), 1, 0.7]},
     ]
@@ -325,7 +412,7 @@ function cliffRecipes(count: number, random: RandomSource): ChunkRecipe[] {
     return recipes
 }
 
-const RECIPES: Readonly<Record<RockKind, (count: number, random: RandomSource) => ChunkRecipe[]>> = {
+const RECIPES: Readonly<Record<RockKind, (count: number, random: RandomSource, layout: Layout) => ChunkRecipe[]>> = {
     boulder: boulderRecipes,
     outcrop: outcropRecipes,
     pillar: pillarRecipes,
@@ -354,7 +441,11 @@ function stretched(chunk: RockChunk, offset: Vec3, scale: Vec3, sink: number): R
 
 export function planRock(rock: RockPlanParameters, seed: number): RockPlan {
     const count = Math.max(1, Math.round(rock.chunks))
-    const recipes = RECIPES[rock.kind](count, createSeededRandom(hashSeed(seed, SEED_LAYOUT)))
+    const recipes = RECIPES[rock.kind](count, createSeededRandom(hashSeed(seed, SEED_LAYOUT)), {
+        huddle: rock.huddle ?? 0,
+        courses: rock.courses ?? 0,
+        undercut: rock.undercut ?? 0,
+    })
     const mainCuts = MIN_CUTS + rock.faces * (MAX_CUTS - MIN_CUTS)
     const unit = recipes.map((recipe, index) =>
         // Each chunk has its own stream, so one more chunk does not reshape the others.

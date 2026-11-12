@@ -471,6 +471,11 @@ export function addComponent(
     }
 }
 
+/** Breaks a tree's heavy limb partway, leaving a jagged stub. Nothing else breaks. */
+export function breakComponent(scene: Scene, componentId: string): Scene {
+    return findPaintedPart(scene, componentId) ? (editPaintedPart(scene, componentId, {kind: 'break'}) ?? scene) : scene
+}
+
 /** Removes a part and everything hanging off it. */
 export function removeComponent(scene: Scene, componentId: string): Scene {
     if (findPaintedPart(scene, componentId)) {

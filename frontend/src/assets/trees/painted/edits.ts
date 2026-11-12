@@ -21,6 +21,8 @@ export interface LimbEdit {
      */
     readonly turn?: Vec3
     readonly removed?: boolean
+    /** Broken off partway, leaving a jagged stub. */
+    readonly broken?: boolean
 }
 
 export interface ClumpEdit {
@@ -63,6 +65,7 @@ export type PartAction =
     | {readonly kind: 'patch'; readonly patch: Readonly<Record<string, unknown>>}
     | {readonly kind: 'move'; readonly position: Vec3}
     | {readonly kind: 'remove'}
+    | {readonly kind: 'break'}
     | {readonly kind: 'restore'}
 
 interface PartReference {
@@ -71,6 +74,16 @@ interface PartReference {
 }
 
 export const isPaintedPart = (generatorId: string) => generatorId.startsWith('painted-')
+
+/** A heavy limb that leaves the trunk: a branching tree's big limb or a conifer's spoke. Only these break. */
+export const isHeavyLimbKey = (key: string): boolean => /^(l\d+|c\d+s\d+)$/.test(key)
+
+/** True for a part Break can be used on: a heavy limb that isn't broken yet. */
+export function canBreakPart(part: PartReference, edits: string): boolean {
+    const key = typeof part.parameters.key === 'string' ? part.parameters.key : ''
+
+    return part.generatorId === 'painted-limb' && isHeavyLimbKey(key) && !parseEdits(edits).limbs[key]?.broken
+}
 
 /**
  * The tree's edit list after an action on one part.
@@ -144,6 +157,9 @@ function limbAfter(
             // The trunk is the tree.
             return key === 't' ? null : {...edit, removed: true}
 
+        case 'break':
+            return isHeavyLimbKey(key) ? {...edit, broken: true} : null
+
         case 'move':
             return null
 
@@ -212,6 +228,9 @@ function clumpAfter(
     switch (action.kind) {
         case 'restore':
             return 'clear'
+
+        case 'break':
+            return null
 
         case 'remove':
             return {...edit, removed: true}

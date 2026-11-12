@@ -14,6 +14,7 @@
  */
 
 import * as THREE from 'three'
+import type {SnowAndWet} from '../shared/weather'
 import {addDaisy, addStrip, stemPath} from '../plants/plant-mesh'
 import {createSeededRandom, hashSeed, randomRange} from '../shared/random'
 import {colourRamp} from '../style/ramp'
@@ -22,7 +23,7 @@ import {DRY_RAMP, GRASS_RAMPS, PETAL_RAMPS, STEM_RAMP, type GrassPaletteId, type
 
 export type GrassBuild = 'painted' | 'low-poly'
 
-export interface GrassParameters extends Partial<OwnColourValues<typeof GRASS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
+export interface GrassParameters extends Partial<OwnColourValues<typeof GRASS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly width: number
     readonly height: number
     readonly blades: number

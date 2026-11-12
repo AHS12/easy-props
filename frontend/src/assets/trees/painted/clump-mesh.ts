@@ -15,9 +15,12 @@
 import * as THREE from 'three'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {DAB_VARIANTS, dabCell} from '../../shared/dab-texture'
-import {addClumpFruit, addStrands, leafGeometry} from './frond-mesh'
+import {addStrands} from './frond-mesh'
+import {addHangingFruit, type FruitSpot} from './fruit-mesh'
+import {leafGeometry} from './leaf-buffers'
 import {resolvePalette, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, perpendicularTo, type Clump, type TreePlan, type Vec3} from './plan'
+import {weatherPaint} from '../../shared/weather'
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 /** How much of a shading normal comes from the whole crown, not the clump. */
@@ -33,6 +36,21 @@ const MAX_CARD_GROWTH = 2.2
 const OUTLINE_AXIS = 0.99
 /** How far a grown card is pulled in, as a share of its growth, to keep its outer edge where it was. */
 const GROWTH_PULL = 0.6
+/** Fruit hangs from cards on the rim and the lower half, but not the thinned underside. */
+const FRUIT_HIGHEST = 0.6
+/**
+ * Broad leaves: the share of outer cards that become sprays, how many leaves a
+ * spray has, how far they droop, and how long they are against a card.
+ */
+const SPRAY_SHARE = 0.4
+const SPRAY_LEAVES = 5
+const SPRAY_DROOP = 0.8
+const SPRAY_LENGTH = 1.4
+/** The most a spray grows on a lighter level: real leaves grown as far as cards would look like spikes. */
+const MAX_SPRAY_GROWTH = 1.3
+/** Below this share of its detail a Broad clump is plain cards: far off, a leaf's shape can't be seen, and the few sprays left would be stretched to fill it. */
+const SPRAYS_FROM = 0.3
+const FRUIT_LOWEST = -0.6
 const CORNERS: readonly (readonly [number, number])[] = [
     [-1, -1],
     [1, -1],
@@ -81,31 +99,33 @@ function isInsideOther(clumps: readonly Clump[], self: Clump, world: Vec3): bool
     return false
 }
 
-function extentOf(geometry: THREE.BufferGeometry): {min: number[]; max: number[]} {
-    geometry.computeBoundingBox()
+type Extent = {min: number[]; max: number[]}
 
-    const box = geometry.boundingBox!
-    const extent = {min: box.min.toArray(), max: box.max.toArray()}
+/** The box around a geometry's first `count` vertices. */
+function boxOf(geometry: THREE.BufferGeometry, count: number): Extent | null {
+    const position = geometry.getAttribute('position')
+    const box = new THREE.Box3()
+    const point = new THREE.Vector3()
 
-    geometry.dispose()
+    for (let i = 0; i < Math.min(count, position.count); i++) {
+        box.expandByPoint(point.fromBufferAttribute(position, i))
+    }
 
-    return extent
+    return box.isEmpty() ? null : {min: box.min.toArray(), max: box.max.toArray()}
 }
 
 /**
- * Stretches a lighter clump to the size of the full one, so losing the card at
- * an edge does not shrink the silhouette.
+ * Stretches a lighter clump's leaves to the size of the full one's, so losing
+ * the card at an edge does not shrink the silhouette. Fruit, after the first
+ * `count` vertices, stays where the full clump has it.
  */
-function fitToExtent(geometry: THREE.BufferGeometry, extent: {min: number[]; max: number[]}) {
-    geometry.computeBoundingBox()
+function fitToExtent(geometry: THREE.BufferGeometry, extent: Extent, count: number) {
+    const own = boxOf(geometry, count)
 
-    const box = geometry.boundingBox
-
-    if (!box || box.isEmpty()) {
+    if (!own) {
         return
     }
 
-    const own = {min: box.min.toArray(), max: box.max.toArray()}
     const position = geometry.getAttribute('position')
     const fit = (axis: number, value: number) => {
         const span = own.max[axis] - own.min[axis]
@@ -115,7 +135,7 @@ function fitToExtent(geometry: THREE.BufferGeometry, extent: {min: number[]; max
             : value
     }
 
-    for (let i = 0; i < position.count; i++) {
+    for (let i = 0; i < Math.min(count, position.count); i++) {
         position.setXYZ(i, fit(0, position.getX(i)), fit(1, position.getY(i)), fit(2, position.getZ(i)))
     }
 
@@ -131,6 +151,34 @@ export function buildClump(
     detail: number,
     share = 1,
 ): THREE.BufferGeometry {
+    if (share >= 1) {
+        return clumpWithFruitSpots(plan, clump, tree, detail, 1, null).geometry
+    }
+
+    // A lighter level is fitted to the full clump, and hangs fruit where it does.
+    const full = clumpWithFruitSpots(plan, clump, tree, detail, 1, null)
+    const extent = boxOf(full.geometry, full.leafCount)
+
+    full.geometry.dispose()
+
+    const built = clumpWithFruitSpots(plan, clump, tree, detail, share, extent && {extent, spots: full.spots})
+
+    if (extent) {
+        fitToExtent(built.geometry, extent, built.leafCount)
+    }
+
+    return built.geometry
+}
+
+/** A clump, how many of its vertices are leaves, and where its full self has cards to hold fruit. */
+export function clumpWithFruitSpots(
+    plan: TreePlan,
+    clump: Clump,
+    tree: PaintedTreeParameters,
+    detail: number,
+    share: number,
+    full: {extent: Extent; spots: readonly FruitSpot[]} | null,
+): {geometry: THREE.BufferGeometry; leafCount: number; spots: readonly FruitSpot[]} {
     const random = createSeededRandom(clump.seed)
     const lumpSeed = (clump.seed % 1000) / 100
     const palette = resolvePalette(tree)
@@ -225,7 +273,8 @@ export function buildClump(
         }
     }
 
-    const paintValue = (value: number) => {
+    /** `up` is how far the clump faces the sky here, for snow, which settles on its upper half. */
+    const paintValue = (value: number, up: number, blotch: number) => {
         const v = Math.min(1, Math.max(0, value))
 
         if (v < 0.5) {
@@ -234,6 +283,7 @@ export function buildClump(
             paint.copy(mid).lerp(light, (v - 0.5) * 2)
         }
 
+        weatherPaint(paint, up, tree, blotch)
         colors.push(paint.r, paint.g, paint.b)
     }
 
@@ -245,8 +295,80 @@ export function buildClump(
     // rerolls them, so stepping down a level only ever takes cards away.
     const growth = Math.min(1 / Math.sqrt(share), MAX_CARD_GROWTH)
     // And a grown card never reaches past the clump it stands in for.
-    const limit = share < 1 ? extentOf(buildClump(plan, clump, tree, detail)) : null
+    const limit = full?.extent ?? null
+    const spots: FruitSpot[] = []
     let cardNumber = 0
+
+    /** Keeps a point inside the full clump, as every card's corners are. */
+    const clamp = (point: [number, number, number]) => {
+        if (limit) {
+            for (let axis = 0; axis < 3; axis++) {
+                point[axis as 0 | 1 | 2] = Math.min(limit.max[axis], Math.max(limit.min[axis], point[axis]))
+            }
+        }
+
+        return point
+    }
+
+    /**
+     * A spray of real leaves at a twig's end, fanned out round `out` and
+     * drooping, in place of a card. Shaded as the cards are, so it takes the
+     * light with the rest of the clump. It sits on the solid middle of a dab,
+     * and takes no random numbers, so a dropped spray never moves the next.
+     */
+    const addSpray = (
+        at: Vec3,
+        out: Vec3,
+        roll: number,
+        half: number,
+        lobeCentre: Vec3,
+        [u0, v0, size]: readonly [number, number, number],
+        jitter: number,
+    ) => {
+        const axisA = perpendicularTo(out)
+        const axisB = cross(out, axisA)
+        const leaves = share < 0.5 ? SPRAY_LEAVES - 1 : SPRAY_LEAVES
+        const u = u0 + size / 2
+        const v = v0 + size / 2
+
+        for (let leaf = 0; leaf < leaves; leaf++) {
+            const angle = roll + (leaf / leaves) * Math.PI * 2 + Math.sin(roll * 5 + leaf * 2.3) * 0.35
+            const fan: Vec3 = [
+                axisA[0] * Math.cos(angle) + axisB[0] * Math.sin(angle),
+                axisA[1] * Math.cos(angle) + axisB[1] * Math.sin(angle),
+                axisA[2] * Math.cos(angle) + axisB[2] * Math.sin(angle),
+            ]
+            const along = normalize([fan[0] + out[0] * 0.35, fan[1] + out[1] * 0.35 - SPRAY_DROOP, fan[2] + out[2] * 0.35])
+            const length = half * SPRAY_LENGTH * (0.85 + 0.15 * Math.sin(roll * 3 + leaf))
+            const across = normalize(cross(along, out))
+            const width = length * 0.15
+            const middle: Vec3 = [at[0] + along[0] * length * 0.45, at[1] + along[1] * length * 0.45, at[2] + along[2] * length * 0.45]
+            const corners: [number, number, number][] = [
+                [at[0], at[1], at[2]],
+                [middle[0] + across[0] * width, middle[1] + across[1] * width, middle[2] + across[2] * width],
+                // The tip hangs a little lower than the leaf points, as a heavy leaf does.
+                [at[0] + along[0] * length, at[1] + along[1] * length - length * 0.15, at[2] + along[2] * length],
+                [middle[0] - across[0] * width, middle[1] - across[1] * width, middle[2] - across[2] * width],
+            ]
+            // Darker at the stalk, lighter towards the tip, and lightest along the edges, for the gloss.
+            const lift = [-0.14, 0.06, 0.1, 0.06]
+            const base = positions.length / 3
+
+            corners.forEach((corner, index) => {
+                clamp(corner)
+
+                const {n, value} = shade(corner, lobeCentre)
+
+                positions.push(corner[0], corner[1], corner[2])
+                normals.push(n[0], n[1], n[2])
+                uvs.push(u, v)
+                paintValue(value + jitter + lift[index], n[1], jitter * 8)
+            })
+
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+            indices.push(base, base + 2, base + 1, base, base + 3, base + 2)
+        }
+    }
 
     const addCards = (
         lobe: {centre: Vec3; radius: number},
@@ -256,6 +378,8 @@ export function buildClump(
         sizeScale: number,
         valueShift: number,
         thinUnderside: boolean,
+        holdsFruit: boolean,
+        sprays = false,
     ) => {
         for (let card = 0; card < count; card++) {
             // Even coverage from a Fibonacci sphere, loosened by the seed.
@@ -319,6 +443,18 @@ export function buildClump(
                 continue
             }
 
+            if (holdsFruit && d[1] <= FRUIT_HIGHEST && d[1] >= FRUIT_LOWEST) {
+                spots.push({
+                    point: local,
+                    inward: normalize([lobe.centre[0] - local[0], lobe.centre[1] - local[1], lobe.centre[2] - local[2]]),
+                })
+            }
+
+            if (sprays) {
+                addSpray(local, d, roll, plainHalf * Math.min(growth, MAX_SPRAY_GROWTH), lobe.centre, dabCell(0), jitter)
+                continue
+            }
+
             const axisA = perpendicularTo(facing)
             const axisB = cross(facing, axisA)
             const cos = Math.cos(roll) * half
@@ -352,7 +488,8 @@ export function buildClump(
                 positions.push(corner[0], corner[1], corner[2])
                 normals.push(n[0], n[1], n[2])
                 uvs.push(u0 + ((a + 1) / 2) * size, v0 + ((b + 1) / 2) * size)
-                paintValue(value + jitter + valueShift)
+                // The inner cards are under the outer ones, so they hold less snow.
+                paintValue(value + jitter + valueShift, n[1] + valueShift * 1.5, jitter * 8)
             }
 
             indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
@@ -363,8 +500,13 @@ export function buildClump(
     for (const lobe of lobes) {
         const count = Math.round(((4 * Math.PI * lobe.radius * lobe.radius) / (cardSize * cardSize)) * density)
 
-        addCards(lobe, Math.round(count * INNER_SHARE), 0.42, 0.74, 1.35, -0.24, false)
-        addCards(lobe, count, 0.84, 1.03, 1, 0, true)
+        addCards(lobe, Math.round(count * INNER_SHARE), 0.42, 0.74, 1.35, -0.24, false, false)
+        if (tree.leafStyle === 'broad' && share >= SPRAYS_FROM) {
+            // One spray covers more than a card, so fewer of them.
+            addCards(lobe, Math.round(count * SPRAY_SHARE), 0.84, 1.03, 1, 0, true, true, true)
+        } else {
+            addCards(lobe, count, 0.84, 1.03, 1, 0, true, true)
+        }
     }
 
     const buffers = {positions, normals, colors, uvs, indices, rigid: [] as number[]}
@@ -373,15 +515,11 @@ export function buildClump(
         addStrands(buffers, clump, tree, detail, share)
     }
 
+    const leafCount = positions.length / 3
+
     if (tree.fruitCount > 0) {
-        addClumpFruit(buffers, clump, tree, share)
+        addHangingFruit(buffers, full?.spots ?? spots, clump, tree, share)
     }
 
-    const geometry = leafGeometry(buffers)
-
-    if (limit) {
-        fitToExtent(geometry, limit)
-    }
-
-    return geometry
+    return {geometry: leafGeometry(buffers), leafCount, spots}
 }

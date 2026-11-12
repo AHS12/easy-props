@@ -13,7 +13,7 @@ import {createSeededRandom} from '../../assets/shared/random'
 import type {SceneComponent} from '../../assets/shared/component-types'
 import type {GeneratedPart, MaterialKind} from '../../assets/shared/generator-types'
 import {darken, lighten, MATERIAL_COLORS} from '../../assets/style/materials'
-import {createPartMaterial} from '../../assets/style/part-material'
+import {createPartMaterial, partRoughness} from '../../assets/style/part-material'
 import {createWindUniforms, createWindMaterial, measureWind, type WindUniforms} from './wind-material'
 import {addLiveWind, createLiveWindDepthMaterial, createLiveWindUniforms, type LiveWindUniforms} from './live-wind'
 import {findPropGenerator} from '../../assets/prop-generators'
@@ -250,6 +250,7 @@ function reprint(component: RenderedComponent, part: GeneratedPart | undefined):
     }
 
     lit.normalMap = part?.surface?.normalMap ?? null
+    lit.roughness = partRoughness(part)
     cartoon.normalMap = lit.normalMap
     setIdMap(component.materials.id, map)
 }

@@ -69,7 +69,7 @@ function typeOf(limb: Limb): GeneratedComponent['type'] {
 
 export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
     id: 'painted-tree',
-    version: 4,
+    version: 5,
     label: 'Painted tree',
     farAway: () => true,
     parameters: paintedTreeParameterSpecs,
@@ -125,7 +125,7 @@ export const paintedTreeGenerator: PropGenerator<PaintedTreeParameters> = {
                 id: `cmp-clump-${clump.key}`,
                 type: 'foliage-cluster',
                 generatorId: 'painted-clump',
-                generatorVersion: 2,
+                generatorVersion: 3,
                 parentId: bark.id,
                 transform: {...IDENTITY_TRANSFORM, position: clump.centre},
                 parameters: {

@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three'
+import type {SnowAndWet} from '../shared/weather'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {CACTUS_ROWS, FLOWER_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
 import {CACTUS_RAMPS, PETAL_RAMPS, type CactusPaletteId, type PetalPaletteId} from '../style/palettes'
@@ -20,7 +21,7 @@ import {colourRamp} from '../style/ramp'
 export type CactusKind = 'column' | 'barrel' | 'paddle'
 export type CactusBuild = 'painted' | 'low-poly'
 
-export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
+export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_ROWS> & OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly kind: CactusKind
     readonly height: number
     /** Across the main stem, or across a pad. */
@@ -29,6 +30,8 @@ export interface CactusParameters extends Partial<OwnColourValues<typeof CACTUS_
     /** How deep the valleys between the ridges are, 0 to 1. */
     readonly ribDepth: number
     readonly arms: number
+    /** How many of its arms have fallen off and lie at its foot. */
+    readonly fallenArms?: number
     /** Where the lowest arm leaves the stem, as a share of the height. */
     readonly armHeight: number
     readonly pads: number
@@ -63,6 +66,7 @@ const SEED_PADS = 9200
 const SEED_SPINES = 9300
 const SEED_FLOWERS = 9400
 const SEED_LEAN = 9500
+const SEED_FALLEN = 9600
 /** Golden angle, so arms and pads never line up. */
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))
 const SUN: Vec3 = normalize([0.4, 1, 0.3])
@@ -461,6 +465,48 @@ function pointAtHeight(path: readonly Vec3[], y: number): Vec3 {
     return path[path.length - 1]
 }
 
+/** Which arms have fallen, picked by the seed, so more fallen arms only adds to them. */
+function fallenArmsOf(arms: number, count: number, seed: number): ReadonlySet<number> {
+    const random = createSeededRandom(hashSeed(seed, SEED_FALLEN))
+    const order = Array.from({length: arms}, (_, arm) => ({arm, key: random()})).sort((a, b) => a.key - b.key)
+
+    return new Set(order.slice(0, Math.min(count, arms)).map(({arm}) => arm))
+}
+
+/** An arm that fell, laid on the ground beside the stem, its broken end closed. */
+function lyingArm(path: readonly Vec3[], armRadius: number, outward: Vec3, stemRadius: number, around: number, random: () => number): Stem {
+    const start = path[0]
+    const end = path[path.length - 1]
+    const along = normalize([end[0] - start[0], end[1] - start[1], end[2] - start[2]])
+    // Lying across from the stem rather than straight out, so it doesn't read as one bent shape.
+    const swing = (random() < 0.5 ? -1 : 1) * randomRange(random, 0.9, 1.4)
+    const target = normalize([outward[0] * Math.cos(swing) - outward[2] * Math.sin(swing), 0, outward[2] * Math.cos(swing) + outward[0] * Math.sin(swing)])
+    // Turned about the axis between where it pointed and where it lies.
+    const axis = normalize([along[1] * target[2] - along[2] * target[1], along[2] * target[0] - along[0] * target[2], along[0] * target[1] - along[1] * target[0]])
+    const angle = Math.acos(Math.min(Math.max(along[0] * target[0] + along[1] * target[1] + along[2] * target[2], -1), 1))
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const turn = (v: Vec3): Vec3 => {
+        const k = axis[0] * v[0] + axis[1] * v[1] + axis[2] * v[2]
+        const c: Vec3 = [axis[1] * v[2] - axis[2] * v[1], axis[2] * v[0] - axis[0] * v[2], axis[0] * v[1] - axis[1] * v[0]]
+
+        return [v[0] * cos + c[0] * sin + axis[0] * k * (1 - cos), v[1] * cos + c[1] * sin + axis[1] * k * (1 - cos), v[2] * cos + c[2] * sin + axis[2] * k * (1 - cos)]
+    }
+    const turned = path.map((point) => turn([point[0] - start[0], point[1] - start[1], point[2] - start[2]]))
+    const lowest = Math.min(...turned.map((point) => point[1]))
+    const away = stemRadius + armRadius * randomRange(random, 2.5, 4)
+    const laid = turned.map((point): Vec3 => [point[0] + outward[0] * away, point[1] - lowest + armRadius * 0.85, point[2] + outward[2] * away])
+    // Closed where it broke: a point just behind the first ring.
+    const back: Vec3 = [laid[0][0] - target[0] * armRadius * 0.35, laid[0][1], laid[0][2] - target[2] * armRadius * 0.35]
+    const lying = [back, ...laid]
+    const radii = domedRadii(lying, armRadius, 0)
+
+    // Nearly closed: a ring of nothing would leave faces with no area.
+    radii[0] = armRadius * 0.05
+
+    return {path: lying, radii, around}
+}
+
 function columnStems(parameters: CactusParameters, seed: number, detail: number, lowPoly: boolean): {stems: Stem[]; tops: {at: Vec3; up: Vec3}[]} {
     const {height, thickness, lean} = parameters
     const radius = thickness / 2
@@ -474,6 +520,7 @@ function columnStems(parameters: CactusParameters, seed: number, detail: number,
     const arms = Math.round(parameters.arms)
     const armRadius = radius * 0.72
     const armDetail = resolution(armRadius, ribs, detail, lowPoly)
+    const fallen = fallenArmsOf(arms, Math.round(parameters.fallenArms ?? 0), seed)
 
     for (let arm = 0; arm < arms; arm++) {
         const random = createSeededRandom(hashSeed(seed, SEED_ARMS, arm))
@@ -517,6 +564,16 @@ function columnStems(parameters: CactusParameters, seed: number, detail: number,
         const upright = risingPath(elbow, rise, ringsFor(rise, armRadius, armDetail.rings), lean * 0.5, leanAzimuth).slice(1)
 
         path.push(...upright)
+
+        if (fallen.has(arm)) {
+            // A short stub where it broke off, and the arm itself lying at the foot.
+            const stub = path.slice(0, Math.min(outSteps, 2) + 1)
+
+            stems.push({path: stub, radii: domedRadii(stub, armRadius, 0), around: armDetail.around})
+            stems.push(lyingArm(path.slice(outSteps + bendSteps), armRadius, outward, radius, armDetail.around, createSeededRandom(hashSeed(seed, SEED_FALLEN, arm))))
+            continue
+        }
+
         stems.push({path, radii: domedRadii(path, armRadius, 0), around: armDetail.around})
         tops.push({at: path[path.length - 1], up: [0, 1, 0]})
     }

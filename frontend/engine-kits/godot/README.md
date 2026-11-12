@@ -5,10 +5,19 @@ Export the prop with **Engine: Godot** and **Wind data** on.
 ## Import
 
 1. Put the exported folder in your project. With **Materials** on when you export, the
-   `.gdshader` files for your look are already in it. Otherwise, add them from this kit.
-2. Select each `_LOD` file, open the **Import** tab, untick **Meshes > Generate LODs**,
-   and press **Reimport**. Godot's automatic levels delete leaves. Also make sure
-   **Meshes > Light Baking** is not **Static Lightmaps**, which replaces the wind data.
+   `.gdshader` files for your look and `easy_props_import.gd` are already in it. Otherwise,
+   add them from this kit.
+2. Set this up once for the whole project, so every prop imports right, now and later. Open
+   **Project > Project Settings > Import Defaults** and choose **Scene**. Set **Import Script >
+   Path** to `easy_props_import.gd`, untick **Meshes > Generate LODs**, and press **Save**.
+   Then select the exported files, open the **Import** tab, and press **Reimport**.
+   - From Godot 4.7, props come in white without the import script: Godot leaves off the
+     colours easy-props paints on them. The script turns them back on, each time the file
+     is imported. Godot 4.6 and earlier don't need it, but it does no harm.
+   - Godot's automatic detail levels delete leaves, so a tree looks bare from a little way
+     off. Use the levels in the export instead.
+   - Make sure **Meshes > Light Baking** is not **Static Lightmaps**, which replaces the
+     wind data.
 3. Double-click the file and open **Advanced Import**, then the **Materials** tab.
    Note the names ending in `_wood` and `_leaves`.
 

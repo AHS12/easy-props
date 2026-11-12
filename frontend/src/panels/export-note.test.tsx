@@ -5,7 +5,7 @@ import {useEditorStore} from '../store/editor-store'
 import {BatchExportDialog} from './BatchExportDialog'
 import {ExportDialog} from './ExportDialog'
 
-const PREFERENCES = {levels: 3, collision: true, wind: true, join: false, far: false, look: 'lit' as const, materials: false, folder: '', askBeforeReplacing: true, folderPerProp: false}
+const PREFERENCES = {levels: 3, collision: true, wind: true, join: false, far: false, look: 'lit' as const, materials: false, folder: '', askBeforeReplacing: true, folderPerProp: false, pictureSize: 512 as const}
 
 afterEach(() => {
     cleanup()

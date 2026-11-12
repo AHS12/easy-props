@@ -17,8 +17,9 @@
  */
 
 import * as THREE from 'three'
+import type {SnowAndWet} from '../shared/weather'
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import {BLOOM_CELL, LEAF_VARIANTS, leafCell} from '../shared/leaf-texture'
+import {BLOOM_CELL, LEAF_VARIANTS, leafCell, type BloomKind, type BushLeafStyle} from '../shared/leaf-texture'
 import {createSeededRandom, hashSeed, randomRange, type RandomSource} from '../shared/random'
 import {colourRamp} from '../style/ramp'
 import {FLOWER_ROWS, LEAF_ROWS, rampOf, type OwnColourValues, type OwnColours} from '../style/own-colours'
@@ -32,7 +33,7 @@ export type BushBuild = 'painted' | 'low-poly'
 /** Solid hides everything behind it. Open has twigs and sky inside. */
 export type BushInside = 'solid' | 'open'
 
-export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>> {
+export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS> & OwnColourValues<typeof FLOWER_ROWS>>, SnowAndWet {
     readonly build: BushBuild
     readonly kind: BushKind
     readonly width: number
@@ -49,8 +50,12 @@ export interface BushParameters extends Partial<OwnColourValues<typeof LEAF_ROWS
     readonly variation: number
     readonly palette: BushPaletteId | OwnColours
     readonly inside: BushInside
+    /** What its leaves look like up close. */
+    readonly leafStyle: BushLeafStyle
     /** How thickly it flowers, 0 to 1. */
     readonly flowers: number
+    /** What kind of bloom, or berries, it carries. */
+    readonly bloom: BloomKind
     /** Half the width of a flower, in metres. */
     readonly flowerSize: number
     readonly flowerColour: PetalPaletteId | OwnColours
@@ -548,7 +553,8 @@ export function placeCards(shape: BushShape, bush: BushParameters, seed: number)
             [a.x + (b.x - a.x) * r + (c.x - a.x) * s, a.y + (b.y - a.y) * r + (c.y - a.y) * s, a.z + (b.z - a.z) * r + (c.z - a.z) * s],
             0,
         )
-        const drift = Math.sin(point[0] * wave + 1) * Math.sin(point[2] * wave * 1.2) + Math.sin(point[1] * wave * 1.4)
+        // Patchy drifts across it, thickest towards the top, where the light is.
+        const drift = Math.sin(point[0] * wave + 1) * Math.sin(point[2] * wave * 1.2) + (point[1] / bush.height - 0.5) * 2
 
         if (point[1] > bush.height * FLOWER_FROM && drift > -0.2) {
             cards.push({point, normal: shape.gradient(point[0], point[1], point[2]), seed: cardSeed, priority: random(), flower: true, deep: false})

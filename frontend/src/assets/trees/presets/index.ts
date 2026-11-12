@@ -164,7 +164,7 @@ const CONIFER_BASE = {
     form: 'conifer',
     palette: 'pine',
     barkTone: 'pine',
-    barkPattern: 'fibrous',
+    barkPattern: 'plated',
     ridgeDepth: 0,
     trunkBend: 0.02,
     lean: 0.02,
@@ -182,55 +182,62 @@ const BIRCH_BARK = {barkTone: 'birch', barkPattern: 'banded', patternDepth: 0.9,
 
 const paintedPresets: readonly TreePreset[] = [
     // Broadleaf
-    painted('Broadleaf', 'oak', 'Old oak', 'Broad, heavy and gnarled', 301, {palette: 'forest', barkTone: 'oak', barkPattern: 'peeling', patternDepth: 0.1, patternScale: 0.7, brushStrokes: 0, barkDetail: 2, roughness: 0.2, height: 9, spread: 12, trunkRadius: 0.85, limbCount: 6, gnarl: 0.8, clumpCount: 14, forkHeight: 0.32, limbAngle: 28, burls: 2, ridgeDepth: 0.08}),
-    painted('Broadleaf', 'beech', 'Beech', 'Tall, smooth and grey', 302, {palette: 'forest', barkTone: 'ash', height: 12, spread: 8, trunkRadius: 0.5, ridgeDepth: 0.02, forkHeight: 0.42, gnarl: 0.3, limbAngle: 48, clumpMerge: 0.5}),
-    painted('Broadleaf', 'birch', 'Silver birch', 'Slim with white bark', 303, {...BIRCH_BARK, palette: 'spring', height: 10, spread: 5, trunkRadius: 0.24, forkHeight: 0.45, limbAngle: 55, limbCount: 5, gnarl: 0.3, clumpCount: 12, clumpSize: 0.85, leafSize: 0.8, rootCount: 3, flare: 0.15}),
-    painted('Broadleaf', 'aspen', 'Golden aspen', 'A narrow yellow flame', 304, {...BIRCH_BARK, palette: 'golden', height: 10, spread: 4, trunkRadius: 0.22, forkHeight: 0.4, limbAngle: 62, clumpCount: 13, clumpSize: 0.8, rootCount: 2, flare: 0.1}),
-    painted('Broadleaf', 'maple', 'Red maple', 'A round autumn crown', 305, {palette: 'maple', barkTone: 'oak', height: 8, spread: 8, trunkRadius: 0.42, gnarl: 0.4, clumpMerge: 0.55, clumpCount: 12, forkHeight: 0.34, limbAngle: 44}),
-    painted('Broadleaf', 'plane', 'Plane tree', 'Patchy bark, big shade', 306, {palette: 'forest', barkTone: 'ash', barkPattern: 'peeling', patternDepth: 0.9, height: 11, spread: 10, trunkRadius: 0.55, ridgeDepth: 0.02, clumpCount: 14, forkHeight: 0.38}),
-    painted('Broadleaf', 'poplar', 'Poplar', 'A tall column', 307, {palette: 'forest', barkTone: 'ash', barkPattern: 'fibrous', crownShape: 'column', height: 14, spread: 6, trunkRadius: 0.4, forkHeight: 0.3, limbAngle: 60, limbCount: 7, gnarl: 0.15, clumpCount: 14, clumpSize: 0.8, clumpMerge: 0.6, clumpFlatten: 0, ridgeDepth: 0.03}),
-    painted('Broadleaf', 'acacia', 'Savanna acacia', 'A flat top on dry plains', 308, {palette: 'olive', barkTone: 'oak', crownShape: 'umbrella', height: 7, spread: 13, trunkRadius: 0.32, forkHeight: 0.5, limbAngle: 42, limbCount: 5, gnarl: 0.65, clumpCount: 9, clumpFlatten: 1, clumpMerge: 0.7, clumpSize: 1.05, rootCount: 3, flare: 0.18}),
+    painted('Broadleaf', 'oak', 'Old oak', 'Broad, heavy and gnarled', 301, {leafStyle: 'lobed', palette: 'forest', barkTone: 'oak', barkPattern: 'plated', barkDetail: 2, roughness: 0.2, height: 9, spread: 12, trunkRadius: 0.85, limbCount: 6, gnarl: 0.8, clumpCount: 14, forkHeight: 0.32, limbAngle: 28, burls: 2, ridgeDepth: 0.25}),
+    painted('Broadleaf', 'beech', 'Beech', 'Tall, smooth and grey', 302, {leafStyle: 'round', palette: 'forest', barkTone: 'ash', height: 12, spread: 8, trunkRadius: 0.5, ridgeDepth: 0.02, forkHeight: 0.42, gnarl: 0.3, limbAngle: 48, clumpMerge: 0.5}),
+    painted('Broadleaf', 'birch', 'Silver birch', 'Slim with white bark', 303, {leafStyle: 'round', ...BIRCH_BARK, palette: 'spring', height: 10, spread: 5, trunkRadius: 0.24, forkHeight: 0.45, limbAngle: 55, limbCount: 5, gnarl: 0.3, clumpCount: 12, clumpSize: 0.85, leafSize: 0.8, rootCount: 3, flare: 0.15}),
+    painted('Broadleaf', 'aspen', 'Golden aspen', 'A narrow yellow flame', 304, {leafStyle: 'round', ...BIRCH_BARK, patternDepth: 0.5, palette: 'golden', height: 10, spread: 4, trunkRadius: 0.22, forkHeight: 0.4, limbAngle: 62, clumpCount: 13, clumpSize: 0.8, rootCount: 2, flare: 0.1}),
+    painted('Broadleaf', 'maple', 'Red maple', 'A round autumn crown', 305, {leafStyle: 'lobed', palette: 'maple', barkTone: 'ash', height: 8, spread: 8, trunkRadius: 0.42, gnarl: 0.4, clumpMerge: 0.55, clumpCount: 12, forkHeight: 0.34, limbAngle: 44}),
+    painted('Broadleaf', 'plane', 'Plane tree', 'Patchy bark, big shade', 306, {leafStyle: 'lobed', palette: 'forest', barkTone: 'ash', barkPattern: 'peeling', patternDepth: 0.9, height: 11, spread: 10, trunkRadius: 0.55, ridgeDepth: 0.02, clumpCount: 14, forkHeight: 0.38}),
+    painted('Broadleaf', 'poplar', 'Poplar', 'A tall column', 307, {leafStyle: 'round', palette: 'forest', barkTone: 'charcoal', crownShape: 'column', height: 14, spread: 6, trunkRadius: 0.4, forkHeight: 0.3, limbAngle: 60, limbCount: 7, gnarl: 0.15, clumpCount: 14, clumpSize: 0.8, clumpMerge: 0.6, clumpFlatten: 0, ridgeDepth: 0.25}),
+    painted('Broadleaf', 'acacia', 'Savanna acacia', 'A flat top on dry plains', 308, {leafStyle: 'feathery', palette: 'olive', barkTone: 'oak', crownShape: 'umbrella', height: 7, spread: 13, trunkRadius: 0.32, forkHeight: 0.5, limbAngle: 42, limbCount: 5, gnarl: 0.65, clumpCount: 9, clumpFlatten: 1, clumpMerge: 0.7, clumpSize: 1.05, rootCount: 3, flare: 0.18}),
     painted('Broadleaf', 'olive', 'Olive', 'Short, twisted and silver', 309, {palette: 'olive', barkTone: 'ash', height: 5.5, spread: 7, trunkRadius: 0.5, corkscrew: 0.75, ridgeDepth: 0.22, ridgeTwist: 1.6, hollow: 0.35, gnarl: 0.9, leafSize: 0.75, clumpCount: 12, forkHeight: 0.3}),
-    painted('Broadleaf', 'redwood', 'Giant redwood', 'A huge fibrous trunk', 310, {palette: 'pine', barkTone: 'redwood', barkPattern: 'fibrous', patternDepth: 0.8, height: 18, spread: 7, trunkRadius: 1.1, forkHeight: 0.62, limbAngle: 30, limbCount: 7, gnarl: 0.2, clumpCount: 13, clumpSize: 0.75, flare: 0.55, ridgeDepth: 0.04}),
+    painted('Broadleaf', 'redwood', 'Giant redwood', 'A huge fibrous trunk', 310, {leafStyle: 'needles', palette: 'pine', barkTone: 'redwood', barkPattern: 'fibrous', patternDepth: 0.8, height: 18, spread: 7, trunkRadius: 1.1, forkHeight: 0.62, limbAngle: 30, limbCount: 7, gnarl: 0.2, clumpCount: 13, clumpSize: 0.75, flare: 0.55, ridgeDepth: 0.04}),
 
     // Blossom & fruit
-    painted('Blossom & fruit', 'cherry-blossom', 'Cherry blossom', 'Pink and in full flower', 311, {palette: 'blossom', barkTone: 'charcoal', height: 6.5, spread: 8, trunkRadius: 0.36, corkscrew: 0.3, gnarl: 0.7, clumpCount: 14, clumpSize: 0.9, leafSize: 0.75, forkHeight: 0.35}),
+    painted('Blossom & fruit', 'cherry-blossom', 'Cherry blossom', 'Pink and in full flower', 311, {palette: 'blossom', barkTone: 'redwood', barkPattern: 'ringed', patternDepth: 0.3, ridgeDepth: 0.02, height: 6.5, spread: 8, trunkRadius: 0.36, corkscrew: 0.3, gnarl: 0.7, clumpCount: 14, clumpSize: 0.9, leafSize: 0.75, forkHeight: 0.35}),
     painted('Blossom & fruit', 'white-blossom', 'White blossom', 'Pale, soft and early', 312, {palette: 'pale-blossom', barkTone: 'ash', height: 6, spread: 7, trunkRadius: 0.3, gnarl: 0.5, clumpCount: 13, clumpSize: 0.85, leafSize: 0.75}),
-    painted('Blossom & fruit', 'apple', 'Apple tree', 'Low and full of fruit', 313, {palette: 'forest', barkTone: 'oak', height: 5, spread: 6, trunkRadius: 0.28, forkHeight: 0.35, gnarl: 0.65, clumpCount: 10, fruitCount: 7, fruitKind: 'apple', fruitSize: 1.4, rootCount: 3}),
-    painted('Blossom & fruit', 'orange', 'Orange tree', 'A neat green ball', 314, {palette: 'tropical', barkTone: 'oak', height: 4.5, spread: 4.5, trunkRadius: 0.2, forkHeight: 0.3, gnarl: 0.3, clumpMerge: 0.8, clumpCount: 9, fruitCount: 8, fruitKind: 'orange', fruitSize: 1.3, rootCount: 2}),
-    painted('Blossom & fruit', 'lemon', 'Lemon tree', 'Small and bright', 315, {palette: 'spring', barkTone: 'ash', height: 3.8, spread: 4, trunkRadius: 0.17, forkHeight: 0.3, clumpMerge: 0.7, clumpCount: 8, fruitCount: 7, fruitKind: 'lemon', fruitSize: 1.3, rootCount: 2}),
-    painted('Blossom & fruit', 'plum', 'Plum tree', 'Dark fruit, dark leaves', 316, {palette: 'olive', barkTone: 'charcoal', height: 5, spread: 6, trunkRadius: 0.24, gnarl: 0.55, clumpCount: 10, fruitCount: 6, fruitKind: 'plum', fruitSize: 1.3, rootCount: 3}),
+    painted('Blossom & fruit', 'apple', 'Apple tree', 'Low and full of fruit', 313, {leafStyle: 'round', palette: 'forest', barkTone: 'oak', barkPattern: 'plated', patternDepth: 0.3, patternScale: 0.7, height: 5, spread: 6, trunkRadius: 0.28, forkHeight: 0.35, gnarl: 0.65, clumpCount: 10, fruitCount: 7, fruitKind: 'apple', fruitSize: 1.4, rootCount: 3}),
+    painted('Blossom & fruit', 'orange', 'Orange tree', 'A neat green ball', 314, {leafStyle: 'broad', palette: 'tropical', barkTone: 'oak', ridgeDepth: 0.03, height: 4.5, spread: 4.5, trunkRadius: 0.2, forkHeight: 0.3, gnarl: 0.3, clumpMerge: 0.8, clumpCount: 9, fruitCount: 8, fruitKind: 'orange', fruitSize: 1.3, rootCount: 2}),
+    painted('Blossom & fruit', 'lemon', 'Lemon tree', 'Small and bright', 315, {leafStyle: 'broad', palette: 'spring', barkTone: 'ash', ridgeDepth: 0.03, height: 3.8, spread: 4, trunkRadius: 0.17, forkHeight: 0.3, clumpMerge: 0.7, clumpCount: 8, fruitCount: 7, fruitKind: 'lemon', fruitSize: 1.3, rootCount: 2}),
+    painted('Blossom & fruit', 'plum', 'Plum tree', 'Dark fruit, dark leaves', 316, {leafStyle: 'round', palette: 'olive', barkTone: 'charcoal', height: 5, spread: 6, trunkRadius: 0.24, gnarl: 0.55, clumpCount: 10, fruitCount: 6, fruitKind: 'plum', fruitSize: 1.3, rootCount: 3}),
+    painted('Blossom & fruit', 'pear', 'Pear tree', 'Upright, with heavy pears', 317, {leafStyle: 'round', palette: 'forest', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 0.4, patternScale: 0.6, height: 6, spread: 4.5, trunkRadius: 0.24, forkHeight: 0.32, limbAngle: 35, gnarl: 0.4, crownShape: 'teardrop', clumpCount: 10, fruitCount: 6, fruitKind: 'pear', fruitSize: 1.3, rootCount: 2}),
+    painted('Blossom & fruit', 'cherry', 'Cherry tree', 'Red pairs on long stalks', 318, {leafStyle: 'round', palette: 'spring', barkTone: 'redwood', barkPattern: 'ringed', patternDepth: 0.3, ridgeDepth: 0.02, height: 6, spread: 7, trunkRadius: 0.3, gnarl: 0.5, clumpCount: 10, fruitCount: 6, fruitKind: 'cherry', fruitSize: 1.8, fruitHang: 0.12}),
+    painted('Blossom & fruit', 'fig', 'Fig tree', 'Low, wide and leafy', 319, {leafStyle: 'lobed', palette: 'olive', barkTone: 'ash', height: 4.5, spread: 7, trunkRadius: 0.3, forkHeight: 0.25, gnarl: 0.6, clumpCount: 9, clumpMerge: 0.6, leafSize: 1.2, fruitCount: 6, fruitKind: 'fig', fruitSize: 1.7, rootCount: 3}),
+    painted('Blossom & fruit', 'pomegranate', 'Pomegranate', 'A bushy shrub of red fruit', 320, {leafStyle: 'round', palette: 'forest', barkTone: 'ash', height: 3.5, spread: 4, trunkRadius: 0.14, forkHeight: 0.2, limbCount: 6, gnarl: 0.6, clumpCount: 10, clumpSize: 0.8, leafSize: 0.7, fruitCount: 5, fruitKind: 'pomegranate', fruitSize: 1.4, rootCount: 2}),
+    painted('Blossom & fruit', 'mango', 'Mango tree', 'Dense, dark and glossy', 329, {palette: 'forest', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 0.3, height: 7, spread: 8, trunkRadius: 0.4, forkHeight: 0.3, gnarl: 0.45, crownShape: 'round', clumpCount: 10, clumpMerge: 0.75, leafStyle: 'broad', fullness: 0.6, fruitCount: 4, fruitKind: 'mango', fruitSize: 1.2, fruitHang: 0.6, rootCount: 3}),
 
     // Palms & tropical
     painted('Palms & tropical', 'coconut-palm-painted', 'Coconut palm', 'Tall, curved, with coconuts', 321, {...PALM_BASE, height: 11, trunkRadius: 0.24, lean: 0.34, trunkBend: 0.08, clumpCount: 14, droop: 0.45, fruitCount: 7, fruitKind: 'coconut', fruitSize: 1.1}),
     painted('Palms & tropical', 'beach-palm', 'Beach palm', 'Leaning out over the sand', 322, {...PALM_BASE, height: 8, trunkRadius: 0.2, lean: 0.55, trunkBend: 0.14, clumpCount: 12, droop: 0.65, clumpSize: 1.05}),
     painted('Palms & tropical', 'royal-palm', 'Royal palm', 'Straight and stately', 323, {...PALM_BASE, palette: 'tropical', barkTone: 'ash', height: 15, trunkRadius: 0.32, lean: 0.03, trunkBend: 0.02, clumpCount: 16, droop: 0.3, clumpSize: 0.85, patternDepth: 0.4}),
-    painted('Palms & tropical', 'date-palm', 'Date palm', 'Thick, rough and dusty', 324, {...PALM_BASE, palette: 'olive', height: 9, trunkRadius: 0.38, lean: 0.06, trunkBend: 0.04, clumpCount: 22, droop: 0.4, clumpSize: 0.9, patternDepth: 1, patternScale: 0.8}),
+    painted('Palms & tropical', 'date-palm', 'Date palm', 'Thick, rough and dusty', 324, {...PALM_BASE, barkPattern: 'plated', palette: 'olive', height: 9, trunkRadius: 0.38, lean: 0.06, trunkBend: 0.04, clumpCount: 22, droop: 0.4, clumpSize: 0.9, patternDepth: 1, patternScale: 0.8, fruitCount: 5, fruitKind: 'date', fruitSize: 1.6, fruitHang: 0.9}),
     painted('Palms & tropical', 'fan-palm', 'Fan palm', 'Round hands on stalks', 325, {...PALM_BASE, frondStyle: 'fan', height: 7, trunkRadius: 0.22, lean: 0.08, trunkBend: 0.05, clumpCount: 16, droop: 0.2, clumpSize: 0.8}),
     painted('Palms & tropical', 'banana', 'Banana plant', 'Broad torn blades', 326, {...PALM_BASE, frondStyle: 'blade', height: 3.6, trunkRadius: 0.17, lean: 0.03, trunkBend: 0.02, barkPattern: 'fibrous', clumpCount: 9, droop: 0.35, clumpSize: 1.05, leafSize: 1.1, palette: 'spring'}),
-    painted('Palms & tropical', 'pygmy-palm', 'Pygmy palm', 'Short and bushy', 327, {...PALM_BASE, height: 2.8, trunkRadius: 0.13, lean: 0.1, trunkBend: 0.04, clumpCount: 16, droop: 0.5, clumpSize: 1.05}),
-    painted('Palms & tropical', 'tree-fern', 'Tree fern', 'Prehistoric and lacy', 328, {...PALM_BASE, palette: 'pine', barkTone: 'charcoal', barkPattern: 'peeling', height: 4.5, trunkRadius: 0.2, lean: 0.08, clumpCount: 18, droop: 0.55, clumpSize: 0.95, fullness: 1.2, leafSize: 0.7}),
+    painted('Palms & tropical', 'pygmy-palm', 'Pygmy palm', 'Short and bushy', 327, {...PALM_BASE, barkPattern: 'plated', height: 2.8, trunkRadius: 0.13, lean: 0.1, trunkBend: 0.04, clumpCount: 16, droop: 0.5, clumpSize: 1.05}),
+    painted('Palms & tropical', 'tree-fern', 'Tree fern', 'Prehistoric and lacy', 328, {...PALM_BASE, palette: 'pine', barkTone: 'redwood', barkPattern: 'fibrous', height: 4.5, trunkRadius: 0.2, lean: 0.08, clumpCount: 18, droop: 0.55, clumpSize: 0.95, fullness: 1.2, leafSize: 0.7}),
 
     // Conifers
-    painted('Conifers', 'spruce', 'Spruce', 'A dark, classic cone', 331, {...CONIFER_BASE, height: 11, trunkRadius: 0.3, clumpCount: 9, spread: 6.5, droop: 0.35}),
-    painted('Conifers', 'fir', 'Slim fir', 'Narrow mountain tree', 332, {...CONIFER_BASE, height: 14, trunkRadius: 0.28, clumpCount: 11, spread: 4.5, droop: 0.2, clumpSize: 0.95}),
-    painted('Conifers', 'snow-pine', 'Snowy pine', 'Winter on every tier', 333, {...CONIFER_BASE, palette: 'frost', barkTone: 'charcoal', height: 10, trunkRadius: 0.28, clumpCount: 8, spread: 6, droop: 0.45, colourVariation: 0.1}),
-    painted('Conifers', 'christmas', 'Festive fir', 'Round, with baubles', 334, {...CONIFER_BASE, palette: 'pine', height: 6, trunkRadius: 0.17, clumpCount: 7, spread: 5, droop: 0.3, fruitCount: 5, fruitKind: 'apple', fruitSize: 0.8}),
-    painted('Conifers', 'larch', 'Autumn larch', 'A gold conifer', 335, {...CONIFER_BASE, palette: 'golden', height: 12, trunkRadius: 0.27, clumpCount: 9, spread: 5.5, droop: 0.55, fullness: 0.6}),
-    painted('Conifers', 'scots-pine', 'Scots pine', 'A bare stem, a high flat top', 336, {palette: 'pine', barkTone: 'pine', barkPattern: 'fibrous', height: 12, spread: 7, trunkRadius: 0.36, forkHeight: 0.68, limbAngle: 22, limbCount: 6, gnarl: 0.6, clumpCount: 9, clumpFlatten: 0.95, clumpMerge: 0.5, leafSize: 0.75, ridgeDepth: 0.02}),
-    painted('Conifers', 'cypress', 'Cypress', 'A dark flame', 337, {...CONIFER_BASE, height: 11, trunkRadius: 0.22, clumpCount: 12, spread: 2.5, clumpFlatten: 0.75, droop: 0, clumpSize: 1.05}),
+    painted('Conifers', 'spruce', 'Spruce', 'A dark, classic cone', 331, {leafStyle: 'needles', ...CONIFER_BASE, patternDepth: 0.35, patternScale: 0.7, height: 11, trunkRadius: 0.3, clumpCount: 9, spread: 6.5, droop: 0.35}),
+    painted('Conifers', 'fir', 'Slim fir', 'Narrow mountain tree', 332, {leafStyle: 'needles', ...CONIFER_BASE, barkTone: 'ash', barkPattern: 'none', ridgeDepth: 0.03, height: 14, trunkRadius: 0.28, clumpCount: 11, spread: 4.5, droop: 0.2, clumpSize: 0.95}),
+    painted('Conifers', 'snow-pine', 'Snowy pine', 'Winter on every tier', 333, {leafStyle: 'needles', ...CONIFER_BASE, palette: 'frost', barkTone: 'charcoal', height: 10, trunkRadius: 0.28, clumpCount: 8, spread: 6, droop: 0.45, colourVariation: 0.1}),
+    painted('Conifers', 'christmas', 'Festive fir', 'Round, with baubles', 334, {leafStyle: 'needles', ...CONIFER_BASE, barkPattern: 'none', ridgeDepth: 0.03, palette: 'pine', height: 6, trunkRadius: 0.17, clumpCount: 7, spread: 5, droop: 0.3, fruitCount: 6, fruitKind: 'bauble', fruitSize: 1.5, fruitHang: 0.15}),
+    painted('Conifers', 'larch', 'Autumn larch', 'A gold conifer', 335, {leafStyle: 'needles', ...CONIFER_BASE, palette: 'golden', height: 12, trunkRadius: 0.27, clumpCount: 9, spread: 5.5, droop: 0.55, fullness: 0.6}),
+    painted('Conifers', 'scots-pine', 'Scots pine', 'A bare stem, a high flat top', 336, {leafStyle: 'needles', palette: 'pine', barkTone: 'pine', barkPattern: 'plated', height: 12, spread: 7, trunkRadius: 0.36, forkHeight: 0.68, limbAngle: 22, limbCount: 6, gnarl: 0.6, clumpCount: 9, clumpFlatten: 0.95, clumpMerge: 0.5, leafSize: 0.75, ridgeDepth: 0.02}),
+    painted('Conifers', 'cypress', 'Cypress', 'A dark flame', 337, {leafStyle: 'needles', ...CONIFER_BASE, barkPattern: 'fibrous', height: 11, trunkRadius: 0.22, clumpCount: 12, spread: 2.5, clumpFlatten: 0.75, droop: 0, clumpSize: 1.05}),
+    painted('Conifers', 'pine-cones', 'Cone pine', 'Hung with brown cones', 338, {leafStyle: 'needles', ...CONIFER_BASE, patternDepth: 0.35, patternScale: 0.7, height: 10, trunkRadius: 0.28, clumpCount: 8, spread: 6, droop: 0.4, fruitCount: 4, fruitKind: 'cone', fruitSize: 1.1, fruitHang: 0.2}),
 
     // Weeping
-    painted('Weeping', 'willow', 'Weeping willow', 'Long curtains to the ground', 341, {palette: 'spring', barkTone: 'oak', barkPattern: 'fibrous', height: 8, spread: 11, trunkRadius: 0.55, droop: 0.65, forkHeight: 0.42, limbAngle: 50, clumpCount: 12, clumpSize: 0.8, clumpMerge: 0.5, strands: 0.8, strandLength: 0.85, leafSize: 0.7, fullness: 0.45}),
-    painted('Weeping', 'weeping-cherry', 'Weeping cherry', 'Pink falling strands', 342, {palette: 'blossom', barkTone: 'charcoal', height: 6, spread: 8, trunkRadius: 0.3, droop: 0.7, gnarl: 0.65, clumpCount: 9, clumpSize: 0.8, strands: 0.7, strandLength: 0.65, leafSize: 0.65, fullness: 0.5}),
-    painted('Weeping', 'wisteria', 'Wisteria', 'Violet hanging flowers', 343, {palette: 'violet', barkTone: 'oak', corkscrew: 0.75, ridgeTwist: 1.8, height: 6, spread: 9, trunkRadius: 0.35, droop: 0.5, clumpCount: 10, clumpFlatten: 0.8, strands: 0.6, strandLength: 0.45, leafSize: 0.7, fullness: 0.5}),
-    painted('Weeping', 'golden-willow', 'Golden willow', 'Autumn curtains', 344, {palette: 'golden', barkTone: 'oak', height: 8, spread: 10, trunkRadius: 0.48, droop: 0.65, clumpCount: 12, clumpMerge: 0.5, clumpSize: 0.8, strands: 0.75, strandLength: 0.75, leafSize: 0.7, fullness: 0.45}),
+    painted('Weeping', 'willow', 'Weeping willow', 'Long curtains to the ground', 341, {palette: 'spring', barkTone: 'ash', ridgeDepth: 0.25, height: 8, spread: 11, trunkRadius: 0.55, droop: 0.65, forkHeight: 0.42, limbAngle: 50, clumpCount: 12, clumpSize: 0.8, clumpMerge: 0.5, strands: 0.8, strandLength: 0.85, leafSize: 0.7, fullness: 0.45}),
+    painted('Weeping', 'weeping-cherry', 'Weeping cherry', 'Pink falling strands', 342, {palette: 'blossom', barkTone: 'redwood', barkPattern: 'ringed', patternDepth: 0.3, ridgeDepth: 0.02, height: 6, spread: 8, trunkRadius: 0.3, droop: 0.7, gnarl: 0.65, clumpCount: 9, clumpSize: 0.8, strands: 0.7, strandLength: 0.65, leafSize: 0.65, fullness: 0.5}),
+    painted('Weeping', 'wisteria', 'Wisteria', 'Violet hanging flowers', 343, {leafStyle: 'feathery', palette: 'violet', barkTone: 'oak', corkscrew: 0.75, ridgeTwist: 1.8, height: 6, spread: 9, trunkRadius: 0.35, droop: 0.5, clumpCount: 10, clumpFlatten: 0.8, strands: 0.6, strandLength: 0.45, leafSize: 0.7, fullness: 0.5}),
+    painted('Weeping', 'golden-willow', 'Golden willow', 'Autumn curtains', 344, {palette: 'golden', barkTone: 'ash', ridgeDepth: 0.25, height: 8, spread: 10, trunkRadius: 0.48, droop: 0.65, clumpCount: 12, clumpMerge: 0.5, clumpSize: 0.8, strands: 0.75, strandLength: 0.75, leafSize: 0.7, fullness: 0.45}),
 
     // Old & bare
     painted('Old & bare', 'dead-oak', 'Dead oak', 'Bare, grey and split', 351, {palette: 'spring', barkTone: 'ash', barkPattern: 'peeling', patternDepth: 0.3, height: 8, spread: 10, trunkRadius: 0.7, clumpCount: 0, gnarl: 1, limbCount: 6, hollow: 0.55, burls: 3, moss: 0.15, ridgeDepth: 0.15}),
     painted('Old & bare', 'bleached', 'Bleached snag', 'Desert bones', 352, {palette: 'olive', barkTone: 'bone', height: 6, spread: 5, trunkRadius: 0.32, clumpCount: 0, gnarl: 0.9, limbCount: 3, branchCount: 2, twigCount: 1, corkscrew: 0.5, ridgeTwist: 2, rootCount: 4, rootLength: 1.4}),
-    painted('Old & bare', 'burnt', 'Burnt stump tree', 'After the fire', 353, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'peeling', patternDepth: 0.6, height: 5.5, spread: 4, trunkRadius: 0.45, clumpCount: 0, limbCount: 3, branchCount: 2, twigCount: 0, hollow: 0.6, roughness: 0.7}),
+    painted('Old & bare', 'burnt', 'Burnt stump tree', 'After the fire', 353, {palette: 'ember', barkTone: 'charcoal', barkPattern: 'plated', patternDepth: 0.6, height: 5.5, spread: 4, trunkRadius: 0.45, clumpCount: 0, limbCount: 3, branchCount: 2, twigCount: 0, hollow: 0.6, roughness: 0.7}),
     painted('Old & bare', 'winter', 'Winter tree', 'Asleep and full of twigs', 354, {palette: 'spring', barkTone: 'oak', height: 9, spread: 9, trunkRadius: 0.42, clumpCount: 0, branchCount: 5, twigCount: 4, gnarl: 0.55, limbCount: 6}),
+    painted('Old & bare', 'snowy-winter', 'Snowy winter tree', 'Bare, with snow along its limbs', 354, {palette: 'spring', barkTone: 'oak', height: 9, spread: 9, trunkRadius: 0.42, clumpCount: 0, branchCount: 5, twigCount: 4, gnarl: 0.55, limbCount: 6, snow: 0.85}),
     painted('Old & bare', 'ancient', 'Ancient giant', 'Roots, burls and moss', 355, {palette: 'spring', barkTone: 'oak', height: 11, spread: 14, trunkRadius: 1.15, flare: 0.8, rootCount: 11, rootLength: 1.7, burls: 6, hollow: 0.45, moss: 0.65, ridgeDepth: 0.28, ridgeTwist: 1.3, gnarl: 0.8, limbCount: 7, clumpCount: 15, forkHeight: 0.3}),
     painted('Old & bare', 'twisted', 'Twisted old tree', 'Wound around itself', 356, {palette: 'autumn', barkTone: 'oak', height: 7, spread: 8, trunkRadius: 0.55, corkscrew: 1, ridgeDepth: 0.3, ridgeTwist: 2.6, ridgeCount: 4, gnarl: 0.9, clumpCount: 9, forkHeight: 0.42}),
 
@@ -247,8 +254,15 @@ const paintedPresets: readonly TreePreset[] = [
     bush('white-bush', 'White blossom', 'Pale flowers over dark leaves', 367, {width: 2.2, height: 1.5, depth: 2, lobes: 5, leafSize: 0.16, palette: 'pine', flowers: 0.7, flowerSize: 0.065, flowerColour: 'white'}),
     bush('gold-bush', 'Golden shrub', 'Low, with yellow flowers', 368, {kind: 'spreading', width: 3, height: 1.2, depth: 2.6, lobes: 7, leafSize: 0.18, flowers: 0.6, flowerSize: 0.06, flowerColour: 'gold'}),
     bush('autumn-bush', 'Autumn bush', 'Low and red', 363, {width: 2.4, height: 1.5, depth: 2.2, lobes: 5, leafSize: 0.17, palette: 'maple'}),
+    bush('snowy-bush', 'Snowy bush', 'Evergreen under fresh snow', 377, {width: 2.2, height: 1.5, depth: 2, lobes: 6, leafSize: 0.17, palette: 'pine', snow: 0.7}),
+    bush('box-hedge', 'Box hedge', 'Tiny leaves, clipped square', 378, {kind: 'hedge', width: 4, height: 1, depth: 0.9, lobes: 5, lumps: 0.15, leafSize: 0.13, leafStyle: 'tiny', variation: 0.15, palette: 'pine'}),
+    bush('holly', 'Holly', 'Spiky and glossy, with red berries', 379, {kind: 'tall', width: 2, height: 2.6, depth: 1.9, lobes: 7, leafSize: 0.17, leafStyle: 'spiky', palette: 'pine', flowers: 0.55, bloom: 'berries', flowerSize: 0.05, flowerColour: 'red'}),
+    bush('juniper', 'Juniper', 'A low, dark carpet of scales', 380, {kind: 'spreading', width: 3.4, height: 0.9, depth: 3, lobes: 8, lumps: 0.6, leafSize: 0.15, leafStyle: 'scales', palette: 'pine', variation: 0.3}),
+    bush('laurel', 'Laurel', 'Long glossy leaves', 399, {kind: 'tall', width: 2.6, height: 2.8, depth: 2.4, lobes: 8, leafSize: 0.24, leafStyle: 'narrow', palette: 'lush'}),
+    bush('hydrangea', 'Hydrangea', 'Big leaves and blue balls of flowers', 359, {width: 2.2, height: 1.9, depth: 2, lobes: 5, leafSize: 0.22, leafStyle: 'glossy', palette: 'lush', flowers: 1, bloom: 'ball', flowerSize: 0.11, flowerColour: 'blue'}),
+    bush('heather', 'Heather', 'Low, with pink bells', 360, {kind: 'spreading', width: 1.6, height: 0.6, depth: 1.4, lobes: 6, lumps: 0.6, leafSize: 0.09, leafStyle: 'scales', palette: 'olive', flowers: 0.85, bloom: 'bell', flowerSize: 0.04, flowerColour: 'pink'}),
     painted('Shrubs & saplings', 'sapling', 'Young sapling', 'Thin and just started', 364, {palette: 'spring', height: 3.2, spread: 2.6, trunkRadius: 0.1, forkHeight: 0.5, limbAngle: 55, limbCount: 3, branchCount: 2, twigCount: 1, clumpCount: 5, clumpSize: 0.9, rootCount: 0, flare: 0.1, ridgeDepth: 0}),
-    painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
+    painted('Shrubs & saplings', 'topiary', 'Topiary ball', 'A clipped garden ball', 365, {leafStyle: 'round', palette: 'pine', height: 3, spread: 2, trunkRadius: 0.1, forkHeight: 0.55, limbAngle: 60, limbCount: 3, branchCount: 1, twigCount: 0, clumpCount: 3, clumpMerge: 1, clumpSize: 1.3, clumpFlatten: 0, lumpiness: 0, gnarl: 0, trunkBend: 0, lean: 0, rootCount: 0, flare: 0.05, ridgeDepth: 0}),
 
     // Fantasy
     painted('Fantasy', 'spirit-tree', 'Spirit tree', 'Glowing teal', 371, {palette: 'teal', barkTone: 'charcoal', corkscrew: 0.6, ridgeTwist: 2, height: 9, spread: 11, trunkRadius: 0.6, gnarl: 0.9, clumpCount: 13}),
@@ -292,17 +306,45 @@ const foliagePresets: readonly TreePreset[] = [
 const rockPresets: readonly TreePreset[] = [
     rock('Boulders', 'boulder', 'Boulder', 'Heavy, with stones at its feet', 401, {}),
     rock('Boulders', 'mossy-boulder', 'Mossy boulder', 'Old, with a green cap', 421, {width: 3.4, depth: 3, moss: 0.7, chunks: 3, faces: 0.8}),
-    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, chunks: 2, faces: 0.8, cuts: 1, edges: 0.35, moss: 0, palette: 'granite'}),
+    rock('Boulders', 'snowy-boulder', 'Snowy boulder', 'A cap of fresh snow', 422, {width: 3, height: 1.9, depth: 2.6, chunks: 3, faces: 0.7, moss: 0, snow: 0.7, palette: 'basalt'}),
+    rock('Boulders', 'round-boulder', 'Round boulder', 'Worn smooth by time', 430, {width: 2.6, height: 1.8, depth: 2.3, chunks: 2, faces: 0.7, cuts: 0.3, edges: 1, rounded: 0.9, blend: 1, dents: 0.2, layers: 0.2, moss: 0.3}),
+    rock('Boulders', 'split-boulder', 'Sharp boulder', 'Cut into hard faces', 403, {width: 2.8, height: 2.2, depth: 2.4, chunks: 2, faces: 0.8, cuts: 1, edges: 0.15, rounded: 0.25, blend: 0.2, dents: 0, layers: 0, moss: 0, palette: 'granite'}),
     rock('Outcrops', 'grassy-outcrop', 'Grassy outcrop', 'Stepping up a slope', 410, {kind: 'outcrop', width: 6, height: 2.6, depth: 3.5, chunks: 5, moss: 0.85}),
-    rock('Outcrops', 'low-ledge', 'Low ledge', 'A long shelf of stone', 411, {kind: 'outcrop', width: 8, height: 1.3, depth: 3, chunks: 7, moss: 0.7, palette: 'slate'}),
+    rock('Outcrops', 'overhang', 'Overhang', 'Leaning out over its foot', 431, {kind: 'cliff', width: 7, height: 4, depth: 3.5, chunks: 8, faces: 0.5, overhang: 1, layers: 0.6, moss: 0.5}),
+    rock('Outcrops', 'low-ledge', 'Low ledge', 'A long shelf of stone', 411, {kind: 'outcrop', width: 8, height: 1.3, depth: 3, chunks: 7, moss: 0.7, layers: 0.6, palette: 'slate'}),
     rock('Stones', 'field-stone', 'Field stone', 'Knee high and blunt', 404, {width: 0.9, height: 0.5, depth: 0.7, chunks: 1, faces: 0.45, cuts: 0.5, moss: 0.3}),
-    rock('Stones', 'river-stone', 'River stone', 'Worn nearly round', 405, {width: 0.7, height: 0.25, depth: 0.5, chunks: 1, faces: 0.7, cuts: 0.2, edges: 1, moss: 0, palette: 'slate'}),
-    rock('Stones', 'step-stone', 'Stepping stone', 'A flat slab for a path', 412, {width: 1, height: 0.14, depth: 0.8, chunks: 1, faces: 0.35, cuts: 0.45, moss: 0, variation: 0.3}),
-    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {kind: 'pillar', width: 1, height: 3, depth: 0.7, chunks: 1, moss: 0.35}),
+    rock('Stones', 'damp-stone', 'Damp stone', 'Wet, with moss on its shady side', 413, {width: 1.1, height: 0.7, depth: 0.9, chunks: 2, faces: 0.5, cuts: 0.45, moss: 0.75, mossFrom: 'shade', wet: 0.5, palette: 'slate'}),
+    rock('Stones', 'river-stone', 'River stone', 'Worn nearly round', 405, {width: 0.7, height: 0.25, depth: 0.5, chunks: 1, faces: 0.7, cuts: 0.2, edges: 1, rounded: 0.85, blend: 1, dents: 0, layers: 0, moss: 0, palette: 'slate'}),
+    rock('Stones', 'step-stone', 'Stepping stone', 'A flat slab for a path', 412, {width: 1, height: 0.14, depth: 0.8, chunks: 1, faces: 0.35, cuts: 0.45, moss: 0, variation: 0.3, dents: 0.5, layers: 0}),
+    rock('Stones', 'cracked-slab', 'Cracked slab', 'Split across, lying low', 432, {width: 2.4, height: 0.45, depth: 1.8, chunks: 1, faces: 0.4, cuts: 0.4, cracks: 0.8, moss: 0, layers: 0.5, palette: 'slate'}),
+    rock('Stones', 'mossy-rubble', 'Mossy rubble', 'A heap of stones, green on the shady side', 433, {width: 1.6, height: 0.6, depth: 1.4, chunks: 3, faces: 0.6, rubble: 0.65, moss: 0.8, mossFrom: 'shade'}),
+    rock('Stones', 'riverbank-stones', 'Riverbank stones', 'Round and wet at the water’s edge', 434, {width: 1.6, height: 0.35, depth: 1.2, chunks: 4, faces: 0.7, cuts: 0.2, edges: 1, rounded: 0.9, blend: 0.2, dents: 0, rubble: 0.9, moss: 0, wet: 0.7, palette: 'slate'}),
+    rock('Stones', 'standing-stone', 'Standing stone', 'Tall and old', 406, {kind: 'pillar', width: 1, height: 3, depth: 0.7, chunks: 1, moss: 0.35, dents: 0.5, layers: 0.2}),
     rock('Cliffs', 'cliff-face', 'Cliff face', 'A wall of wedged stone', 407, {kind: 'cliff', width: 14, height: 10, depth: 6, chunks: 18, faces: 0.45, moss: 0.25}),
-    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {kind: 'pillar', width: 5, height: 11, depth: 4.5, chunks: 5, palette: 'slate'}),
-    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and warm', 409, {kind: 'cliff', width: 16, height: 6, depth: 11, chunks: 14, moss: 0, palette: 'redrock'}),
+    rock('Cliffs', 'sea-stack', 'Sea stack', 'A lone tall pillar', 408, {kind: 'pillar', width: 5, height: 11, depth: 4.5, chunks: 5, layers: 0.7, palette: 'slate'}),
+    rock('Cliffs', 'red-mesa', 'Red mesa', 'Flat topped and warm', 409, {kind: 'cliff', width: 16, height: 6, depth: 11, chunks: 14, moss: 0, layers: 0.9, overhang: 0.15, palette: 'redrock'}),
 ]
+
+/**
+ * Broken versions of presets above, as the same tree or rock with damage done, so
+ * each stays recognisably the one it came from.
+ */
+function damagedPresets(): readonly TreePreset[] {
+    const all = [...paintedPresets, ...foliagePresets, ...rockPresets]
+    const from = (baseId: string, id: string, name: string, sub: string, category: PresetCategory, changes: Readonly<Record<string, number | string>>): TreePreset => {
+        const base = all.find((preset) => preset.id === baseId)!
+
+        return {...base, id, name, sub, category, parameters: {...base.parameters, ...changes}}
+    }
+
+    return [
+        from('oak', 'lightning-oak', 'Lightning oak', 'Struck, split and burnt', 'Old & bare', {snapped: 0.3, split: 1}),
+        from('scots-pine', 'snapped-pine', 'Snapped pine', 'Broken off in a storm', 'Old & bare', {snapped: 0.45}),
+        from('date-palm', 'broken-palm', 'Broken palm', 'Its crown gone', 'Palms & tropical', {snapped: 0.35}),
+        from('saguaro', 'fallen-saguaro', 'Fallen saguaro', 'An arm lying at its foot', 'Cacti', {fallenArms: 1}),
+        from('mossy-boulder', 'cracked-boulder', 'Cracked boulder', 'Split, with rubble at its foot', 'Boulders', {cracks: 0.8, crumble: 0.5, moss: 0.4}),
+    ]
+}
 
 export const treePresets: readonly TreePreset[] = [
     {
@@ -361,6 +403,7 @@ export const treePresets: readonly TreePreset[] = [
     ...paintedPresets,
     ...foliagePresets,
     ...rockPresets,
+    ...damagedPresets(),
 ]
 
 /**

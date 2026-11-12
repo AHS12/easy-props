@@ -9,129 +9,21 @@
  */
 
 import * as THREE from 'three'
-import {RIGID_ATTRIBUTE} from '../../shared/generator-types'
+import {weatherColours} from '../../shared/weather'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
-import {FRUIT_COLOURS, resolvePalette, type PaintedTreeParameters} from './parameters'
+import {addFruitBall, addOneFruit, appleRadius, FEW_FRUIT_BELOW, FRUIT_HANG_REACH, fruitRadius} from './fruit-mesh'
+import {addLeaf, emptyLeafBuffers, leafColours, leafGeometry, pushBothSides, pushVertex, type LeafBuffers} from './leaf-buffers'
+import {FRUIT_KINDS, type PaintedTreeParameters} from './parameters'
 import {cross, normalize, type Clump, type TreePlan, type Vec3} from './plan'
 
-/** The middle of the first dab, which is solid at every mip level. */
-const SOLID_UV = 0.25
 /** A frond never reaches below this, so an old one rests above the ground. */
 const GROUND_CLEARANCE = 0.08
 const FROND_SEGMENTS = 12
-const FRUIT_RINGS = 4
-const FRUIT_SIDES = 6
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 /** The most a leaflet may widen to cover for the ones a lighter level leaves out. */
 const MAX_LEAF_GROWTH = 3
-/** Below this share of its detail, a level keeps one fruit in three, for the colour. */
-const FEW_FRUIT_BELOW = 0.2
-/** Below this share, fruit is a plainer ball. */
-const FRUIT_PLAIN_BELOW = 0.7
 /** A widened leaflet stops at about this many times the gap it has to cover. */
 const WIDEST_OVER_GAP = 1.2
-
-export interface LeafBuffers {
-    readonly positions: number[]
-    readonly normals: number[]
-    readonly colors: number[]
-    readonly uvs: number[]
-    readonly indices: number[]
-    /** Where fruit starts and ends among the vertices, in pairs: it sways whole. */
-    readonly rigid: number[]
-}
-
-export const emptyLeafBuffers = (): LeafBuffers => ({positions: [], normals: [], colors: [], uvs: [], indices: [], rigid: []})
-
-export function leafGeometry({positions, normals, colors, uvs, indices, rigid}: LeafBuffers): THREE.BufferGeometry {
-    const geometry = new THREE.BufferGeometry()
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-    geometry.setIndex(indices)
-
-    if (rigid.length > 0) {
-        const marks = new Float32Array(positions.length / 3)
-
-        for (let pair = 0; pair < rigid.length; pair += 2) {
-            marks.fill(1, rigid[pair], rigid[pair + 1])
-        }
-
-        geometry.setAttribute(RIGID_ATTRIBUTE, new THREE.BufferAttribute(marks, 1))
-    }
-
-    geometry.computeBoundingSphere()
-
-    return geometry
-}
-
-/** The three colours a leaf shape is painted from, with its clump's own tint. */
-export function leafColours(tree: PaintedTreeParameters, clump: Clump) {
-    const palette = resolvePalette(tree)
-    const deep = new THREE.Color(palette.leafDeep)
-    const mid = new THREE.Color(palette.leafMid)
-    const light = new THREE.Color(palette.leafLight)
-
-    if (clump.edit.colour) {
-        const tint = new THREE.Color(clump.edit.colour)
-
-        mid.lerp(tint, 0.72)
-        light.lerp(tint.clone().lerp(new THREE.Color('#ffffff'), 0.55), 0.72)
-        deep.lerp(tint.clone().multiplyScalar(0.45), 0.72)
-    }
-
-    const paint = new THREE.Color()
-
-    return (value: number): THREE.Color => {
-        const v = Math.min(1, Math.max(0, value))
-
-        return v < 0.5 ? paint.copy(deep).lerp(mid, v * 2) : paint.copy(mid).lerp(light, (v - 0.5) * 2)
-    }
-}
-
-function pushVertex(buffers: LeafBuffers, point: Vec3, normal: Vec3, colour: THREE.Color): number {
-    const index = buffers.positions.length / 3
-
-    buffers.positions.push(point[0], point[1], point[2])
-    buffers.normals.push(normal[0], normal[1], normal[2])
-    buffers.colors.push(colour.r, colour.g, colour.b)
-    buffers.uvs.push(SOLID_UV, SOLID_UV)
-
-    return index
-}
-
-/** A triangle seen from both sides, over the same vertices. */
-function pushBothSides(buffers: LeafBuffers, a: number, b: number, c: number) {
-    buffers.indices.push(a, b, c, a, c, b)
-}
-
-/** One leaf: a kite from `base` to `tip`, widest a third of the way along. */
-export function addLeaf(
-    buffers: LeafBuffers,
-    base: Vec3,
-    tip: Vec3,
-    across: Vec3,
-    width: number,
-    normal: Vec3,
-    paint: (value: number) => THREE.Color,
-    value: number,
-) {
-    const at = (share: number, side: number): Vec3 => [
-        base[0] + (tip[0] - base[0]) * share + across[0] * side,
-        base[1] + (tip[1] - base[1]) * share + across[1] * side,
-        base[2] + (tip[2] - base[2]) * share + across[2] * side,
-    ]
-    const half = width * 0.5
-    const a = pushVertex(buffers, base, normal, paint(value - 0.2))
-    const b = pushVertex(buffers, at(0.34, half), normal, paint(value))
-    const c = pushVertex(buffers, tip, normal, paint(value + 0.2))
-    const d = pushVertex(buffers, at(0.34, -half), normal, paint(value))
-
-    pushBothSides(buffers, a, b, c)
-    pushBothSides(buffers, a, c, d)
-}
 
 interface RachisPoint {
     readonly point: Vec3
@@ -360,49 +252,6 @@ function addBlade(
     }
 }
 
-/** A rounded little ball. */
-export function addFruitBall(buffers: LeafBuffers, centre: Vec3, radius: number, tree: PaintedTreeParameters, share = 1) {
-    const rings = share < FRUIT_PLAIN_BELOW ? 3 : FRUIT_RINGS
-    const sides = share < FRUIT_PLAIN_BELOW ? 4 : FRUIT_SIDES
-    const {deep, light} = FRUIT_COLOURS[tree.fruitKind]
-    const low = new THREE.Color(deep)
-    const high = new THREE.Color(light)
-    const paint = new THREE.Color()
-    const first = buffers.positions.length / 3
-
-    for (let ring = 0; ring <= rings; ring++) {
-        const polar = (ring / rings) * Math.PI
-
-        for (let side = 0; side < sides; side++) {
-            const azimuth = (side / sides) * Math.PI * 2
-            const n: Vec3 = [Math.sin(polar) * Math.cos(azimuth), Math.cos(polar), Math.sin(polar) * Math.sin(azimuth)]
-
-            pushVertex(
-                buffers,
-                [centre[0] + n[0] * radius, centre[1] + n[1] * radius, centre[2] + n[2] * radius],
-                n,
-                paint.copy(low).lerp(high, n[1] * 0.5 + 0.5),
-            )
-        }
-    }
-
-    for (let ring = 0; ring < rings; ring++) {
-        for (let side = 0; side < sides; side++) {
-            const next = (side + 1) % sides
-            const a = first + ring * sides + side
-            const b = first + ring * sides + next
-            const c = first + (ring + 1) * sides + next
-            const d = first + (ring + 1) * sides + side
-
-            buffers.indices.push(a, c, b, a, d, c)
-        }
-    }
-
-    buffers.rigid.push(first, buffers.positions.length / 3)
-}
-
-/** How big a fruit is on a tree this tall. */
-export const fruitRadius = (tree: PaintedTreeParameters) => (0.06 + tree.height * 0.008) * tree.fruitSize
 
 /** Curtains of leaves falling from the rim and underside of a clump. */
 export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, detail: number, share = 1) {
@@ -453,31 +302,6 @@ export function addStrands(buffers: LeafBuffers, clump: Clump, tree: PaintedTree
     }
 }
 
-/** Fruit scattered over the skin of a clump, more of it underneath. */
-export function addClumpFruit(buffers: LeafBuffers, clump: Clump, tree: PaintedTreeParameters, share = 1) {
-    const random = createSeededRandom(hashSeed(clump.seed, 6))
-    const radius = fruitRadius(tree)
-
-    for (let index = 0; index < tree.fruitCount; index++) {
-        const azimuth = index * GOLDEN_ANGLE + random() * 2
-        const y = randomRange(random, -0.85, 0.45)
-        const ring = Math.sqrt(1 - y * y)
-        const reach = clump.radius * randomRange(random, 0.8, 0.98)
-
-        if (share < FEW_FRUIT_BELOW && index % 3 !== 0) {
-            continue
-        }
-
-        addFruitBall(
-            buffers,
-            [Math.cos(azimuth) * ring * reach, y * reach * clump.flatten, Math.sin(azimuth) * ring * reach],
-            radius,
-            tree,
-            share,
-        )
-    }
-}
-
 /** Builds one frond, in its own space: where it leaves the trunk is the origin. */
 export function buildFrond(
     plan: TreePlan,
@@ -502,8 +326,11 @@ export function buildFrond(
         addFeather(buffers, path, clump, tree, detail, paint, random, share, widen)
     }
 
+    weatherColours(buffers.colors, buffers.normals, tree)
+
     // Coconuts sit in a ring where the fronds meet the trunk, so a frond carries
-    // its share of them. The count is for the whole crown.
+    // its share of them. The count is for the whole crown. Other fruit hangs
+    // from there in bunches, on stalks.
     const index = plan.clumps.indexOf(clump)
     const fronds = Math.max(plan.clumps.length, 1)
     const fruitHere = share < FEW_FRUIT_BELOW ? 0 : Math.floor((tree.fruitCount + fronds - 1 - index) / fronds)
@@ -512,6 +339,29 @@ export function buildFrond(
 
     for (let fruit = 0; fruit < fruitHere; fruit++) {
         const out = ball * randomRange(fruitRandom, 1.3, 2.1)
+
+        if (FRUIT_KINDS[tree.fruitKind].shape !== 'ball') {
+            // Placed by an apple's size, as coconuts are, whatever the size of each piece.
+            const reach = appleRadius(tree)
+            const along: Vec3 = [Math.cos(clump.azimuth + fruit), 0, Math.sin(clump.azimuth + fruit)]
+            const drop = reach * (0.5 + FRUIT_KINDS[tree.fruitKind].stalk * tree.fruitHang * FRUIT_HANG_REACH)
+            // Clear of the trunk, which a thick palm's bunches would otherwise hang inside.
+            const clear = Math.max(reach * 1.8, tree.trunkRadius * 1.2 + reach)
+
+            addOneFruit(
+                buffers,
+                {
+                    attach: [along[0] * reach * 0.5, -reach * 0.2, along[2] * reach * 0.5],
+                    top: [along[0] * clear, -drop, along[2] * clear],
+                    axis: [0, -1, 0],
+                    side: 1,
+                },
+                tree,
+                null,
+                share,
+            )
+            continue
+        }
 
         addFruitBall(
             buffers,

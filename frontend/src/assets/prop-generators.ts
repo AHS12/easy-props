@@ -21,6 +21,7 @@ import {branchingTreeGenerator} from './trees/branching-tree-generator'
 import {controlsForTree} from './trees/painted'
 import {paintedTreeGenerator} from './trees/painted-tree-generator'
 import {palmTreeGenerator} from './trees/palm-tree-generator'
+import {branchPieceGenerator, litterGenerator, logGenerator, stumpGenerator} from './trees/pieces/piece-generators'
 
 export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [branchingTreeGenerator.id]: branchingTreeGenerator,
@@ -32,6 +33,10 @@ export const propGenerators: Readonly<Record<string, PropGenerator>> = {
     [bushGenerator.id]: bushGenerator,
     [plantGenerator.id]: plantGenerator,
     [cactusGenerator.id]: cactusGenerator,
+    [stumpGenerator.id]: stumpGenerator,
+    [logGenerator.id]: logGenerator,
+    [branchPieceGenerator.id]: branchPieceGenerator,
+    [litterGenerator.id]: litterGenerator,
 }
 
 export function findPropGenerator(id: string): PropGenerator | undefined {

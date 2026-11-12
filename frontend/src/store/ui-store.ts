@@ -60,6 +60,10 @@ interface UiStore {
     pictureOpen: boolean
     setPictureOpen(open: boolean): void
 
+    /** True while Make pieces from this tree is open. */
+    piecesOpen: boolean
+    setPiecesOpen(open: boolean): void
+
     /** True while Report a problem is open. */
     reportOpen: boolean
     setReportOpen(open: boolean): void
@@ -135,6 +139,8 @@ export const useUiStore = create<UiStore>((set) => ({
 
     pictureOpen: false,
     setPictureOpen: (pictureOpen) => set({pictureOpen}),
+    piecesOpen: false,
+    setPiecesOpen: (piecesOpen) => set({piecesOpen}),
 
     reportOpen: false,
     setReportOpen: (reportOpen) => set({reportOpen, paletteOpen: false}),

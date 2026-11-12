@@ -8,7 +8,7 @@
 
 import * as THREE from 'three'
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import {RIGID_ATTRIBUTE, roleOfPart} from '../../../assets/shared/generator-types'
+import {RIGID_ATTRIBUTE, roleOfPart, type GeneratedPart} from '../../../assets/shared/generator-types'
 import {flattenColours} from '../../../assets/style/flat-colours'
 import {COMIC_LOOK} from '../../../assets/style/toon-looks'
 import {tidyWood} from './tidy'
@@ -221,7 +221,7 @@ function normalised(placed: PlacedPart, pivot: Vec3, wind?: WindExtent, comic = 
 function bucketName(part: PlacedPart): string {
     const role = roleOfPart(part.part)
 
-    return role === 'foliage' ? 'leaves' : 'wood'
+    return part.part.surface?.exportName ?? (role === 'foliage' ? 'leaves' : 'wood')
 }
 
 /**
@@ -229,6 +229,31 @@ function bucketName(part: PlacedPart): string {
  * show, and one with a broken coordinate is dropped rather than written out:
  * one NaN vertex makes the whole file unreadable in most viewers.
  */
+/**
+ * A picture drawn again at `size` across, when it can be and that's larger. The same
+ * marks, sharper, rather than the small one stretched.
+ */
+function atSize<T extends THREE.Texture>(texture: T, size: number): T {
+    const larger = texture.userData.atSize as ((size: number) => T) | undefined
+    const width = (texture.image as {width?: number} | undefined)?.width ?? 0
+
+    return larger && size > width ? larger(size) : texture
+}
+
+/**
+ * A material's name in a set: the set, what the part is, its picture, and how wet. Two
+ * files whose parts look the same give the same name, which is how an engine knows to
+ * make them one material.
+ */
+function setMaterialName(setName: string, bucket: string, surface: GeneratedPart['surface']): string {
+    // The picture says what it is (bark, stone, end grain), so it names the material. One without is wood or leaves.
+    const look = surface?.map?.name || bucket
+    const roughness = surface?.roughness ?? 1
+    const wet = roughness < 1 ? `_wet${Math.round((1 - roughness) * 100)}` : ''
+
+    return `${setName}_${look}${wet}`
+}
+
 export function mergeParts(
     parts: readonly PlacedPart[],
     name: string,
@@ -236,6 +261,9 @@ export function mergeParts(
     wind?: WindExtent,
     fullRelief = true,
     comic = false,
+    pictureSize = 512,
+    /** In a set, materials are named after the set and what they look like, so files can share them. */
+    setName?: string,
 ): MergedMesh[] {
     const buckets = new Map<string, PlacedPart[]>()
 
@@ -279,13 +307,13 @@ export function mergeParts(
             name: meshName,
             geometry,
             material: new THREE.MeshStandardMaterial({
-                name: meshName,
+                name: setName ? setMaterialName(setName, bucketName(bucket[0]), surface) : meshName,
                 color: 0xffffff,
-                roughness: surface ? 1 : ROUGHNESS,
+                roughness: surface ? (surface.roughness ?? 1) : ROUGHNESS,
                 metalness: METALNESS,
                 vertexColors: true,
-                map: surface?.map ?? whiteTexture(),
-                normalMap: surface?.normalMap ? reliefForFile(surface.normalMap, fullRelief) : null,
+                map: surface?.map ? atSize(surface.map, pictureSize) : whiteTexture(),
+                normalMap: surface?.normalMap ? reliefForFile(atSize(surface.normalMap, pictureSize), fullRelief) : null,
                 normalScale: new THREE.Vector2(1, -1),
                 alphaTest: surface?.alphaTest ?? 0,
             }),

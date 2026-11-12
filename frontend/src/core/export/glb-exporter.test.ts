@@ -6,6 +6,7 @@ import {findPropGenerator} from '../../assets/prop-generators'
 import {treePresets} from '../../assets/trees/presets'
 import {createEmptyScene} from '../scene/scene-model'
 import {createSceneFromPreset} from '../scene/initial-scene'
+import {updateTreeParameters} from '../scene/scene-ops'
 import {findBudgetTarget} from './pipeline/budget'
 import {MAX_COLLISION_SHAPES} from './pipeline/collision'
 import {mergeParts} from './pipeline/merge'
@@ -23,7 +24,11 @@ const STYLE = getStyleProfile('low-poly')
  */
 const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     birch: 0.005,
-    'scots-pine': 0.01,
+    // Plated bark carves more of the trunk, which the lightest level then simplifies away.
+    'scots-pine': 0.015,
+    larch: 0.005,
+    // A bare tree's trunk now narrows into its top limb, which leaves its middle level a little lighter.
+    bleached: 0.01,
     // These four lost only faces with no area at their lightest level, which takes
     // them just under the target.
     beech: 0.005,
@@ -36,6 +41,21 @@ const LEVEL_KNOWN_MISSES: Readonly<Record<string, number>> = {
     'round-canopy': 0.07,
     // A column crown is mostly side branches hidden in its leaves, and the lightest level drops them.
     poplar: 0.01,
+    // A snapped tree is a bare stump of trunk, which its lightest level takes down further than most.
+    'snapped-pine': 0.08,
+    'broken-palm': 0.08,
+    'lightning-oak': 0.04,
+}
+
+/**
+ * Props whose lightest outline may be a little smaller than the rule allows. A snapped
+ * tree is a bare stump whose roots set its width, and coarse wood draws roots thinner.
+ */
+const OUTLINE_KNOWN_MISSES: Readonly<Record<string, number>> = {
+    'snapped-pine': 0.05,
+    'broken-palm': 0.04,
+    // Its tallest splinters are the first thing a lighter level smooths away.
+    'lightning-oak': 0.02,
 }
 
 interface Accessor {
@@ -232,6 +252,40 @@ describe('game-ready export', () => {
         }
     }, 60000)
 
+    it('writes a rock’s grain as a picture and relief, and none for a rock without it', async () => {
+        const rockFile = async (grain: number) => {
+            const scene = createSceneFromPreset('mossy-boulder')
+            const [asset] = scene.assets
+            const withGrain = updateTreeParameters(scene, asset.id, {grain}, STYLE)
+            const files = await buildExport(sceneExportSource(withGrain, STYLE, 'test'), {name: 'rock', engine: 'godot', levels: 1, collision: false, wind: false})
+
+            return readGLB(fileNamed(files, 'rock.glb').bytes).json
+        }
+        const grained = await rockFile(0.6)
+        const plain = await rockFile(0)
+        const [material] = grained.materials! as {normalTexture?: unknown}[]
+
+        expect(material.normalTexture).toBeDefined()
+        expect((grained.images ?? []).length).toBe(2)
+        expect(grained.meshes![0].primitives[0].attributes.TEXCOORD_0).toBeDefined()
+        expect((plain.materials![0] as {normalTexture?: unknown}).normalTexture).toBeUndefined()
+        expect((plain.images ?? []).length).toBe(1)
+    }, 60000)
+
+    it('draws bark and stone again at a larger Picture size, with the same marks', async () => {
+        const widthsAt = async (presetId: string, pictureSize: number) => {
+            const parts = await sceneExportSource(createSceneFromPreset(presetId), STYLE, 'test').buildAtDetail(1)
+
+            return mergeParts(parts, 'prop', [0, 0, 0], undefined, true, false, pictureSize)
+                .filter(({material}) => material.normalMap)
+                .map(({material}) => [(material.map!.image as {width: number}).width, (material.normalMap!.image as {width: number}).width])
+        }
+
+        expect(await widthsAt('blossom-tree', 512)).toEqual([[512, 512]])
+        expect(await widthsAt('blossom-tree', 1024)).toEqual([[1024, 1024]])
+        expect(await widthsAt('mossy-boulder', 2048)).toEqual([[2048, 2048]])
+    }, 120000)
+
     describe.each(['plain', 'godot', 'unreal'] as const)('with parts joined for %s', (engine) => {
         const exportBoth = async (levels: number) => {
             const settings = {name: 'oak_01', engine, levels, collision: true, wind: true}
@@ -349,15 +403,16 @@ describe('game-ready export', () => {
             for (let axis = 0; axis < 3; axis++) {
                 const size = box.max[axis] - box.min[axis]
 
-                expect(Math.abs(size - fullSize[axis]) / fullSize[axis], `LOD${level} axis ${axis}`).toBeLessThan(0.1)
+                expect(Math.abs(size - fullSize[axis]) / fullSize[axis], `LOD${level} axis ${axis}`).toBeLessThan(0.1 + (OUTLINE_KNOWN_MISSES[presetId] ?? 0))
             }
         }
 
         // Pivot at the base. One unit is one metre.
         const generator = findPropGenerator(preset.generatorId)!
-        const height = (generator.validate(preset.parameters).parameters as {height: number}).height
+        const {height, snapped = 0} = generator.validate(preset.parameters).parameters as {height: number; snapped?: number}
 
-        expect(fullBounds.max[1]).toBeGreaterThan(height * 0.5)
+        // A snapped tree stands as high as where it broke.
+        expect(fullBounds.max[1]).toBeGreaterThan(height * (snapped > 0 ? 0.15 : 0.5))
 
         expect(fullBounds.max[1]).toBeLessThan(height * 2)
 

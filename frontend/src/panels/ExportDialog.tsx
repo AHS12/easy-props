@@ -15,10 +15,12 @@ import {
     loadExportPreferences,
     LOOK_HELP,
     MATERIALS_HELP,
+    PICTURE_SIZE_HELP,
+    PICTURE_SIZE_OPTIONS,
     saveExportPreferences,
 } from '../core/export/export-preferences'
 import {buildExport} from '../core/export/pipeline/package'
-import {ENGINE_LABELS, EXPORT_LOOKS, exportNameOf, type EngineId, type ExportFile} from '../core/export/pipeline/types'
+import {ENGINE_LABELS, EXPORT_LOOKS, exportNameOf, type EngineId, type ExportFile, type PictureSize} from '../core/export/pipeline/types'
 import {sceneExportSource} from '../core/export/scene-source'
 import {engineKitFiles, KIT_LABELS, kitFolder} from '../core/export/engine-kits'
 import {
@@ -60,7 +62,7 @@ export function ExportDialog() {
     const [kitSaved, setKitSaved] = useState<string | null>(null)
 
     const safeName = exportNameOf(name)
-    const {engine, levels, collision, wind, join, far, look, materials, folder} = preferences
+    const {engine, levels, collision, wind, join, far, look, materials, pictureSize, folder} = preferences
     const generator = findPropGenerator(scene.assets[0]?.generatorId ?? '')
     const offersFar = offersFarAway(scene.assets[0]?.generatorId, scene.assets[0]?.parameters)
 
@@ -95,7 +97,7 @@ export function ExportDialog() {
         const timer = window.setTimeout(() => {
             buildExport(
                 sceneExportSource(scene, getStyleProfile(style), APP_VERSION),
-                {name: safeName, engine, levels, collision, wind, join, far, look, materials},
+                {name: safeName, engine, levels, collision, wind, join, far, look, materials, pictureSize},
                 (done, total) => current && setProgress(done / total),
             )
                 .then(
@@ -109,7 +111,7 @@ export function ExportDialog() {
             current = false
             window.clearTimeout(timer)
         }
-    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join, far, look, materials])
+    }, [open, name, safeName, scene, style, engine, levels, collision, wind, join, far, look, materials, pictureSize])
 
     const change = (next: Partial<typeof preferences>) => {
         const merged = {...preferences, ...next}
@@ -262,6 +264,14 @@ export function ExportDialog() {
                             value={look}
                             onChange={(next) => change({look: next})}
                             options={EXPORT_LOOKS.map((id) => ({value: id, label: SHADING_MODE_LABELS[id]}))}
+                        />
+                    </Row>
+                    <Row label="Picture size" help={PICTURE_SIZE_HELP}>
+                        <Select
+                            label="Picture size"
+                            value={String(pictureSize)}
+                            onChange={(next) => change({pictureSize: Number(next) as PictureSize})}
+                            options={PICTURE_SIZE_OPTIONS}
                         />
                     </Row>
                     {engine === 'godot' ? (

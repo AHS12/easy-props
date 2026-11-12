@@ -35,11 +35,14 @@ import {
     type SelectionState,
 } from '../core/selection/selection'
 import {createInitialScene, createSceneFromPreset, DEFAULT_PRESET_ID, presetOfScene} from '../core/scene/initial-scene'
+import {makePieces} from '../core/scene/tree-pieces'
+import type {PieceKind} from '../assets/trees/pieces/tree-pieces'
 import {
     addComponent,
     copyComponent as copyComponentInScene,
     moveComponent as moveComponentInScene,
     removeComponent,
+    breakComponent,
     restoreComponentDefault,
     setAssetSeed,
     setComponentPosition as setComponentPositionInScene,
@@ -52,7 +55,9 @@ import {APP_VERSION, loadBudgetTarget, saveBudgetTarget, type ExportPreferences}
 import {describeChanges, makeItFit} from '../core/export/make-it-fit'
 import {runBatch, type BatchSummary} from '../core/export/pipeline/batch'
 import {findBudgetTarget, type BudgetTargetId, type FaceCounts} from '../core/export/pipeline/budget'
-import {folderNameOf} from '../core/export/pipeline/types'
+import {exportNameOf, folderNameOf} from '../core/export/pipeline/types'
+import type {ColourGroup, SetColours} from '../core/export/set-colours'
+import {setEntryOf, setListFile, type SetEntry} from '../core/export/set-list'
 import {afterPaint} from '../core/export/pipeline/yield'
 import {renderTreeThumbnail} from '../core/export/tree-thumbnail'
 import {markedStartingPoint, parseProject, ProjectFileError, serializeProject} from '../core/project/project-document'
@@ -173,6 +178,13 @@ export interface ToastAction {
 }
 
 /** How far a batch has got. It has a summary once it has finished. */
+/** A batch exported as one set: in one folder, matched to one set of colours. */
+export interface ExportSet {
+    readonly name: string
+    readonly groups: readonly ColourGroup[]
+    readonly colours: SetColours
+}
+
 export interface BatchState {
     readonly done: number
     readonly total: number
@@ -277,6 +289,8 @@ export interface EditorStore {
     copyComponent(componentId: string): void
     /** Removes a part and everything hanging off it. */
     deleteComponent(componentId: string): void
+    /** Breaks a heavy limb partway, leaving a jagged stub. */
+    breakLimb(componentId: string): void
     /** Puts a part back to the generator's defaults. */
     restoreComponent(componentId: string): void
     /** Puts the tree back to the preset it came from. */
@@ -314,8 +328,11 @@ export interface EditorStore {
     closeBatch(): void
     /** The batch running or just finished, or null. */
     batch: BatchState | null
-    /** `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch. */
-    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string): void
+    /**
+     * `subfolder`, when not empty, is made inside the chosen folder to hold the whole batch.
+     * A set goes in a folder of its own name, its props in its colours, and ends with a list.
+     */
+    startBatch(choices: readonly BatchChoice[], variations: number, preferences: ExportPreferences, subfolder?: string, set?: ExportSet): void
     cancelBatch(): void
     clearBatch(): void
     /** Which detail level the viewport is showing. */
@@ -382,6 +399,8 @@ export interface EditorStore {
     copyTree(id: string): Promise<void>
     /** Asks for a name, then saves the prop in hand as a new starting point. */
     saveStartingPoint(): void
+    /** Makes these pieces of the open tree, saves each to Your props as a prop of its own, and says which it saved. */
+    makeTreePieces(kinds: readonly PieceKind[]): Promise<readonly {id: string; name: string}[]>
     /** A new, unsaved prop made from a starting point, as a preset makes one. */
     startFromStartingPoint(id: string): Promise<void>
     /** Puts a starting point's prop in place of this one, as one step to undo, as picking a preset does. */
@@ -848,6 +867,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
         },
 
+        breakLimb: (componentId) => {
+            commit('break branch', (scene) => breakComponent(scene, componentId))
+            set({toast: {message: 'Broke the branch', undoable: true}})
+        },
+
         deleteComponent: (componentId) => {
             const state = get()
             const source = state.scene.assets[0]?.components.find((c) => c.id === componentId)
@@ -1263,6 +1287,29 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
         },
 
+        makeTreePieces: async (kinds) => {
+            const state = get()
+            const pieces = makePieces(state.scene, state.treeName, kinds, state.style)
+            const saved: {id: string; name: string}[] = []
+
+            try {
+                for (const piece of pieces) {
+                    const id = newTreeId()
+                    const text = serializeProject({scene: piece.scene, name: piece.name, style: state.style})
+                    const thumbnail = await renderTreeThumbnail(piece.scene, {style: getStyleProfile(state.style), size: PICTURE_SIZE})
+
+                    await writeTree(id, text, thumbnail)
+                    saved.push({id, name: piece.name})
+                }
+
+                await get().refreshGallery()
+            } catch (error) {
+                set({toast: {message: describeFailure(error, 'save'), undoable: false}})
+            }
+
+            return saved
+        },
+
         saveStartingPoint: () => {
             const state = get()
 
@@ -1461,8 +1508,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         openBatchWithSaved: (batchSavedIds) => set({batchSavedIds, batchPicked: null, batchOpen: true, exportOpen: false}),
         closeBatch: () => set({batchOpen: false}),
         batch: null,
-        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, folder: chosen, folderPerProp}, subfolder = '') => {
-            const inside = folderNameOf(subfolder)
+        startBatch: (choices, variations, {engine, levels, collision, wind, join, far, look, materials, pictureSize, folder: chosen, folderPerProp}, subfolder = '', exportSet) => {
+            const inside = folderNameOf(exportSet ? exportSet.name : subfolder)
+            const setName = exportSet ? exportNameOf(exportSet.name) : undefined
+            const entries: SetEntry[] = []
             const folder = inside ? desktopJoin(chosen, inside) : chosen
             const state = get()
 
@@ -1475,19 +1524,35 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 style: state.style,
                 appVersion: APP_VERSION,
                 readInSavedProp: readTree,
+                colours: exportSet?.colours,
             })
 
             batchController = controller
             set({batch: {done: 0, total: items.length, current: null, summary: null, folder}})
 
             void runBatch(items, {
-                settings: {engine, levels, collision, wind, join, far, look, materials},
+                settings: {engine, levels, collision, wind, join, far, look, materials, pictureSize, setName},
                 budget: state.budgetTarget,
                 signal: controller.signal,
-                write: (files, name) => (folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)),
+                write: (files, name) => {
+                    if (exportSet) {
+                        entries.push(setEntryOf(name, files))
+
+                        return writeFilesTo(folder, files)
+                    }
+
+                    return folderPerProp ? writeExportFiles(folder, name, files) : writeFilesTo(folder, files)
+                },
                 onProgress: (done, total, current) => set({batch: {done, total, current, summary: null, folder}}),
-            }).then((summary) => {
+            }).then(async (summary) => {
                 batchController = null
+
+                if (exportSet && setName && entries.length > 0) {
+                    await writeFilesTo(folder, [setListFile(setName, entries, exportSet.groups, exportSet.colours)]).catch(() =>
+                        get().notify("The set's list couldn't be written. Its props were."),
+                    )
+                }
+
                 set({
                     batch: {done: summary.exported, total: summary.total, current: null, summary, folder},
                     // The panel may be long closed, so the news comes back with it.

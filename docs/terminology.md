@@ -38,6 +38,25 @@ agree on the term first, or rethink the control.
 | Export as glTF | **Export** (GLB) | The extension is not a choice in MVP |
 | Project file | **Project** | With save/open in a File menu |
 | User template, starting point | **My presets** / **my preset** | A saved prop new props start from. "Save as my preset…", "Add to My presets". The app's own are just **presets** |
+| Weather, surface layers, decals | **Weather** | The section holding **Snow** and **Wet** on every kind of prop, and **Moss** and **Moss grows** on trees and rocks |
+| Snow accumulation | **Snow** | "White on whatever faces up, thickest on flat tops." |
+| Moss direction, occlusion side | **Moss grows** | **On top** / **On one side** |
+| Smooth shading, rounded normals | **Rounded light** | On rocks: light rolls over the stone like a pebble, the faces stay flat. Never "normals" or "smooth shading" |
+| Chunk merging, seam smoothing | **Blend** | On rocks: how far the chunks run together into one stone |
+| Concavities, displacement inward | **Dents** | On rocks: soft hollows worn into some larger faces |
+| Strata, courses | **Layers** | On rocks: bands of stone laid one on another; a cliff stacks in courses with a ledge on top |
+| Undercut, cantilever | **Overhang** | On outcrops and cliffs: how far they lean out over their feet |
+| Scatter, debris | **Rubble** | On rocks: small stones lying round the foot |
+| Lichen, moss on bare stone | **Lichen** | On rocks: small pale patches on bare stone, seen up close |
+| Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
+| End cap, cross-section texture | **Cut ends** | The sawn faces of a stump, log or branch, with their rings |
+| Texture resolution | **Picture size** | In Export: 512, 1024 or 2048. Never "texture" or "resolution" |
+| Material atlas, shared material, palette sync | **Export as a set**, **Set colours** | In Export many. Never "atlas" or "material instance" |
+| Wetness, roughness, specular | **Wet** | "Darker and shinier, as after rain or in a swamp." Never "roughness" or "gloss" |
+| Terrain slope, ground normal, incline | **Slope** / **Downhill** | In the view only: tilts the ground, not the prop. Degrees are shown |
+| Derived props, deadwood, debris | **Pieces** of a tree: **Stump**, **Fallen log**, **Fallen branch**, **Leaf litter** | "Make pieces from this tree…" in the Prop menu. Never "asset variants" or "debris" |
+| Damage, destruction, decay | **Damage**: **Snapped top**, **Broken limbs**, **Split trunk**, **Break** (one limb), **Cracks**, **Crumbled edge**, **Fallen arms** | A section of its own on trees, rocks and cacti, and a **Damaged** choice in Show me more beside **New seeds**. Never "destruction" or "fracture" |
+| Peduncle, pedicel, fruit drop | **Stalk**, **Hanging** | What fruit hangs from. **Hanging** sets how far: "from snug to dangling". Never "stem" for fruit, which flowers use |
 
 ## Button voice
 

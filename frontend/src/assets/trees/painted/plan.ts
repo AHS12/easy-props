@@ -10,6 +10,8 @@
  * tree, and a hand edit has something lasting to attach to.
  */
 
+import {applyDamage, type Split} from './damage'
+import type {WoodCut} from './wood-field'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
 import {parseEdits, type ClumpEdit, type PaintedEdits} from './edits'
 import type {CrownShape, PaintedTreeParameters} from './parameters'
@@ -66,6 +68,10 @@ export interface TreePlan {
     readonly clumps: readonly Clump[]
     readonly crownCentre: Vec3
     readonly crownRadius: number
+    /** Where the wood is broken, if anywhere. */
+    readonly cuts?: readonly WoodCut[]
+    /** A crack down the trunk, if any. */
+    readonly split?: Split | null
 }
 
 /** The golden angle, so limbs around a parent never line up. */
@@ -1042,7 +1048,12 @@ function buildPlan(tree: PaintedTreeParameters, seed: number): TreePlan {
         )
     }
 
-    return {limbs, clumps, crownCentre, crownRadius}
+    // Damage comes last, so what's left keeps the colours it had before.
+    const damage = applyDamage(limbs, clumps, tree, seed, edits)
+
+    return damage.limbs === limbs && damage.cuts.length === 0 && !damage.split
+        ? {limbs, clumps, crownCentre, crownRadius}
+        : {limbs: damage.limbs, clumps: damage.clumps, crownCentre, crownRadius, cuts: damage.cuts, split: damage.split}
 }
 
 let fitKey = ''

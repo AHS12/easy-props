@@ -16,15 +16,40 @@ import {
     type ValidationResult,
 } from '../../shared/parameters'
 import {BARK_TONES, PALETTES, type BarkToneId, type Palette, type PaletteId} from '../../style/palettes'
+import {MOSS_FROM, SNOW, WEATHER, WET, type MossFrom} from '../../shared/weather'
+import type {PrintedLeafStyle} from '../../shared/tree-leaf-texture'
 
 export {BARK_TONES, PALETTES}
 export type {BarkToneId, Palette, PaletteId}
 
 
 /** Which rules lay the tree out: a branching crown, a palm's fronds, or a conifer's tiers. */
-export type FruitKind = 'coconut' | 'apple' | 'orange' | 'lemon' | 'plum'
+export type FruitKind =
+    | 'apple'
+    | 'pear'
+    | 'cherry'
+    | 'plum'
+    | 'peach'
+    | 'orange'
+    | 'lemon'
+    | 'lime'
+    | 'mango'
+    | 'fig'
+    | 'pomegranate'
+    | 'olive'
+    | 'grapes'
+    | 'date'
+    | 'banana'
+    | 'cone'
+    | 'coconut'
+    | 'bauble'
 export type TreeForm = 'crown' | 'palm' | 'conifer'
 export type FrondStyle = 'feather' | 'fan' | 'blade'
+/**
+ * What a crown's leaves look like: cards printed with brush dabs or leaf shapes,
+ * or, for Broad, real leaves big enough to be seen one by one.
+ */
+export type LeafStyle = 'painted' | PrintedLeafStyle | 'broad'
 export type BarkPattern = 'none' | 'ringed' | 'plated' | 'banded' | 'peeling' | 'fibrous'
 export type CrownShape = 'natural' | 'round' | 'wide' | 'umbrella' | 'column' | 'cone' | 'teardrop'
 /** Painted is soft leaf cards and sculpted bark. Low-poly is the same tree in a few hard-edged blocks. */
@@ -46,6 +71,7 @@ const BRANCHES = 'Branches'
 const LEAVES = 'Leaves'
 const BARK = 'Bark detail'
 const FRUIT = 'Fruit'
+const DAMAGE = 'Damage'
 
 const NUMBERS = {
     height: number(TRUNK, 'height', 'Height', 'How tall the whole tree is, up to the top of the leaves.', 0.3, 20, 0.1, 8, 'm'),
@@ -82,6 +108,7 @@ const NUMBERS = {
 
     fruitCount: number(FRUIT, 'fruitCount', 'Fruit', 'How much fruit each clump carries. On a palm, how many in the whole crown.', 0, 12, 1, 0, 'count'),
     fruitSize: number(FRUIT, 'fruitSize', 'Fruit size', 'How big each fruit is.', 0.5, 2, 0.05, 1),
+    fruitHang: number(FRUIT, 'fruitHang', 'Hanging', 'How far the fruit hangs below the leaves on its stalk, from snug to dangling.', 0, 1, 0.05, 0.3),
 
     colourVariation: number('Colours', 'colourVariation', 'Variation', 'How much the colour changes from clump to clump.', 0, 1, 0.05, 0.35),
 
@@ -90,7 +117,13 @@ const NUMBERS = {
     roughness: number(BARK, 'roughness', 'Roughness', 'Uneven bumps across the wood.', 0, 1, 0.05, 0.2),
     burls: number(BARK, 'burls', 'Burls', 'Round knots growing out of the trunk.', 0, 8, 1, 0, 'count'),
     hollow: number(BARK, 'hollow', 'Hollow', 'Carves an opening into the trunk.', 0, 1, 0.05, 0),
-    moss: number(BARK, 'moss', 'Moss', 'Green growth on the upper sides of the wood.', 0, 1, 0.05, 0),
+    moss: number(WEATHER, 'moss', 'Moss', 'Green growth on the wood.', 0, 1, 0.05, 0),
+    snow: SNOW,
+    wet: WET,
+
+    snapped: number(DAMAGE, 'snapped', 'Snapped top', 'Breaks the trunk off in a splintered stump, from near the top to low down. Everything above it goes.', 0, 1, 0.05, 0),
+    brokenLimbs: number(DAMAGE, 'brokenLimbs', 'Broken limbs', 'How many of the big branches end in a jagged break, and lose what grew past it.', 0, 1, 0.05, 0),
+    split: number(DAMAGE, 'split', 'Split trunk', 'A charred crack down one side of the trunk, as from lightning.', 0, 1, 0.05, 0),
     patternDepth: number(BARK, 'patternDepth', 'Pattern depth', 'How strongly the bark pattern shows.', 0, 1, 0.05, 0.5),
     patternScale: number(BARK, 'patternScale', 'Bark size', 'How big each plate or mark on the wood is.', 0.6, 2, 0.05, 1),
 } as const
@@ -154,6 +187,23 @@ const FROND_STYLE = {
     default: 'feather',
 } as const satisfies ChoiceParameter<FrondStyle>
 
+const LEAF_STYLE = {
+    kind: 'choice',
+    group: LEAVES,
+    key: 'leafStyle',
+    label: 'Leaf style',
+    help: 'What the leaves look like up close: soft brush dabs, or leaves with a shape of their own.',
+    options: [
+        {value: 'painted', label: 'Painted'},
+        {value: 'round', label: 'Round'},
+        {value: 'lobed', label: 'Lobed'},
+        {value: 'feathery', label: 'Feathery'},
+        {value: 'needles', label: 'Needles'},
+        {value: 'broad', label: 'Broad'},
+    ],
+    default: 'painted',
+} as const satisfies ChoiceParameter<LeafStyle>
+
 const FRUIT_KIND = {
     kind: 'choice',
     group: FRUIT,
@@ -161,11 +211,24 @@ const FRUIT_KIND = {
     label: 'Kind of fruit',
     help: 'What the tree carries.',
     options: [
-        {value: 'coconut', label: 'Coconut'},
         {value: 'apple', label: 'Apple'},
+        {value: 'pear', label: 'Pear'},
+        {value: 'cherry', label: 'Cherries'},
+        {value: 'plum', label: 'Plum'},
+        {value: 'peach', label: 'Peach'},
         {value: 'orange', label: 'Orange'},
         {value: 'lemon', label: 'Lemon'},
-        {value: 'plum', label: 'Plum'},
+        {value: 'lime', label: 'Lime'},
+        {value: 'mango', label: 'Mango'},
+        {value: 'fig', label: 'Fig'},
+        {value: 'pomegranate', label: 'Pomegranate'},
+        {value: 'olive', label: 'Olives'},
+        {value: 'grapes', label: 'Grapes'},
+        {value: 'date', label: 'Dates'},
+        {value: 'banana', label: 'Bananas'},
+        {value: 'cone', label: 'Pine cones'},
+        {value: 'coconut', label: 'Coconut'},
+        {value: 'bauble', label: 'Baubles'},
     ],
     default: 'apple',
 } as const satisfies ChoiceParameter<FruitKind>
@@ -264,12 +327,14 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.lumpiness,
     NUMBERS.fullness,
     NUMBERS.leafSize,
+    LEAF_STYLE,
     FROND_STYLE,
     NUMBERS.strands,
     NUMBERS.strandLength,
     NUMBERS.fruitCount,
     FRUIT_KIND,
     NUMBERS.fruitSize,
+    NUMBERS.fruitHang,
     PALETTE,
     BARK_TONE,
     NUMBERS.colourVariation,
@@ -281,7 +346,13 @@ export const paintedTreeParameterSpecs: readonly ParameterSpec[] = [
     NUMBERS.roughness,
     NUMBERS.burls,
     NUMBERS.hollow,
+    NUMBERS.snow,
     NUMBERS.moss,
+    MOSS_FROM,
+    NUMBERS.wet,
+    NUMBERS.snapped,
+    NUMBERS.brokenLimbs,
+    NUMBERS.split,
 ]
 
 /** Controls a form has no use for. */
@@ -300,12 +371,18 @@ const HIDDEN_BY_FORM: Readonly<Record<TreeForm, readonly string[]>> = {
         'lumpiness',
         'strands',
         'strandLength',
+        // A palm has no branches to break, and its trunk is too slim to split.
+        'brokenLimbs',
+        'split',
+        // Its fronds are real leaf shapes, not printed cards.
+        'leafStyle',
     ],
     conifer: ['stem', 'crownShape', 'limbCount', 'limbAngle', 'gnarl', 'branchCount', 'twigCount', 'clumpMerge', 'lumpiness', 'frondStyle'],
 }
 
 /** Controls a low-poly tree has no use for: its bark is plain blocks and its leaves are not cards. */
 const HIDDEN_WHEN_LOW_POLY: readonly string[] = [
+    'leafStyle',
     'ridgeTwist',
     'ridgeDepth',
     'ridgeCount',
@@ -320,6 +397,7 @@ const HIDDEN_WHEN_LOW_POLY: readonly string[] = [
     'burls',
     'hollow',
     'moss',
+    'mossFrom',
 ]
 
 /** What a shared control means on a form that reuses it for something else. */
@@ -360,7 +438,10 @@ export function controlsForTree(
             (spec) =>
                 !hidden.includes(spec.key) &&
                 (hasPattern || spec.key !== 'patternDepth') &&
-                (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize')) &&
+                (Number(values.moss ?? 0) > 0 || spec.key !== 'mossFrom') &&
+                (hasFruit || (spec.key !== 'fruitKind' && spec.key !== 'fruitSize' && spec.key !== 'fruitHang')) &&
+                // Cones stand up from the leaves, so they don't hang.
+                (values.fruitKind !== 'cone' || spec.key !== 'fruitHang') &&
                 (values.palette !== 'custom' || spec.key !== 'barkTone'),
         )
         .map((spec) => (labels[spec.key] ? {...spec, label: labels[spec.key]} : spec))
@@ -393,6 +474,8 @@ const TRUNK_SECTIONS: readonly ControlSection[] = [
     ),
     section('Bark detail', 'The surface of the wood.', specsInGroup(BARK)),
     section('Bark colours', 'The colours of the wood.', [], ['barkDeep', 'barkLight']),
+    section('Weather', 'Snow, moss and wet on the whole tree.', specsInGroup(WEATHER)),
+    section('Damage', 'Breaks and cracks in the wood.', specsInGroup(DAMAGE)),
 ]
 
 /**
@@ -410,12 +493,73 @@ export function sectionsForPart(generatorId: string, type: string): readonly Con
 
 
 
-export const FRUIT_COLOURS: Readonly<Record<FruitKind, {deep: string; light: string}>> = {
-    coconut: {deep: '#3c2a1a', light: '#8a6a3c'},
-    apple: {deep: '#8f1420', light: '#ee4a3a'},
-    orange: {deep: '#c05a10', light: '#ffb238'},
-    lemon: {deep: '#b89a10', light: '#fff06a'},
-    plum: {deep: '#2c1248', light: '#8a4ab8'},
+/**
+ * How a fruit is built. Ball, egg, pear and long are one rounded body; pair is
+ * two on joined stalks; bunch packs small pieces on one stalk; hand is fingers
+ * turned up round a stalk's end; cone is a cone of scales standing up from the leaves.
+ */
+export type FruitShape = 'ball' | 'egg' | 'pear' | 'long' | 'pair' | 'bunch' | 'hand' | 'cone'
+
+export interface FruitLook {
+    readonly deep: string
+    readonly light: string
+    readonly shape: FruitShape
+    /** Its size against an apple's. For a pair, bunch or hand, each piece's. */
+    readonly size: number
+    /** How long it is against how wide. */
+    readonly length: number
+    /** Above 1, its ends come to a point. */
+    readonly point: number
+    /** How long its stalk grows as it hangs lower, in its own widths. */
+    readonly stalk: number
+    /** A small leaf on its stalk. */
+    readonly leaf: boolean
+    /** A small crown at its far end, as on a pomegranate. */
+    readonly crown?: boolean
+    /** Colours to pick from, one per fruit, deep and light, as baubles are mixed. */
+    readonly mixed?: readonly (readonly [string, string])[]
+}
+
+const fruit = (shape: FruitShape, deep: string, light: string, look: Partial<FruitLook> = {}): FruitLook => ({
+    shape,
+    deep,
+    light,
+    size: 1,
+    length: 1,
+    point: 1,
+    stalk: 0.5,
+    leaf: false,
+    ...look,
+})
+
+export const FRUIT_KINDS: Readonly<Record<FruitKind, FruitLook>> = {
+    apple: fruit('ball', '#8f1420', '#ee4a3a', {length: 0.92, leaf: true}),
+    pear: fruit('pear', '#8a6416', '#f0d048', {length: 1.45, stalk: 0.7}),
+    cherry: fruit('pair', '#4a0410', '#d42032', {size: 0.42, stalk: 3}),
+    plum: fruit('egg', '#2c1248', '#8a4ab8', {size: 0.9, length: 1.15}),
+    peach: fruit('ball', '#c0482a', '#ffc070', {size: 1.05, stalk: 0.3}),
+    orange: fruit('ball', '#c05a10', '#ffb238', {size: 1.05, stalk: 0.4, leaf: true}),
+    lemon: fruit('egg', '#b89a10', '#fff06a', {length: 1.35, point: 1.6, leaf: true}),
+    lime: fruit('ball', '#3d6a12', '#9ccf3a', {size: 0.8, stalk: 0.4}),
+    mango: fruit('long', '#b8501a', '#f2c23a', {size: 1.1, length: 1.6, point: 1.1, stalk: 2, leaf: true}),
+    fig: fruit('pear', '#4a1a44', '#a8608e', {size: 0.75, length: 1.25, stalk: 0.3}),
+    pomegranate: fruit('ball', '#7a0e14', '#d8463a', {size: 1.1, stalk: 0.4, crown: true}),
+    olive: fruit('egg', '#1e2412', '#6a7a2a', {size: 0.4, length: 1.35, stalk: 0.6}),
+    grapes: fruit('bunch', '#2a1240', '#7a4aa8', {size: 0.36, stalk: 1.2}),
+    date: fruit('bunch', '#7a3a10', '#e8962e', {size: 0.34, length: 1.6, stalk: 3}),
+    banana: fruit('hand', '#6a7a12', '#e8d84a', {size: 0.36, length: 3.2, stalk: 1.2}),
+    cone: fruit('cone', '#3e2410', '#9a6a3a', {size: 0.9, length: 1.7, stalk: 0.3}),
+    coconut: fruit('ball', '#3c2a1a', '#8a6a3c', {stalk: 0.3}),
+    bauble: fruit('ball', '#8a0a14', '#ff5a4a', {
+        size: 0.85,
+        stalk: 0.35,
+        mixed: [
+            ['#8a0a14', '#ff5a4a'],
+            ['#9a6a08', '#ffe27a'],
+            ['#14307a', '#6aa0ff'],
+            ['#8a8a96', '#ffffff'],
+        ],
+    }),
 }
 
 /** The keys that hold the user's own colours, in the palette's order. */
@@ -437,9 +581,11 @@ export type PaintedTreeParameters = {
         readonly form: TreeForm
         readonly crownShape: CrownShape
         readonly frondStyle: FrondStyle
+        readonly leafStyle: LeafStyle
         readonly fruitKind: FruitKind
         readonly barkPattern: BarkPattern
         readonly barkTone: BarkToneId
+        readonly mossFrom: MossFrom
         /**
          * Hand edits to single parts, as JSON.
          *
@@ -475,9 +621,11 @@ const paintedTreeSchema = z.object({
     form: choiceSchema(FORM),
     crownShape: choiceSchema(CROWN_SHAPE),
     frondStyle: choiceSchema(FROND_STYLE),
+    leafStyle: choiceSchema(LEAF_STYLE),
     fruitKind: choiceSchema(FRUIT_KIND),
     barkPattern: choiceSchema(BARK_PATTERN),
     barkTone: choiceSchema(BARK_TONE),
+    mossFrom: choiceSchema(MOSS_FROM),
     barkDeep: colour(PALETTES.blossom.barkDeep),
     barkLight: colour(PALETTES.blossom.barkLight),
     leafDeep: colour(PALETTES.blossom.leafDeep),
@@ -495,9 +643,11 @@ export const paintedTreeDefaults: PaintedTreeParameters = {
     form: FORM.default,
     crownShape: CROWN_SHAPE.default,
     frondStyle: FROND_STYLE.default,
+    leafStyle: LEAF_STYLE.default,
     fruitKind: FRUIT_KIND.default,
     barkPattern: BARK_PATTERN.default,
     barkTone: BARK_TONE.default,
+    mossFrom: MOSS_FROM.default,
     ...PALETTES.blossom,
     edits: '',
 }

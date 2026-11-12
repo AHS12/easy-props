@@ -24,7 +24,7 @@ export interface PaletteSet {
 /** Every set of colours a palette can be saved for. */
 export const PALETTE_SETS: readonly PaletteSet[] = [
     {set: TREE_SET, title: 'Trees', labels: COLOUR_KEYS.map((key) => COLOUR_LABELS[key]), start: COLOUR_KEYS.map((key) => PALETTES.spring[key])},
-    {set: 'stone', title: 'Rocks', labels: STONE_ROWS.map((row) => row.label), start: ROCK_RAMPS.lavender},
+    {set: 'stone', title: 'Rocks', labels: STONE_ROWS.map((row) => row.label), start: ROCK_RAMPS.greystone},
     {set: 'bush-leaves', title: 'Bush leaves', labels: LEAF_ROWS.map((row) => row.label), start: BUSH_RAMPS.summer},
     {set: 'grass', title: 'Grass', labels: GRASS_ROWS.map((row) => row.label), start: GRASS_RAMPS.meadow},
     {set: 'flowers', title: 'Flowers', labels: FLOWER_ROWS.map((row) => row.label), start: PETAL_RAMPS.pink},

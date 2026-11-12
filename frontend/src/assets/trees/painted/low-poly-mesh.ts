@@ -8,8 +8,12 @@
  */
 
 import * as THREE from 'three'
+import {weatherPaint} from '../../shared/weather'
 import {createSeededRandom, hashSeed, randomRange} from '../../shared/random'
-import {addFruitBall, addStrands, buildFrond, emptyLeafBuffers, fruitRadius, leafColours, leafGeometry, type LeafBuffers} from './frond-mesh'
+import {addStrands, buildFrond} from './frond-mesh'
+import {addOneFruit, FRUIT_HANG_REACH, type FruitHang} from './fruit-mesh'
+import {emptyLeafBuffers, leafColours, leafGeometry, type LeafBuffers} from './leaf-buffers'
+import {FRUIT_KINDS} from './parameters'
 import type {PaintedTreeParameters} from './parameters'
 import {cross, normalize, type Clump, type TreePlan, type Vec3} from './plan'
 import {buildLowPolyWood, lowPolyCrown} from './low-poly-surface'
@@ -58,13 +62,13 @@ function addRigid(leaves: LeafBuffers, faces: Faces) {
     leaves.rigid.push(first, first + count)
 }
 
-/** A smooth fruit ball made faceted: each face keeps its own normal and the colour of its first corner. */
-function facetedFruit(centre: Vec3, radius: number, tree: PaintedTreeParameters): Faces {
+/** A fruit on its stalk made faceted: each face keeps its own normal and the colour of its first corner. */
+function facetedFruit(hang: FruitHang, tree: PaintedTreeParameters): Faces {
     const ball = emptyLeafBuffers()
     const faces: Faces = {positions: [], normals: [], colors: []}
     const colour = new THREE.Color()
 
-    addFruitBall(ball, centre, radius, tree, 0.5)
+    addOneFruit(ball, hang, tree, null, 0.5)
 
     for (let at = 0; at < ball.indices.length; at += 3) {
         const [a, b, c] = [0, 1, 2].map((k) => ball.indices[at + k])
@@ -149,7 +153,7 @@ export function buildLowPolyClump(
         const value =
             0.1 + 0.75 * up * up * (3 - 2 * up) + 0.15 * (height * 0.5 + 0.5) + clumpShift + randomRange(random, -0.06, 0.06) * (0.5 + tree.colourVariation)
 
-        pushFace(faces, a, b, c, paint(value))
+        pushFace(faces, a, b, c, weatherPaint(paint(value), n[1], tree, Math.sin(at * 7.13)))
     }
 
     const buffers = emptyLeafBuffers()
@@ -166,7 +170,9 @@ export function buildLowPolyClump(
 
     if (tree.fruitCount > 0 && faceCount > 0) {
         const fruitRandom = createSeededRandom(hashSeed(clump.seed, 6))
-        const radius = fruitRadius(tree)
+        // Placed by an apple's size, whatever the kind, as on the painted tree.
+        const radius = (0.06 + tree.height * 0.008) * tree.fruitSize
+        const drop = radius * FRUIT_KINDS[tree.fruitKind].stalk * tree.fruitHang * FRUIT_HANG_REACH
         const hanging = Array.from({length: faceCount}, (_, face) => face).filter((face) => faces.normals[face * 9 + 1] < 0.45)
         const choices = hanging.length > 0 ? hanging : Array.from({length: faceCount}, (_, face) => face)
 
@@ -176,11 +182,16 @@ export function buildLowPolyClump(
             const normal = [faces.normals[at], faces.normals[at + 1], faces.normals[at + 2]]
             const middle = [0, 1, 2].map((axis) => (faces.positions[at + axis] + faces.positions[at + 3 + axis] + faces.positions[at + 6 + axis]) / 3)
 
+            // The stalk starts inside the leaves, and the fruit hangs from it just outside.
             addRigid(
                 buffers,
                 facetedFruit(
-                    [middle[0] + normal[0] * radius * 0.5, middle[1] + normal[1] * radius * 0.5, middle[2] + normal[2] * radius * 0.5],
-                    radius,
+                    {
+                        attach: [middle[0] - normal[0] * radius * 0.3, middle[1] - normal[1] * radius * 0.3 + radius * 0.5, middle[2] - normal[2] * radius * 0.3],
+                        top: [middle[0] + normal[0] * radius * 0.5, middle[1] + normal[1] * radius * 0.5 + radius - drop, middle[2] + normal[2] * radius * 0.5],
+                        axis: [0, -1, 0],
+                        side: 1,
+                    },
                     tree,
                 ),
             )

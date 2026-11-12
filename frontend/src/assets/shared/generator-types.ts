@@ -44,6 +44,8 @@ export interface PaintedSurface {
     /** Fine relief for light to catch. Needs a `map`, whose texture coordinates it shares. */
     readonly normalMap?: THREE.Texture
     readonly alphaTest?: number
+    /** How rough it is, 0 shiny to 1 matt. Left out, fully matt. Lower when it's wet. */
+    readonly roughness?: number
     /** False for leaves, where a shadow map would only speckle soft shading. */
     readonly receiveShadow?: boolean
     /**
@@ -51,6 +53,8 @@ export interface PaintedSurface {
      * pointer something to land on and the selection something to outline.
      */
     readonly proxy?: boolean
+    /** What an export calls this part's mesh, when it's neither wood nor leaves, such as a log's sawn ends. */
+    readonly exportName?: string
 }
 
 export interface GenerationContext {

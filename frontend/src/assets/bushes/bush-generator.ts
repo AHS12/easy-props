@@ -8,7 +8,7 @@
 import {z} from 'zod'
 import {IDENTITY_TRANSFORM} from '../shared/component-types'
 import type {PartGenerator, PropGenerator} from '../shared/generator-types'
-import {getLeafTexture} from '../shared/leaf-texture'
+import {getLeafTexture, GLOSSY_BUSH_LEAVES, type BloomKind, type BushLeafStyle} from '../shared/leaf-texture'
 import {
     choiceSchema,
     numberSchema,
@@ -21,6 +21,7 @@ import {FLOWER_ROWS, LEAF_ROWS, OWN_COLOURS_OPTION, ownColours, type OwnColours}
 import {BUSH_RAMPS, PETAL_RAMPS, type BushPaletteId, type PetalPaletteId} from '../style/palettes'
 import {buildBushCore, buildBushLeaves, type BushBuild, type BushInside, type BushKind, type BushParameters} from './bush-mesh'
 import {buildLowPolyBushBody, buildLowPolyBushFlowers} from './low-poly-bush'
+import {SNOW, WET, snowAndWetDefaults, snowAndWetSchema, weatherGeometry, wetSurface} from '../shared/weather'
 
 const SHAPE = 'Shape'
 const LEAVES = 'Leaves'
@@ -67,7 +68,43 @@ const BUILD: ChoiceParameter<BushBuild> = {
 }
 
 /** Controls that only shape the leaf cards, which a low-poly bush has none of. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['inside', 'fullness', 'leafSize']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['inside', 'fullness', 'leafSize', 'leafStyle', 'bloom']
+
+const LEAF_STYLE: ChoiceParameter<BushLeafStyle> = {
+    kind: 'choice',
+    group: LEAVES,
+    key: 'leafStyle',
+    label: 'Leaf style',
+    help: 'What the leaves look like up close.',
+    default: 'pointed',
+    options: [
+        {value: 'pointed', label: 'Pointed'},
+        {value: 'tiny', label: 'Round and tiny'},
+        {value: 'narrow', label: 'Long and narrow'},
+        {value: 'spiky', label: 'Spiky'},
+        {value: 'scales', label: 'Scales'},
+        {value: 'glossy', label: 'Big and glossy'},
+    ],
+}
+
+const BLOOM: ChoiceParameter<BloomKind> = {
+    kind: 'choice',
+    group: FLOWERS_GROUP,
+    key: 'bloom',
+    label: 'Kind of flower',
+    help: 'Open five-petalled flowers, hanging bells, balls of tiny flowers, stars, or berries.',
+    default: 'five',
+    options: [
+        {value: 'five', label: 'Five petals'},
+        {value: 'bell', label: 'Bells'},
+        {value: 'ball', label: 'Balls of tiny flowers'},
+        {value: 'star', label: 'Stars'},
+        {value: 'berries', label: 'Berries'},
+    ],
+}
+
+/** Glossy leaves shine, as a laurel's or holly's do. */
+const GLOSSY_ROUGHNESS = 0.55
 
 const INSIDE: ChoiceParameter<BushInside> = {
     kind: 'choice',
@@ -129,7 +166,7 @@ const VARIATION = number(LEAVES, 'variation', 'Variation', 'How much one mass di
 const FLOWERS = number(FLOWERS_GROUP, 'flowers', 'Flowers', 'How thickly it flowers. They gather in drifts on its upper part.', 0, 1, 0.05, 0)
 const FLOWER_SIZE = number(FLOWERS_GROUP, 'flowerSize', 'Flower size', 'How large each flower is.', 0.02, 0.3, 0.01, 0.1, 'm')
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, LOBES, LUMPS, INSIDE, FULLNESS, LEAF_SIZE, LEAF_STYLE, VARIATION, PALETTE, ...OWN_LEAVES.specs, FLOWERS, BLOOM, FLOWER_SIZE, FLOWER_COLOUR, ...OWN_FLOWERS.specs, SNOW, WET]
 
 export const bushDefaults: BushParameters = {
     build: BUILD.default,
@@ -141,12 +178,15 @@ export const bushDefaults: BushParameters = {
     lumps: LUMPS.default,
     fullness: FULLNESS.default,
     leafSize: LEAF_SIZE.default,
+    leafStyle: LEAF_STYLE.default,
     variation: VARIATION.default,
     palette: PALETTE.default,
     inside: INSIDE.default,
     flowers: FLOWERS.default,
+    bloom: BLOOM.default,
     flowerSize: FLOWER_SIZE.default,
     flowerColour: FLOWER_COLOUR.default,
+    ...snowAndWetDefaults,
 }
 
 const bushSchema = z.object({
@@ -159,12 +199,15 @@ const bushSchema = z.object({
     lumps: numberSchema(LUMPS),
     fullness: numberSchema(FULLNESS),
     leafSize: numberSchema(LEAF_SIZE),
+    leafStyle: choiceSchema(LEAF_STYLE),
     variation: numberSchema(VARIATION),
     palette: choiceSchema(PALETTE),
     inside: choiceSchema(INSIDE),
     flowers: numberSchema(FLOWERS),
+    bloom: choiceSchema(BLOOM),
     flowerSize: numberSchema(FLOWER_SIZE),
     flowerColour: choiceSchema(FLOWER_COLOUR),
+    ...snowAndWetSchema,
     ...OWN_LEAVES.schema,
     ...OWN_FLOWERS.schema,
 })
@@ -206,17 +249,18 @@ export const bushCoreGenerator: PartGenerator<BushPartParameters> = {
 
     generate({bush, seed}, {detail = 1}) {
         return {
-            geometry: bush.build === 'low-poly' ? buildLowPolyBushBody(bush, seed, detail) : buildBushCore(bush, seed, detail),
+            geometry: weatherGeometry(bush.build === 'low-poly' ? buildLowPolyBushBody(bush, seed, detail) : buildBushCore(bush, seed, detail), bush),
             material: 'painted',
             role: 'solid',
-            surface: {vertexColors: true},
+            surface: wetSurface({vertexColors: true}, bush.wet),
         }
     },
 }
 
 export const bushLeavesGenerator: PartGenerator<BushPartParameters> = {
     id: 'bush-leaves',
-    version: 1,
+    // 2: flowers gather towards the top, not in bands across it.
+    version: 2,
     type: 'bush-leaves',
     label: 'Leaves',
     parameters: [],
@@ -231,14 +275,28 @@ export const bushLeavesGenerator: PartGenerator<BushPartParameters> = {
     generate({bush, seed}, {detail = 1}) {
         // Flowers alone, as real shapes, so nothing is cut out of a picture.
         if (bush.build === 'low-poly') {
-            return {geometry: buildLowPolyBushFlowers(bush, seed, detail), material: 'painted', role: 'foliage', surface: {vertexColors: true}}
+            return {
+                geometry: weatherGeometry(buildLowPolyBushFlowers(bush, seed, detail), bush),
+                material: 'painted',
+                role: 'foliage',
+                surface: wetSurface({vertexColors: true}, bush.wet),
+            }
         }
 
         return {
-            geometry: buildBushLeaves(bush, seed, detail),
+            geometry: weatherGeometry(buildBushLeaves(bush, seed, detail), bush),
             material: 'painted',
             role: 'foliage',
-            surface: {vertexColors: true, map: getLeafTexture(), alphaTest: 0.5, receiveShadow: false},
+            surface: wetSurface(
+                {
+                    vertexColors: true,
+                    map: getLeafTexture(bush.leafStyle, bush.bloom),
+                    alphaTest: 0.5,
+                    receiveShadow: false,
+                    ...(GLOSSY_BUSH_LEAVES.has(bush.leafStyle) ? {roughness: GLOSSY_ROUGHNESS} : {}),
+                },
+                bush.wet,
+            ),
         }
     },
 }
