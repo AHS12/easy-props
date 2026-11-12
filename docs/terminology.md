@@ -44,6 +44,8 @@ agree on the term first, or rethink the control.
 | Smooth shading, rounded normals | **Rounded light** | On rocks: light rolls over the stone like a pebble, the faces stay flat. Never "normals" or "smooth shading" |
 | Chunk merging, seam smoothing | **Blend** | On rocks: how far the chunks run together into one stone |
 | Concavities, displacement inward | **Dents** | On rocks: soft hollows worn into some larger faces |
+| Strata, courses | **Layers** | On rocks: bands of stone laid one on another; a cliff stacks in courses with a ledge on top |
+| Undercut, cantilever | **Overhang** | On outcrops and cliffs: how far they lean out over their feet |
 | Scatter, debris | **Rubble** | On rocks: small stones lying round the foot |
 | Detail texture, normal map, micro detail | **Grain** | On rocks: fine speckle, pits and hairline cracks seen up close. Never "texture" or "normal map" |
 | End cap, cross-section texture | **Cut ends** | The sawn faces of a stump, log or branch, with their rings |

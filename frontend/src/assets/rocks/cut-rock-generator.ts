@@ -88,7 +88,9 @@ const PALETTE: ChoiceParameter<RockPaletteId | OwnColours> = {
 }
 
 /** Controls a low-poly rock has no use for: its edges are hard and its faces flat. */
-const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend', 'dents']
+const HIDDEN_WHEN_LOW_POLY: readonly string[] = ['edges', 'bend', 'grain', 'rounded', 'blend', 'dents', 'layers', 'overhang']
+/** Only these kinds lean out over their feet. */
+const OVERHANGING: readonly RockKind[] = ['outcrop', 'cliff']
 
 const STONE = ownColours(PALETTE, ROCK_RAMPS, STONE_ROWS, 'stone')
 
@@ -111,10 +113,13 @@ const ROUNDED = number(SURFACE, 'rounded', 'Rounded light', 'How the light falls
 const BLEND = number(SURFACE, 'blend', 'Blend', 'How far the chunks run together into one stone, so where they meet reads as a crease and not a cut.', 0, 1, 0.05, 0.6)
 /** On for new rocks. A saved file without it opens with none. */
 const DENTS = number(SHAPE, 'dents', 'Dents', 'Soft hollows worn into some of the larger faces.', 0, 1, 0.05, 0.3)
+/** On for new rocks. A saved file without them opens with none. */
+const LAYERS = number(SHAPE, 'layers', 'Layers', 'Bands of stone laid one on another. A cliff stacks in courses with a ledge on top, and every rock shows faint stripes.', 0, 1, 0.05, 0.4)
+const OVERHANG = number(SHAPE, 'overhang', 'Overhang', 'How far an outcrop or cliff leans out over its feet, on the side that faces you.', 0, 1, 0.05, 0.3)
 const RUBBLE = number(SHAPE, 'rubble', 'Rubble', 'Small stones of the same rock lying round its foot.', 0, 1, 0.05, 0)
 const GRAIN = number(SURFACE, 'grain', 'Grain', 'Fine speckle, small pits and hairline cracks in the stone, seen up close.', 0, 1, 0.05, 0.6)
 
-const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, DENTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
+const specs: readonly ParameterSpec[] = [BUILD, KIND, WIDTH, HEIGHT, DEPTH, CHUNKS, FACES, CUTS, LAYERS, OVERHANG, DENTS, RUBBLE, EDGES, ROUNDED, BLEND, BEND, VARIATION, GRAIN, PALETTE, ...STONE.specs, SNOW, MOSS, MOSS_FROM, WET, CRACKS, CRUMBLE]
 
 export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_ROWS>> {
     readonly build: RockBuild
@@ -139,6 +144,8 @@ export interface CutRockParameters extends Partial<OwnColourValues<typeof STONE_
     readonly blend: number
     readonly rubble: number
     readonly dents: number
+    readonly layers: number
+    readonly overhang: number
     readonly palette: RockPaletteId | OwnColours
 }
 
@@ -163,6 +170,8 @@ export const cutRockDefaults: CutRockParameters = {
     blend: BLEND.default,
     rubble: RUBBLE.default,
     dents: DENTS.default,
+    layers: LAYERS.default,
+    overhang: OVERHANG.default,
     palette: PALETTE.default,
 }
 
@@ -187,14 +196,23 @@ const cutRockSchema = z.object({
     blend: numberSchema(BLEND),
     rubble: numberSchema(RUBBLE),
     dents: numberSchema(DENTS),
+    layers: numberSchema(LAYERS),
+    overhang: numberSchema(OVERHANG),
     palette: choiceSchema(PALETTE),
     ...STONE.schema,
 })
 
 /** The rock's plan with its cracks and crumbled edge. */
-// Only a carved rock's chunks draw in: a low-poly or saved one keeps its layout.
-const planDamagedRock = (rock: CutRockParameters, seed: number) =>
-    damageRock(planRock({...rock, huddle: rock.build !== 'low-poly' && rock.rounded > 0 ? rock.blend : 0}, seed), rock, seed)
+// Only a carved rock's layout changes: a low-poly or saved one keeps the one it had.
+function planDamagedRock(rock: CutRockParameters, seed: number) {
+    const carved = rock.build !== 'low-poly' && rock.rounded > 0
+
+    return damageRock(
+        planRock({...rock, huddle: carved ? rock.blend : 0, courses: carved ? rock.layers : 0, undercut: carved ? rock.overhang : 0}, seed),
+        rock,
+        seed,
+    )
+}
 
 const validateCutRock = (parameters: unknown) => validateParameters<CutRockParameters>(cutRockSchema, parameters, cutRockDefaults)
 
@@ -299,7 +317,12 @@ export const cutRockGenerator: PropGenerator<CutRockParameters> = {
 
     shownControls(values) {
         // Style is a switch over the view. A low-poly rock has hard, flat faces.
-        const hidden = ['build', ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : []), ...(Number(values.moss ?? MOSS.default) > 0 ? [] : ['mossFrom'])]
+        const hidden = [
+            'build',
+            ...(values.build === 'low-poly' ? HIDDEN_WHEN_LOW_POLY : []),
+            ...(Number(values.moss ?? MOSS.default) > 0 ? [] : ['mossFrom']),
+            ...(OVERHANGING.includes(values.kind as RockKind) ? [] : ['overhang']),
+        ]
 
         return specs.filter((spec) => !hidden.includes(spec.key))
     },

@@ -48,6 +48,8 @@ export interface RockSurface {
     readonly blend?: number
     /** How many of a carved rock's larger faces dip into soft hollows, 0 to 1. Left out, none. */
     readonly dents?: number
+    /** How strongly a carved rock shows bands of stone laid one on another, 0 to 1. Left out, none. */
+    readonly layers?: number
 }
 
 /** How far the warp moves a point at full Bend, as a share of the rock's size. */
@@ -94,6 +96,9 @@ const DENT_SHARE = 0.6
 const DENT_DEPTH = 0.08
 const DENT_TILT = 0.18
 const DENT_SHADE = 0.22
+/** At full Layers, how many bands of stone a rock shows up its height, and how far apart in value they are. */
+const BANDS = 7
+const BAND_LIGHT = 0.16
 /** A carved rock's contact with the ground: a short, strong dark band. */
 const CONTACT_REACH = 0.1
 const CONTACT_DARK = 0.42
@@ -290,6 +295,8 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
     const patchScale = 1 / (size * PATCH_SIZE)
     const stoneColour = new THREE.Color()
     const blend = clamp01(surface.blend ?? 0)
+    const layers = clamp01(surface.layers ?? 0)
+    const bandScale = (3 + layers * (BANDS - 3)) / plan.height
 
     const seamAt = (p: Vec3, chunkIndex: number) => {
         let seam = Infinity
@@ -328,6 +335,8 @@ export function rockPainter(plan: RockPlan, chunks: readonly RockChunk[], surfac
             height * 0.18 +
             patch * PATCH_LIGHT +
             fine * PATCH_LIGHT * 0.4 +
+            // Bands of stone, tilted a little so they don't look ruled.
+            (layers > 0 ? valueNoise3(0.5, (p[1] + p[0] * 0.06 + p[2] * 0.03) * bandScale, 0.5, seed + 11) * BAND_LIGHT * layers : 0) +
             // A painted light line along the top edges only.
             (onEdge ? EDGE_LIGHT * clamp01(n[1] * 1.6) : 0)
         const facing =

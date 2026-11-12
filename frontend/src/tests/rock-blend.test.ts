@@ -160,3 +160,53 @@ describe('dents', () => {
         expect(Array.from(after.getAttribute('position').array)).toEqual(Array.from(before.getAttribute('position').array))
     })
 })
+
+describe('layers and overhang', () => {
+    const cliff = (changes: Partial<CutRockParameters> = {}): CutRockParameters => ({...(findPreset('cliff-face')!.parameters as unknown as CutRockParameters), ...changes})
+    const cliffSeed = findPreset('cliff-face')!.seed
+    const lowest = (rock: CutRockParameters) => cutRockGenerator.collision!(rock, cliffSeed).map((shape) => shape.start[1])
+
+    it('stack a carved cliff in courses, each resting on the one below', () => {
+        expect(Math.max(...lowest(cliff({layers: 1})))).toBeGreaterThan(cliff().height * 0.3)
+        // A low-poly cliff, or one saved before, keeps its wedges on the ground.
+        expect(Math.max(...lowest(cliff({layers: 1, build: 'low-poly'})))).toBeLessThan(0.01)
+        expect(Math.max(...lowest(cliff({layers: 1, rounded: 0})))).toBeLessThan(0.01)
+    })
+
+    it('lean a cliff out over its foot, on the side that faces you', () => {
+        const front = (overhang: number, from: number, to: number) => {
+            const geometry = bodyOf({...cliff({overhang, layers: 0.5})}, 1)
+            const position = geometry.getAttribute('position')
+            const height = cliff().height
+            let furthest = -Infinity
+
+            for (let index = 0; index < position.count; index++) {
+                const y = position.getY(index) / height
+
+                if (y >= from && y <= to) {
+                    furthest = Math.max(furthest, position.getZ(index))
+                }
+            }
+
+            return furthest
+        }
+
+        expect(front(1, 0.5, 1) - front(1, 0, 0.15)).toBeGreaterThan(front(0, 0.5, 1) - front(0, 0, 0.15))
+    })
+
+    it('paint faint bands on any rock, at no cost in faces', () => {
+        const plain = bodyOf(boulder({layers: 0}))
+        const banded = bodyOf(boulder({layers: 1}))
+
+        expect(banded.index!.count).toBe(plain.index!.count)
+        expect(Array.from(banded.getAttribute('color').array)).not.toEqual(Array.from(plain.getAttribute('color').array))
+    })
+
+    it('offer Overhang only on outcrops and cliffs', () => {
+        const keys = (kind: string) => cutRockGenerator.shownControls!({...cutRockDefaults, kind}).map((spec) => spec.key)
+
+        expect(keys('cliff')).toContain('overhang')
+        expect(keys('outcrop')).toContain('overhang')
+        expect(keys('boulder')).not.toContain('overhang')
+    })
+})
