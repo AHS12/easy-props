@@ -5,12 +5,9 @@
  * so Wails' own call is the fallback.
  */
 
-interface ClipboardRuntime {
-    ClipboardSetText(text: string): Promise<boolean>
-}
+import {desktopRuntime} from './shell'
 
-const runtime = () =>
-    typeof window === 'undefined' ? undefined : (window as unknown as {runtime?: ClipboardRuntime}).runtime
+const runtime = desktopRuntime
 
 /** True when the text reached the clipboard. */
 export async function copyText(text: string): Promise<boolean> {

@@ -33,7 +33,8 @@ Commit or push only when asked. Work on `dev`, and don't touch `main`.
 
 - `backend/` only handles files, native dialogs and app updates. Geometry, editing and
   export are all TypeScript. The frontend reaches Go through `frontend/src/platform`, and
-  `frontend/wailsjs` is generated, so don't edit it by hand.
+  only `platform/shell.ts` talks to Wails. It calls Go's methods by name, so there are no
+  generated bindings. In tests, `fakeDesktop` stands in for the app.
 - `frontend/src/assets/` is pure geometry. ESLint rejects React, Zustand and Wails imports
   there.
 - `frontend/src/assets/prop-generators.ts` lists every prop generator, and

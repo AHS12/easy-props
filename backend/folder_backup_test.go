@@ -111,7 +111,7 @@ func TestADueBackupHoldsTheCloseForTheInterface(t *testing.T) {
 
 	app.SetBackupDue(true)
 
-	if !app.BeforeClose(context.Background()) {
+	if !app.beforeClose() {
 		t.Fatal("a close with a backup due went straight through")
 	}
 
@@ -121,7 +121,7 @@ func TestADueBackupHoldsTheCloseForTheInterface(t *testing.T) {
 
 	app.SetBackupDue(false)
 
-	if app.BeforeClose(context.Background()) {
+	if app.beforeClose() {
 		t.Fatal("a close with nothing due was held")
 	}
 }

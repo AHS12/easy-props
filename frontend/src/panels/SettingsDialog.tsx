@@ -18,7 +18,7 @@ import {EXPORT_SETTINGS} from '../core/settings/export-settings'
 import {SETTING_SPECS, type SettingPage, type SettingSpec} from '../core/settings/settings-spec'
 import {chooseFolder} from '../platform/desktop'
 import {hasDesktopStorage, libraryInfo, openLibraryFolder, type LibraryInfo} from '../platform/settings'
-import {canCheckForUpdates} from '../platform/update'
+import {canCheckForUpdates, type ManualReason} from '../platform/update'
 import {openLink} from '../platform/window'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
@@ -74,7 +74,7 @@ function SpecRow({spec}: {spec: SettingSpec}) {
             )
         case 'choice':
             return (
-                <SettingRow label={spec.label} help={spec.help}>
+                <SettingRow label={spec.label} help={spec.options.find((option) => option.value === value)?.help ?? spec.help}>
                     <Select label={spec.label} value={String(value)} options={spec.options} onChange={(next) => setValue(key, next)} />
                 </SettingRow>
             )
@@ -522,6 +522,14 @@ function BackupPage() {
 }
 
 
+/** Why an update has to be fetched by hand, and what to do. */
+const MANUAL_HELP: Record<ManualReason | 'none', string> = {
+    none: 'Get it from the download page, then install it over this one.',
+    'move-to-applications':
+        'To have easy-props update itself, drag it into your Applications folder and open it from there. For now, get this version from the download page.',
+    'read-only': "easy-props can't change the folder it's in, so get this version from the download page and install it over this one.",
+}
+
 function UpdateRow() {
     const update = useUpdateStore((state) => state.update)
     const {check, download, restart} = useUpdateStore.getState()
@@ -553,7 +561,7 @@ function UpdateRow() {
             )
         case 'manual':
             return (
-                <SettingRow label="Updates" help={`Version ${update.version} is out. Get it from the download page, then install it over this one.`}>
+                <SettingRow label="Updates" help={`Version ${update.version} is out. ${MANUAL_HELP[update.reason ?? 'none']}`}>
                     <button type="button" className="button button--primary" onClick={() => openLink(update.releaseUrl)}>
                         Open download page
                     </button>

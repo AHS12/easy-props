@@ -5,6 +5,7 @@ import {DEFAULT_CLOUD_BACKUP, DEFAULT_FOLDER_BACKUP} from '../core/settings/sett
 import {useBackupAttention, useBackupStore} from './backup-store'
 import {useEditorStore} from './editor-store'
 import {useSettingsStore} from './settings-store'
+import {fakeDesktop} from '../platform/shell'
 
 const on = {...DEFAULT_CLOUD_BACKUP, service: 'r2', endpoint: 'abc.r2.cloudflarestorage.com', bucket: 'b'}
 
@@ -23,7 +24,7 @@ beforeEach(() => {
         StopBackup: vi.fn(async () => undefined),
         WriteSettings: vi.fn(async () => undefined),
     }
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useBackupStore.setState({phase: 'idle', progress: null, cloudProblem: null, folderProblem: null})
     useEditorStore.setState({toast: null})
     useSettingsStore.setState({palettes: [], folderBackup: DEFAULT_FOLDER_BACKUP, cloudBackup: on})
@@ -32,7 +33,7 @@ beforeEach(() => {
 afterEach(() => {
     cleanup()
     vi.useRealTimers()
-    delete window.go
+    fakeDesktop()
 })
 
 describe('when a cloud backup is due', () => {

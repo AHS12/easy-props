@@ -82,8 +82,9 @@ jobs:
           set -euo pipefail
           v="$VERSION"
           mismatch=0
-          jq -e --arg v "$v" '.info.productVersion == $v' wails.json >/dev/null \
-            || { echo "::error file=wails.json::productVersion != $v"; mismatch=1; }
+          for file in build/config.yml build/windows/nsis/wails_tools.nsh build/windows/info.json build/darwin/Info.plist; do
+            grep -q "$v" "$file" || { echo "::error file=$file::version != $v"; mismatch=1; }
+          done
           grep -q "export const APP_VERSION = '$v'" frontend/src/core/export/export-preferences.ts \
             || { echo "::error file=frontend/src/core/export/export-preferences.ts::APP_VERSION != $v"; mismatch=1; }
           if [ "$mismatch" -ne 0 ]; then
@@ -109,7 +110,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
           cache: true
 
       - uses: pnpm/action-setup@v4
@@ -125,7 +127,7 @@ jobs:
       - name: Install Wails CLI
         shell: pwsh
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
           "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install NSIS
@@ -139,7 +141,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build the installer
-        run: wails build -clean -nsis
+        run: wails3 task windows:package
 
       - name: Stage installer
         shell: pwsh
@@ -147,7 +149,7 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           New-Item -ItemType Directory -Force -Path build/dist | Out-Null
-          Copy-Item build/bin/easy-props-amd64-installer.exe "build/dist/easy-props-$env:VERSION-windows-amd64-setup.exe" -Force
+          Copy-Item bin/easy-props-amd64-installer.exe "build/dist/easy-props-$env:VERSION-windows-amd64-setup.exe" -Force
 
       - name: Upload to release
         shell: pwsh
@@ -168,7 +170,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
           cache: true
 
       - uses: pnpm/action-setup@v4
@@ -183,29 +186,32 @@ jobs:
 
       - name: Install Wails CLI
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      # This also signs the app for running on the Mac it was built on, and checks it.
       - name: Build universal app
-        run: wails build -clean -platform darwin/universal
-
-      - name: Ad-hoc sign
-        run: |
-          codesign --force --deep -s - build/bin/easy-props.app
-          codesign --verify --deep --strict build/bin/easy-props.app
+        run: wails3 task darwin:package:universal
 
       - name: Build DMG
         env:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: ./build/darwin/make_dmg.sh "$VERSION"
 
+      # The app updates itself from this zip, which must hold the app alone: no
+      # __MACOSX folder (so no --sequesterRsrc) and no extended attributes.
+      - name: Build update zip
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: ditto -c -k --norsrc --noextattr --noqtn --keepParent bin/easy-props.app "build/dist/easy-props-$VERSION-mac-universal.zip"
+
       - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.resolve.outputs.tag }}
           VERSION: ${{ needs.resolve.outputs.version }}
-        run: gh release upload "$TAG" "build/dist/easy-props-$VERSION-mac-universal.dmg" --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$TAG" "build/dist/easy-props-$VERSION-mac-universal.dmg" "build/dist/easy-props-$VERSION-mac-universal.zip" --clobber --repo "$GITHUB_REPOSITORY"

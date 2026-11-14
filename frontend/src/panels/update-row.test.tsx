@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {useUiStore} from '../store/ui-store'
 import {CHECK_FAILED, DOWNLOAD_FAILED, useUpdateStore} from '../store/update-store'
 import {SettingsDialog} from './SettingsDialog'
+import {fakeDesktop} from '../platform/shell'
 
 const offered = {available: true, version: '9.0.0', releaseUrl: 'https://example.test/release', canInstall: true}
 
@@ -11,10 +12,10 @@ const app = {
     DownloadUpdate: vi.fn(),
     InstallUpdateOnClose: vi.fn(),
     CancelUpdateInstall: vi.fn(),
+    QuitApp: vi.fn(),
 }
 
 const shell = {
-    Quit: vi.fn(),
     BrowserOpenURL: vi.fn(),
     EventsOn: vi.fn<(name: string, callback: (fraction: number) => void) => () => void>(() => () => {}),
 }
@@ -27,7 +28,7 @@ const press = (name: string) =>
 beforeEach(() => {
     vi.resetAllMocks()
     shell.EventsOn.mockReturnValue(() => {})
-    Object.assign(window, {go: {backend: {App: app}}, runtime: shell})
+    fakeDesktop(app, shell)
     useUpdateStore.setState({update: {phase: 'idle'}})
     useUiStore.getState().openSettings('About')
 })
@@ -35,12 +36,12 @@ beforeEach(() => {
 afterEach(() => {
     cleanup()
     useUiStore.getState().closeSettings()
-    Object.assign(window, {go: undefined, runtime: undefined})
+    fakeDesktop()
 })
 
 describe('checking for updates', () => {
     it('is not offered in a plain browser', () => {
-        Object.assign(window, {go: undefined})
+        fakeDesktop()
         render(<SettingsDialog />)
 
         expect(screen.queryByRole('button', {name: 'Check for updates'})).toBeNull()
@@ -74,6 +75,16 @@ describe('checking for updates', () => {
 
         expect(shell.BrowserOpenURL).toHaveBeenCalledWith(offered.releaseUrl)
         expect(app.DownloadUpdate).not.toHaveBeenCalled()
+    })
+
+    it('tells a Mac copy run from the disk image how to get updates by itself', async () => {
+        app.CheckForUpdate.mockResolvedValue({...offered, canInstall: false, manualReason: 'move-to-applications'})
+        render(<SettingsDialog />)
+
+        await press('Check for updates')
+
+        expect(screen.getByText(/drag it into your Applications folder/)).toBeTruthy()
+        expect(screen.getByRole('button', {name: 'Open download page'})).toBeTruthy()
     })
 })
 
@@ -109,7 +120,7 @@ describe('installing an update', () => {
         expect(screen.getByText(DOWNLOAD_FAILED)).toBeTruthy()
     })
 
-    it('arranges the install before closing, so the close guard still asks first', async () => {
+    it('arranges the install before quitting, so the close guard still asks first', async () => {
         app.CheckForUpdate.mockResolvedValue(offered)
         render(<SettingsDialog />)
 
@@ -118,8 +129,8 @@ describe('installing an update', () => {
         await press('Restart to update')
 
         expect(app.InstallUpdateOnClose).toHaveBeenCalledOnce()
-        expect(shell.Quit).toHaveBeenCalledOnce()
-        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(shell.Quit.mock.invocationCallOrder[0])
+        expect(app.QuitApp).toHaveBeenCalledOnce()
+        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(app.QuitApp.mock.invocationCallOrder[0])
     })
 
     it('stays open when the install cannot be arranged', async () => {
@@ -131,6 +142,6 @@ describe('installing an update', () => {
         await press('Download update')
         await press('Restart to update')
 
-        expect(shell.Quit).not.toHaveBeenCalled()
+        expect(app.QuitApp).not.toHaveBeenCalled()
     })
 })

@@ -1,15 +1,17 @@
 {
 	"fixed": {
-		"file_version": "{{.Info.ProductVersion}}"
+		"file_version": "0.4.6",
+		"product_version": "0.4.6"
 	},
 	"info": {
-		"0000": {
-			"ProductVersion": "{{.Info.ProductVersion}}",
-			"CompanyName": "{{.Info.CompanyName}}",
-			"FileDescription": "{{.Info.ProductName}}",
-			"LegalCopyright": "{{.Info.Copyright}}",
-			"ProductName": "{{.Info.ProductName}}",
-			"Comments": "{{.Info.Comments}}"
+		"0409": {
+			"FileVersion": "0.4.6",
+			"ProductVersion": "0.4.6",
+			"CompanyName": "easy-props",
+			"FileDescription": "Make game-ready trees and props, with no 3D experience needed.",
+			"LegalCopyright": "© 2026 AHS12",
+			"ProductName": "easy-props",
+			"Comments": "Make game-ready trees and props, with no 3D experience needed."
 		}
 	}
 }

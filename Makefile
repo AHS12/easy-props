@@ -5,17 +5,20 @@ FRONTEND := frontend
 # Vitest and Vite need a newer Node than 20.18, so tests fetch and use their own.
 VITEST := cd $(FRONTEND) && pnpm dlx node@22 node_modules/vitest/vitest.mjs
 
-VERSION := $(shell node -p "require('./wails.json').info.productVersion")
 DIST := build/dist
 
 ifeq ($(OS),Windows_NT)
     # From PowerShell or cmd there is no Unix shell or rm, mkdir and cp, so use Git's.
     SHELL := C:/Program Files/Git/bin/bash.exe
     export PATH := C:\Program Files\Git\usr\bin;$(PATH)
-    APP := build/bin/easy-props.exe
+    APP := bin/easy-props.exe
 else
-    APP := build/bin/easy-props.app/Contents/MacOS/easy-props
+    APP := bin/easy-props.app/Contents/MacOS/easy-props
 endif
+
+# The version lives in build/config.yml, as `version: "x.y.z"` under info. It's read
+# after PATH is set above, because PowerShell has no sed.
+VERSION := $(shell sed -n 's/^  version: "\([^"]*\)".*/\1/p' build/config.yml)
 
 .DEFAULT_GOAL := help
 
@@ -31,7 +34,7 @@ hooks: ## Run the checks in .githooks before each commit and push
 	git config core.hooksPath .githooks
 
 dev: ## Run the desktop app with hot reload
-	wails dev
+	wails3 dev -config ./build/config.yml
 
 web: ## Run only the frontend, in a browser
 	pnpm --dir $(FRONTEND) dev
@@ -39,25 +42,25 @@ web: ## Run only the frontend, in a browser
 previews: ## Draw every preset's picture again. Stop it when the page says Done
 	pnpm --dir $(FRONTEND) dev --open /draw-previews.html
 
-build: ## Build the desktop app into build/bin
-	wails build
+build: ## Build the desktop app into bin
+	wails3 build
 
 build-frontend: ## Type-check and bundle only the frontend
 	pnpm --dir $(FRONTEND) build
 
 # NSIS does not add itself to PATH when it installs, so the recipe adds it.
 installer: ## Build the Windows installer into build/dist (Windows, needs NSIS)
-	PATH="/c/Program Files (x86)/NSIS:$$PATH" wails build -clean -nsis
+	PATH="/c/Program Files (x86)/NSIS:$$PATH" wails3 task windows:package
 	mkdir -p $(DIST)
-	cp build/bin/easy-props-amd64-installer.exe $(DIST)/easy-props-$(VERSION)-windows-amd64-setup.exe
+	cp bin/easy-props-amd64-installer.exe $(DIST)/easy-props-$(VERSION)-windows-amd64-setup.exe
 	@echo Created $(DIST)/easy-props-$(VERSION)-windows-amd64-setup.exe
 
-mac: ## Build the universal Mac app (Mac only)
-	wails build -clean -platform darwin/universal
-	codesign --force --deep -s - build/bin/easy-props.app
+mac: ## Build the universal Mac app into bin, signed for this Mac only (Mac only)
+	wails3 task darwin:package:universal
 
-dmg: mac ## Build the Mac disk image into build/dist (Mac only)
+dmg: mac ## Build the Mac disk image and update zip into build/dist (Mac only)
 	./build/darwin/make_dmg.sh $(VERSION)
+	ditto -c -k --norsrc --noextattr --noqtn --keepParent bin/easy-props.app $(DIST)/easy-props-$(VERSION)-mac-universal.zip
 
 release: ## Build the installers this computer can make, and skip the rest
 ifeq ($(OS),Windows_NT)
@@ -101,9 +104,9 @@ $(FRONTEND)/dist/index.html:
 	pnpm --dir $(FRONTEND) build
 
 build-check: build-frontend ## Check that the frontend and the Go code build
-	go build -tags desktop,production ./...
+	go build -tags production ./...
 
 check: lint test build-check ## Run every lint, test and build check
 
 clean: ## Delete build output
-	rm -rf build/bin $(DIST) $(FRONTEND)/dist
+	rm -rf bin $(DIST) $(FRONTEND)/dist

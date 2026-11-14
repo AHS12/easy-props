@@ -5,6 +5,7 @@ import {NEWER_BACKUP, useBackupStore} from '../store/backup-store'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {RestoreDialog} from './RestoreDialog'
+import {fakeDesktop} from '../platform/shell'
 
 const propText = (name: string) => JSON.stringify({name, preset: 'oak', scene: {assets: [{generatorId: 'painted-tree', seed: 4}]}})
 
@@ -38,7 +39,7 @@ beforeEach(() => {
         WritePropsIndex: vi.fn(async () => undefined),
         WriteSettings: vi.fn(async () => undefined),
     }
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useBackupStore.setState({phase: 'idle', progress: null, restoring: null})
     useEditorStore.setState({toast: null, gallery: [{name: 'Old oak'} as never]})
     useSettingsStore.setState({palettes: []})
@@ -46,7 +47,7 @@ beforeEach(() => {
 
 afterEach(() => {
     cleanup()
-    delete window.go
+    fakeDesktop()
 })
 
 async function openTheBackup() {

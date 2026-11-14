@@ -5,6 +5,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
 import {ConfirmDialog} from './ConfirmDialog'
 import {ExportDialog} from './ExportDialog'
+import {fakeDesktop} from '../platform/shell'
 
 // The question is what's tested here, not the files, so the build is a stand-in.
 vi.mock('../core/export/pipeline/package', () => ({
@@ -35,7 +36,7 @@ async function pressExport() {
 }
 
 beforeEach(() => {
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     saveExportPreferences(PREFERENCES)
     useEditorStore.getState().startNewProp('boulder')
     existing = []
@@ -46,7 +47,7 @@ beforeEach(() => {
 afterEach(() => {
     cleanup()
     localStorage.clear()
-    delete window.go
+    fakeDesktop()
     useUiStore.setState({confirm: null})
     useEditorStore.setState({exportOpen: false})
 })

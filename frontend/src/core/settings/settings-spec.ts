@@ -29,7 +29,8 @@ export interface ToggleSetting extends Common {
 export interface ChoiceSetting extends Common {
     readonly kind: 'choice'
     readonly default: string
-    readonly options: readonly {readonly value: string; readonly label: string}[]
+    /** An option's help, when there is one, replaces the setting's own while it's chosen. */
+    readonly options: readonly {readonly value: string; readonly label: string; readonly help?: string}[]
 }
 
 export interface NumberSetting extends Common {
@@ -101,6 +102,40 @@ export const SETTING_SPECS = [
         help: 'Once a week, when the app opens. It tells you when a new version is out, and never downloads anything by itself.',
         keywords: 'update upgrade new version github',
         default: true,
+    },
+    {
+        key: 'closeButton',
+        page: 'General',
+        kind: 'choice',
+        label: 'Close button',
+        help: 'What happens when you close the window.',
+        keywords: 'tray taskbar background hide exit quit system',
+        default: 'quit',
+        options: [
+            {value: 'quit', label: 'Quits easy-props', help: 'Closing the window quits easy-props. It asks first if anything is unsaved.'},
+            {
+                value: 'tray',
+                label: 'Keeps it running',
+                help: 'Closing the window hides it, and easy-props keeps running in the tray, or in the Dock on a Mac. Click it there to bring it back. Quit in the File menu closes it for good.',
+            },
+        ],
+    },
+    {
+        key: 'minimiseButton',
+        page: 'General',
+        kind: 'choice',
+        label: 'Minimise button',
+        help: 'What happens when you minimise the window.',
+        keywords: 'tray taskbar background hide minimize system',
+        default: 'taskbar',
+        options: [
+            {value: 'taskbar', label: 'Puts it on the taskbar', help: 'Minimising puts the window on the taskbar, or in the Dock on a Mac, as usual.'},
+            {
+                value: 'tray',
+                label: 'Hides it in the tray',
+                help: 'Minimising hides the window, off the taskbar, and easy-props waits in the tray, or in the Dock on a Mac. Click it there to bring it back.',
+            },
+        ],
     },
     {
         key: 'theme',

@@ -7,6 +7,7 @@
  */
 
 import {textFromBinding} from './bytes'
+import {desktopApp} from './shell'
 
 interface DraftBindings {
     WriteDraft(contents: number[]): Promise<void>
@@ -18,9 +19,7 @@ interface DraftBindings {
 const BROWSER_KEY = 'easy-props:draft'
 
 function bindings(): DraftBindings | undefined {
-    return typeof window === 'undefined'
-        ? undefined
-        : (window.go?.backend?.App as unknown as DraftBindings | undefined)
+    return desktopApp<DraftBindings>()
 }
 
 /** The draft's text, or null when there is none. */

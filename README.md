@@ -78,14 +78,16 @@ The builds aren't signed yet, so the first launch shows a warning:
 
 ## Build from source
 
-You need Go, Node.js, pnpm, [golangci-lint](https://golangci-lint.run/) and the
-[Wails CLI](https://wails.io). `wails doctor` should report success. On Windows, `choco install make` provides `make`, and it also needs Git
+You need Go 1.26 or later, Node.js, pnpm, [golangci-lint](https://golangci-lint.run/) and the
+Wails 3 CLI, at the version in `go.mod`:
+`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0`. `wails3 doctor` should
+report success. On Windows, `choco install make` provides `make`, and it also needs Git
 for Windows in its default folder.
 
 ```bash
 make install    # Install frontend packages and git hooks, first time only
 make dev        # Run the app with hot reload
-make build      # Build the app into build/bin
+make build      # Build the app into bin
 make test       # Run the Go and frontend tests
 make lint       # Run every lint, needs golangci-lint
 make check      # Run every lint, test and build check
@@ -93,13 +95,14 @@ make release    # Build whichever installer this computer can make
 ```
 
 `make installer` builds the Windows installer (needs NSIS), and `make dmg` builds the
-Mac disk image (needs a Mac). Both go to `build/dist`. Run `make` to list every task.
+Mac disk image and the zip a Mac updates itself from (needs a Mac). Both go to `build/dist`. Run `make` to list every task.
 
 ## Releasing
 
-Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `wails.json`, in `APP_VERSION` in
-`frontend/src/core/export/export-preferences.ts`, and in `INFO_PRODUCTVERSION` in
-`build/windows/installer/wails_tools.nsh`, then push. There are two ways to
+Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `build/config.yml` and in
+`APP_VERSION` in `frontend/src/core/export/export-preferences.ts`. Run
+`wails3 task common:update:build-assets` to copy it into the Windows and Mac build files,
+then push. There are two ways to
 release, and both build the installers on GitHub and attach them to the release:
 
 - **Automatic:** publish a GitHub Release tagged `vX.Y.Z`.
