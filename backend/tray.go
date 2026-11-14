@@ -1,13 +1,20 @@
 package backend
 
 import (
+	_ "embed"
 	"runtime"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// trayIcon is the icon in the notification area while the close or minimise
+// macTrayIcon is the trees from the app icon, in black on clear, for the Mac's
+// menu bar. macOS draws it in the menu bar's own colour, light or dark.
+//
+//go:embed tray-mac.png
+var macTrayIcon []byte
+
+// trayIcon is the icon in the notification area, or the menu bar on a Mac, while the close or minimise
 // button hides the window there. Only the tray calls touch it, under trayMu
 // rather than mu: making or removing a tray waits for the main thread, which may
 // itself be waiting on mu.
@@ -17,8 +24,8 @@ type trayIcon struct {
 }
 
 // SetCloseToTray says what the window's close button does. On, it hides the
-// window and the app keeps running, in the tray on Windows and in the Dock on a
-// Mac. Off, it closes the app as before. The interface calls it with the setting
+// window and the app keeps running, in the tray on Windows and in the menu bar
+// on a Mac. Off, it closes the app as before. The interface calls it with the setting
 // at startup and whenever the setting changes.
 func (a *App) SetCloseToTray(on bool) {
 	a.mu.Lock()
@@ -46,8 +53,7 @@ func (a *App) updateTray() {
 	wanted := a.closeToTray || a.minimiseToTray
 	a.mu.Unlock()
 
-	// A Mac brings the window back from the Dock, so it needs no tray icon.
-	if a.wails == nil || !a.started() || runtime.GOOS == "darwin" {
+	if a.wails == nil || !a.started() {
 		return
 	}
 
@@ -88,8 +94,10 @@ func (a *App) minimisesToTray() bool {
 	return a.minimiseToTray
 }
 
-// newTray makes the tray icon: a click brings the window back, and its menu can
-// also quit. With no icon of its own, Windows shows the app's icon.
+// newTray makes the tray icon. Its menu brings the window back or quits. On
+// Windows a click brings the window back too, and with no icon of its own the
+// tray shows the app's. A Mac menu bar icon needs one, and a click there opens
+// the menu, as other menu bar icons do.
 func (a *App) newTray() *application.SystemTray {
 	menu := application.NewMenu()
 	menu.Add("Open easy-props").OnClick(func(*application.Context) { a.showWindow() })
@@ -99,7 +107,12 @@ func (a *App) newTray() *application.SystemTray {
 	tray := a.wails.SystemTray.New()
 	tray.SetTooltip("easy-props")
 	tray.SetMenu(menu)
-	tray.OnClick(a.showWindow)
+
+	if runtime.GOOS == "darwin" {
+		tray.SetTemplateIcon(macTrayIcon)
+	} else {
+		tray.OnClick(a.showWindow)
+	}
 
 	return tray
 }
@@ -114,8 +127,8 @@ func (a *App) hideToTray() {
 	}
 }
 
-// showWindow brings the window back in front: from the tray, from the Dock, from
-// a second launch, or to ask about unsaved work before quitting.
+// showWindow brings the window back in front: from the tray or menu bar, from the
+// Dock, from a second launch, or to ask about unsaved work before quitting.
 func (a *App) showWindow() {
 	if a.window == nil {
 		return
