@@ -116,7 +116,7 @@ export const SETTING_SPECS = [
             {
                 value: 'tray',
                 label: 'Keeps it running',
-                help: 'Closing the window hides it, and easy-props keeps running in the tray, or in the Dock on a Mac. Click it there to bring it back. Quit in the File menu closes it for good.',
+                help: 'Closing the window hides it, and easy-props keeps running in the tray, or in the menu bar at the top of the screen on a Mac. Click its icon there to bring it back. Quit in the File menu closes it for good.',
             },
         ],
     },
@@ -133,7 +133,7 @@ export const SETTING_SPECS = [
             {
                 value: 'tray',
                 label: 'Hides it in the tray',
-                help: 'Minimising hides the window, off the taskbar, and easy-props waits in the tray, or in the Dock on a Mac. Click it there to bring it back.',
+                help: 'Minimising hides the window, off the taskbar, and easy-props waits in the tray, or in the menu bar at the top of the screen on a Mac. Click its icon there to bring it back.',
             },
         ],
     },

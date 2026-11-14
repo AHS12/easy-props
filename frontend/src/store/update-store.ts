@@ -22,6 +22,8 @@ export type UpdateState =
     | {readonly phase: 'failed'; readonly message: string}
 
 export const CHECK_FAILED = "Couldn't check for updates. Check your internet connection, or try again in a little while."
+export const GITHUB_BUSY =
+    'GitHub is turning away update checks from your network for now. This can happen on a VPN or a shared network. Try again in an hour, or get the newest version from the download page.'
 export const DOWNLOAD_FAILED = "The update didn't finish downloading. Check your internet connection and try again."
 export const INSTALL_FAILED = "The update couldn't start. Try checking for updates again."
 
@@ -74,8 +76,8 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
                     run: () => useUiStore.getState().openSettings('About'),
                 })
             }
-        } catch {
-            set({update: quiet ? before : {phase: 'failed', message: CHECK_FAILED}})
+        } catch (error) {
+            set({update: quiet ? before : {phase: 'failed', message: gitHubIsBusy(error) ? GITHUB_BUSY : CHECK_FAILED}})
         }
     },
 
@@ -112,6 +114,13 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
         }
     },
 }))
+
+/** Matches `errGitHubBusy` in backend/update.go, which reaches the page as the error's message. */
+const GITHUB_BUSY_ERROR = 'GitHub is limiting requests'
+
+function gitHubIsBusy(error: unknown): boolean {
+    return error instanceof Error && error.message.includes(GITHUB_BUSY_ERROR)
+}
 
 /**
  * Looks for an update when the app opens, if it's been a week and the setting allows.

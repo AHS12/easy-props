@@ -1,7 +1,7 @@
 import {act, cleanup, fireEvent, render, screen} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {useUiStore} from '../store/ui-store'
-import {CHECK_FAILED, DOWNLOAD_FAILED, useUpdateStore} from '../store/update-store'
+import {CHECK_FAILED, DOWNLOAD_FAILED, GITHUB_BUSY, useUpdateStore} from '../store/update-store'
 import {SettingsDialog} from './SettingsDialog'
 import {fakeDesktop} from '../platform/shell'
 
@@ -64,6 +64,19 @@ describe('checking for updates', () => {
 
         expect(screen.getByText(CHECK_FAILED)).toBeTruthy()
         expect(screen.getByRole('button', {name: 'Try again'})).toBeTruthy()
+    })
+
+    it('says when GitHub is turning checks away, and still offers the download page', async () => {
+        app.CheckForUpdate.mockRejectedValue(new Error('easy-props: GitHub is limiting requests from this address'))
+        render(<SettingsDialog />)
+
+        await press('Check for updates')
+
+        expect(screen.getByText(GITHUB_BUSY)).toBeTruthy()
+
+        await press('Open download page')
+
+        expect(shell.BrowserOpenURL).toHaveBeenCalledWith('https://github.com/AHS12/easy-props/releases/latest')
     })
 
     it('sends a copy that cannot install itself to the download page', async () => {

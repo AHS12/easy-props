@@ -273,3 +273,39 @@ func TestStayingAtTheCloseQuestionCancelsTheInstall(t *testing.T) {
 		t.Fatalf("got %v", *started)
 	}
 }
+
+func TestACheckGitHubTurnsAwayForAskingTooOftenSaysSo(t *testing.T) {
+	limited := map[string]func(http.ResponseWriter){
+		"403 with none left": func(writer http.ResponseWriter) {
+			writer.Header().Set("X-RateLimit-Remaining", "0")
+			writer.WriteHeader(http.StatusForbidden)
+		},
+		"429": func(writer http.ResponseWriter) {
+			writer.WriteHeader(http.StatusTooManyRequests)
+		},
+	}
+
+	for name, answer := range limited {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { answer(writer) }))
+		app := &App{updateAPI: server.URL}
+
+		if _, err := app.CheckForUpdate("0.1.0"); err != errGitHubBusy {
+			t.Errorf("%s: err = %v, want errGitHubBusy", name, err)
+		}
+
+		server.Close()
+	}
+}
+
+func TestACheckGitHubRefusesForAnotherReasonIsAPlainFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("X-RateLimit-Remaining", "42")
+		writer.WriteHeader(http.StatusForbidden)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := (&App{updateAPI: server.URL}).CheckForUpdate("0.1.0")
+	if err == nil || err == errGitHubBusy {
+		t.Fatalf("err = %v, want a plain failure", err)
+	}
+}

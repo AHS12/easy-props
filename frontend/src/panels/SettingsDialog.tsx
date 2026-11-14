@@ -594,13 +594,21 @@ function UpdateRow() {
         case 'failed':
             return (
                 <SettingRow label="Updates" help={update.message}>
-                    <button type="button" className="button" onClick={() => void check()}>
-                        Try again
-                    </button>
+                    <div className="setting__buttons">
+                        <button type="button" className="button" onClick={() => void check()}>
+                            Try again
+                        </button>
+                        <button type="button" className="button" onClick={() => openLink(LATEST_RELEASE_URL)}>
+                            Open download page
+                        </button>
+                    </div>
                 </SettingRow>
             )
     }
 }
+
+/** Where to get the newest version by hand, when the app can't check for itself. */
+const LATEST_RELEASE_URL = `${REPOSITORY_URL}/releases/latest`
 
 function AboutPage() {
     return (

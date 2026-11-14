@@ -2,6 +2,18 @@
 
 What's new in each version of easy-props.
 
+## 0.4.7 (November 14, 2026)
+
+**Fixes**
+
+- On a Mac, keeping easy-props running from the close or minimise button now puts an icon in
+  the menu bar at the top of the screen. Click it, then Open easy-props, to bring the window
+  back. Before, the window could only come back from the Dock.
+- When GitHub turns away update checks for a while, as it can on a VPN or a shared network,
+  Settings now says so instead of blaming your internet connection.
+- A failed update check or download now offers the download page, so you can always get the
+  newest version by hand.
+
 ## 0.4.6 (November 14, 2026)
 
 **Keep it running**

@@ -44,6 +44,10 @@ var (
 	errUpdateNotInstalled = errors.New("easy-props: this copy was not installed, so it cannot update itself")
 	errUpdateNotReady     = errors.New("easy-props: the update has not been downloaded")
 	errUpdateBusy         = errors.New("easy-props: the update is already downloading")
+	// errGitHubBusy is GitHub turning the check away for a while: it answers a set
+	// number of checks an hour from each address, and a VPN or company network can
+	// share one address among many people. The interface looks for its words.
+	errGitHubBusy = errors.New("easy-props: GitHub is limiting requests from this address")
 )
 
 // updateClient has a limit on the whole download, so a stalled one ends in an
@@ -313,6 +317,10 @@ func fetchLatestRelease(ctx context.Context, address string) (githubRelease, err
 	}
 	defer response.Body.Close()
 
+	if gitHubIsLimiting(response) {
+		return githubRelease{}, errGitHubBusy
+	}
+
 	if response.StatusCode != http.StatusOK {
 		return githubRelease{}, fmt.Errorf("easy-props: GitHub answered %s", response.Status)
 	}
@@ -323,6 +331,19 @@ func fetchLatestRelease(ctx context.Context, address string) (githubRelease, err
 	}
 
 	return release, nil
+}
+
+// gitHubIsLimiting reports whether GitHub turned a request away for asking too
+// often, rather than for something wrong with it.
+func gitHubIsLimiting(response *http.Response) bool {
+	switch response.StatusCode {
+	case http.StatusTooManyRequests:
+		return true
+	case http.StatusForbidden:
+		return response.Header.Get("X-RateLimit-Remaining") == "0"
+	}
+
+	return false
 }
 
 // chooseUpdate decides whether a release is an update for this system. Installers
