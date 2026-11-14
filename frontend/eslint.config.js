@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
     {
-        ignores: ['dist', 'node_modules', 'wailsjs'],
+        ignores: ['dist', 'node_modules'],
     },
     {
         files: ['**/*.{ts,tsx}'],
@@ -47,7 +47,7 @@ export default tseslint.config(
                         message: 'Geometry modules must stay UI-free.',
                     },
                     {
-                        group: ['**/wailsjs/**'],
+                        group: ['@wailsio/*', '**/platform/*'],
                         message: 'Geometry modules must not depend on the desktop shell.',
                     },
                 ],

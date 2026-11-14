@@ -6,6 +6,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {CloudSetupDialog} from './CloudSetupDialog'
 import {RestoreDialog} from './RestoreDialog'
+import {fakeDesktop} from '../platform/shell'
 
 let app: Record<string, ReturnType<typeof vi.fn>>
 let keys = {saved: false, accessKey: ''}
@@ -39,7 +40,7 @@ beforeEach(() => {
         WritePropsIndex: vi.fn(async () => undefined),
         WriteSettings: vi.fn(async () => undefined),
     }
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useBackupStore.setState({phase: 'idle', progress: null, restoring: null, cloudSetupOpen: false, cloudProblem: null})
     useEditorStore.setState({toast: null, gallery: []})
     useSettingsStore.setState({cloudBackup: DEFAULT_CLOUD_BACKUP, palettes: []})
@@ -47,7 +48,7 @@ beforeEach(() => {
 
 afterEach(() => {
     cleanup()
-    delete window.go
+    fakeDesktop()
 })
 
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), {target: {value}})

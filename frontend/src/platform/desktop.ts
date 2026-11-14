@@ -10,6 +10,7 @@
  */
 
 import {textFromBinding} from './bytes'
+import {desktopApp} from './shell'
 
 const PROJECT_FILTERS = ['*.json']
 const BROWSER_DOWNLOADS = 'Downloads'
@@ -25,14 +26,8 @@ interface WailsApp {
     ShowFolder(folder: string): Promise<void>
 }
 
-declare global {
-    interface Window {
-        go?: {backend?: {App?: WailsApp}}
-    }
-}
-
 function desktop(): WailsApp | undefined {
-    return typeof window === 'undefined' ? undefined : window.go?.backend?.App
+    return desktopApp<WailsApp>()
 }
 
 /** True when the app is running inside the desktop shell. */

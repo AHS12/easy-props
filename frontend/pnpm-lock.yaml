@@ -23,6 +23,9 @@ importers:
       '@react-aria/utils':
         specifier: ^3.34.1
         version: 3.34.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@wailsio/runtime':
+        specifier: 3.1.0
+        version: 3.1.0
       lucide-react:
         specifier: ^1.65.0
         version: 1.65.0(@types/react@19.3.0)(react@19.3.1)
@@ -1114,6 +1117,9 @@ packages:
 
   '@vitest/spy@5.0.5':
     resolution: {integrity: sha512-lwJRExuH417257Q5wv9QYugN9IMJkoxcrKrYxGPQkBzl7wlNpTUxD/5yNX4ESKVUIShKPgkGchYPFMWOOk0wzw==}
+
+  '@wailsio/runtime@3.1.0':
+    resolution: {integrity: sha512-noEAedvRyO8TLCrqhGwzrp+mbMxAIDa2rYmdJQOzvJV9MxgaZeXAJGNBiMiKMTSSy4ESOtQi4VH/5heSzi6ZmA==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2927,6 +2933,8 @@ snapshots:
       vite: 7.3.7(@types/node@26.6.5)(jiti@2.7.0)(lightningcss@1.32.0)
 
   '@vitest/spy@5.0.5': {}
+
+  '@wailsio/runtime@3.1.0': {}
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:

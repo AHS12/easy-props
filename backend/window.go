@@ -5,14 +5,13 @@ package backend
 // window closes and read before it opens.
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // The window's size when nothing is saved, and the smallest it can be. main.go
@@ -31,9 +30,9 @@ const windowStateFileName = "window-state.json"
 // desktop for it to open there. Less, and a monitor was probably unplugged.
 const minVisible = 100
 
-// WindowState is where the window was. X and Y are in screen pixels and the size
-// is in Wails' own units, which is how Wails reports them. The size is the normal
-// one even when Maximised is set, so un-maximising gives back the real size.
+// WindowState is where the window was, in Wails' own units, which grow with the
+// display scale. The size is the normal one even when Maximised is set, so
+// un-maximising gives back the real size.
 type WindowState struct {
 	X         int  `json:"x"`
 	Y         int  `json:"y"`
@@ -46,23 +45,51 @@ type WindowState struct {
 // or one with no size in it.
 var errNoWindowState = errors.New("easy-props: no window state")
 
-// RememberWindow turns on remembering the window, and returns the size to open at.
-// main.go calls it before the window exists; until then nothing is saved, which
-// keeps the tests away from a window they don't have.
-func (a *App) RememberWindow() (int, int) {
+// OpenWindow opens the app's window at the size and place it was left, and hands
+// it to the service. It is a function rather than a method so Wails doesn't offer
+// it to the interface.
+func OpenWindow(service *App, app *application.App, options application.WebviewWindowOptions) *application.WebviewWindow {
+	state, placed := service.rememberWindow()
+
+	options.Width, options.Height = state.Width, state.Height
+	options.InitialPosition = application.WindowCentered
+
+	if placed {
+		options.InitialPosition = application.WindowXY
+		options.X, options.Y = state.X, state.Y
+	}
+
+	// Wails maximises a window before moving it to its place, which would move the
+	// whole maximised window there. So it opens at its normal size and place, and
+	// checkWindowPlace maximises it, which also makes un-maximising go back there.
+	service.openMaximised = state.Maximised
+
+	window := app.Window.NewWithOptions(options)
+	service.attach(app, window)
+
+	return window
+}
+
+// rememberWindow turns on remembering the window, and returns where to open it.
+// placed is false when nothing is saved, and the window opens centred at the
+// default size. Until this runs nothing is saved, which keeps the tests away from
+// a window they don't have.
+func (a *App) rememberWindow() (WindowState, bool) {
+	unsaved := WindowState{Width: DefaultWindowWidth, Height: DefaultWindowHeight}
+
 	path, err := a.windowStatePathOrDefault()
 	if err != nil {
-		return DefaultWindowWidth, DefaultWindowHeight
+		return unsaved, false
 	}
 
 	a.windowStatePath = path
 
 	state, err := loadWindowState(path)
 	if err != nil {
-		return DefaultWindowWidth, DefaultWindowHeight
+		return unsaved, false
 	}
 
-	return state.Width, state.Height
+	return state, true
 }
 
 // windowStatePathOrDefault puts the state beside the settings. draftRoot moves it
@@ -76,68 +103,82 @@ func (a *App) windowStatePathOrDefault() (string, error) {
 	return filepath.Join(filepath.Dir(path), windowStateFileName), nil
 }
 
-// taskbarMargin leaves room for the taskbar or dock when fitting the window to a
-// screen, since a screen's size includes them.
-const taskbarMargin = 48
-
-// restoreWindow puts the window back where it was. Wails can't open a window at a
-// position, so the size came from the options and the place is set here.
-func (a *App) restoreWindow(ctx context.Context) {
-	if a.windowStatePath == "" {
+// checkWindowPlace runs once the screens are known. A window left on a screen
+// that is gone comes back to the middle at the default size, and a window bigger
+// than its screen shrinks, since its edges would be out of reach. Then a window
+// that was closed maximised is maximised again.
+func (a *App) checkWindowPlace() {
+	if a.wails == nil || a.window == nil {
 		return
 	}
 
-	// Whatever happens below, a window bigger than its screen has edges out of
-	// reach, so it can't be resized. With display scaling, even the default can be.
-	defer fitWindowToScreen(ctx)
+	a.fitWindowToDesktop()
 
-	state, err := loadWindowState(a.windowStatePath)
-	if err != nil {
-		return
-	}
-
-	desktop, known := virtualDesktop()
-
-	if !onDesktop(desktop, known, state) {
-		runtime.WindowSetSize(ctx, DefaultWindowWidth, DefaultWindowHeight)
-		runtime.WindowCenter(ctx)
-		return
-	}
-
-	// Wails reads a position in screen pixels but sets one from the corner of the
-	// primary screen's work area, so the difference is taken off.
-	originX, originY := primaryWorkOrigin()
-	runtime.WindowSetPosition(ctx, state.X-originX, state.Y-originY)
-
-	if state.Maximised {
-		runtime.WindowMaximise(ctx)
+	if a.openMaximised {
+		a.window.Maximise()
 	}
 }
 
-// fitWindowToScreen shrinks the window to fit the screen it's on, keeping its
-// shape. Screen sizes from Wails are in the same units as the window's size.
-func fitWindowToScreen(ctx context.Context) {
-	screens, err := runtime.ScreenGetAll(ctx)
-	if err != nil || len(screens) == 0 {
+// fitWindowToDesktop brings back a window that is off every screen, and shrinks
+// one too big for its screen.
+func (a *App) fitWindowToDesktop() {
+	if a.window.IsMaximised() {
 		return
 	}
 
-	screen := screens[0]
+	x, y := a.window.Position()
+	width, height := a.window.Size()
+	desktop, known := desktopAround(a.wails.Screen.GetAll())
 
-	for _, candidate := range screens {
-		if candidate.IsCurrent {
-			screen = candidate
-			break
-		}
+	if !onDesktop(desktop, known, WindowState{X: x, Y: y, Width: width, Height: height}) {
+		a.window.SetSize(DefaultWindowWidth, DefaultWindowHeight)
+		a.window.Center()
 	}
 
-	width, height := runtime.WindowGetSize(ctx)
-	fitWidth, fitHeight := fitWithin(width, height, screen.Size.Width, screen.Size.Height-taskbarMargin)
+	screen, err := a.window.GetScreen()
+	if err != nil || screen == nil {
+		return
+	}
+
+	width, height = a.window.Size()
+	fitWidth, fitHeight := fitWithin(width, height, screen.WorkArea.Width, screen.WorkArea.Height)
 
 	if fitWidth != width || fitHeight != height {
-		runtime.WindowSetSize(ctx, fitWidth, fitHeight)
-		runtime.WindowCenter(ctx)
+		a.window.SetSize(fitWidth, fitHeight)
+		a.window.Center()
 	}
+}
+
+// desktopAround is the box around every screen. known is false with no screens.
+func desktopAround(screens []*application.Screen) (screenRect, bool) {
+	var desktop screenRect
+
+	known := false
+
+	for _, screen := range screens {
+		if screen == nil || screen.Bounds.Width <= 0 || screen.Bounds.Height <= 0 {
+			continue
+		}
+
+		bounds := screenRect{
+			left:   screen.Bounds.X,
+			top:    screen.Bounds.Y,
+			right:  screen.Bounds.X + screen.Bounds.Width,
+			bottom: screen.Bounds.Y + screen.Bounds.Height,
+		}
+
+		if !known {
+			desktop, known = bounds, true
+			continue
+		}
+
+		desktop.left = min(desktop.left, bounds.left)
+		desktop.top = min(desktop.top, bounds.top)
+		desktop.right = max(desktop.right, bounds.right)
+		desktop.bottom = max(desktop.bottom, bounds.bottom)
+	}
+
+	return desktop, known
 }
 
 // fitWithin scales width×height down, keeping its shape, until it fits in
@@ -159,20 +200,26 @@ func fitWithin(width, height, maxWidth, maxHeight int) (int, int) {
 
 // saveWindow records where the window is as it closes. A minimised window has no
 // useful place, so the last one stays, and the app opens normal next time.
-func (a *App) saveWindow(ctx context.Context) {
-	if a.windowStatePath == "" || ctx == nil || runtime.WindowIsMinimised(ctx) {
+func (a *App) saveWindow() {
+	if a.windowStatePath == "" || a.window == nil || a.window.IsMinimised() {
 		return
 	}
 
-	x, y := runtime.WindowGetPosition(ctx)
-	width, height := runtime.WindowGetSize(ctx)
+	x, y := a.window.Position()
+	width, height := a.window.Size()
+
+	// A window that is already gone reports no size, and saving that would lose
+	// the real one. Quitting asks the guard again after the window has closed.
+	if width <= 0 || height <= 0 {
+		return
+	}
 
 	_ = saveWindowState(a.windowStatePath, WindowState{
 		X:         x,
 		Y:         y,
 		Width:     width,
 		Height:    height,
-		Maximised: runtime.WindowIsMaximised(ctx),
+		Maximised: a.window.IsMaximised(),
 	})
 }
 
@@ -224,7 +271,7 @@ func saveWindowState(path string, state WindowState) error {
 	return writeFileAtomic(path, contents)
 }
 
-// screenRect is a rectangle in screen pixels.
+// screenRect is a rectangle in Wails' units.
 type screenRect struct{ left, top, right, bottom int }
 
 // onDesktop reports whether enough of the window is on the desktop to open there.

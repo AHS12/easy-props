@@ -5,12 +5,14 @@
  * person picks it on GitHub.
  */
 
+import {desktopApp} from './shell'
+
 interface SystemBindings {
     SystemInfo(): Promise<string>
 }
 
 const bindings = (): SystemBindings | undefined =>
-    typeof window === 'undefined' ? undefined : (window.go?.backend?.App as unknown as SystemBindings | undefined)
+    desktopApp<SystemBindings>()
 
 export async function systemName(): Promise<string | null> {
     try {

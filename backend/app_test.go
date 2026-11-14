@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func TestNewAppReturnsUsableApp(t *testing.T) {
@@ -25,18 +25,31 @@ func TestStartupStoresContext(t *testing.T) {
 	app := NewApp()
 	ctx := context.Background()
 
-	app.Startup(ctx)
+	if err := app.ServiceStartup(ctx, application.ServiceOptions{}); err != nil {
+		t.Fatal(err)
+	}
 
 	if app.ctx != ctx {
-		t.Fatal("Startup did not store the context")
+		t.Fatal("ServiceStartup did not store the context")
+	}
+}
+
+// startApp starts app as Wails would, with no window behind it.
+func startApp(t *testing.T, app *App) {
+	t.Helper()
+
+	if err := app.ServiceStartup(context.Background(), application.ServiceOptions{}); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestShutdownDropsContext(t *testing.T) {
 	app := NewApp()
-	app.Startup(context.Background())
+	startApp(t, app)
 
-	app.Shutdown(context.Background())
+	if err := app.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
 
 	if app.ctx != nil {
 		t.Fatal("Shutdown kept the context of a frontend that is gone")
@@ -317,7 +330,7 @@ func TestFileFiltersSkipsBlankPatterns(t *testing.T) {
 	tests := []struct {
 		name     string
 		patterns []string
-		want     []runtime.FileFilter
+		want     []application.FileFilter
 	}{
 		{
 			name:     "none",
@@ -332,7 +345,7 @@ func TestFileFiltersSkipsBlankPatterns(t *testing.T) {
 		{
 			name:     "blanks dropped in order",
 			patterns: []string{"*.json", "", "*.glb"},
-			want: []runtime.FileFilter{
+			want: []application.FileFilter{
 				{DisplayName: "JSON files (*.json)", Pattern: "*.json"},
 				{DisplayName: "GLB files (*.glb)", Pattern: "*.glb"},
 			},
@@ -347,5 +360,21 @@ func TestFileFiltersSkipsBlankPatterns(t *testing.T) {
 				t.Fatalf("fileFilters(%q) = %v, want %v", test.patterns, got, test.want)
 			}
 		})
+	}
+}
+
+func TestClosingADialogIsNotAnError(t *testing.T) {
+	path, err := chosenPath("", errors.New(dialogCancelled))
+	if path != "" || err != nil {
+		t.Fatalf("chosenPath(cancelled) = %q, %v, want no path and no error", path, err)
+	}
+
+	failure := errors.New("the dialog could not open")
+	if _, err := chosenPath("", failure); !errors.Is(err, failure) {
+		t.Fatalf("chosenPath(failure) = %v, want the failure passed on", err)
+	}
+
+	if path, err := chosenPath(`C:\props\oak.json`, nil); path != `C:\props\oak.json` || err != nil {
+		t.Fatalf("chosenPath(picked) = %q, %v, want the path", path, err)
 	}
 }

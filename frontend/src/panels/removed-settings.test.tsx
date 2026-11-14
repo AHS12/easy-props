@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {useEditorStore} from '../store/editor-store'
 import {useUiStore} from '../store/ui-store'
 import {SettingsDialog} from './SettingsDialog'
+import {fakeDesktop} from '../platform/shell'
 
 const documentOf = (name: string) => JSON.stringify({name, scene: {assets: [{generatorId: 'painted-tree', seed: 1}]}})
 
@@ -39,7 +40,7 @@ let app: ReturnType<typeof fakeBin>
 
 beforeEach(() => {
     app = fakeBin()
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useEditorStore.setState({removedProps: [], toast: null})
     useUiStore.getState().openSettings('Recently removed')
 })
@@ -47,7 +48,7 @@ beforeEach(() => {
 afterEach(() => {
     cleanup()
     useUiStore.getState().closeSettings()
-    delete window.go
+    fakeDesktop()
 })
 
 describe('Recently removed in Settings', () => {

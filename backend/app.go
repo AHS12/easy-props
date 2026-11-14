@@ -14,12 +14,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// App is the Wails application struct.
+// App is the one service the interface calls. Wails binds every exported method,
+// so anything only Go needs stays unexported.
 type App struct {
+	// ctx is set while the app runs, between ServiceStartup and ServiceShutdown.
 	ctx context.Context
+
+	// wails and window are the running app and its one window. They are nil in
+	// tests, which never open a window.
+	wails  *application.App
+	window *application.WebviewWindow
 
 	// libraryRoot overrides where the tree library lives. It is empty in the
 	// running app, which then uses the folder under the user config directory;
@@ -31,8 +39,12 @@ type App struct {
 	draftRoot string
 
 	// windowStatePath is where the window's size and place are kept. It stays
-	// empty until RememberWindow, so tests never reach for a window.
+	// empty until rememberWindow, so tests never reach for a window.
 	windowStatePath string
+
+	// openMaximised records that the window was closed maximised, so it is
+	// maximised again once it is open. See OpenWindow.
+	openMaximised bool
 
 	// closeRuntime performs the two window operations the close guard needs:
 	// telling the interface an event happened, and closing the window. It is
@@ -57,6 +69,15 @@ type App struct {
 	// through the interface, which runs it first. It is set by SetBackupDue.
 	backupDue bool
 
+	// closeToTray records that the close button hides the window rather than
+	// closing the app. It is set by SetCloseToTray. See tray.go.
+	closeToTray bool
+
+	// minimiseToTray records that minimising hides the window in the tray rather
+	// than on the taskbar. It is set by SetMinimiseToTray.
+	minimiseToTray bool
+	trayIcon
+
 	// secrets keeps the cloud backup keys. It is nil in the running app, which
 	// then uses the system's keychain; tests set it so they never touch it.
 	secrets secretStore
@@ -80,6 +101,12 @@ type App struct {
 	updateInstaller   string
 	updateDownloading bool
 	installOnClose    bool
+
+	// updateVersion is the version the last check found, and runningVersion the
+	// one the interface said is running. A Mac's updater needs both.
+	updateVersion  string
+	runningVersion string
+	macUpdate      macUpdate
 }
 
 // NewApp creates a new App application struct.
@@ -87,27 +114,107 @@ func NewApp() *App {
 	return &App{}
 }
 
-// Startup is called when the app starts. The context is saved so the app can
-// call the runtime methods.
-func (a *App) Startup(ctx context.Context) {
-	a.ctx = ctx
-	a.removeOldInstaller()
-	a.restoreWindow(ctx)
+// attach gives the service the running app and its window, and puts the close
+// guard on the window. OpenWindow calls it before Run.
+func (a *App) attach(app *application.App, window *application.WebviewWindow) {
+	a.wails = app
+	a.window = window
+
+	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		if a.closesToTray() {
+			event.Cancel()
+			a.hideToTray()
+		} else if a.beforeClose() {
+			event.Cancel()
+		}
+	})
+
+	// The window is minimised by now, so hiding it takes it off the taskbar too.
+	// Bringing it back unminimises it.
+	window.OnWindowEvent(events.Common.WindowMinimise, func(*application.WindowEvent) {
+		if a.minimisesToTray() {
+			a.window.Hide()
+		}
+	})
+
+	// Clicking a Mac's Dock icon brings back a window the close button hid.
+	app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) {
+		a.showWindow()
+	})
+
+	// The window opens where it was left. Once the screens are known, one left on
+	// a screen that is gone comes back, and one too big for its screen shrinks.
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		a.checkWindowPlace()
+	})
 }
 
-// Shutdown is called when the app is about to exit. The saved context belongs
-// to a frontend that is going away, so it is dropped: a late dialog request
-// then reports an error instead of reaching a runtime that no longer exists.
+// QuitGuard is asked before the whole app quits. A Mac's Cmd+Q, the tray's Quit
+// and Quit in the menu all quit without closing the window first, so the same
+// guard has to stand here too. The window may be hidden, so it comes back to
+// show the question. It is a function rather than a method so Wails doesn't
+// offer it to the interface.
+func QuitGuard(a *App) func() bool {
+	return func() bool {
+		if a.beforeClose() {
+			a.showWindow()
+			return false
+		}
+
+		// A Mac swaps in an update the user asked for once the quit is agreed.
+		if a.startMacUpdate() {
+			return false
+		}
+
+		return true
+	}
+}
+
+// ServiceStartup is called by Wails when the app starts.
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
+	a.mu.Lock()
+	a.ctx = ctx
+	a.mu.Unlock()
+
+	a.removeOldInstaller()
+
+	return nil
+}
+
+// ServiceShutdown is called by Wails when the app is about to exit. The context
+// belongs to a frontend that is going away, so it is dropped: a late dialog
+// request then reports an error instead of reaching a window that is gone.
 //
 // This is also where an update the user asked for begins, once every close
 // question has been answered. If it cannot start there is no window left to say
 // so in, and the app simply opens on the old version next time.
-func (a *App) Shutdown(ctx context.Context) {
+func (a *App) ServiceShutdown() error {
 	a.mu.Lock()
 	a.ctx = nil
 	a.mu.Unlock()
 
 	_ = a.runPendingInstaller()
+
+	return nil
+}
+
+// started reports whether the app is running, so there is a window to show a
+// dialog over or an interface to tell about an event.
+func (a *App) started() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.ctx != nil
+}
+
+// emit tells the interface an event happened. It does nothing in tests and
+// before the app starts, when there is no interface to tell.
+func (a *App) emit(name string, data ...any) {
+	if a.wails == nil || !a.started() {
+		return
+	}
+
+	a.wails.Event.Emit(name, data...)
 }
 
 // CloseRequestedEvent is the event the window asks its interface about before
@@ -143,8 +250,8 @@ func (a *App) hasUnsavedChanges() bool {
 	return a.unsaved
 }
 
-// BeforeClose is called by Wails before the window closes. The return value says
-// whether to prevent the close, not whether to allow it.
+// beforeClose is called before the window closes. The return value says whether
+// to prevent the close, not whether to allow it.
 //
 // Nothing unsaved means nothing to ask about, so the close is not prevented. So
 // is a close the user already agreed to in the interface's own dialog, and so is
@@ -153,7 +260,7 @@ func (a *App) hasUnsavedChanges() bool {
 // dialog and this close is prevented; the interface calls ConfirmClose when the
 // user agrees, and the close it triggers comes back through here and goes
 // through.
-func (a *App) BeforeClose(context.Context) bool {
+func (a *App) beforeClose() bool {
 	// The fields are read under the lock and the decision is made after it is
 	// released: emitting an event wakes the interface, whose answer comes back
 	// through ConfirmClose and needs the same mutex.
@@ -161,21 +268,20 @@ func (a *App) BeforeClose(context.Context) bool {
 	unsaved, due, allowed, ctx := a.unsaved, a.backupDue, a.allowClose, a.ctx
 	a.mu.Unlock()
 
-	// Wails reads this return value as "prevent the close", not "allow it". No
-	// context means Startup never ran, so there is no interface to ask.
+	// No context means the app never started, so there is no interface to ask.
 	if (!unsaved && !due) || allowed || ctx == nil {
 		// This close goes ahead, through the update installer's restart too.
-		a.saveWindow(ctx)
+		a.saveWindow()
 		return false
 	}
 
-	a.closeRuntimeOrDefault().emit(ctx, CloseRequestedEvent)
+	a.closeRuntimeOrDefault().emit(CloseRequestedEvent)
 
 	return true
 }
 
-// ConfirmClose closes the window once the user has agreed in the interface's
-// own dialog. It is the interface's answer to CloseRequestedEvent, and does
+// ConfirmClose quits the app once the user has agreed in the interface's own
+// dialog. It is the interface's answer to CloseRequestedEvent, and does
 // nothing when the app never started.
 func (a *App) ConfirmClose() {
 	a.mu.Lock()
@@ -187,14 +293,14 @@ func (a *App) ConfirmClose() {
 		return
 	}
 
-	a.closeRuntimeOrDefault().quit(ctx)
+	a.closeRuntimeOrDefault().close()
 }
 
 // closeRuntime is the part of the Wails runtime the close guard drives: telling
-// the interface an event happened, and closing the window.
+// the interface an event happened, and quitting.
 type closeRuntime interface {
-	emit(ctx context.Context, eventName string)
-	quit(ctx context.Context)
+	emit(eventName string)
+	close()
 }
 
 // closeRuntimeOrDefault returns closeRuntime, or the real Wails runtime when
@@ -204,20 +310,23 @@ func (a *App) closeRuntimeOrDefault() closeRuntime {
 		return a.closeRuntime
 	}
 
-	return wailsCloseRuntime{}
+	return wailsCloseRuntime{app: a}
 }
 
 // wailsCloseRuntime is the runtime the app itself runs on.
-type wailsCloseRuntime struct{}
+type wailsCloseRuntime struct{ app *App }
 
 // emit hands the event to the interface.
-func (wailsCloseRuntime) emit(ctx context.Context, eventName string) {
-	runtime.EventsEmit(ctx, eventName)
+func (r wailsCloseRuntime) emit(eventName string) {
+	r.app.emit(eventName)
 }
 
-// quit closes the window, ending the app.
-func (wailsCloseRuntime) quit(ctx context.Context) {
-	runtime.Quit(ctx)
+// close quits the app rather than closing the window, which may only hide it.
+// The quit comes back through QuitGuard and beforeClose, which now let it go.
+func (r wailsCloseRuntime) close() {
+	if r.app.wails != nil {
+		r.app.wails.Quit()
+	}
 }
 
 // OpenFileDialog shows the native open dialog and returns the path the user
@@ -226,15 +335,16 @@ func (wailsCloseRuntime) quit(ctx context.Context) {
 // The filters are patterns such as "*.json"; the frontend decides which ones a
 // given flow offers.
 func (a *App) OpenFileDialog(title string, filters []string) (string, error) {
-	ctx, err := a.dialogContext()
-	if err != nil {
+	if err := a.checkDialogs(); err != nil {
 		return "", err
 	}
 
-	return runtime.OpenFileDialog(ctx, runtime.OpenDialogOptions{
-		Title:   title,
-		Filters: fileFilters(filters),
-	})
+	return chosenPath(a.wails.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:          title,
+		CanChooseFiles: true,
+		Filters:        fileFilters(filters),
+		Window:         a.window,
+	}).PromptForSingleSelection())
 }
 
 // SaveFileDialog shows the native save dialog and returns the path the user
@@ -242,16 +352,32 @@ func (a *App) OpenFileDialog(title string, filters []string) (string, error) {
 // error: it returns "", nil. Deciding whether the file already exists and
 // whether that matters is the frontend's job.
 func (a *App) SaveFileDialog(title string, defaultName string, filters []string) (string, error) {
-	ctx, err := a.dialogContext()
-	if err != nil {
+	if err := a.checkDialogs(); err != nil {
 		return "", err
 	}
 
-	return runtime.SaveFileDialog(ctx, runtime.SaveDialogOptions{
-		Title:           title,
-		DefaultFilename: defaultName,
-		Filters:         fileFilters(filters),
-	})
+	return chosenPath(a.wails.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+		Title:                title,
+		Filename:             defaultName,
+		Filters:              fileFilters(filters),
+		CanCreateDirectories: true,
+		Window:               a.window,
+	}).PromptForSingleSelection())
+}
+
+// dialogCancelled is how Wails reports a dialog the user closed on Windows. The
+// error lives in a package of Wails' own that can't be imported, so it can only
+// be recognised by its words.
+const dialogCancelled = "cancelled by user"
+
+// chosenPath turns a dialog the user closed into "", nil, so the interface sees
+// someone changing their mind rather than something going wrong.
+func chosenPath(path string, err error) (string, error) {
+	if err != nil && err.Error() == dialogCancelled {
+		return "", nil
+	}
+
+	return path, err
 }
 
 // ReadFile returns the bytes of the file at path, and nothing else. Parsing and
@@ -284,15 +410,15 @@ var (
 	errNoPath = errors.New("easy-props: no file path given")
 )
 
-// dialogContext returns the context saved by Startup. Calling the runtime with
-// no context terminates the process, so a dialog requested too early has to be
-// refused here rather than forwarded.
-func (a *App) dialogContext() (context.Context, error) {
-	if a.ctx == nil {
-		return nil, errDialogUnavailable
+// checkDialogs refuses a dialog asked for before the app started or after it
+// stopped. Wails would show nothing and report a cancel, which reads as the user
+// changing their mind.
+func (a *App) checkDialogs() error {
+	if a.wails == nil || !a.started() {
+		return errDialogUnavailable
 	}
 
-	return a.ctx, nil
+	return nil
 }
 
 // checkPath rejects the paths that cannot mean anything. The OS would produce a
@@ -312,8 +438,8 @@ const allFilesLabel = "All files"
 // fileFilters converts patterns such as "*.json" or "*.glb" into the filters
 // the native dialogs understand. Blank entries are dropped, so an empty list
 // leaves the dialog unfiltered.
-func fileFilters(patterns []string) []runtime.FileFilter {
-	filters := make([]runtime.FileFilter, 0, len(patterns))
+func fileFilters(patterns []string) []application.FileFilter {
+	filters := make([]application.FileFilter, 0, len(patterns))
 	for _, pattern := range patterns {
 		if strings.TrimSpace(pattern) == "" {
 			continue
@@ -329,12 +455,12 @@ func fileFilters(patterns []string) []runtime.FileFilter {
 	return filters
 }
 
-// fileFilterFor maps one pattern to a runtime.FileFilter, naming it the way the
+// fileFilterFor maps one pattern to a application.FileFilter, naming it the way the
 // native dialogs do: "*.json" reads "JSON files (*.json)". A pattern may list
 // several extensions separated by semicolons — "*.gltf;*.glb" reads
 // "GLTF, GLB files (*.gltf;*.glb)" — and a pattern with no extension, such as
 // "*", is labelled "All files".
-func fileFilterFor(pattern string) runtime.FileFilter {
+func fileFilterFor(pattern string) application.FileFilter {
 	pattern = strings.TrimSpace(pattern)
 
 	labels := make([]string, 0, 1)
@@ -352,7 +478,7 @@ func fileFilterFor(pattern string) runtime.FileFilter {
 		name = strings.Join(labels, ", ") + " files"
 	}
 
-	return runtime.FileFilter{
+	return application.FileFilter{
 		DisplayName: fmt.Sprintf("%s (%s)", name, pattern),
 		Pattern:     pattern,
 	}

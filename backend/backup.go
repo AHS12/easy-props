@@ -28,8 +28,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -735,7 +733,5 @@ func (a *App) freshHoldingDir() (string, error) {
 }
 
 func (a *App) emitBackupProgress(done int, total int) {
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, BackupProgressEvent, done, total)
-	}
+	a.emit(BackupProgressEvent, done, total)
 }

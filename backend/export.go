@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // ExportFile is one file of an export. What it holds is the frontend's business.
@@ -17,16 +17,17 @@ type ExportFile struct {
 // ChooseFolder shows the native folder dialog, starting at start. Cancelling is
 // not an error: it returns "", nil.
 func (a *App) ChooseFolder(title string, start string) (string, error) {
-	ctx, err := a.dialogContext()
-	if err != nil {
+	if err := a.checkDialogs(); err != nil {
 		return "", err
 	}
 
-	return runtime.OpenDirectoryDialog(ctx, runtime.OpenDialogOptions{
+	return chosenPath(a.wails.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                title,
-		DefaultDirectory:     start,
+		Directory:            start,
+		CanChooseDirectories: true,
 		CanCreateDirectories: true,
-	})
+		Window:               a.window,
+	}).PromptForSingleSelection())
 }
 
 // WriteFiles writes files into folder, creating it if needed. A name is a plain

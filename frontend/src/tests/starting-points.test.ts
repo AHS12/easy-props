@@ -5,6 +5,7 @@ import {parsePropsIndex, serializePropsIndex} from '../core/library/props-index'
 import {isStartingPoint, parseProject, serializeProject} from '../core/project/project-document'
 import {createSceneFromPreset} from '../core/scene/initial-scene'
 import {hasUnsavedChanges, useEditorStore} from '../store/editor-store'
+import {fakeDesktop} from '../platform/shell'
 
 vi.mock('../core/export/tree-thumbnail', () => ({renderTreeThumbnail: vi.fn(async () => 'data:image/png;base64,AA==')}))
 
@@ -39,7 +40,7 @@ let app: ReturnType<typeof fakeLibrary>
 
 beforeEach(() => {
     app = fakeLibrary({ours: startingPointFile})
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
 
     const scene = createSceneFromPreset('maple')
 

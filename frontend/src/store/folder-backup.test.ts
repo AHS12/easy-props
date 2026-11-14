@@ -5,6 +5,7 @@ import {backupFileName} from '../platform/backup'
 import {folderMissing, useBackupStore} from './backup-store'
 import {useEditorStore} from './editor-store'
 import {useSettingsStore} from './settings-store'
+import {fakeDesktop} from '../platform/shell'
 
 let fingerprint = 'props-1'
 let app: Record<string, ReturnType<typeof vi.fn>>
@@ -20,7 +21,7 @@ beforeEach(() => {
         StopBackup: vi.fn(async () => undefined),
         WriteSettings: vi.fn(async () => undefined),
     }
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useBackupStore.setState({phase: 'idle', progress: null, folderProblem: null})
     useEditorStore.setState({toast: null})
     useSettingsStore.setState({palettes: [], folderBackup: {...DEFAULT_FOLDER_BACKUP, folder: 'D:\\Backups', keep: 5}})
@@ -28,7 +29,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.useRealTimers()
-    delete window.go
+    fakeDesktop()
 })
 
 describe('backing up to a folder by itself', () => {

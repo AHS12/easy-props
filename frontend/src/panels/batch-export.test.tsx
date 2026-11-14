@@ -4,6 +4,7 @@ import {loadExportPreferences, saveExportPreferences} from '../core/export/expor
 import {folderNameOf} from '../core/export/pipeline/types'
 import {useEditorStore} from '../store/editor-store'
 import {BatchExportDialog} from './BatchExportDialog'
+import {fakeDesktop} from '../platform/shell'
 
 // Writing a real file needs a canvas for the textures, which tests don't have.
 vi.mock('../core/export/glb-exporter', () => ({
@@ -17,14 +18,14 @@ const app = {
 }
 
 beforeEach(() => {
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     saveExportPreferences({...loadExportPreferences(), engine: 'plain', levels: 1, folder: 'C:/Games/props', folderPerProp: false})
     useEditorStore.setState({batch: null, batchOpen: true, batchPicked: null, gallery: []})
 })
 
 afterEach(() => {
     cleanup()
-    delete window.go
+    fakeDesktop()
     app.WriteFiles.mockClear()
     useEditorStore.setState({batch: null, batchOpen: false})
 })

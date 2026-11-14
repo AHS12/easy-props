@@ -2,7 +2,6 @@ package backend
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -217,11 +216,11 @@ type recordingRuntime struct {
 	quits  int
 }
 
-func (r *recordingRuntime) emit(_ context.Context, eventName string) {
+func (r *recordingRuntime) emit(eventName string) {
 	r.events = append(r.events, eventName)
 }
 
-func (r *recordingRuntime) quit(context.Context) {
+func (r *recordingRuntime) close() {
 	r.quits++
 }
 
@@ -231,7 +230,7 @@ func newCloseGuardApp(t *testing.T) (*App, *recordingRuntime) {
 	t.Helper()
 
 	app := NewApp()
-	app.Startup(context.Background())
+	startApp(t, app)
 
 	recorded := &recordingRuntime{}
 	app.closeRuntime = recorded
@@ -242,14 +241,14 @@ func newCloseGuardApp(t *testing.T) (*App, *recordingRuntime) {
 func TestBeforeCloseDoesNotPreventWhenNothingIsUnsaved(t *testing.T) {
 	app, recorded := newCloseGuardApp(t)
 
-	if got := app.BeforeClose(context.Background()); got {
+	if got := app.beforeClose(); got {
 		t.Fatal("BeforeClose with nothing unsaved = true, want false so the close goes through")
 	}
 
 	app.SetUnsaved(true)
 	app.SetUnsaved(false)
 
-	if got := app.BeforeClose(context.Background()); got {
+	if got := app.beforeClose(); got {
 		t.Fatal("BeforeClose after SetUnsaved(false) = true, want false so the close goes through")
 	}
 
@@ -267,7 +266,7 @@ func TestBeforeClosePreventsAndAsksWhenSomethingIsUnsaved(t *testing.T) {
 	app.SetUnsaved(true)
 
 	// The close is prevented so the interface can ask in its own dialog.
-	if got := app.BeforeClose(context.Background()); !got {
+	if got := app.beforeClose(); !got {
 		t.Fatal("BeforeClose with unsaved changes = false, want true to prevent while the interface asks")
 	}
 
@@ -282,7 +281,7 @@ func TestBeforeClosePreventsAndAsksWhenSomethingIsUnsaved(t *testing.T) {
 	}
 
 	// Nothing has been decided yet, so a second attempt asks again.
-	if got := app.BeforeClose(context.Background()); !got {
+	if got := app.beforeClose(); !got {
 		t.Fatalf("second BeforeClose with unsaved changes = false, want true to prevent again")
 	}
 
@@ -304,7 +303,7 @@ func TestBeforeCloseDoesNotPreventWithoutAStartupContext(t *testing.T) {
 
 	// Startup never ran, so there is no frontend to ask. The close goes through,
 	// unprevented: an app nobody can leave is a worse bug than an unsaved change.
-	if got := app.BeforeClose(context.Background()); got {
+	if got := app.beforeClose(); got {
 		t.Fatal("BeforeClose with unsaved changes and no startup context = true, want false so the close goes through")
 	}
 
@@ -321,7 +320,7 @@ func TestConfirmCloseLetsTheNextCloseThrough(t *testing.T) {
 	app, recorded := newCloseGuardApp(t)
 	app.SetUnsaved(true)
 
-	if got := app.BeforeClose(context.Background()); !got {
+	if got := app.beforeClose(); !got {
 		t.Fatal("BeforeClose with unsaved changes = false, want true to prevent while the interface asks")
 	}
 
@@ -332,7 +331,7 @@ func TestConfirmCloseLetsTheNextCloseThrough(t *testing.T) {
 	}
 
 	// The user agreed, so the close that follows is not prevented.
-	if got := app.BeforeClose(context.Background()); got {
+	if got := app.beforeClose(); got {
 		t.Fatal("BeforeClose after ConfirmClose = true, want false so the close goes through unasked")
 	}
 
@@ -356,7 +355,7 @@ func TestConfirmCloseWithoutAStartupContextDoesNothing(t *testing.T) {
 	// The agreement is remembered all the same.
 	app.SetUnsaved(true)
 
-	if got := app.BeforeClose(context.Background()); got {
+	if got := app.beforeClose(); got {
 		t.Fatal("BeforeClose after ConfirmClose = true, want false so the close goes through")
 	}
 }

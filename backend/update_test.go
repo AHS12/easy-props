@@ -119,6 +119,7 @@ func TestAssetNamesMatchWhatTheReleaseWorkflowAttaches(t *testing.T) {
 	for _, want := range []string{
 		updateAssetName("windows", "$env:VERSION"),
 		updateAssetName("darwin", "$VERSION"),
+		macUpdateName("$VERSION"),
 	} {
 		if !strings.Contains(string(workflow), want) {
 			t.Errorf("release.yml no longer attaches %s, so the app would never find an update", want)

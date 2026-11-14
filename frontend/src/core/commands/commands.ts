@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
 import {
     BrickWall, Camera, Check, ClipboardCopy, Dices, Download, FileDown, FolderOpen, Frame, Grid2x2,
     ArchiveRestore, CloudDownload, CloudUpload, Hash, HelpCircle, Home, Info, Keyboard, Layers, LayoutGrid, Library, LayoutPanelLeft, Maximize, MousePointer2, Move, PanelLeftClose,
-    Axe, Bookmark, ImageDown, MessageSquareWarning, PersonStanding, Redo2, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
+    Axe, Bookmark, ImageDown, MessageSquareWarning, PersonStanding, Redo2, LogOut, RefreshCw, Rotate3d, RotateCcw, Save, Scale3d, Search, Settings, Shrink, Sparkles, SunMoon, Trash2, Undo2, X,
 } from 'lucide-react'
 import {findPropGenerator, offersFarAway, offersLowPoly} from '../../assets/prop-generators'
 import {fitControlsOf} from '../export/make-it-fit'
@@ -29,6 +29,7 @@ import {useUiStore} from '../../store/ui-store'
 import {useUpdateStore} from '../../store/update-store'
 import {canCheckForUpdates} from '../../platform/update'
 import {copyText} from '../../platform/clipboard'
+import {canQuit, quitApp} from '../../platform/window'
 import {viewportHandle, type ViewAngle} from '../../viewport/viewport-bridge'
 
 export type CommandId = string
@@ -350,6 +351,17 @@ export const COMMANDS: readonly Command[] = [
         global: true,
         keywords: 'preferences options config',
         run: () => useUiStore.getState().openSettings(),
+    },
+    {
+        id: 'quit',
+        label: 'Quit',
+        group: 'File',
+        shortcut: 'Ctrl+Q',
+        icon: LogOut,
+        global: true,
+        keywords: 'exit close leave',
+        unavailable: () => (canQuit() ? null : 'Only the desktop app can quit.'),
+        run: () => void quitApp(),
     },
     {
         id: 'undo',
