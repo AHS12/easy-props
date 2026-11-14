@@ -6,7 +6,7 @@
 import {create} from 'zustand'
 import {APP_VERSION} from '../core/export/export-preferences'
 import {canCheckForUpdates, checkForUpdate, downloadUpdate, installUpdateOnClose, onUpdateProgress} from '../platform/update'
-import {closeWindow} from '../platform/window'
+import {quitApp} from '../platform/window'
 import {useEditorStore} from './editor-store'
 import {useSettingsStore} from './settings-store'
 import {useUiStore} from './ui-store'
@@ -105,7 +105,8 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
     restart: async () => {
         try {
             await installUpdateOnClose()
-            closeWindow()
+            // Quit rather than close, since closing may only hide the window.
+            void quitApp()
         } catch {
             set({update: {phase: 'failed', message: INSTALL_FAILED}})
         }

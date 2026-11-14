@@ -12,10 +12,10 @@ const app = {
     DownloadUpdate: vi.fn(),
     InstallUpdateOnClose: vi.fn(),
     CancelUpdateInstall: vi.fn(),
+    QuitApp: vi.fn(),
 }
 
 const shell = {
-    WindowClose: vi.fn(),
     BrowserOpenURL: vi.fn(),
     EventsOn: vi.fn<(name: string, callback: (fraction: number) => void) => () => void>(() => () => {}),
 }
@@ -110,7 +110,7 @@ describe('installing an update', () => {
         expect(screen.getByText(DOWNLOAD_FAILED)).toBeTruthy()
     })
 
-    it('arranges the install before closing, so the close guard still asks first', async () => {
+    it('arranges the install before quitting, so the close guard still asks first', async () => {
         app.CheckForUpdate.mockResolvedValue(offered)
         render(<SettingsDialog />)
 
@@ -119,8 +119,8 @@ describe('installing an update', () => {
         await press('Restart to update')
 
         expect(app.InstallUpdateOnClose).toHaveBeenCalledOnce()
-        expect(shell.WindowClose).toHaveBeenCalledOnce()
-        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(shell.WindowClose.mock.invocationCallOrder[0])
+        expect(app.QuitApp).toHaveBeenCalledOnce()
+        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(app.QuitApp.mock.invocationCallOrder[0])
     })
 
     it('stays open when the install cannot be arranged', async () => {
@@ -132,6 +132,6 @@ describe('installing an update', () => {
         await press('Download update')
         await press('Restart to update')
 
-        expect(shell.WindowClose).not.toHaveBeenCalled()
+        expect(app.QuitApp).not.toHaveBeenCalled()
     })
 })

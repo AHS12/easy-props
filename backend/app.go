@@ -69,6 +69,15 @@ type App struct {
 	// through the interface, which runs it first. It is set by SetBackupDue.
 	backupDue bool
 
+	// closeToTray records that the close button hides the window rather than
+	// closing the app. It is set by SetCloseToTray. See tray.go.
+	closeToTray bool
+
+	// minimiseToTray records that minimising hides the window in the tray rather
+	// than on the taskbar. It is set by SetMinimiseToTray.
+	minimiseToTray bool
+	trayIcon
+
 	// secrets keeps the cloud backup keys. It is nil in the running app, which
 	// then uses the system's keychain; tests set it so they never touch it.
 	secrets secretStore
@@ -106,9 +115,25 @@ func (a *App) attach(app *application.App, window *application.WebviewWindow) {
 	a.window = window
 
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if a.beforeClose() {
+		if a.closesToTray() {
+			event.Cancel()
+			a.hideToTray()
+		} else if a.beforeClose() {
 			event.Cancel()
 		}
+	})
+
+	// The window is minimised by now, so hiding it takes it off the taskbar too.
+	// Bringing it back unminimises it.
+	window.OnWindowEvent(events.Common.WindowMinimise, func(*application.WindowEvent) {
+		if a.minimisesToTray() {
+			a.window.Hide()
+		}
+	})
+
+	// Clicking a Mac's Dock icon brings back a window the close button hid.
+	app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) {
+		a.showWindow()
 	})
 
 	// The window opens where it was left. Once the screens are known, one left on
@@ -118,12 +143,19 @@ func (a *App) attach(app *application.App, window *application.WebviewWindow) {
 	})
 }
 
-// QuitGuard is asked before the whole app quits. A Mac's Cmd+Q quits without
-// closing the window first, so the same guard has to stand here too. It is a
-// function rather than a method so Wails doesn't offer it to the interface.
+// QuitGuard is asked before the whole app quits. A Mac's Cmd+Q, the tray's Quit
+// and Quit in the menu all quit without closing the window first, so the same
+// guard has to stand here too. The window may be hidden, so it comes back to
+// show the question. It is a function rather than a method so Wails doesn't
+// offer it to the interface.
 func QuitGuard(a *App) func() bool {
 	return func() bool {
-		return !a.beforeClose()
+		if a.beforeClose() {
+			a.showWindow()
+			return false
+		}
+
+		return true
 	}
 }
 
@@ -237,8 +269,8 @@ func (a *App) beforeClose() bool {
 	return true
 }
 
-// ConfirmClose closes the window once the user has agreed in the interface's
-// own dialog. It is the interface's answer to CloseRequestedEvent, and does
+// ConfirmClose quits the app once the user has agreed in the interface's own
+// dialog. It is the interface's answer to CloseRequestedEvent, and does
 // nothing when the app never started.
 func (a *App) ConfirmClose() {
 	a.mu.Lock()
@@ -254,7 +286,7 @@ func (a *App) ConfirmClose() {
 }
 
 // closeRuntime is the part of the Wails runtime the close guard drives: telling
-// the interface an event happened, and closing the window.
+// the interface an event happened, and quitting.
 type closeRuntime interface {
 	emit(eventName string)
 	close()
@@ -278,11 +310,11 @@ func (r wailsCloseRuntime) emit(eventName string) {
 	r.app.emit(eventName)
 }
 
-// close closes the window, which ends the app. The close comes back through
-// beforeClose, which now lets it go.
+// close quits the app rather than closing the window, which may only hide it.
+// The quit comes back through QuitGuard and beforeClose, which now let it go.
 func (r wailsCloseRuntime) close() {
-	if r.app.window != nil {
-		r.app.window.Close()
+	if r.app.wails != nil {
+		r.app.wails.Quit()
 	}
 }
 

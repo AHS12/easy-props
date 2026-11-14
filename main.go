@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 
@@ -47,6 +48,10 @@ func main() {
 			},
 		},
 		ShouldQuit: backend.QuitGuard(service),
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID:               singleInstanceID(),
+			OnSecondInstanceLaunch: backend.SecondLaunch(service),
+		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
@@ -71,4 +76,15 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// singleInstanceID names the running app, so a second launch finds it. A
+// development build gets its own name, so it opens next to an installed copy
+// rather than bringing that copy forward.
+func singleInstanceID() string {
+	if os.Getenv("FRONTEND_DEVSERVER_URL") != "" {
+		return "com.easyprops.easy-props.dev"
+	}
+
+	return "com.easyprops.easy-props"
 }

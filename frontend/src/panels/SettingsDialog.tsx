@@ -74,7 +74,7 @@ function SpecRow({spec}: {spec: SettingSpec}) {
             )
         case 'choice':
             return (
-                <SettingRow label={spec.label} help={spec.help}>
+                <SettingRow label={spec.label} help={spec.options.find((option) => option.value === value)?.help ?? spec.help}>
                     <Select label={spec.label} value={String(value)} options={spec.options} onChange={(next) => setValue(key, next)} />
                 </SettingRow>
             )

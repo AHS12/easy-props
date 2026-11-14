@@ -4,6 +4,16 @@ What's new in each version of easy-props.
 
 ## 0.4.6 (November 14, 2026)
 
+**Keep it running**
+
+- The close button can keep easy-props running with its window hidden, in the tray, or in
+  the Dock on a Mac. Click it there to come back to your work. Choose this under Settings,
+  General, Close button. The minimise button can hide the window in the tray the same way.
+- Quit in the File menu (Ctrl+Q) closes easy-props for good, and asks first if anything is
+  unsaved.
+- Opening easy-props while it's already open brings back the window you have, instead of a
+  second copy.
+
 **A new foundation**
 
 - easy-props now runs on a newer version of the toolkit behind its window, file dialogs and

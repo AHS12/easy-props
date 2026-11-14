@@ -30,6 +30,7 @@ import {YourPropsPage} from '../pages/YourPropsPage'
 import {forgetOldRemovedTrees} from '../platform/library'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
+import {setCloseToTray, setMinimiseToTray} from '../platform/window'
 import {confirmClose, onCloseRequested} from '../platform/close-guard'
 import {useBackupStore} from '../store/backup-store'
 import {cancelUpdateInstall} from '../platform/update'
@@ -235,9 +236,19 @@ export function App() {
     useEffect(() => {
         applyAppearance()
 
+        // Go has to know before a button is pressed, so it isn't asked then.
+        const applyWindowButtons = () => {
+            void setCloseToTray(settingValue('closeButton') === 'tray')?.catch(() => undefined)
+            void setMinimiseToTray(settingValue('minimiseButton') === 'tray')?.catch(() => undefined)
+        }
+
         const unsubscribe = useSettingsStore.subscribe((state, previous) => {
             if (state.values !== previous.values) {
                 applyAppearance()
+            }
+
+            if (state.loaded && (state.values.closeButton !== previous.values.closeButton || state.values.minimiseButton !== previous.values.minimiseButton)) {
+                applyWindowButtons()
             }
         })
         const unwatch = watchSystemTheme(applyAppearance)
@@ -250,6 +261,7 @@ export function App() {
             .load()
             .then(() => {
                 applyAppearance()
+                applyWindowButtons()
 
                 const threads = String(settingValue('barkThreads'))
 

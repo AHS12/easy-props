@@ -4,7 +4,7 @@
  * In a plain browser there is no window to control, so none are drawn.
  */
 
-import {desktopRuntime} from './shell'
+import {desktopApp, desktopRuntime} from './shell'
 
 const runtime = desktopRuntime
 
@@ -33,5 +33,23 @@ export const openLink = (url: string) => {
     }
 }
 
-/** Goes through the close guard, like the system's own close button. */
+/** Does what the system's own close button does, which may only hide the window. */
 export const closeWindow = () => runtime()?.WindowClose()
+
+interface QuitBindings {
+    QuitApp(): Promise<void>
+    SetCloseToTray(on: boolean): Promise<void>
+    SetMinimiseToTray(on: boolean): Promise<void>
+}
+
+/** Only the desktop app can quit, or keep running with its window hidden. */
+export const canQuit = () => desktopApp<QuitBindings>() !== undefined
+
+/** Quits the whole app, asking about unsaved work first. */
+export const quitApp = () => desktopApp<QuitBindings>()?.QuitApp()
+
+/** Tells Go whether the close button hides the window and keeps the app running. */
+export const setCloseToTray = (on: boolean) => desktopApp<QuitBindings>()?.SetCloseToTray(on)
+
+/** Tells Go whether minimising hides the window in the tray instead of the taskbar. */
+export const setMinimiseToTray = (on: boolean) => desktopApp<QuitBindings>()?.SetMinimiseToTray(on)
