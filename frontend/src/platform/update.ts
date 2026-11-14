@@ -13,7 +13,12 @@ export interface UpdateInfo {
     readonly version: string
     readonly releaseUrl: string
     readonly canInstall: boolean
+    /** Why this copy can't update itself, when there's something to do about it. */
+    readonly manualReason?: ManualReason
 }
+
+/** Matches the reasons in backend/update_mac.go. */
+export type ManualReason = 'move-to-applications' | 'read-only'
 
 interface UpdateBindings {
     CheckForUpdate(current: string): Promise<UpdateInfo>

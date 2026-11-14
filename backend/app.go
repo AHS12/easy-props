@@ -101,6 +101,12 @@ type App struct {
 	updateInstaller   string
 	updateDownloading bool
 	installOnClose    bool
+
+	// updateVersion is the version the last check found, and runningVersion the
+	// one the interface said is running. A Mac's updater needs both.
+	updateVersion  string
+	runningVersion string
+	macUpdate      macUpdate
 }
 
 // NewApp creates a new App application struct.
@@ -152,6 +158,11 @@ func QuitGuard(a *App) func() bool {
 	return func() bool {
 		if a.beforeClose() {
 			a.showWindow()
+			return false
+		}
+
+		// A Mac swaps in an update the user asked for once the quit is agreed.
+		if a.startMacUpdate() {
 			return false
 		}
 

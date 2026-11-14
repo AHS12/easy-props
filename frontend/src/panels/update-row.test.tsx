@@ -76,6 +76,16 @@ describe('checking for updates', () => {
         expect(shell.BrowserOpenURL).toHaveBeenCalledWith(offered.releaseUrl)
         expect(app.DownloadUpdate).not.toHaveBeenCalled()
     })
+
+    it('tells a Mac copy run from the disk image how to get updates by itself', async () => {
+        app.CheckForUpdate.mockResolvedValue({...offered, canInstall: false, manualReason: 'move-to-applications'})
+        render(<SettingsDialog />)
+
+        await press('Check for updates')
+
+        expect(screen.getByText(/drag it into your Applications folder/)).toBeTruthy()
+        expect(screen.getByRole('button', {name: 'Open download page'})).toBeTruthy()
+    })
 })
 
 describe('installing an update', () => {

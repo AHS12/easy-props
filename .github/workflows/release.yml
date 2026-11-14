@@ -202,9 +202,16 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: ./build/darwin/make_dmg.sh "$VERSION"
 
+      # The app updates itself from this zip, which must hold the app alone: no
+      # __MACOSX folder (so no --sequesterRsrc) and no extended attributes.
+      - name: Build update zip
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: ditto -c -k --norsrc --noextattr --noqtn --keepParent bin/easy-props.app "build/dist/easy-props-$VERSION-mac-universal.zip"
+
       - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.resolve.outputs.tag }}
           VERSION: ${{ needs.resolve.outputs.version }}
-        run: gh release upload "$TAG" "build/dist/easy-props-$VERSION-mac-universal.dmg" --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$TAG" "build/dist/easy-props-$VERSION-mac-universal.dmg" "build/dist/easy-props-$VERSION-mac-universal.zip" --clobber --repo "$GITHUB_REPOSITORY"

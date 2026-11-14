@@ -49,6 +49,8 @@ Then build and open the installer on whatever you can, with `make release`.
 2. Publish a GitHub Release tagged `vX.Y.Z`, or run the **Release Installers** workflow under
    Actions with the tag and platform.
 3. The tag has to match the version, or the run stops before building.
-4. When the run ends, check that both the Windows installer and the Mac DMG are attached.
-   The app finds updates by those file names, so keep them in step with
-   `updateAssetName` in `backend/update.go`. A test fails if they drift.
+4. When the run ends, check that the Windows installer, the Mac DMG and the Mac zip are
+   all attached. The app finds updates by those file names, so keep them in step with
+   `updateAssetName` in `backend/update.go` and `macUpdateName` in
+   `backend/update_mac.go`. A test fails if they drift. A Mac updates itself from the
+   zip, and the DMG is for first installs.

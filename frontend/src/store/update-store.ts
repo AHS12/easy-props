@@ -5,7 +5,7 @@
 
 import {create} from 'zustand'
 import {APP_VERSION} from '../core/export/export-preferences'
-import {canCheckForUpdates, checkForUpdate, downloadUpdate, installUpdateOnClose, onUpdateProgress} from '../platform/update'
+import {canCheckForUpdates, checkForUpdate, downloadUpdate, installUpdateOnClose, onUpdateProgress, type ManualReason} from '../platform/update'
 import {quitApp} from '../platform/window'
 import {useEditorStore} from './editor-store'
 import {useSettingsStore} from './settings-store'
@@ -15,7 +15,7 @@ export type UpdateState =
     | {readonly phase: 'idle'}
     | {readonly phase: 'checking'}
     | {readonly phase: 'current'}
-    | {readonly phase: 'manual'; readonly version: string; readonly releaseUrl: string}
+    | {readonly phase: 'manual'; readonly version: string; readonly releaseUrl: string; readonly reason?: ManualReason}
     | {readonly phase: 'available'; readonly version: string}
     | {readonly phase: 'downloading'; readonly version: string; readonly fraction: number}
     | {readonly phase: 'ready'; readonly version: string}
@@ -65,7 +65,7 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
             set({
                 update: info.canInstall
                     ? {phase: 'available', version: info.version}
-                    : {phase: 'manual', version: info.version, releaseUrl: info.releaseUrl},
+                    : {phase: 'manual', version: info.version, releaseUrl: info.releaseUrl, reason: info.manualReason},
             })
 
             if (quiet) {

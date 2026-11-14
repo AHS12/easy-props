@@ -95,7 +95,7 @@ make release    # Build whichever installer this computer can make
 ```
 
 `make installer` builds the Windows installer (needs NSIS), and `make dmg` builds the
-Mac disk image (needs a Mac). Both go to `build/dist`. Run `make` to list every task.
+Mac disk image and the zip a Mac updates itself from (needs a Mac). Both go to `build/dist`. Run `make` to list every task.
 
 ## Releasing
 

@@ -58,8 +58,9 @@ installer: ## Build the Windows installer into build/dist (Windows, needs NSIS)
 mac: ## Build the universal Mac app into bin, signed for this Mac only (Mac only)
 	wails3 task darwin:package:universal
 
-dmg: mac ## Build the Mac disk image into build/dist (Mac only)
+dmg: mac ## Build the Mac disk image and update zip into build/dist (Mac only)
 	./build/darwin/make_dmg.sh $(VERSION)
+	ditto -c -k --norsrc --noextattr --noqtn --keepParent bin/easy-props.app $(DIST)/easy-props-$(VERSION)-mac-universal.zip
 
 release: ## Build the installers this computer can make, and skip the rest
 ifeq ($(OS),Windows_NT)

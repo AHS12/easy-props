@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
 	"slices"
 	"strconv"
@@ -54,9 +55,12 @@ type UpdateInfo struct {
 	Available  bool   `json:"available"`
 	Version    string `json:"version"`
 	ReleaseURL string `json:"releaseUrl"`
-	// CanInstall is false when the user has to fetch the update by hand: on a Mac,
-	// or running a copy that was not put there by the installer.
+	// CanInstall is false when the user has to fetch the update by hand: a copy
+	// that wasn't installed, or a Mac copy that can't replace itself.
 	CanInstall bool `json:"canInstall"`
+	// ManualReason says why, when there's something the user can do about it. See
+	// update_mac.go.
+	ManualReason string `json:"manualReason,omitempty"`
 }
 
 type githubRelease struct {
@@ -69,6 +73,7 @@ type githubAsset struct {
 	Name   string `json:"name"`
 	URL    string `json:"browser_download_url"`
 	Digest string `json:"digest"`
+	Size   int64  `json:"size"`
 }
 
 // CheckForUpdate asks GitHub for the latest release and compares it with the
@@ -83,12 +88,25 @@ func (a *App) CheckForUpdate(current string) (UpdateInfo, error) {
 	}
 
 	info, asset := chooseUpdate(release, current, goruntime.GOOS)
-	info.CanInstall = info.Available && goruntime.GOOS == "windows" && a.installedByInstaller()
+
+	switch goruntime.GOOS {
+	case "windows":
+		info.CanInstall = info.Available && a.installedByInstaller()
+	case "darwin":
+		// The DMG says an update is out; the zip is what the app updates from.
+		asset = nil
+		if info.Available {
+			asset = findAsset(release, macUpdateName(info.Version))
+			info.CanInstall, info.ManualReason = a.macCanInstall(asset)
+		}
+	}
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	a.updateAsset = asset
+	a.updateVersion = info.Version
+	a.runningVersion = current
 	a.updateInstaller = ""
 	a.installOnClose = false
 
@@ -118,6 +136,14 @@ func (a *App) DownloadUpdate() error {
 		a.updateDownloading = false
 		a.mu.Unlock()
 	}()
+
+	if goruntime.GOOS == "darwin" {
+		a.mu.Lock()
+		version, current := a.updateVersion, a.runningVersion
+		a.mu.Unlock()
+
+		return a.downloadMacUpdate(asset, version, current)
+	}
 
 	folder := a.updateFolder()
 	if err := os.RemoveAll(folder); err != nil {
@@ -151,6 +177,19 @@ func (a *App) DownloadUpdate() error {
 // has closed. The frontend then closes the window through the close guard, so
 // unsaved work is asked about first, and nothing starts if the user stays.
 func (a *App) InstallUpdateOnClose() error {
+	if goruntime.GOOS == "darwin" {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+
+		if !a.macUpdate.ready {
+			return errUpdateNotReady
+		}
+
+		a.installOnClose = true
+
+		return nil
+	}
+
 	if !a.installedByInstaller() {
 		return errUpdateNotInstalled
 	}
@@ -184,7 +223,8 @@ func (a *App) runPendingInstaller() error {
 	a.installOnClose = false
 	a.mu.Unlock()
 
-	if !install {
+	// A Mac's update started when the quit was agreed; see startMacUpdate.
+	if !install || goruntime.GOOS == "darwin" {
 		return nil
 	}
 
@@ -202,9 +242,21 @@ func (a *App) removeOldInstaller() {
 	_ = os.RemoveAll(a.updateFolder())
 }
 
+// testRepositoryVariable points the update check at another repository, such as
+// a fork with a test release, so an update can be tried without publishing one to
+// everyone. Only someone running the app can set it.
+const testRepositoryVariable = "EASY_PROPS_UPDATE_REPOSITORY"
+
+// repositoryName is "owner/name", in the letters GitHub allows.
+var repositoryName = regexp.MustCompile(`^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$`)
+
 func (a *App) latestReleaseAddress() string {
 	if a.updateAPI != "" {
 		return a.updateAPI
+	}
+
+	if repository := os.Getenv(testRepositoryVariable); repositoryName.MatchString(repository) {
+		return "https://api.github.com/repos/" + repository + "/releases/latest"
 	}
 
 	return latestReleaseURL
