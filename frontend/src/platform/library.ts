@@ -13,11 +13,10 @@
 import {summarizeProp, type PropSummary} from '../core/library/prop-summary'
 import {parsePropsIndex, refreshPropsIndex, serializePropsIndex} from '../core/library/props-index'
 import {textFromBinding} from './bytes'
+import {desktopApp} from './shell'
 
 const BINDINGS = (): LibraryBindings | undefined =>
-    typeof window === 'undefined'
-        ? undefined
-        : (window.go?.backend?.App as unknown as LibraryBindings | undefined)
+    desktopApp<LibraryBindings>()
 
 interface PropFile {
     id: string

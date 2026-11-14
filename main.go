@@ -2,68 +2,73 @@ package main
 
 import (
 	"embed"
+	"io/fs"
+	"log"
+	"net/http"
 	"runtime"
+	"strings"
 
 	"easy-props/backend"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/options/mac"
-	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	app := backend.NewApp()
-	// The size goes in the options so the window doesn't jump. Its place is
-	// put back in Startup, since Wails can't open a window at a position.
-	width, height := app.RememberWindow()
+	service := backend.NewApp()
 
-	err := wails.Run(&options.App{
-		Title:     "easy-props",
-		Width:     width,
-		Height:    height,
-		MinWidth:  backend.MinWindowWidth,
-		MinHeight: backend.MinWindowHeight,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
+	dist, err := fs.Sub(assets, "frontend/dist")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	app := application.New(application.Options{
+		Name:        "easy-props",
+		Description: "Make game-ready trees and props, with no 3D experience needed.",
+		Services: []application.Service{
+			application.NewService(service),
+		},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(dist),
 			// Pictures of saved props come from disk, not from the build.
-			Handler: backend.PictureHandler(app),
+			Middleware: func(next http.Handler) http.Handler {
+				pictures := backend.PictureHandler(service)
+
+				return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+					if strings.HasPrefix(request.URL.Path, backend.PicturePathPrefix) {
+						pictures.ServeHTTP(writer, request)
+						return
+					}
+
+					next.ServeHTTP(writer, request)
+				})
+			},
 		},
-		// The menu bar is the title bar, as in other modern desktop editors. A Mac
-		// keeps its own window buttons, drawn over the bar by the inset title bar.
-		Frameless: runtime.GOOS != "darwin",
-		Menu:      macMenu(),
-		Mac: &mac.Options{
-			TitleBar: mac.TitleBarHiddenInset(),
-		},
-		BackgroundColour: &options.RGBA{R: 24, G: 25, B: 27, A: 1},
-		Windows: &windows.Options{
-			Theme: windows.SystemDefault,
-		},
-		OnStartup:     app.Startup,
-		OnBeforeClose: app.BeforeClose,
-		OnShutdown:    app.Shutdown,
-		Bind: []interface{}{
-			app,
+		ShouldQuit: backend.QuitGuard(service),
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
 
-	if err != nil {
-		println("Error:", err.Error())
-	}
-}
+	backend.OpenWindow(service, app, application.WebviewWindowOptions{
+		Title:     "easy-props",
+		MinWidth:  backend.MinWindowWidth,
+		MinHeight: backend.MinWindowHeight,
+		// The menu bar is the title bar, as in other modern desktop editors. A Mac
+		// keeps its own window buttons, drawn over the bar by the inset title bar.
+		Frameless:        runtime.GOOS != "darwin",
+		BackgroundColour: application.NewRGB(24, 25, 27),
+		Mac: application.MacWindow{
+			TitleBar: application.MacTitleBarHiddenInset,
+		},
+		Windows: application.WindowsWindow{
+			Theme: application.SystemDefault,
+		},
+	})
 
-// macMenu is the Mac's system menu, without which Cmd+Q and copy and paste do
-// nothing. Other systems get their menus from the interface alone.
-func macMenu() *menu.Menu {
-	if runtime.GOOS != "darwin" {
-		return nil
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
 	}
-
-	return menu.NewMenuFromItems(menu.AppMenu(), menu.EditMenu())
 }

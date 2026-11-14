@@ -4,16 +4,9 @@
  * In a plain browser there is no window to control, so none are drawn.
  */
 
-interface WindowRuntime {
-    WindowMinimise(): void
-    WindowToggleMaximise(): void
-    WindowIsMaximised(): Promise<boolean>
-    Quit(): void
-    BrowserOpenURL(url: string): void
-}
+import {desktopRuntime} from './shell'
 
-const runtime = () =>
-    typeof window === 'undefined' ? undefined : (window as unknown as {runtime?: WindowRuntime}).runtime
+const runtime = desktopRuntime
 
 export const isMac = () => typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac')
 
@@ -41,4 +34,4 @@ export const openLink = (url: string) => {
 }
 
 /** Goes through the close guard, like the system's own close button. */
-export const closeWindow = () => runtime()?.Quit()
+export const closeWindow = () => runtime()?.WindowClose()

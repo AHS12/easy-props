@@ -1,10 +1,10 @@
 #!/bin/bash
-# Packages build/bin/easy-props.app into a drag-to-Applications disk image.
+# Packages bin/easy-props.app into a drag-to-Applications disk image.
 # Uses hdiutil, which every Mac has, so there is nothing extra to install.
 set -euo pipefail
 
 VERSION="${1:?usage: make_dmg.sh VERSION}"
-APP_PATH="build/bin/easy-props.app"
+APP_PATH="bin/easy-props.app"
 DMG_PATH="build/dist/easy-props-$VERSION-mac-universal.dmg"
 
 if [ ! -d "$APP_PATH" ]; then

@@ -3,6 +3,7 @@ import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
 import {AUTOMATIC_CHECK_EVERY_MS, checkForUpdatesIfDue, useUpdateStore} from '../store/update-store'
+import {fakeDesktop} from '../platform/shell'
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.UTC(2026, 10, 2)
@@ -18,14 +19,14 @@ function lastCheckedDaysAgo(days: number) {
 
 beforeEach(() => {
     vi.resetAllMocks()
-    Object.assign(window, {go: {backend: {App: app}}})
+    fakeDesktop(app)
     useUpdateStore.setState({update: {phase: 'idle'}})
     useEditorStore.setState({toast: null})
     app.CheckForUpdate.mockResolvedValue(offered)
 })
 
 afterEach(() => {
-    Object.assign(window, {go: undefined})
+    fakeDesktop()
     useUiStore.getState().closeSettings()
 })
 
@@ -56,7 +57,7 @@ describe('the weekly update check', () => {
 
     it('does not check in a browser', () => {
         lastCheckedDaysAgo(30)
-        Object.assign(window, {go: undefined})
+        fakeDesktop()
         checkForUpdatesIfDue(NOW)
 
         expect(app.CheckForUpdate).not.toHaveBeenCalled()

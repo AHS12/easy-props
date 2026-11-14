@@ -7,6 +7,7 @@
 
 import {textFromBinding} from './bytes'
 import type {HeldStatus, RestoreChoice} from '../core/library/restore-plan'
+import {desktopApp, desktopRuntime} from './shell'
 
 const BACKUP_FILTERS = ['*.zip']
 const PROGRESS_EVENT = 'backup:progress'
@@ -61,12 +62,8 @@ interface HeldBackupFile {
     palettes: string
 }
 
-interface ProgressRuntime {
-    EventsOn?(name: string, callback: (done: number, total: number) => void): (() => void) | undefined
-}
-
 const bindings = (): BackupBindings | undefined =>
-    typeof window === 'undefined' ? undefined : (window.go?.backend?.App as unknown as BackupBindings | undefined)
+    desktopApp<BackupBindings>()
 
 function backupBindings(): BackupBindings {
     const app = bindings()
@@ -199,7 +196,5 @@ export const stopBackup = async (): Promise<void> => bindings()?.StopBackup()
 
 /** Calls back as a backup or restore goes, with how many files are done of how many. */
 export function onBackupProgress(handler: (done: number, total: number) => void): () => void {
-    const runtime = typeof window === 'undefined' ? undefined : (window.runtime as unknown as ProgressRuntime | undefined)
-
-    return runtime?.EventsOn?.(PROGRESS_EVENT, handler) ?? (() => {})
+    return desktopRuntime()?.EventsOn(PROGRESS_EVENT, handler) ?? (() => {})
 }

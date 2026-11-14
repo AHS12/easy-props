@@ -1,23 +1,24 @@
 package backend
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func TestTheWindowOpensAtTheDefaultWhenNothingIsSaved(t *testing.T) {
 	app := &App{draftRoot: t.TempDir()}
 
-	width, height := app.RememberWindow()
+	state, placed := app.rememberWindow()
 
-	if width != DefaultWindowWidth || height != DefaultWindowHeight {
-		t.Fatalf("size = %d×%d, want the default", width, height)
+	if placed || state.Width != DefaultWindowWidth || state.Height != DefaultWindowHeight {
+		t.Fatalf("state = %+v, placed = %v, want the default size, centred", state, placed)
 	}
 }
 
-func TestTheWindowOpensAtTheSizeItWasLeft(t *testing.T) {
+func TestTheWindowOpensAtTheSizeAndPlaceItWasLeft(t *testing.T) {
 	app := &App{draftRoot: t.TempDir()}
 	path, _ := app.windowStatePathOrDefault()
 
@@ -25,10 +26,10 @@ func TestTheWindowOpensAtTheSizeItWasLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	width, height := app.RememberWindow()
+	state, placed := app.rememberWindow()
 
-	if width != 1600 || height != 1000 {
-		t.Fatalf("size = %d×%d, want 1600×1000", width, height)
+	if !placed || state != (WindowState{X: 40, Y: 30, Width: 1600, Height: 1000}) {
+		t.Fatalf("state = %+v, placed = %v, want 1600×1000 at 40, 30", state, placed)
 	}
 }
 
@@ -133,8 +134,8 @@ func TestAPlaceIsTrustedWhenTheDesktopIsUnknown(t *testing.T) {
 func TestNothingIsSavedUntilTheWindowIsRemembered(t *testing.T) {
 	app := &App{draftRoot: t.TempDir()}
 
-	// There is no window behind this context, so a real save would fail; this must not try.
-	app.saveWindow(context.Background())
+	// There is no window, so a real save would fail; this must not try.
+	app.saveWindow()
 
 	path, _ := app.windowStatePathOrDefault()
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -157,5 +158,24 @@ func TestAWindowTooBigForItsScreenIsShrunkKeepingItsShape(t *testing.T) {
 			t.Errorf("fitWithin(%d×%d in %d×%d) = %d×%d, want %d×%d",
 				c.width, c.height, c.maxWidth, c.maxHeight, width, height, c.wantWidth, c.wantHeight)
 		}
+	}
+}
+
+func TestTheDesktopIsTheBoxAroundEveryScreen(t *testing.T) {
+	screens := []*application.Screen{
+		{Bounds: application.Rect{X: 0, Y: 0, Width: 1920, Height: 1080}},
+		{Bounds: application.Rect{X: -1280, Y: 200, Width: 1280, Height: 1024}},
+		nil,
+	}
+
+	desktop, known := desktopAround(screens)
+	want := screenRect{left: -1280, top: 0, right: 1920, bottom: 1224}
+
+	if !known || desktop != want {
+		t.Fatalf("desktop = %+v, known = %v, want %+v", desktop, known, want)
+	}
+
+	if _, known := desktopAround(nil); known {
+		t.Fatal("a desktop with no screens was known")
 	}
 }

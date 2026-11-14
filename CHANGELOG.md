@@ -2,6 +2,15 @@
 
 What's new in each version of easy-props.
 
+## 0.4.6 (November 14, 2026)
+
+**A new foundation**
+
+- easy-props now runs on a newer version of the toolkit behind its window, file dialogs and
+  updates. Everything should look and work just as it did, and it makes room for things
+  like opening a prop by double-clicking its file.
+- On a Mac, easy-props now needs macOS 12 Monterey or later.
+
 ## 0.4.5 (November 12, 2026)
 
 **Rocks look like stone**

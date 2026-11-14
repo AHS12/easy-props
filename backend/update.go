@@ -23,8 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -101,7 +99,7 @@ func (a *App) CheckForUpdate(current string) (UpdateInfo, error) {
 // progress through UpdateProgressEvent.
 func (a *App) DownloadUpdate() error {
 	a.mu.Lock()
-	asset, busy, ctx := a.updateAsset, a.updateDownloading, a.ctx
+	asset, busy := a.updateAsset, a.updateDownloading
 	if asset != nil && !busy {
 		a.updateDownloading = true
 	}
@@ -133,9 +131,7 @@ func (a *App) DownloadUpdate() error {
 	path := filepath.Join(folder, asset.Name)
 
 	err := downloadVerified(asset, path, func(fraction float64) {
-		if ctx != nil {
-			runtime.EventsEmit(ctx, UpdateProgressEvent, fraction)
-		}
+		a.emit(UpdateProgressEvent, fraction)
 	})
 	if err != nil {
 		_ = os.RemoveAll(folder)

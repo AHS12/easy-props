@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {useUiStore} from '../store/ui-store'
 import {CHECK_FAILED, DOWNLOAD_FAILED, useUpdateStore} from '../store/update-store'
 import {SettingsDialog} from './SettingsDialog'
+import {fakeDesktop} from '../platform/shell'
 
 const offered = {available: true, version: '9.0.0', releaseUrl: 'https://example.test/release', canInstall: true}
 
@@ -14,7 +15,7 @@ const app = {
 }
 
 const shell = {
-    Quit: vi.fn(),
+    WindowClose: vi.fn(),
     BrowserOpenURL: vi.fn(),
     EventsOn: vi.fn<(name: string, callback: (fraction: number) => void) => () => void>(() => () => {}),
 }
@@ -27,7 +28,7 @@ const press = (name: string) =>
 beforeEach(() => {
     vi.resetAllMocks()
     shell.EventsOn.mockReturnValue(() => {})
-    Object.assign(window, {go: {backend: {App: app}}, runtime: shell})
+    fakeDesktop(app, shell)
     useUpdateStore.setState({update: {phase: 'idle'}})
     useUiStore.getState().openSettings('About')
 })
@@ -35,12 +36,12 @@ beforeEach(() => {
 afterEach(() => {
     cleanup()
     useUiStore.getState().closeSettings()
-    Object.assign(window, {go: undefined, runtime: undefined})
+    fakeDesktop()
 })
 
 describe('checking for updates', () => {
     it('is not offered in a plain browser', () => {
-        Object.assign(window, {go: undefined})
+        fakeDesktop()
         render(<SettingsDialog />)
 
         expect(screen.queryByRole('button', {name: 'Check for updates'})).toBeNull()
@@ -118,8 +119,8 @@ describe('installing an update', () => {
         await press('Restart to update')
 
         expect(app.InstallUpdateOnClose).toHaveBeenCalledOnce()
-        expect(shell.Quit).toHaveBeenCalledOnce()
-        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(shell.Quit.mock.invocationCallOrder[0])
+        expect(shell.WindowClose).toHaveBeenCalledOnce()
+        expect(app.InstallUpdateOnClose.mock.invocationCallOrder[0]).toBeLessThan(shell.WindowClose.mock.invocationCallOrder[0])
     })
 
     it('stays open when the install cannot be arranged', async () => {
@@ -131,6 +132,6 @@ describe('installing an update', () => {
         await press('Download update')
         await press('Restart to update')
 
-        expect(shell.Quit).not.toHaveBeenCalled()
+        expect(shell.WindowClose).not.toHaveBeenCalled()
     })
 })

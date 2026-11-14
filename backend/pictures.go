@@ -41,9 +41,9 @@ func (a *App) picturePath(id string, place string) (string, error) {
 	return filepath.Join(folder, id+treePNGSuffix), nil
 }
 
-// picturePathPrefix is where the pictures are served from. The embedded
-// interface has no folder of this name, so Wails passes these requests on.
-const picturePathPrefix = "/your-props/"
+// PicturePathPrefix is where the pictures are served from. The embedded
+// interface has no folder of this name, so main.go sends these requests here.
+const PicturePathPrefix = "/your-props/"
 
 // PictureHandler serves the pictures of saved props. Anything else is not
 // found, and the id goes through the same check as every other library path,
@@ -56,7 +56,7 @@ func PictureHandler(a *App) http.Handler {
 			return
 		}
 
-		name, ok := strings.CutPrefix(request.URL.Path, picturePathPrefix)
+		name, ok := strings.CutPrefix(request.URL.Path, PicturePathPrefix)
 		// Props in the bin and in a backup being restored keep their pictures,
 		// so those screens can show them too.
 		place := ""

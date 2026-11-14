@@ -6,6 +6,7 @@
  */
 
 import {textFromBinding} from './bytes'
+import {desktopApp} from './shell'
 
 interface SettingsBindings {
     ReadSettings(): Promise<unknown>
@@ -24,7 +25,7 @@ export interface LibraryInfo {
 const BROWSER_KEY = 'easy-props.settings'
 
 const bindings = () =>
-    typeof window === 'undefined' ? undefined : (window.go?.backend?.App as unknown as SettingsBindings | undefined)
+    desktopApp<SettingsBindings>()
 
 export function readSettingsCopy(): string | null {
     try {

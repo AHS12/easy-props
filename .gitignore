@@ -1,7 +1,11 @@
 # Wails build output
+/bin
 build/bin
 build/dist
-build/windows/installer/tmp
+build/darwin/icons.icns
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+*.syso
+.task
 /easy-props.exe
 frontend/package.json.md5
 

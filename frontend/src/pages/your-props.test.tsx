@@ -5,6 +5,7 @@ import {DEFAULT_CLOUD_BACKUP} from '../core/settings/settings-spec'
 import {useEditorStore} from '../store/editor-store'
 import {useSettingsStore} from '../store/settings-store'
 import {YourPropsPage} from './YourPropsPage'
+import {fakeDesktop} from '../platform/shell'
 
 const documentOf = (name: string, generatorId: string, seed: number) =>
     JSON.stringify({
@@ -71,7 +72,7 @@ const openTree = vi.fn(async () => undefined)
 
 beforeEach(() => {
     app = fakeLibrary()
-    window.go = {backend: {App: app as never}}
+    fakeDesktop(app)
     useEditorStore.setState({
         page: 'props',
         pickedPropId: null,
@@ -87,7 +88,7 @@ beforeEach(() => {
 
 afterEach(() => {
     cleanup()
-    delete window.go
+    fakeDesktop()
     openTree.mockClear()
 })
 
@@ -299,7 +300,7 @@ describe('ticking several props', () => {
 describe('the backup line in the panel', () => {
     it('says whether the picked prop is backed up to the cloud', async () => {
         const status = vi.fn(async (_target: unknown, id: string) => (id === 'oak' ? 'backed-up' : 'changed'))
-        window.go = {backend: {App: {...app, CloudPropStatus: status} as never}}
+        fakeDesktop({...app, CloudPropStatus: status})
         useSettingsStore.setState({cloudBackup: {...DEFAULT_CLOUD_BACKUP, service: 'r2', endpoint: 'abc.r2.cloudflarestorage.com', bucket: 'b'}})
 
         await showPage()

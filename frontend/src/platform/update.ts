@@ -3,6 +3,8 @@
  * so that nothing here can name a file to run.
  */
 
+import {desktopApp, desktopRuntime} from './shell'
+
 /** Matches `UpdateProgressEvent` in backend/update.go. */
 const PROGRESS_EVENT = 'app:update-progress'
 
@@ -20,12 +22,8 @@ interface UpdateBindings {
     CancelUpdateInstall(): Promise<void>
 }
 
-interface ProgressRuntime {
-    EventsOn?(name: string, callback: (fraction: number) => void): (() => void) | undefined
-}
-
 const bindings = () =>
-    typeof window === 'undefined' ? undefined : (window.go?.backend?.App as unknown as UpdateBindings | undefined)
+    desktopApp<UpdateBindings>()
 
 /** A plain browser has nothing to update. */
 export const canCheckForUpdates = () => bindings() !== undefined
@@ -48,7 +46,5 @@ export const cancelUpdateInstall = async () => bindings()?.CancelUpdateInstall()
 
 /** Calls back as the download arrives, with a fraction from 0 to 1. */
 export function onUpdateProgress(handler: (fraction: number) => void): () => void {
-    const runtime = typeof window === 'undefined' ? undefined : (window.runtime as unknown as ProgressRuntime | undefined)
-
-    return runtime?.EventsOn?.(PROGRESS_EVENT, handler) ?? (() => {})
+    return desktopRuntime()?.EventsOn(PROGRESS_EVENT, handler) ?? (() => {})
 }
