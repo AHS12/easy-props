@@ -131,7 +131,7 @@ jobs:
           find . -maxdepth 1 -type f ! -name '${{ matrix.file }}' -delete
           ${{ matrix.install }}
           command -v easy-props
-          test -f /usr/share/applications/com.ahs12.easy-props.desktop
+          test -f /usr/share/applications/com.easyprops.easy-props.desktop
           test -f /usr/share/icons/hicolor/256x256/apps/easy-props.png
 
       - name: Start the app and take a screenshot
@@ -145,9 +145,10 @@ jobs:
           mkdir -p out
           xvfb-run -a -s "-screen 0 1440x900x24" bash -c '
             # A session bus, as a desktop has, where the system offers one.
-            if command -v dbus-run-session >/dev/null; then dbus-run-session -- easy-props > out/app.log 2>&1 & else easy-props > out/app.log 2>&1 & fi
+            # On a preset, so the screenshot shows the 3D view, drawn here in software.
+            if command -v dbus-run-session >/dev/null; then dbus-run-session -- easy-props --preset spring-tree > out/app.log 2>&1 & else easy-props --preset spring-tree > out/app.log 2>&1 & fi
             app=$!
-            sleep 20
+            sleep 40
             import -window root out/screenshot.png
             if kill -0 "$app" 2>/dev/null; then echo "running" > out/status; else echo "exited" > out/status; fi
             kill "$app" 2>/dev/null || true
@@ -195,9 +196,9 @@ jobs:
           chmod +x ./*.AppImage
           mkdir -p out
           xvfb-run -a -s "-screen 0 1440x900x24" bash -c '
-            ./*.AppImage > out/app.log 2>&1 &
+            ./*.AppImage --preset spring-tree > out/app.log 2>&1 &
             app=$!
-            sleep 25
+            sleep 40
             import -window root out/screenshot.png
             if kill -0 "$app" 2>/dev/null; then echo "running" > out/status; else echo "exited" > out/status; fi
             kill "$app" 2>/dev/null || true

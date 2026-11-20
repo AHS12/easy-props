@@ -111,9 +111,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          # The installer started it; start it here only if it didn't.
-          if (-not (Get-Process easy-props -ErrorAction SilentlyContinue)) { Start-Process -FilePath $env:APP }
-          Start-Sleep -Seconds 20
+          # The installer started it on the gallery. Start it again on a preset, so the
+          # screenshot shows the 3D view drawn on this system.
+          Get-Process easy-props -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          Start-Process -FilePath $env:APP -ArgumentList '--preset', 'spring-tree'
+          Start-Sleep -Seconds 30
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height

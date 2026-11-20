@@ -101,8 +101,9 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p out
-          open /Applications/easy-props.app
-          sleep 20
+          # On a preset, so the screenshot shows the 3D view drawn on this Mac.
+          open /Applications/easy-props.app --args --preset spring-tree
+          sleep 30
           screencapture -x out/screenshot.png || echo "No screenshot on this runner"
           if pgrep -x easy-props > /dev/null; then echo running > out/status; else echo exited > out/status; fi
           test "$(cat out/status)" = running
