@@ -16,12 +16,13 @@ on:
       platform:
         description: "Platform(s) to build"
         required: true
-        default: both
+        default: all
         type: choice
         options:
-          - both
+          - all
           - windows
           - macos
+          - linux
 
 permissions:
   contents: write
@@ -82,7 +83,7 @@ jobs:
           set -euo pipefail
           v="$VERSION"
           mismatch=0
-          for file in build/config.yml build/windows/nsis/wails_tools.nsh build/windows/info.json build/darwin/Info.plist; do
+          for file in build/config.yml build/windows/nsis/wails_tools.nsh build/windows/info.json build/darwin/Info.plist build/linux/nfpm/nfpm.yaml; do
             grep -q "$v" "$file" || { echo "::error file=$file::version != $v"; mismatch=1; }
           done
           grep -q "export const APP_VERSION = '$v'" frontend/src/core/export/export-preferences.ts \
@@ -101,7 +102,7 @@ jobs:
 
   windows:
     needs: resolve
-    if: ${{ github.event_name == 'release' || inputs.platform == 'both' || inputs.platform == 'windows' }}
+    if: ${{ github.event_name == 'release' || inputs.platform == 'all' || inputs.platform == 'windows' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +162,7 @@ jobs:
 
   macos:
     needs: resolve
-    if: ${{ github.event_name == 'release' || inputs.platform == 'both' || inputs.platform == 'macos' }}
+    if: ${{ github.event_name == 'release' || inputs.platform == 'all' || inputs.platform == 'macos' }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -200,7 +201,9 @@ jobs:
       - name: Build DMG
         env:
           VERSION: ${{ needs.resolve.outputs.version }}
-        run: ./build/darwin/make_dmg.sh "$VERSION"
+        # Through bash, so it runs whether or not git kept the file executable: a commit
+        # made on Windows doesn't.
+        run: bash ./build/darwin/make_dmg.sh "$VERSION"
 
       # The app updates itself from this zip, which must hold the app alone: no
       # __MACOSX folder (so no --sequesterRsrc) and no extended attributes.
@@ -215,3 +218,70 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
           VERSION: ${{ needs.resolve.outputs.version }}
         run: gh release upload "$TAG" "build/dist/easy-props-$VERSION-mac-universal.dmg" "build/dist/easy-props-$VERSION-mac-universal.zip" --clobber --repo "$GITHUB_REPOSITORY"
+
+  linux:
+    needs: resolve
+    if: ${{ github.event_name == 'release' || inputs.platform == 'all' || inputs.platform == 'linux' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # GTK 4 and WebKitGTK 6.0, which Wails 3.1 builds against.
+      - name: Install build libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev file librsvg2-bin
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the deb, rpm and Arch package
+        run: wails3 task linux:package
+
+      # The AppImage is also what an AppImage updates itself from; see backend/update_appimage.go.
+      - name: Build the AppImage
+        run: wails3 task linux:appimage
+
+      - name: Name the files
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/dist
+          cp bin/easy-props.deb "build/dist/easy-props-$VERSION-linux-amd64.deb"
+          cp bin/easy-props.rpm "build/dist/easy-props-$VERSION-linux-x86_64.rpm"
+          cp bin/easy-props.pkg.tar.zst "build/dist/easy-props-$VERSION-linux-x86_64.pkg.tar.zst"
+          cp bin/easy-props-x86_64.AppImage "build/dist/easy-props-$VERSION-linux-x86_64.AppImage"
+          chmod +x build/dist/*.AppImage
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          gh release upload "$TAG"             "build/dist/easy-props-$VERSION-linux-amd64.deb"             "build/dist/easy-props-$VERSION-linux-x86_64.rpm"             "build/dist/easy-props-$VERSION-linux-x86_64.pkg.tar.zst"             "build/dist/easy-props-$VERSION-linux-x86_64.AppImage"             --clobber --repo "$GITHUB_REPOSITORY"

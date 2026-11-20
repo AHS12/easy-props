@@ -11,7 +11,7 @@ It's a focused desktop tool for props, not a replacement for Blender.
 
 ![A red maple open in easy-props, standing in the Meadow demo scene in front of a cliff, with rocks, bushes and grass](docs/images/meadow.png)
 
-**[Download for Windows or Mac](https://github.com/AHS12/easy-props/releases)** · [What's new](CHANGELOG.md)
+**[Download for Windows, Mac or Linux](https://github.com/AHS12/easy-props/releases)** · [What's new](CHANGELOG.md)
 
 ## What it does
 
@@ -67,14 +67,21 @@ It's a focused desktop tool for props, not a replacement for Blender.
 
 ## Install
 
-Download the Windows installer or Mac DMG from
-[Releases](https://github.com/AHS12/easy-props/releases).
+Download the Windows installer, the Mac DMG, or for Linux the .deb, .rpm, Arch package or
+AppImage, from [Releases](https://github.com/AHS12/easy-props/releases).
+
+On Linux, easy-props needs GTK 4 and WebKitGTK 6.0: Ubuntu 24.04, Debian 13, Fedora 40 or
+newer, or Arch. The packages install them. An AppImage updates itself, and a package is
+updated from the download page. The AppImage uses the system's graphics libraries and
+`bubblewrap`, which most desktops have.
 
 The builds aren't signed yet, so the first launch shows a warning:
 
 - **Windows:** choose **More info > Run anyway**.
 - **Mac:** drag the app to Applications and try to open it, then choose
   **System Settings > Privacy & Security > Open Anyway**.
+- **Linux:** an AppImage has to be made runnable first, with `chmod +x` or from its
+  file properties.
 
 ## Build from source
 
@@ -97,19 +104,24 @@ make release    # Build whichever installer this computer can make
 `make installer` builds the Windows installer (needs NSIS), and `make dmg` builds the
 Mac disk image and the zip a Mac updates itself from (needs a Mac). Both go to `build/dist`. Run `make` to list every task.
 
+On Linux, install the build libraries first, as on Ubuntu 24.04:
+`sudo apt install build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev librsvg2-bin`.
+Then `wails3 task linux:package` makes the .deb, .rpm and Arch package in `bin`, and
+`wails3 task linux:appimage` the AppImage.
+
 ## Releasing
 
 Add the new version to [CHANGELOG.md](CHANGELOG.md), and set it in `build/config.yml` and in
-`APP_VERSION` in `frontend/src/core/export/export-preferences.ts`. Run
-`wails3 task common:update:build-assets` to copy it into the Windows and Mac build files,
-then push. There are two ways to
+`APP_VERSION` in `frontend/src/core/export/export-preferences.ts`, and in
+`build/linux/nfpm/nfpm.yaml`. Run `wails3 task common:update:build-assets` to copy it into
+the Windows and Mac build files, then push. There are two ways to
 release, and both build the installers on GitHub and attach them to the release:
 
 - **Automatic:** publish a GitHub Release tagged `vX.Y.Z`.
 - **Manual:** run the **Release Installers** workflow under Actions, and enter the tag
   and platform. It creates the release from the chosen branch if it doesn't exist yet,
   and otherwise rebuilds it and replaces its installers. This also gets you a DMG
-  without a Mac.
+  without a Mac, and the Linux files without Linux.
 
 The tag has to match the version, or the run stops before building anything.
 

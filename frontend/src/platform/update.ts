@@ -17,8 +17,8 @@ export interface UpdateInfo {
     readonly manualReason?: ManualReason
 }
 
-/** Matches the reasons in backend/update_mac.go. */
-export type ManualReason = 'move-to-applications' | 'read-only'
+/** Matches the reasons in backend/update_mac.go and backend/update_appimage.go. */
+export type ManualReason = 'move-to-applications' | 'read-only' | 'package-manager'
 
 interface UpdateBindings {
     CheckForUpdate(current: string): Promise<UpdateInfo>

@@ -52,6 +52,8 @@ export const SYSTEMS = [
     'Windows 10',
     'Mac with Apple silicon',
     'Mac with Intel',
+    'Linux, from the .deb, .rpm or Arch package',
+    'Linux, from the AppImage',
     'Built from source on another system',
 ] as const
 

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=easy-props
+GenericName=3D Prop Maker
+Comment=Make game-ready trees and props, with no 3D experience needed.
+Exec=/usr/bin/easy-props
+Icon=easy-props
+Terminal=false
+Categories=Graphics;3DGraphics;
+Keywords=3D;tree;rock;prop;game;model;
+StartupNotify=true
+StartupWMClass=com.easyprops.easy-props

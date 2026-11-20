@@ -1,7 +1,8 @@
 package backend
 
 // The keys for cloud backup live in the system's own keychain, Windows
-// Credential Manager or the macOS Keychain (spec 16, decision 2): never in the
+// Credential Manager, the macOS Keychain or the Secret Service on Linux (GNOME
+// Keyring or KWallet) (spec 16, decision 2): never in the
 // settings file, which the interface also copies into the browser's storage,
 // and never handed back to the interface once typed. Only the access key, which
 // isn't secret on its own, is ever shown again.
@@ -10,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 
 	"github.com/zalando/go-keyring"
 )
@@ -18,6 +20,20 @@ const (
 	keychainService = "easy-props"
 	keychainUser    = "cloud-backup"
 )
+
+// errNoKeychain reports a Linux desktop with no Secret Service running, as some
+// minimal ones have. The words are what the person sees, so they say what to do.
+var errNoKeychain = errors.New("this desktop has no keychain running. Install or unlock GNOME Keyring or KWallet, then try again")
+
+// explainKeychain turns a keychain failure into one a person can act on. On Linux
+// every failure but a missing entry means the Secret Service couldn't be reached.
+func explainKeychain(err error, goos string) error {
+	if goos == "linux" {
+		return fmt.Errorf("%w (%v)", errNoKeychain, err)
+	}
+
+	return err
+}
 
 // cloudKeys are the two keys a storage service gives out.
 type cloudKeys struct {
@@ -48,7 +64,7 @@ func (keychainSecrets) load() (cloudKeys, error) {
 	}
 
 	if err != nil {
-		return cloudKeys{}, fmt.Errorf("easy-props: cannot read the keys from the keychain: %w", err)
+		return cloudKeys{}, fmt.Errorf("easy-props: cannot read the keys from the keychain: %w", explainKeychain(err, runtime.GOOS))
 	}
 
 	var keys cloudKeys
@@ -66,7 +82,7 @@ func (keychainSecrets) save(keys cloudKeys) error {
 	}
 
 	if err := keyring.Set(keychainService, keychainUser, string(text)); err != nil {
-		return fmt.Errorf("easy-props: cannot save the keys in the keychain: %w", err)
+		return fmt.Errorf("easy-props: cannot save the keys in the keychain: %w", explainKeychain(err, runtime.GOOS))
 	}
 
 	return nil
@@ -74,7 +90,7 @@ func (keychainSecrets) save(keys cloudKeys) error {
 
 func (keychainSecrets) forget() error {
 	if err := keyring.Delete(keychainService, keychainUser); err != nil && !errors.Is(err, keyring.ErrNotFound) {
-		return fmt.Errorf("easy-props: cannot remove the keys from the keychain: %w", err)
+		return fmt.Errorf("easy-props: cannot remove the keys from the keychain: %w", explainKeychain(err, runtime.GOOS))
 	}
 
 	return nil

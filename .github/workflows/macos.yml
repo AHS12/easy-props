@@ -1,0 +1,118 @@
+name: macOS Test Build
+
+# Builds the universal Mac app, its disk image and its update zip, then on Apple silicon
+# and on Intel installs it from the disk image, starts it and takes a screenshot. It only
+# builds and tries the build: the tests run before it, in ci.yml, which starts it once
+# they pass. It can also be run by hand from Actions. Nothing is released: the files,
+# screenshots and logs are this run's artifacts.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        run: echo "version=$(grep -m1 "^  version:" build/config.yml | cut -d"\"" -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      # This also signs the app for running on the Mac it was built on, and checks it.
+      - name: Build the universal app
+        run: wails3 task darwin:package:universal
+
+      - name: Build the disk image and update zip, named as a release would
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          bash ./build/darwin/make_dmg.sh easy-props "$VERSION"
+          ditto -c -k --norsrc --noextattr --noqtn --keepParent bin/easy-props.app "build/dist/easy-props-$VERSION-mac-universal.zip"
+          lipo -archs bin/easy-props.app/Contents/MacOS/easy-props
+          ls -l build/dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: build/dist/
+          if-no-files-found: error
+
+  # Installed from the disk image as a person would, on each kind of Mac it's built for.
+  install:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: apple-silicon
+            runner: macos-15
+          - system: intel
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-packages
+          path: dist
+
+      - name: Install from the disk image
+        run: |
+          set -euo pipefail
+          mount=$(hdiutil attach dist/*.dmg -nobrowse | tail -1 | awk -F'\t' '{print $NF}')
+          ls "$mount"
+          test -L "$mount/Applications"
+          cp -R "$mount/easy-props.app" /Applications/
+          hdiutil detach "$mount"
+          codesign --verify --deep --strict /Applications/easy-props.app && echo "The signature is intact"
+          echo "This Mac is $(uname -m)"
+
+      - name: Start the app and take a screenshot
+        run: |
+          set -uo pipefail
+          mkdir -p out
+          open /Applications/easy-props.app
+          sleep 20
+          screencapture -x out/screenshot.png || echo "No screenshot on this runner"
+          if pgrep -x easy-props > /dev/null; then echo running > out/status; else echo exited > out/status; fi
+          test "$(cat out/status)" = running
+
+      - name: Quit the app
+        if: always()
+        run: pkill -x easy-props || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-macos-${{ matrix.system }}
+          path: out/

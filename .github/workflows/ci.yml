@@ -1,0 +1,110 @@
+name: CI
+
+# On every pull request, the tests first: the frontend's types, lint and tests, and the
+# Go tests on Windows, macOS and Linux, since the Go side has code for each. Once they
+# pass, each system's test build: windows.yml, macos.yml and linux.yml, which only
+# build, install and start the app. A pull request that only changes documentation
+# skips it all. Not on a merge: the pull request already showed the result.
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Types
+        working-directory: frontend
+        run: pnpm typecheck
+
+      - name: Lint
+        working-directory: frontend
+        run: pnpm lint
+
+      - name: Tests
+        working-directory: frontend
+        run: pnpm test
+
+  go:
+    name: Go tests (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: Windows
+            runner: windows-latest
+          - system: macOS
+            runner: macos-15
+          - system: Linux
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
+          cache: true
+
+      # GTK 4 and WebKitGTK 6.0, which Wails 3.1 compiles against on Linux.
+      - name: Install build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+
+      # The app's own package embeds the built frontend, so it's left to the builds; the
+      # backend is the package with tests, as `make test-go` runs it.
+      - name: Vet
+        shell: bash
+        run: go vet ./backend/...
+
+      - name: Tests
+        shell: bash
+        run: go test -timeout 5m ./backend/...
+
+  windows:
+    name: Windows
+    needs: [frontend, go]
+    uses: ./.github/workflows/windows.yml
+
+  macos:
+    name: macOS
+    needs: [frontend, go]
+    uses: ./.github/workflows/macos.yml
+
+  linux:
+    name: Linux
+    needs: [frontend, go]
+    uses: ./.github/workflows/linux.yml

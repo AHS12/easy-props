@@ -30,7 +30,7 @@ import {YourPropsPage} from '../pages/YourPropsPage'
 import {forgetOldRemovedTrees} from '../platform/library'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
-import {setCloseToTray, setMinimiseToTray} from '../platform/window'
+import {hasTray, setCloseToTray, setMinimiseToTray} from '../platform/window'
 import {confirmClose, onCloseRequested} from '../platform/close-guard'
 import {useBackupStore} from '../store/backup-store'
 import {cancelUpdateInstall} from '../platform/update'
@@ -238,8 +238,8 @@ export function App() {
 
         // Go has to know before a button is pressed, so it isn't asked then.
         const applyWindowButtons = () => {
-            void setCloseToTray(settingValue('closeButton') === 'tray')?.catch(() => undefined)
-            void setMinimiseToTray(settingValue('minimiseButton') === 'tray')?.catch(() => undefined)
+            void setCloseToTray(hasTray() && settingValue('closeButton') === 'tray')?.catch(() => undefined)
+            void setMinimiseToTray(hasTray() && settingValue('minimiseButton') === 'tray')?.catch(() => undefined)
         }
 
         const unsubscribe = useSettingsStore.subscribe((state, previous) => {
