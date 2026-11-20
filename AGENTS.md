@@ -60,6 +60,15 @@ Commit or push only when asked. Work on `dev`, and don't touch `main`.
 - **Licensing:** add no downloaded assets or copied code. Things are generated.
 - **Long work:** use `afterPaint()` from `core/export/pipeline/yield.ts`, so progress can draw
   before slow work blocks the page.
+- **Systems:** Go files ending in `_windows.go`, `_darwin.go` or `_linux.go` build only on
+  that system, so code every system calls goes in a file without one. On Linux the window
+  keeps the system's title bar and there is no tray (GNOME shows none). `isLinux()` and
+  `hasTray()` in `platform/window.ts`, and `hasTray()` in `backend/tray.go`, decide it.
+- **CI:** every pull request runs the tests on Windows, macOS and Linux, then builds, installs
+  and starts the app on each and keeps a screenshot. The 3D view is the part most likely to
+  differ between systems, so look at those screenshots after a change to drawing.
+- **Scripts:** a shell script committed from Windows loses its executable bit, so workflows
+  run scripts through `bash` rather than directly.
 
 ## Style
 

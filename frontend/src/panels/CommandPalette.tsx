@@ -17,6 +17,7 @@ import {COMMANDS, findCommand, runCommand, shortcutFor, type Command} from '../c
 import {parsePrefix, rankEntries, type PaletteSection} from '../core/commands/palette-search'
 import {EXPORT_SETTINGS} from '../core/settings/export-settings'
 import {SETTING_SPECS} from '../core/settings/settings-spec'
+import {hasTray} from '../platform/window'
 import {isHomePage, useEditorStore, type EditorStore} from '../store/editor-store'
 import {settingValue, useSettingsStore} from '../store/settings-store'
 import {useUiStore} from '../store/ui-store'
@@ -114,7 +115,7 @@ function controlEntries(state: EditorStore): readonly Entry[] {
 function settingEntries(): readonly Entry[] {
     const settings = useSettingsStore.getState()
 
-    const fromSpecs = SETTING_SPECS.map((spec): Entry => {
+    const fromSpecs = SETTING_SPECS.filter((spec) => !('needsTray' in spec) || hasTray()).map((spec): Entry => {
         const shared = {
             id: `setting-${spec.key}`,
             label: spec.label,

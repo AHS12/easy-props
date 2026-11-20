@@ -26,3 +26,7 @@ frontend/dist
 
 # Local knowledge graph from graphify
 /graphify-out
+
+# Made by the Linux build: icons drawn from build/appicon.svg, and the AppImage's workings.
+/build/linux/icons/
+/build/linux/appimage/

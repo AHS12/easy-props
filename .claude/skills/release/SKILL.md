@@ -14,10 +14,13 @@ Set it in two places:
 
 - `build/config.yml`: `version` under `info`
 - `frontend/src/core/export/export-preferences.ts`: `APP_VERSION`
+- `build/linux/nfpm/nfpm.yaml`: `version`
 
 Then run `wails3 task common:update:build-assets`, which copies it into the Windows and Mac
-build files. Delete the `build/ios`, `build/android`, `build/linux` and `build/docker` folders
-it adds, and check with `git diff build` that only versions changed. The release workflow
+build files. It also writes its own Linux files, so put ours back with
+`git checkout -- build/linux` and `git clean -fd build/linux`. Delete the `build/ios`,
+`build/android` and `build/docker` folders it adds, and check with `git diff build` that only
+versions changed. The release workflow
 fails if any of them don't match the tag.
 
 ## 2. Write the changelog
@@ -49,8 +52,13 @@ Then build and open the installer on whatever you can, with `make release`.
 2. Publish a GitHub Release tagged `vX.Y.Z`, or run the **Release Installers** workflow under
    Actions with the tag and platform.
 3. The tag has to match the version, or the run stops before building.
-4. When the run ends, check that the Windows installer, the Mac DMG and the Mac zip are
-   all attached. The app finds updates by those file names, so keep them in step with
-   `updateAssetName` in `backend/update.go` and `macUpdateName` in
-   `backend/update_mac.go`. A test fails if they drift. A Mac updates itself from the
-   zip, and the DMG is for first installs.
+4. When the run ends, check that every file is attached: the Windows installer, the Mac
+   DMG and zip, and the Linux .deb, .rpm, Arch package and AppImage. The app finds updates
+   by those file names, so keep them in step with `updateAssetName` in `backend/update.go`,
+   `macUpdateName` in `backend/update_mac.go` and `appImageUpdateName` in
+   `backend/update_appimage.go`. A test fails if they drift. A Mac updates itself from the
+   zip and an AppImage from the AppImage. The DMG is for first installs, and the .deb only
+   tells a package that an update is out.
+5. Before releasing, look at the screenshots from the pull request's CI: the Windows, Mac
+   and Linux test builds each install the app on a clean machine and keep a picture of it
+   running. Check the 3D view drew on each one.

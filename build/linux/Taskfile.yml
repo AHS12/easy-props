@@ -1,0 +1,99 @@
+version: '3'
+
+# Linux builds, made on Linux (CI uses Ubuntu 24.04). Adapted from Wails 3.1's own:
+# packages install the program to /usr/bin, the menu entry is a file in this folder, and
+# the icons are drawn from build/appicon.svg on each build (rsvg-convert, librsvg2-bin).
+
+includes:
+  common: ../Taskfile.yml
+
+vars:
+  # linuxdeploy bundles the AppImage. Wails downloads its unpinned "continuous" build
+  # unless the file is already there, so a fixed release is put there first and checked.
+  LINUXDEPLOY_RELEASE: "1-alpha-20251107-1"
+  LINUXDEPLOY_SHA256: "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
+  APPIMAGE_BUILD_DIR: '{{.ROOT_DIR}}/build/linux/appimage/build'
+
+tasks:
+  build:
+    summary: Builds the program for Linux
+    deps:
+      - task: common:go:mod:tidy
+      - task: common:build:frontend
+        vars:
+          DEV:
+            ref: .DEV
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
+    vars:
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      OUTPUT: '{{.OUTPUT | default (printf "%s/%s" .BIN_DIR .APP_NAME)}}'
+    env:
+      GOOS: linux
+      CGO_ENABLED: "1"
+      GOARCH: '{{.ARCH | default ARCH}}'
+
+  icons:
+    summary: Draws the menu icons at every size from build/appicon.svg
+    sources:
+      - build/appicon.svg
+    generates:
+      - build/linux/icons/**/*
+    cmds:
+      - rm -rf build/linux/icons
+      - for: [16, 24, 32, 48, 64, 128, 256, 512]
+        cmd: mkdir -p build/linux/icons/hicolor/{{.ITEM}}x{{.ITEM}}/apps && rsvg-convert -w {{.ITEM}} -h {{.ITEM}} build/appicon.svg -o build/linux/icons/hicolor/{{.ITEM}}x{{.ITEM}}/apps/{{.APP_NAME}}.png
+      - mkdir -p build/linux/icons/hicolor/scalable/apps && cp build/appicon.svg build/linux/icons/hicolor/scalable/apps/{{.APP_NAME}}.svg
+
+  package:
+    summary: Makes the .deb, .rpm and Arch package in bin/
+    deps:
+      - task: build
+      - task: icons
+    cmds:
+      - task: package:format
+        vars: {FORMAT: deb}
+      - task: package:format
+        vars: {FORMAT: rpm}
+      - task: package:format
+        vars: {FORMAT: archlinux}
+
+  package:format:
+    internal: true
+    cmds:
+      - wails3 tool package -name "{{.APP_NAME}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+
+  appimage:
+    summary: Makes the AppImage in bin/
+    deps:
+      - task: build
+      - task: icons
+    cmds:
+      - task: linuxdeploy
+      - mkdir -p build/linux/appimage
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "build/linux/appimage/{{.APP_NAME}}"
+      - cp build/linux/icons/hicolor/256x256/apps/{{.APP_NAME}}.png "build/linux/appimage/{{.APP_NAME}}.png"
+      - cp build/linux/app.desktop build/linux/appimage/{{.APP_NAME}}.desktop
+      # Inside an AppImage the program isn't at /usr/bin, so the entry runs it by name.
+      - sed -i 's#^Exec=/usr/bin/#Exec=#' build/linux/appimage/{{.APP_NAME}}.desktop
+      - >-
+        wails3 generate appimage
+        -binary "build/linux/appimage/{{.APP_NAME}}"
+        -icon "build/linux/appimage/{{.APP_NAME}}.png"
+        -desktopfile "build/linux/appimage/{{.APP_NAME}}.desktop"
+        -outputdir "{{.ROOT_DIR}}/bin"
+        -builddir "{{.APPIMAGE_BUILD_DIR}}"
+
+  linuxdeploy:
+    internal: true
+    status:
+      - echo "{{.LINUXDEPLOY_SHA256}}  {{.APPIMAGE_BUILD_DIR}}/linuxdeploy-x86_64.AppImage" | sha256sum -c --quiet
+    cmds:
+      - mkdir -p "{{.APPIMAGE_BUILD_DIR}}"
+      - curl -fsSL -o "{{.APPIMAGE_BUILD_DIR}}/linuxdeploy-x86_64.AppImage" "https://github.com/linuxdeploy/linuxdeploy/releases/download/{{.LINUXDEPLOY_RELEASE}}/linuxdeploy-x86_64.AppImage"
+      - echo "{{.LINUXDEPLOY_SHA256}}  {{.APPIMAGE_BUILD_DIR}}/linuxdeploy-x86_64.AppImage" | sha256sum -c
+      - chmod +x "{{.APPIMAGE_BUILD_DIR}}/linuxdeploy-x86_64.AppImage"
+
+  run:
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}'

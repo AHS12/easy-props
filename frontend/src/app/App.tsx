@@ -1,6 +1,8 @@
 import {useEffect, useRef, useState, type PointerEvent as ReactPointerEvent} from 'react'
 import {ChevronLeft, ChevronRight} from 'lucide-react'
 import {setBarkThreads} from '../assets/trees/painted/bark-pool'
+import {findPreset} from '../assets/trees/presets'
+import {APP_VERSION} from '../core/export/export-preferences'
 import {commandForKeys, runCommand, shortcutOf} from '../core/commands/commands'
 import {applyTheme, resolveTheme, watchSystemTheme, type ThemeChoice} from '../core/settings/theme'
 import {CloseDialog} from '../panels/CloseDialog'
@@ -30,7 +32,8 @@ import {YourPropsPage} from '../pages/YourPropsPage'
 import {forgetOldRemovedTrees} from '../platform/library'
 import {hasUnsavedChanges, isHomePage, useEditorStore} from '../store/editor-store'
 import {setUnsaved} from '../platform/draft'
-import {setCloseToTray, setMinimiseToTray} from '../platform/window'
+import {startingPreset} from '../platform/system'
+import {hasTray, setCloseToTray, setMinimiseToTray} from '../platform/window'
 import {confirmClose, onCloseRequested} from '../platform/close-guard'
 import {useBackupStore} from '../store/backup-store'
 import {cancelUpdateInstall} from '../platform/update'
@@ -158,6 +161,28 @@ export function App() {
     const announcement = useEditorStore((state) => state.announcement)
     const page = useEditorStore((state) => state.page)
     const [closeRequested, setCloseRequested] = useState(false)
+    const settingsLoaded = useSettingsStore((state) => state.loaded)
+
+    // `--preset <id>` opens straight into the editor, as CI's test builds start the app,
+    // so their screenshots show the 3D view. It waits for the settings, or reading them
+    // would bring back the tours and What's new it puts away.
+    useEffect(() => {
+        if (!settingsLoaded) {
+            return
+        }
+
+        void startingPreset().then((presetId) => {
+            if (!presetId || !findPreset(presetId)) {
+                return
+            }
+
+            const settings = useSettingsStore.getState()
+            settings.setTourSeen(true)
+            settings.setGalleryTourSeen(true)
+            settings.setLastSeenVersion(APP_VERSION)
+            useEditorStore.getState().startNewProp(presetId)
+        })
+    }, [settingsLoaded])
 
     // The shell cancels the close when work is unsaved, or a backup may be due,
     // and tells us. The question is ours to ask, in our own voice; with nothing
@@ -238,8 +263,8 @@ export function App() {
 
         // Go has to know before a button is pressed, so it isn't asked then.
         const applyWindowButtons = () => {
-            void setCloseToTray(settingValue('closeButton') === 'tray')?.catch(() => undefined)
-            void setMinimiseToTray(settingValue('minimiseButton') === 'tray')?.catch(() => undefined)
+            void setCloseToTray(hasTray() && settingValue('closeButton') === 'tray')?.catch(() => undefined)
+            void setMinimiseToTray(hasTray() && settingValue('minimiseButton') === 'tray')?.catch(() => undefined)
         }
 
         const unsubscribe = useSettingsStore.subscribe((state, previous) => {

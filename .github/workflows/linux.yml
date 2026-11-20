@@ -1,0 +1,213 @@
+name: Linux Test Build
+
+# Builds the Linux packages, installs each on a clean system, starts the app and takes a
+# screenshot, so Linux can be checked without a Linux machine. It only builds and tries
+# the build: the tests run before it, in ci.yml, which starts it once they pass. It can
+# also be run by hand from Actions. Nothing is released: the packages, screenshots and
+# logs are this run's artifacts.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        run: echo "version=$(grep -m1 "^  version:" build/config.yml | cut -d"\"" -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # GTK 4 and WebKitGTK 6.0, which Wails 3.1 builds against.
+      - name: Install build libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev file librsvg2-bin
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the deb, rpm and Arch package
+        run: wails3 task linux:package
+
+      - name: Build the AppImage
+        run: wails3 task linux:appimage
+
+      - name: Name the files as a release would
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp bin/easy-props.deb "dist/easy-props-$VERSION-linux-amd64.deb"
+          cp bin/easy-props.rpm "dist/easy-props-$VERSION-linux-x86_64.rpm"
+          cp bin/easy-props.pkg.tar.zst "dist/easy-props-$VERSION-linux-x86_64.pkg.tar.zst"
+          cp bin/easy-props-x86_64.AppImage "dist/easy-props-$VERSION-linux-x86_64.AppImage"
+          chmod +x dist/*.AppImage
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/
+          if-no-files-found: error
+
+  # Each package installed on a clean system of the kind it's for. Installing proves the
+  # dependencies resolve; running the app and taking a screenshot proves it starts.
+  install:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: ubuntu-24.04
+            image: ubuntu:24.04
+            file: "*.deb"
+            install: |
+              apt-get update
+              apt-get install -y --no-install-recommends xvfb xauth imagemagick dbus-daemon ca-certificates
+              apt-get install -y ./*.deb
+          - system: debian-13
+            image: debian:trixie
+            file: "*.deb"
+            install: |
+              apt-get update
+              apt-get install -y --no-install-recommends xvfb xauth imagemagick dbus-daemon ca-certificates
+              apt-get install -y ./*.deb
+          - system: fedora
+            image: fedora:41
+            file: "*.rpm"
+            install: |
+              dnf install -y xorg-x11-server-Xvfb xauth ImageMagick dbus-daemon which
+              dnf install -y ./*.rpm
+          - system: arch
+            image: archlinux:latest
+            file: "*.pkg.tar.zst"
+            install: |
+              pacman -Syu --noconfirm xorg-server-xvfb xorg-xauth imagemagick dbus which
+              pacman -U --noconfirm ./*.pkg.tar.zst
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+
+      - name: Install the package
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only the one package this system takes.
+          find . -maxdepth 1 -type f ! -name '${{ matrix.file }}' -delete
+          ${{ matrix.install }}
+          command -v easy-props
+          test -f /usr/share/applications/com.easyprops.easy-props.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/easy-props.png
+
+      - name: Start the app and take a screenshot
+        shell: bash
+        env:
+          # A container can't give WebKit's sandbox the namespaces it needs; a desktop can.
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -uo pipefail
+          mkdir -p out
+          xvfb-run -a -s "-screen 0 1440x900x24" bash -c '
+            # A session bus, as a desktop has, where the system offers one.
+            # On a preset, so the screenshot shows the 3D view, drawn here in software.
+            if command -v dbus-run-session >/dev/null; then dbus-run-session -- easy-props --preset spring-tree > out/app.log 2>&1 & else easy-props --preset spring-tree > out/app.log 2>&1 & fi
+            app=$!
+            sleep 40
+            import -window root out/screenshot.png
+            if kill -0 "$app" 2>/dev/null; then echo "running" > out/status; else echo "exited" > out/status; fi
+            kill "$app" 2>/dev/null || true
+          '
+          cat out/app.log || true
+          test "$(cat out/status)" = running
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-${{ matrix.system }}
+          path: out/
+
+  # The AppImage on a plain Ubuntu with no WebKitGTK installed, the way people run one.
+  appimage:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+
+      - name: Start the AppImage and take a screenshot
+        env:
+          # No FUSE needed: the AppImage unpacks itself to a temporary folder.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -uo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth imagemagick
+          # An AppImage leaves the graphics driver (EGL, OpenGL, Mesa) to the system, as
+          # every AppImage must, so it matches the GPU. Any desktop has these; this
+          # runner, with no screen, doesn't until they're installed.
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgles2 libgl1-mesa-dri
+          # WebKit sandboxes web content with bubblewrap, a system tool an AppImage can't
+          # carry. GNOME and Flatpak bring it, and WebKitGTK's own package depends on it.
+          sudo apt-get install -y --no-install-recommends bubblewrap xdg-dbus-proxy
+          # Ubuntu 24.04 lets a program make a sandbox only if AppArmor allows it. A
+          # desktop allows bubblewrap, as GNOME's own apps need it; this runner doesn't,
+          # so allow it here rather than switch WebKit's sandbox off.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          dpkg -s libwebkitgtk-6.0-4 >/dev/null 2>&1 && echo "WebKitGTK is installed on this runner" || echo "No WebKitGTK on this runner, as on a fresh system"
+          chmod +x ./*.AppImage
+          mkdir -p out
+          xvfb-run -a -s "-screen 0 1440x900x24" bash -c '
+            ./*.AppImage --preset spring-tree > out/app.log 2>&1 &
+            app=$!
+            sleep 40
+            import -window root out/screenshot.png
+            if kill -0 "$app" 2>/dev/null; then echo "running" > out/status; else echo "exited" > out/status; fi
+            kill "$app" 2>/dev/null || true
+          '
+          cat out/app.log || true
+          test "$(cat out/status)" = running
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-appimage
+          path: out/

@@ -29,7 +29,7 @@ type trayIcon struct {
 // at startup and whenever the setting changes.
 func (a *App) SetCloseToTray(on bool) {
 	a.mu.Lock()
-	a.closeToTray = on
+	a.closeToTray = on && hasTray()
 	a.mu.Unlock()
 
 	a.updateTray()
@@ -40,10 +40,17 @@ func (a *App) SetCloseToTray(on bool) {
 // window minimises as usual.
 func (a *App) SetMinimiseToTray(on bool) {
 	a.mu.Lock()
-	a.minimiseToTray = on
+	a.minimiseToTray = on && hasTray()
 	a.mu.Unlock()
 
 	a.updateTray()
+}
+
+// hasTray says whether the system shows tray icons. Linux desktops don't promise one:
+// GNOME needs an extension. Hiding the window there could leave no way back, so the
+// buttons keep their usual meaning on Linux whatever the settings say.
+func hasTray() bool {
+	return runtime.GOOS != "linux"
 }
 
 // updateTray shows the tray icon while either button hides the window there, so

@@ -10,11 +10,23 @@ const runtime = desktopRuntime
 
 export const isMac = () => typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac')
 
-/** A Mac keeps its own window buttons. */
-export const hasWindowControls = () => runtime() !== undefined && !isMac()
+/** WebKitGTK says "X11; Linux" whether the desktop runs X11 or Wayland. */
+export const isLinux = () => typeof navigator !== 'undefined' && /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)
+
+/**
+ * Only Windows draws its own window buttons. A Mac keeps the system's, inset over the menu
+ * bar, and Linux keeps the system's whole title bar, as GNOME and KDE users expect.
+ */
+export const hasWindowControls = () => runtime() !== undefined && !isMac() && !isLinux()
 
 /** Whether the system's window buttons sit over the top left of the menu bar. */
 export const hasInsetTitleBar = () => runtime() !== undefined && isMac()
+
+/**
+ * Whether the app can hide in a tray icon. Not on Linux: GNOME shows none without an
+ * extension, so a window closed to the tray would have no way back.
+ */
+export const hasTray = () => !isLinux()
 
 export const minimiseWindow = () => runtime()?.WindowMinimise()
 

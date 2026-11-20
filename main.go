@@ -55,15 +55,22 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		// The desktop matches this id to the menu entry, installed as <bundle id>.desktop,
+		// to show the window's icon and name in the dock.
+		Linux: application.LinuxOptions{
+			ApplicationID: "com.easyprops.easy-props",
+		},
 	})
 
 	backend.OpenWindow(service, app, application.WebviewWindowOptions{
 		Title:     "easy-props",
 		MinWidth:  backend.MinWindowWidth,
 		MinHeight: backend.MinWindowHeight,
-		// The menu bar is the title bar, as in other modern desktop editors. A Mac
-		// keeps its own window buttons, drawn over the bar by the inset title bar.
-		Frameless:        runtime.GOOS != "darwin",
+		// On Windows the menu bar is the title bar, as in other modern desktop editors.
+		// A Mac keeps its own window buttons, drawn over the bar by the inset title bar.
+		// Linux keeps the system's title bar: GNOME and KDE draw their own, and a
+		// frameless window there can't always be resized from its edges.
+		Frameless:        runtime.GOOS == "windows",
 		BackgroundColour: application.NewRGB(24, 25, 27),
 		Mac: application.MacWindow{
 			TitleBar: application.MacTitleBarHiddenInset,
