@@ -2,6 +2,7 @@ import {useEffect, useRef, useState, type PointerEvent as ReactPointerEvent} fro
 import {ChevronLeft, ChevronRight} from 'lucide-react'
 import {setBarkThreads} from '../assets/trees/painted/bark-pool'
 import {findPreset} from '../assets/trees/presets'
+import {APP_VERSION} from '../core/export/export-preferences'
 import {commandForKeys, runCommand, shortcutOf} from '../core/commands/commands'
 import {applyTheme, resolveTheme, watchSystemTheme, type ThemeChoice} from '../core/settings/theme'
 import {CloseDialog} from '../panels/CloseDialog'
@@ -164,7 +165,7 @@ export function App() {
 
     // `--preset <id>` opens straight into the editor, as CI's test builds start the app,
     // so their screenshots show the 3D view. It waits for the settings, or reading them
-    // would bring back the tours it puts away.
+    // would bring back the tours and What's new it puts away.
     useEffect(() => {
         if (!settingsLoaded) {
             return
@@ -178,6 +179,7 @@ export function App() {
             const settings = useSettingsStore.getState()
             settings.setTourSeen(true)
             settings.setGalleryTourSeen(true)
+            settings.setLastSeenVersion(APP_VERSION)
             useEditorStore.getState().startNewProp(presetId)
         })
     }, [settingsLoaded])
