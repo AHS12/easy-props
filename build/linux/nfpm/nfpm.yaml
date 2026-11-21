@@ -1,0 +1,49 @@
+# The .deb, .rpm and Arch package, made by `wails3 tool package` (nfpm, built in).
+# The version is set by hand with the others in a release, and the release workflow
+# checks it matches the tag. https://nfpm.goreleaser.com
+
+name: "easy-props"
+arch: "amd64"
+platform: "linux"
+version: "0.5.0"
+release: "1"
+section: "graphics"
+priority: "optional"
+maintainer: "AHS12 <AHS12@users.noreply.github.com>"
+description: "Make game-ready trees and props, with no 3D experience needed."
+vendor: "easy-props"
+homepage: "https://github.com/AHS12/easy-props"
+license: "MIT"
+
+contents:
+  - src: "./bin/easy-props"
+    dst: "/usr/bin/easy-props"
+    file_info:
+      mode: 0755
+  - src: "./build/linux/app.desktop"
+    dst: "/usr/share/applications/com.easyprops.easy-props.desktop"
+  - src: "./build/linux/icons/hicolor"
+    dst: "/usr/share/icons/hicolor"
+    type: tree
+  - src: "./LICENSE.md"
+    dst: "/usr/share/licenses/easy-props/LICENSE.md"
+
+# GTK 4 and WebKitGTK 6.0, which Wails 3.1 runs on: Ubuntu 24.04+, Debian 13+.
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+
+overrides:
+  # Fedora 40+, RHEL, Alma and Rocky 10.
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+  archlinux:
+    depends:
+      - gtk4
+      - webkitgtk-6.0
+
+scripts:
+  postinstall: "./build/linux/nfpm/postinstall.sh"
+  postremove: "./build/linux/nfpm/postinstall.sh"

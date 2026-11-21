@@ -6,7 +6,32 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// onlyWithATray skips a test of the tray on Linux, which has none; see hasTray.
+func onlyWithATray(t *testing.T) {
+	t.Helper()
+
+	if !hasTray() {
+		t.Skip("this system shows no tray icons")
+	}
+}
+
+func TestWithNoTrayTheButtonsKeepTheirUsualMeaning(t *testing.T) {
+	if hasTray() {
+		t.Skip("this system shows tray icons")
+	}
+
+	app := NewApp()
+	app.SetCloseToTray(true)
+	app.SetMinimiseToTray(true)
+
+	if app.closesToTray() || app.minimisesToTray() {
+		t.Fatal("with no tray to come back from, the window must never hide in one")
+	}
+}
+
 func TestTheCloseButtonChoiceIsRememberedBeforeTheAppRuns(t *testing.T) {
+	onlyWithATray(t)
+
 	app := NewApp()
 
 	if app.closesToTray() {
@@ -28,6 +53,8 @@ func TestTheCloseButtonChoiceIsRememberedBeforeTheAppRuns(t *testing.T) {
 }
 
 func TestTheMinimiseButtonChoiceIsRememberedApartFromTheCloseButton(t *testing.T) {
+	onlyWithATray(t)
+
 	app := NewApp()
 
 	if app.minimisesToTray() {

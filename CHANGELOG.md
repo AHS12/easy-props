@@ -2,6 +2,21 @@
 
 What's new in each version of easy-props.
 
+## 0.5.0 (November 21, 2026)
+
+**easy-props on Linux**
+
+- easy-props now runs on Linux. Download the .deb for Ubuntu or Debian, the .rpm for
+  Fedora, the Arch package, or the AppImage for any other system. It needs Ubuntu 24.04,
+  Debian 13, Fedora 40 or newer, or Arch.
+- The AppImage updates itself, as easy-props does on Windows and a Mac. With a package,
+  Settings says when a new version is out, and you get it from the download page.
+- On Linux, the window keeps your system's own title bar. The close and minimise buttons
+  always close and minimise, because many Linux desktops have no tray to come back from.
+- If cloud backup can't save your keys on Linux, it says to install or unlock GNOME
+  Keyring or KWallet.
+- Report a problem now lists Linux.
+
 ## 0.4.7 (November 14, 2026)
 
 **Fixes**

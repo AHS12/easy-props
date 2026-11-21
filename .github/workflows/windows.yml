@@ -1,0 +1,148 @@
+name: Windows Test Build
+
+# Builds the Windows installer, installs it silently on a clean runner, checks the app
+# starts, takes a screenshot, then uninstalls it. It only builds and tries the build:
+# the tests run before it, in ci.yml, which starts it once they pass. It can also be run
+# by hand from Actions. Nothing is released: the installer, screenshot and logs are this
+# run's artifacts.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Start menu shortcut takes the name people see, which may differ from the
+      # program's file name.
+      - name: Read the version and name
+        id: version
+        shell: bash
+        run: |
+          echo "version=$(grep -m1 "^  version:" build/config.yml | cut -d"\"" -f2)" >> "$GITHUB_OUTPUT"
+          echo "name=$(grep -m1 "^  productName:" build/config.yml | cut -d"\"" -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          # Go 1.26.10 and later carry a security fix that Wails 3 asks for.
+          go-version: "1.26.11"
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          "${env:ProgramFiles(x86)}\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the installer
+        run: wails3 task windows:package
+
+      - name: Name the file as a release would
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item bin/easy-props-amd64-installer.exe "dist/easy-props-$env:VERSION-windows-amd64-setup.exe"
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/
+          if-no-files-found: error
+
+  # The installer on a clean runner: install, start, screenshot and uninstall.
+  install:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: dist
+
+      # A silent install starts the app when it's done, as the app's own updates rely on.
+      # So wait for the installer alone: Start-Process -Wait would wait for the app too.
+      - name: Install silently
+        shell: pwsh
+        env:
+          NAME: ${{ needs.build.outputs.name }}
+        run: |
+          $installer = Get-ChildItem dist/*-setup.exe | Select-Object -First 1
+          $setup = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -PassThru
+          if (-not $setup.WaitForExit(300000)) { throw 'The installer took over 5 minutes' }
+          $app = Get-ChildItem -Path "$env:ProgramFiles", "$env:LOCALAPPDATA\Programs" -Filter easy-props.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw 'easy-props.exe was not installed' }
+          "Installed at $($app.FullName)"
+          "APP=$($app.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $shortcut = Get-ChildItem -Path "$env:ProgramData\Microsoft\Windows\Start Menu", "$env:APPDATA\Microsoft\Windows\Start Menu" -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | Where-Object Name -like "$env:NAME*"
+          if (-not $shortcut) { throw 'No Start menu shortcut' }
+
+      - name: Check the app started and take a screenshot
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          # The installer started it on the gallery. Start it again on a preset, so the
+          # screenshot shows the 3D view drawn on this system.
+          Get-Process easy-props -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          Start-Process -FilePath $env:APP -ArgumentList '--preset', 'spring-tree'
+          Start-Sleep -Seconds 30
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save("out/screenshot.png")
+          if (-not (Get-Process easy-props -ErrorAction SilentlyContinue)) { throw 'The app is not running' }
+          "running" | Out-File out/status -Encoding utf8
+
+      # The uninstaller copies itself to a temporary folder and runs from there, so its
+      # own process ends at once; wait for the app's files to go instead.
+      - name: Uninstall silently
+        shell: pwsh
+        run: |
+          Get-Process easy-props -ErrorAction SilentlyContinue | Stop-Process -Force
+          $uninstaller = Get-ChildItem (Split-Path $env:APP) -Filter 'uninstall*.exe' | Select-Object -First 1
+          if (-not $uninstaller) { throw 'No uninstaller beside the app' }
+          Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' | Out-Null
+          foreach ($second in 1..60) {
+            if (-not (Test-Path $env:APP)) { 'Uninstalled'; exit 0 }
+            Start-Sleep -Seconds 1
+          }
+          throw 'The app is still there a minute after uninstalling'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-windows
+          path: out/
