@@ -120,6 +120,8 @@ func TestAssetNamesMatchWhatTheReleaseWorkflowAttaches(t *testing.T) {
 		updateAssetName("windows", "$env:VERSION"),
 		updateAssetName("darwin", "$VERSION"),
 		macUpdateName("$VERSION"),
+		updateAssetName("linux", "$VERSION"),
+		appImageUpdateName("$VERSION"),
 	} {
 		if !strings.Contains(string(workflow), want) {
 			t.Errorf("release.yml no longer attaches %s, so the app would never find an update", want)
@@ -127,7 +129,20 @@ func TestAssetNamesMatchWhatTheReleaseWorkflowAttaches(t *testing.T) {
 	}
 }
 
+// onlyWithAnInstaller skips a test of the installer route, which only Windows takes:
+// a Mac and an AppImage update through the Wails updater, and a Linux package doesn't
+// update itself.
+func onlyWithAnInstaller(t *testing.T) {
+	t.Helper()
+
+	if goruntime.GOOS != "windows" {
+		t.Skip("only Windows updates through an installer")
+	}
+}
+
 func TestDownloadingKeepsAFileThatMatchesItsChecksum(t *testing.T) {
+	onlyWithAnInstaller(t)
+
 	app := installedApp(t, releaseServer(t, "v9.0.0", installerDigest()))
 
 	if _, err := app.CheckForUpdate("0.1.0"); err != nil {
@@ -207,6 +222,7 @@ func TestACopyTheInstallerDidNotPutThereCannotInstall(t *testing.T) {
 // downloadedApp is an installed app with an update ready, recording what it starts.
 func downloadedApp(t *testing.T) (*App, *[][2]string) {
 	t.Helper()
+	onlyWithAnInstaller(t)
 
 	app := installedApp(t, releaseServer(t, "v9.0.0", installerDigest()))
 

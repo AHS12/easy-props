@@ -9,6 +9,7 @@ import {desktopApp} from './shell'
 
 interface SystemBindings {
     SystemInfo(): Promise<string>
+    StartingPreset(): Promise<string>
 }
 
 const bindings = (): SystemBindings | undefined =>
@@ -17,6 +18,15 @@ const bindings = (): SystemBindings | undefined =>
 export async function systemName(): Promise<string | null> {
     try {
         return (await bindings()?.SystemInfo()) || null
+    } catch {
+        return null
+    }
+}
+
+/** The preset named by `--preset` when the app was started, so it opens straight into it. */
+export async function startingPreset(): Promise<string | null> {
+    try {
+        return (await bindings()?.StartingPreset()) || null
     } catch {
         return null
     }
